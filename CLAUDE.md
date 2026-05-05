@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Multi-user web platform for AI-assisted novel writing through a 6-phase workflow (init → settings → outline → prompt → write → archive). Token-based billing.
+NovelForge — multi-user web platform for AI-assisted long-form novel writing. 6-phase workflow (init → settings → outline → prompt → write → archive), token-based billing.
 
 ## Commands
 
@@ -74,7 +74,7 @@ frontend/src/
       settings/           — world, style, anti-ai, hooks, characters (list + editor)
       outline/            — volumes + chapter tree
       prompts/            — prompt viewer (list + content)
-      write/              — writing studio (multi-pane SSE streaming planned)
+      write/              — writing studio (SSE streaming + quality checks)
       archives/           — archive reader
       threads/            — thread timeline
   lib/
@@ -99,4 +99,4 @@ Pages use `"use client"`, fetch from `/api/...`, manage state with `useState`/`u
 
 ## Current state
 
-Backend is complete (all 7 router modules wired). Frontend has all page shells built. Writing studio SSE streaming and some settings forms need wiring. No tests written yet. Phase 11 (integration + polish) is the remaining work.
+Backend is complete (all router modules wired, token tracking active across all 3 AI call sites). Frontend has all pages built including Writing Studio with SSE streaming, archives reader, threads timeline, and settings forms. Rate limiting middleware active. No tests written yet.
