@@ -3,15 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { toast } from "@/lib/toast";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardSkeleton } from "@/components/ui/skeleton";
 import { Plus } from "lucide-react";
 
 interface Project {
@@ -33,20 +30,29 @@ export default function DashboardPage() {
 
 function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
+  const [creating, setCreating] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    api.get("/projects").then(setProjects).catch(console.error);
+    api.get("/projects")
+      .then(setProjects)
+      .catch(() => toast.error("Failed to load projects"))
+      .finally(() => setLoading(false));
   }, []);
 
   async function create() {
     if (!name.trim()) return;
+    setCreating(true);
     try {
       const p = await api.post("/projects", { name });
+      toast.success(`Project "${p.name}" created`);
       router.push(`/project/${p.slug}`);
-    } catch (e) {
-      console.error(e);
+    } catch {
+      toast.error("Failed to create project");
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -62,40 +68,46 @@ function Dashboard() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && create()}
+          disabled={creating}
         />
-        <Button onClick={create}>
+        <Button onClick={create} disabled={creating || !name.trim()}>
           <Plus className="w-4 h-4 mr-2" />
-          New Project
+          {creating ? "Creating..." : "New Project"}
         </Button>
       </div>
 
-      {projects.length === 0 && (
-        <p className="text-gray-400 text-center py-12">
-          No projects yet. Create one to get started.
-        </p>
+      {loading ? (
+        <div className="grid grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((i) => <CardSkeleton key={i} />)}
+        </div>
+      ) : projects.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <p className="text-lg mb-2">No projects yet</p>
+          <p className="text-sm">Create one above to get started.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4">
+          {projects.map((p) => (
+            <Card
+              key={p.id}
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => router.push(`/project/${p.slug}`)}
+            >
+              <CardHeader>
+                <CardTitle>{p.name}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-500">
+                  Phase: {p.current_phase} · Chapters: {p.total_chapters}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Updated: {new Date(p.updated_at).toLocaleDateString()}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
-
-      <div className="grid grid-cols-2 gap-4">
-        {projects.map((p) => (
-          <Card
-            key={p.id}
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => router.push(`/project/${p.slug}`)}
-          >
-            <CardHeader>
-              <CardTitle>{p.name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-500">
-                Phase: {p.current_phase} · Chapters: {p.total_chapters}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">
-                Updated: {new Date(p.updated_at).toLocaleDateString()}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
     </main>
   );
 }

@@ -1,7 +1,11 @@
+import os
+import time
+from collections import defaultdict
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from db import Base, engine
 
@@ -17,6 +21,31 @@ from archive.router import archives_router, router as archive_router
 from billing.router import router as billing_router
 from threads.router import router as threads_router
 
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, max_requests: int = 60, window: int = 60):
+        super().__init__(app)
+        self.max_requests = max_requests
+        self.window = window
+        self.hits: dict[str, list[float]] = defaultdict(list)
+
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path == "/api/health":
+            return await call_next(request)
+
+        client = request.headers.get("X-Forwarded-For", request.client.host if request.client else "unknown")
+        now = time.monotonic()
+        self.hits[client] = [t for t in self.hits[client] if now - t < self.window]
+
+        if len(self.hits[client]) >= self.max_requests:
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"detail": "Rate limit exceeded"}, status_code=429)
+
+        self.hits[client].append(now)
+        return await call_next(request)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,10 +57,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Novel SaaS", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RateLimitMiddleware, max_requests=120, window=60)
 
 app.include_router(auth_router)
 app.include_router(projects_router)
