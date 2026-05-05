@@ -13,8 +13,9 @@ from settings.router import router as settings_router
 from chapters.router import router as chapters_router
 from prompt.router import router as prompt_router
 from write.router import router as write_router
-from archive.router import router as archive_router
+from archive.router import archives_router, router as archive_router
 from billing.router import router as billing_router
+from threads.router import router as threads_router
 
 
 @asynccontextmanager
@@ -39,7 +40,9 @@ app.include_router(chapters_router)
 app.include_router(prompt_router)
 app.include_router(write_router)
 app.include_router(archive_router)
+app.include_router(archives_router)
 app.include_router(billing_router)
+app.include_router(threads_router)
 
 
 @app.get("/api/health")
