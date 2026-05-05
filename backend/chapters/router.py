@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.middleware import get_current_user
 from db import get_db
+from filesystem.reader import read_yaml
 from filesystem.writer import write_yaml
 from projects.service import get_project
 from workflow.engine import load_chapter, save_chapter, update_phase
@@ -61,6 +62,22 @@ async def create_volume(
     project.total_volumes = vol_num
     await db.commit()
     return {"vol_num": vol_num, "filename": f"vol-{vol_num}.yaml"}
+
+
+@router.get("/volumes/{filename}")
+async def get_volume(
+    project_id: str,
+    filename: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await get_project(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Project not found")
+    data = read_yaml(project.root_path, f"volumes/{filename}")
+    if not data:
+        raise HTTPException(404, "Volume not found")
+    return data
 
 
 @router.get("/chapters/{chapter_ref}")

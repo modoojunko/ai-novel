@@ -8,6 +8,7 @@ from projects.service import (
     create_project,
     delete_project,
     get_project,
+    get_project_by_slug,
     list_projects,
 )
 
@@ -35,6 +36,18 @@ async def list_all(
 ):
     projects = await list_projects(db, user["id"])
     return [_project_dict(p) for p in projects]
+
+
+@router.get("/by-slug/{slug}")
+async def get_one_by_slug(
+    slug: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await get_project_by_slug(db, user["id"], slug)
+    if not project:
+        raise HTTPException(404, "Project not found")
+    return _project_dict(project)
 
 
 @router.get("/{project_id}")

@@ -51,6 +51,13 @@ async def get_project(
     return result.scalar_one_or_none()
 
 
+async def get_project_by_slug(db: AsyncSession, user_id: str, slug: str) -> Project | None:
+    result = await db.execute(
+        select(Project).where(Project.user_id == user_id, Project.slug == slug, Project.status != "deleted")
+    )
+    return result.scalar_one_or_none()
+
+
 async def delete_project(db: AsyncSession, project: Project):
     project.status = "deleted"
     await db.commit()
