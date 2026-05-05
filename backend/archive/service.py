@@ -39,7 +39,14 @@ def archive_chapter(root_path: str, chapter_ref: str, full_text: str) -> dict:
     update_thread_state(root_path, chapter, summary)
     update_character_states(root_path, chapter, full_text)
 
-    return {"archive_path": archive_path, "summary": summary}
+    return {
+        "archive_path": archive_path,
+        "summary": summary,
+        "usage": {
+            "input_tokens": message.usage.input_tokens,
+            "output_tokens": message.usage.output_tokens,
+        },
+    }
 
 
 def update_thread_state(root_path: str, chapter: dict, summary: str):

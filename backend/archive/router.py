@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from archive.service import archive_chapter
 from auth.middleware import get_current_user
+from billing.service import log_token_usage
 from db import get_db
 from filesystem.reader import read_md
 from projects.service import get_project
@@ -40,6 +41,15 @@ async def archive(
     result = archive_chapter(project.root_path, chapter_ref, full_text)
     update_phase(project, "archive")
     project.total_archives += 1
+
+    usage = result.get("usage", {})
+    if usage:
+        await log_token_usage(
+            db, user["id"], str(project.id), chapter_ref,
+            "archive_summary", "haiku",
+            usage["input_tokens"], usage["output_tokens"],
+        )
+
     await db.commit()
 
     return result

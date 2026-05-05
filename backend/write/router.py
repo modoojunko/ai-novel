@@ -5,7 +5,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.middleware import get_current_user
-from db import get_db
+from db import async_session, get_db
+from billing.service import log_token_usage
 from filesystem.writer import write_yaml
 from projects.service import get_project
 from workflow.engine import load_chapter, update_phase
@@ -39,8 +40,16 @@ async def write_stream(
     update_phase(project, "write")
     await db.commit()
 
+    async def on_complete(usage):
+        async with async_session() as session:
+            await log_token_usage(
+                session, user["id"], project_id, f"{chapter_ref}-seg-{seg}",
+                "write_prose", "haiku",
+                usage.input_tokens, usage.output_tokens,
+            )
+
     return StreamingResponse(
-        stream_segment(project.root_path, chapter_ref, seg),
+        stream_segment(project.root_path, chapter_ref, seg, on_complete=on_complete),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

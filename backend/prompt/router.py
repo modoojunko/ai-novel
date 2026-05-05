@@ -35,6 +35,7 @@ async def run_perspective_conversion(
     pov = chapter.get("pov_character", "主角")
 
     import anthropic
+    from billing.service import log_token_usage
 
     client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     message = await client.messages.create(
@@ -44,6 +45,12 @@ async def run_perspective_conversion(
         messages=[{"role": "user", "content": f"视角：{pov}\n章纲：{summary}"}],
     )
     guidance = message.content[0].text
+
+    await log_token_usage(
+        db, user["id"], str(project.id), chapter_ref,
+        "perspective_conversion", "haiku",
+        message.usage.input_tokens, message.usage.output_tokens,
+    )
 
     chapter["outline"]["perspective_guidance"] = guidance
     write_yaml(project.root_path, f"chapters/{chapter_ref}.yaml", chapter)

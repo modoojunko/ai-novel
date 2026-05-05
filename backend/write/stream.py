@@ -1,7 +1,9 @@
 import json
 import re
+from collections.abc import Callable
 
 from anthropic import AsyncAnthropic
+from anthropic.types import Usage
 
 from config import ANTHROPIC_API_KEY
 from filesystem.reader import read_md, read_yaml
@@ -12,6 +14,7 @@ async def stream_segment(
     chapter_ref: str,
     seg_idx: int,
     model: str = "claude-haiku-4-5-20251001",
+    on_complete: Callable[[Usage], object] | None = None,
 ):
     prompt = read_md(
         root_path, f"prompts/{chapter_ref}-seg-{seg_idx}-prompt.md"
@@ -47,6 +50,8 @@ async def stream_segment(
                 tokens = 0
                 if hasattr(event, "usage") and event.usage:
                     tokens = event.usage.output_tokens
+                    if on_complete:
+                        await on_complete(event.usage)
                 yield f"data: {json.dumps({'type': 'done', 'full_text': full_text, 'total_tokens': tokens}, ensure_ascii=False)}\n\n"
 
 
