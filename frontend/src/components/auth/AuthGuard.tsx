@@ -19,7 +19,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   if (!ok) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+        <p className="text-muted-foreground">加载中...</p>
       </div>
     );
   }

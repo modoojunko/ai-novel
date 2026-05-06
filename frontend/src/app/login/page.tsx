@@ -31,44 +31,36 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center relative">
-      {/* Lamp glow */}
-      <div
-        className="absolute top-1/3 left-1/2 -translate-x-1/2 w-80 h-80 rounded-full pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(ellipse at center, oklch(0.72 0.15 72 / 8%), transparent 60%)",
-        }}
-      />
-      <Card className="relative z-10 sm:max-w-md w-full mx-4 border-border/50">
+    <main className="min-h-screen flex items-center justify-center">
+      <Card className="sm:max-w-md w-full mx-4 shadow-lg border-border/30">
         <CardHeader>
-          <CardTitle className="font-[family-name:var(--font-serif-heading)]">Sign In</CardTitle>
+          <CardTitle className="font-[family-name:var(--font-serif-heading)]">登录</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               type="email"
-              placeholder="Email"
+              placeholder="邮箱"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
             <Input
               type="password"
-              placeholder="Password"
+              placeholder="密码"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={8}
             />
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            {error && <p className="text-destructive text-sm">{error}</p>}
             <Button type="submit" className="w-full">
-              Sign In
+              登录
             </Button>
             <p className="text-sm text-center text-muted-foreground">
-              No account?{" "}
+              没有账号？{" "}
               <Link href="/register" className="underline hover:text-primary transition-colors">
-                Register
+                注册
               </Link>
             </p>
           </form>

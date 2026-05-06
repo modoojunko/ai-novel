@@ -32,50 +32,42 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center relative">
-      {/* Lamp glow */}
-      <div
-        className="absolute top-1/3 left-1/2 -translate-x-1/2 w-80 h-80 rounded-full pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(ellipse at center, oklch(0.72 0.15 72 / 8%), transparent 60%)",
-        }}
-      />
-      <Card className="relative z-10 sm:max-w-md w-full mx-4 border-border/50">
+    <main className="min-h-screen flex items-center justify-center">
+      <Card className="sm:max-w-md w-full mx-4 shadow-lg border-border/30">
         <CardHeader>
-          <CardTitle className="font-[family-name:var(--font-serif-heading)]">Create Account</CardTitle>
+          <CardTitle className="font-[family-name:var(--font-serif-heading)]">创建账号</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               type="text"
-              placeholder="Display Name"
+              placeholder="昵称"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
             />
             <Input
               type="email"
-              placeholder="Email"
+              placeholder="邮箱"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
             <Input
               type="password"
-              placeholder="Password (min 8 characters)"
+              placeholder="密码（至少 8 位）"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={8}
             />
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            {error && <p className="text-destructive text-sm">{error}</p>}
             <Button type="submit" className="w-full">
-              Create Account
+              创建账号
             </Button>
             <p className="text-sm text-center text-muted-foreground">
-              Already have an account?{" "}
+              已有账号？{" "}
               <Link href="/login" className="underline hover:text-primary transition-colors">
-                Sign In
+                登录
               </Link>
             </p>
           </form>
