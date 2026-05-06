@@ -7,14 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AiSuggestButton } from "@/components/ui/ai-suggest-button";
+import { ChapterTree, parseChapterRefs } from "@/components/project/ChapterTree";
+import { toast } from "@/lib/toast";
 import {
-  Plus,
   Save,
   Loader2,
-  ChevronDown,
-  ChevronRight,
-  CheckCircle2,
   Send,
   Trash2,
 } from "lucide-react";
@@ -96,6 +95,8 @@ export default function OutlinePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [volTitle, setVolTitle] = useState("");
+  const [showAdvFields, setShowAdvFields] = useState(false);
+  const [showCreateVol, setShowCreateVol] = useState(false);
 
   const loadVolumes = useCallback(async () => {
     if (!projectId) return;
@@ -188,95 +189,40 @@ export default function OutlinePage() {
     setExpanded((prev) => ({ ...prev, [name]: !prev[name] }));
   }
 
+  const { volumes: treeVolumes } = parseChapterRefs(volumes);
+
   return (
     <div className="max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold">Outline Board</h2>
+        <h2 className="text-2xl font-bold font-[family-name:var(--font-serif-heading)]">大纲</h2>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left: Volume/Chapter tree */}
         <div>
-          <div className="flex gap-2 mb-4">
-            <Input
-              placeholder="New volume title..."
-              value={volTitle}
-              onChange={(e) => setVolTitle(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && createVolume()}
-            />
-            <Button onClick={createVolume} disabled={volumes.length >= 9}>
-              <Plus className="w-4 h-4" />
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">卷·章结构</span>
+            <Button size="sm" onClick={() => setShowCreateVol(true)}>
+              + 新卷
             </Button>
           </div>
 
-          <div className="space-y-2">
-            {volumes.map((vol) => {
-              const volNum = vol.name.replace("vol-", "");
-              const isOpen = expanded[vol.name] !== false;
-              return (
-                <Card key={vol.name}>
-                  <CardHeader
-                    className="cursor-pointer py-3"
-                    onClick={() => toggleVol(vol.name)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {isOpen ? (
-                          <ChevronDown className="w-4 h-4" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4" />
-                        )}
-                        <CardTitle className="text-base">{vol.name}</CardTitle>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addChapter(Number(volNum));
-                        }}
-                      >
-                        + Chapter
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  {isOpen && (
-                    <CardContent className="pt-0 space-y-1">
-                      {vol.chapters?.map((ch) => {
-                        const ref = `vol-${ch.volume}-ch-${ch.chapter}`;
-                        return (
-                          <div
-                            key={ref}
-                            className="flex items-center justify-between py-2 px-3 rounded hover:bg-muted cursor-pointer text-sm"
-                            onClick={() => setEditingChapter(ch)}
-                          >
-                            <span>
-                              ch-{ch.chapter} {ch.title || "(untitled)"}
-                            </span>
-                            <div className="flex items-center gap-1">
-                              {ch.status === "confirmed" && (
-                                <CheckCircle2 className="w-3 h-3 text-primary" />
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  confirmChapter(ref);
-                                }}
-                              >
-                                <Send className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </CardContent>
-                  )}
-                </Card>
-              );
-            })}
-          </div>
+          <ChapterTree
+            volumes={treeVolumes}
+            selectedRef={editingChapter ? `vol-${editingChapter.volume}-ch-${editingChapter.chapter}` : null}
+            onSelect={(ref) => {
+              const ch = volumes
+                .flatMap((v: any) => (v.chapters || []).map((c: any) => c))
+                .find((c: any) => `vol-${c.volume}-ch-${c.chapter}` === ref);
+              if (ch) setEditingChapter(ch);
+            }}
+            expanded={expanded}
+            onToggle={toggleVol}
+          />
+
+          {volumes.length === 0 && (
+            <p className="text-sm text-muted-foreground p-4 text-center">暂无卷章，点击「新卷」开始</p>
+          )}
         </div>
 
         {/* Right: Chapter editor */}
@@ -284,72 +230,113 @@ export default function OutlinePage() {
           {editingChapter ? (
             <div className="space-y-4">
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">
-                    vol-{editingChapter.volume} ch-{editingChapter.chapter}
-                  </CardTitle>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">
+                      vol-{editingChapter.volume} ch-{editingChapter.chapter}
+                    </CardTitle>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => confirmChapter(`vol-${editingChapter.volume}-ch-${editingChapter.chapter}`)}>
+                        <Send className="w-3 h-3 mr-1" /> 确认
+                      </Button>
+                      <Button size="sm" onClick={saveChapter} disabled={saving}>
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-3 h-3 mr-1" />}
+                        {saved ? "已保存" : "保存"}
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
-                    <label className="text-xs font-medium">Title</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium text-muted-foreground">章节标题</label>
+                      <AiSuggestButton onClick={() => toast.info("即将上线")} />
+                    </div>
                     <Input
                       value={editingChapter.title}
                       onChange={(e) => updateChapterField("title", e.target.value)}
+                      placeholder="输入章节标题..."
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-xs font-medium">POV Character</label>
-                      <Input
-                        value={editingChapter.pov_character}
-                        onChange={(e) => updateChapterField("pov_character", e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium">Thread</label>
-                      <Input
-                        value={editingChapter.thread}
-                        onChange={(e) => updateChapterField("thread", e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium">Story Time</label>
-                      <Input
-                        value={editingChapter.story_time}
-                        onChange={(e) => updateChapterField("story_time", e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium">Concurrent With</label>
-                      <Input
-                        value={editingChapter.concurrent_with}
-                        onChange={(e) => updateChapterField("concurrent_with", e.target.value)}
-                      />
-                    </div>
-                  </div>
                   <div>
-                    <label className="text-xs font-medium">Outline Summary</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium text-muted-foreground">章节概要</label>
+                      <AiSuggestButton onClick={() => toast.info("即将上线")} />
+                    </div>
                     <Textarea
                       rows={4}
                       value={editingChapter.outline?.summary || ""}
-                      onChange={(e) =>
-                        updateChapterField("outline.summary", e.target.value)
-                      }
+                      onChange={(e) => updateChapterField("outline.summary", e.target.value)}
+                      placeholder="概述这一章的核心内容..."
                     />
                   </div>
-                  <div>
-                    <label className="text-xs font-medium">Memo: To Avoid</label>
-                    <Input
-                      value={editingChapter.memo?.to_avoid || ""}
-                      onChange={(e) => updateChapterField("memo.to_avoid", e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium">Memo: Notes</label>
-                    <Input
-                      value={editingChapter.memo?.notes || ""}
-                      onChange={(e) => updateChapterField("memo.notes", e.target.value)}
-                    />
+
+                  {/* Advanced fields — collapsible text link */}
+                  <div className="border border-border rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvFields(!showAdvFields)}
+                      className="flex items-center justify-between w-full px-3 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <span>更多字段</span>
+                      <span className="text-[10px]">
+                        {showAdvFields ? "▾ POV、线索、时间线" : "▸ POV、线索、时间线"}
+                      </span>
+                    </button>
+                    {showAdvFields && (
+                      <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[11px] text-muted-foreground">POV 角色</label>
+                            <Input
+                              className="mt-0.5"
+                              value={editingChapter.pov_character || ""}
+                              onChange={(e) => updateChapterField("pov_character", e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[11px] text-muted-foreground">故事线索</label>
+                            <Input
+                              className="mt-0.5"
+                              value={editingChapter.thread || ""}
+                              onChange={(e) => updateChapterField("thread", e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[11px] text-muted-foreground">故事时间</label>
+                            <Input
+                              className="mt-0.5"
+                              value={editingChapter.story_time || ""}
+                              onChange={(e) => updateChapterField("story_time", e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[11px] text-muted-foreground">并线章节</label>
+                            <Input
+                              className="mt-0.5"
+                              value={editingChapter.concurrent_with || ""}
+                              onChange={(e) => updateChapterField("concurrent_with", e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-muted-foreground">Memo: 避免事项</label>
+                          <Input
+                            className="mt-0.5"
+                            value={editingChapter.memo?.to_avoid || ""}
+                            onChange={(e) => updateChapterField("memo.to_avoid", e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-muted-foreground">Memo: 备注</label>
+                          <Input
+                            className="mt-0.5"
+                            value={editingChapter.memo?.notes || ""}
+                            onChange={(e) => updateChapterField("memo.notes", e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -357,81 +344,70 @@ export default function OutlinePage() {
               {/* Segments */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between py-3">
-                  <CardTitle className="text-base">Segments</CardTitle>
+                  <CardTitle className="text-sm">段落划分</CardTitle>
                   <Button variant="outline" size="sm" onClick={addSegment}>
-                    + Segment
+                    + 添加段落
                   </Button>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {(editingChapter.outline?.segments || []).map((seg, i) => (
-                    <div key={i} className="border rounded-lg p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Segment {seg.seg || i + 1}</span>
-                        <Button variant="ghost" size="sm" onClick={() => removeSegment(i)}>
-                          <Trash2 className="w-3 h-3 text-red-400" />
-                        </Button>
-                      </div>
+                <CardContent className="space-y-1">
+                  {(editingChapter.outline?.segments || []).map((seg: any, i: number) => (
+                    <div key={i} className="flex items-center gap-3 py-2 px-2 rounded hover:bg-muted/30 group">
+                      <span className="text-[10px] text-muted-foreground w-4">{seg.seg || i + 1}</span>
                       <Input
-                        placeholder="Focus"
-                        value={seg.focus}
+                        className="flex-1 h-7 text-xs"
+                        placeholder="段落主题..."
+                        value={seg.focus || ""}
                         onChange={(e) => updateSegment(i, "focus", e.target.value)}
                       />
-                      <div className="grid grid-cols-2 gap-2">
-                        <Input
-                          placeholder="Emotion"
-                          value={seg.emotion}
-                          onChange={(e) => updateSegment(i, "emotion", e.target.value)}
-                        />
-                        <Input
-                          placeholder="Key Beat"
-                          value={seg.key_beat}
-                          onChange={(e) => updateSegment(i, "key_beat", e.target.value)}
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Input
-                          placeholder="Location"
-                          value={seg.location}
-                          onChange={(e) => updateSegment(i, "location", e.target.value)}
-                        />
-                        <Input
-                          placeholder="Time"
-                          value={seg.time}
-                          onChange={(e) => updateSegment(i, "time", e.target.value)}
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Input
-                          placeholder="Characters (comma-separated)"
-                          value={Array.isArray(seg.characters) ? seg.characters.join(", ") : ""}
-                          onChange={(e) =>
-                            updateSegment(i, "characters", e.target.value.split(",").map((s) => s.trim()))
-                          }
-                        />
-                        <Input
-                          type="number"
-                          placeholder="Target words"
-                          value={seg.target_words || 1500}
-                          onChange={(e) => updateSegment(i, "target_words", Number(e.target.value))}
-                        />
-                      </div>
+                      <Input
+                        className="w-20 h-7 text-xs"
+                        type="number"
+                        placeholder="字数"
+                        value={seg.target_words || 1500}
+                        onChange={(e) => updateSegment(i, "target_words", Number(e.target.value))}
+                      />
+                      <button
+                        onClick={() => removeSegment(i)}
+                        className="opacity-0 group-hover:opacity-100 text-destructive/60 hover:text-destructive transition-opacity"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     </div>
                   ))}
                 </CardContent>
               </Card>
-
-              <Button onClick={saveChapter} disabled={saving} className="w-full">
-                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                {saved ? "Saved!" : "Save Chapter"}
-              </Button>
             </div>
           ) : (
             <div className="flex items-center justify-center h-64 text-muted-foreground">
-              Select a chapter to edit
+              选择左侧章节开始编辑
             </div>
           )}
         </div>
       </div>
+
+      <Dialog open={showCreateVol} onOpenChange={setShowCreateVol}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-[family-name:var(--font-serif-heading)]">
+              创建新卷
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <Input
+              placeholder="卷标题..."
+              value={volTitle}
+              onChange={(e) => setVolTitle(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && (createVolume(), setShowCreateVol(false))}
+            />
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowCreateVol(false)}>取消</Button>
+              <Button onClick={() => { createVolume(); setShowCreateVol(false); }} disabled={volumes.length >= 9}>
+                创建卷
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
