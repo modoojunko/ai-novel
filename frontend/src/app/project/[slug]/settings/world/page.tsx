@@ -14,5 +14,5 @@ const FIELDS = [
 ];
 
 export default function WorldSettingsPage() {
-  return <SettingsForm settingsType="world" title="World Setting" fields={FIELDS} />;
+  return <SettingsForm settingsType="world" title="世界设定" fields={FIELDS} />;
 }

@@ -92,14 +92,14 @@ export default function PromptsPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6">Prompt Viewer</h2>
+      <h2 className="text-2xl font-bold mb-6">提示词查看器</h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Chapter selector + actions */}
         <div className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Select Chapter</CardTitle>
+              <CardTitle className="text-base">选择章节</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {chapterRefs.map((ref) => (
@@ -114,7 +114,7 @@ export default function PromptsPage() {
                 </Button>
               ))}
               {chapterRefs.length === 0 && (
-                <p className="text-muted-foreground text-sm">No chapters yet. Create outlines first.</p>
+                <p className="text-muted-foreground text-sm">暂无章节，请先创建大纲。</p>
               )}
             </CardContent>
           </Card>
@@ -122,7 +122,7 @@ export default function PromptsPage() {
           {selectedRef && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Actions</CardTitle>
+                <CardTitle className="text-base">操作</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <Button
@@ -136,7 +136,7 @@ export default function PromptsPage() {
                   ) : (
                     <Eye className="w-4 h-4 mr-2" />
                   )}
-                  Perspective Conversion
+                  视角转换
                 </Button>
                 <Button
                   className="w-full"
@@ -148,7 +148,7 @@ export default function PromptsPage() {
                   ) : (
                     <Wand2 className="w-4 h-4 mr-2" />
                   )}
-                  Generate Prompts
+                  生成提示词
                 </Button>
               </CardContent>
             </Card>
@@ -157,7 +157,7 @@ export default function PromptsPage() {
           {prompts.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Prompt Files</CardTitle>
+                <CardTitle className="text-base">提示词文件</CardTitle>
               </CardHeader>
               <CardContent className="space-y-1">
                 {prompts.map((p) => {
@@ -184,7 +184,7 @@ export default function PromptsPage() {
           {guidance && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Perspective Guidance</CardTitle>
+                <CardTitle className="text-base">视角引导</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-sm whitespace-pre-wrap bg-muted/50 rounded p-4">
@@ -198,7 +198,7 @@ export default function PromptsPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">
-                  Prompt: {selectedPrompt}
+                  提示词：{selectedPrompt}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -211,13 +211,13 @@ export default function PromptsPage() {
 
           {!guidance && !promptContent && selectedRef && (
             <div className="flex items-center justify-center h-64 text-muted-foreground">
-              Run perspective conversion and generate prompts to see content here
+              运行视角转换并生成提示词以查看内容
             </div>
           )}
 
           {!selectedRef && (
             <div className="flex items-center justify-center h-64 text-muted-foreground">
-              Select a chapter to begin
+              选择章节以开始
             </div>
           )}
         </div>

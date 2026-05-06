@@ -15,11 +15,11 @@ import {
 } from "lucide-react";
 
 const SECTIONS = [
-  { key: "world", label: "World Setting", desc: "Era, location, geography, politics, culture", icon: BookOpen },
-  { key: "style", label: "Writing Style", desc: "Role, core principles, mistakes, techniques, genre", icon: Palette },
-  { key: "anti-ai", label: "Anti-AI Rules", desc: "Fatigue words blocklist, forbidden patterns", icon: Shield },
-  { key: "hooks", label: "Hooks Board", desc: "Foreshadowing lifecycle tracking", icon: Anchor },
-  { key: "characters", label: "Characters", desc: "Character profiles and state history", icon: Users },
+  { key: "world", label: "世界设定", desc: "时代、地点、地理、政治、文化", icon: BookOpen },
+  { key: "style", label: "写作风格", desc: "角色、核心原则、禁忌、技巧、类型", icon: Palette },
+  { key: "anti-ai", label: "反AI规则", desc: "疲劳词黑名单、禁用句式", icon: Shield },
+  { key: "hooks", label: "伏笔面板", desc: "伏笔生命周期追踪", icon: Anchor },
+  { key: "characters", label: "角色管理", desc: "角色档案与状态历史", icon: Users },
 ];
 
 export default function SettingsHub() {
@@ -50,12 +50,12 @@ export default function SettingsHub() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6">Project Settings</h2>
+      <h2 className="text-2xl font-bold mb-6">项目设定</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {SECTIONS.map((s) => (
           <Card
             key={s.key}
-            className="cursor-pointer hover:shadow-md transition-shadow"
+            className="cursor-pointer hover:ring-1 hover:ring-primary/30 transition-shadow"
             onClick={() =>
               router.push(
                 `/project/${slug}/settings/${s.key === "characters" ? "characters" : s.key}`

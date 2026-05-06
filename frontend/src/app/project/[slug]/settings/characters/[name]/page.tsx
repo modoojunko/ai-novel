@@ -10,17 +10,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Save, Loader2, ArrowLeft, Plus, Trash2 } from "lucide-react";
 
 const FIELD_DEFS: { key: string; label: string; type: "text" | "textarea" }[] = [
-  { key: "summary", label: "Summary", type: "textarea" },
-  { key: "cognition", label: "Cognition", type: "textarea" },
-  { key: "worldview", label: "World View", type: "textarea" },
-  { key: "self_identity", label: "Self Identity", type: "text" },
-  { key: "values", label: "Values", type: "text" },
-  { key: "abilities", label: "Abilities", type: "text" },
-  { key: "skills", label: "Skills", type: "text" },
-  { key: "environment", label: "Environment", type: "text" },
-  { key: "appearance", label: "Appearance", type: "textarea" },
-  { key: "background", label: "Background", type: "textarea" },
-  { key: "story_role", label: "Story Role", type: "text" },
+  { key: "summary", label: "摘要", type: "textarea" },
+  { key: "cognition", label: "认知", type: "textarea" },
+  { key: "worldview", label: "世界观", type: "textarea" },
+  { key: "self_identity", label: "自我认同", type: "text" },
+  { key: "values", label: "价值观", type: "text" },
+  { key: "abilities", label: "能力", type: "text" },
+  { key: "skills", label: "技能", type: "text" },
+  { key: "environment", label: "环境", type: "text" },
+  { key: "appearance", label: "外貌", type: "textarea" },
+  { key: "background", label: "背景", type: "textarea" },
+  { key: "story_role", label: "故事角色", type: "text" },
 ];
 
 export default function CharacterEditorPage() {
@@ -30,7 +30,7 @@ export default function CharacterEditorPage() {
   const router = useRouter();
   const [projectId, setProjectId] = useState("");
   const [data, setData] = useState<Record<string, any>>({});
-  const [relationships, setRelationships] = useState<any[]>([]);
+  const [relationships, set角色关系] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -42,7 +42,7 @@ export default function CharacterEditorPage() {
     if (!projectId || !name) return;
     api.get(`/projects/${projectId}/settings/character/${name}`).then((d) => {
       setData(d || {});
-      setRelationships(d.relationships || []);
+      set角色关系(d.relationships || []);
     }).catch(() => {});
   }, [projectId, name]);
 
@@ -57,31 +57,31 @@ export default function CharacterEditorPage() {
   }
 
   function addRelationship() {
-    setRelationships([...relationships, { character: "", type: "", description: "" }]);
+    set角色关系([...relationships, { character: "", type: "", description: "" }]);
   }
 
   function updateRelationship(idx: number, field: string, value: string) {
     const copy = [...relationships];
     copy[idx] = { ...copy[idx], [field]: value };
-    setRelationships(copy);
+    set角色关系(copy);
   }
 
   return (
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center gap-4 mb-6">
         <Button variant="ghost" size="sm" onClick={() => router.back()}>
-          <ArrowLeft className="w-4 h-4 mr-2" />Back
+          <ArrowLeft className="w-4 h-4 mr-2" />返回
         </Button>
         <h2 className="text-2xl font-bold">{name}</h2>
       </div>
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Basic Info</CardTitle>
+          <CardTitle>基本信息</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="text-sm font-medium mb-1 block">Name</label>
+            <label className="text-sm font-medium mb-1 block">名称</label>
             <Input value={data.name || name} onChange={(e) => setData({ ...data, name: e.target.value })} />
           </div>
           {FIELD_DEFS.map((f) => (
@@ -106,9 +106,9 @@ export default function CharacterEditorPage() {
 
       <Card className="mb-6">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Relationships</CardTitle>
+          <CardTitle>角色关系</CardTitle>
           <Button variant="outline" size="sm" onClick={addRelationship}>
-            <Plus className="w-4 h-4 mr-2" />Add
+            <Plus className="w-4 h-4 mr-2" />添加
           </Button>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -116,40 +116,40 @@ export default function CharacterEditorPage() {
             <div key={i} className="flex gap-2 items-start">
               <Input
                 className="flex-1"
-                placeholder="Character"
+                placeholder="角色"
                 value={r.character}
                 onChange={(e) => updateRelationship(i, "character", e.target.value)}
               />
               <Input
                 className="w-24"
-                placeholder="Type"
+                placeholder="关系类型"
                 value={r.type}
                 onChange={(e) => updateRelationship(i, "type", e.target.value)}
               />
               <Input
                 className="flex-1"
-                placeholder="Description"
+                placeholder="描述"
                 value={r.description}
                 onChange={(e) => updateRelationship(i, "description", e.target.value)}
               />
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setRelationships(relationships.filter((_, j) => j !== i))}
+                onClick={() => set角色关系(relationships.filter((_, j) => j !== i))}
               >
                 <Trash2 className="w-4 h-4 text-red-400" />
               </Button>
             </div>
           ))}
           {relationships.length === 0 && (
-            <p className="text-muted-foreground text-sm">No relationships defined.</p>
+            <p className="text-muted-foreground text-sm">暂无关系定义。</p>
           )}
         </CardContent>
       </Card>
 
       <Button onClick={save} disabled={saving} className="w-full">
         {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-        {saved ? "Saved!" : "Save Character"}
+        {saved ? "已保存！" : "保存角色"}
       </Button>
     </div>
   );

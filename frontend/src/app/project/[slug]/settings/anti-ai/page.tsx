@@ -12,5 +12,5 @@ const LIST_FIELDS = [
 ];
 
 export default function AntiAIPage() {
-  return <SettingsForm settingsType="anti-ai" title="Anti-AI Rules" fields={FIELDS} listFields={LIST_FIELDS} />;
+  return <SettingsForm settingsType="anti-ai" title="反AI规则" fields={FIELDS} listFields={LIST_FIELDS} />;
 }

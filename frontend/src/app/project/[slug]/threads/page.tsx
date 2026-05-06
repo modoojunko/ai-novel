@@ -16,17 +16,17 @@ type Thread = {
 };
 
 const TEMP_COLORS: Record<string, string> = {
-  low: "bg-primary/20 text-primary",
-  medium: "bg-amber-800/30 text-amber-300",
-  high: "bg-orange-800/30 text-orange-300",
-  climax: "bg-destructive/20 text-destructive",
+  low: "bg-primary/15 text-primary",
+  medium: "bg-teal-600/15 text-teal-400",
+  high: "bg-amber-500/15 text-amber-400",
+  climax: "bg-destructive/15 text-destructive",
 };
 
 const TEMP_LABELS: Record<string, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  climax: "Climax",
+  low: "低",
+  medium: "中",
+  high: "高",
+  climax: "高潮",
 };
 
 export default function ThreadsPage() {
@@ -54,15 +54,15 @@ export default function ThreadsPage() {
     <div className="max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold flex items-center gap-2 font-[family-name:var(--font-serif-heading)]">
-          <GitBranch className="w-6 h-6" /> Thread Timeline
+          <GitBranch className="w-6 h-6" /> 线索时间线
         </h2>
-        <span className="text-sm text-muted-foreground">{entries.length} threads</span>
+        <span className="text-sm text-muted-foreground">{entries.length} 条线索</span>
       </div>
 
       {entries.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <GitBranch className="w-12 h-12 mx-auto mb-4 opacity-30" />
-          No threads defined yet. Threads are created automatically when chapters are archived with thread assignments.
+          暂无线索。线索在章节存档时自动生成。
         </div>
       ) : (
         <div className="space-y-4">
@@ -89,7 +89,7 @@ export default function ThreadsPage() {
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" /> {t.last_chapter || "—"}
                       </span>
-                      <span>POV: {t.pov || "—"}</span>
+                      <span>视角：{t.pov || "—"}</span>
                     </div>
                   </div>
                 </CardHeader>
@@ -97,15 +97,15 @@ export default function ThreadsPage() {
                   <CardContent className="space-y-4 pt-0">
                     <div>
                       <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Current State
+                        当前状态
                       </label>
-                      <p className="text-sm mt-1">{t.current_state || "No state recorded."}</p>
+                      <p className="text-sm mt-1">{t.current_state || "暂无状态记录。"}</p>
                     </div>
 
                     {(t.pending_questions || []).length > 0 && (
                       <div>
                         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" /> Pending Questions
+                          <AlertCircle className="w-3 h-3" /> 待解决问题
                         </label>
                         <ul className="mt-1 space-y-1">
                           {t.pending_questions.map((q, i) => (
@@ -121,7 +121,7 @@ export default function ThreadsPage() {
                     {(t.active_hooks || []).length > 0 && (
                       <div>
                         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          Active Hooks
+                          活跃伏笔
                         </label>
                         <div className="mt-1 space-y-1">
                           {t.active_hooks.map((h) => (

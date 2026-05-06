@@ -16,5 +16,5 @@ const LIST_FIELDS = [
 ];
 
 export default function StyleSettingsPage() {
-  return <SettingsForm settingsType="style" title="Writing Style" fields={FIELDS} listFields={LIST_FIELDS} />;
+  return <SettingsForm settingsType="style" title="写作风格" fields={FIELDS} listFields={LIST_FIELDS} />;
 }

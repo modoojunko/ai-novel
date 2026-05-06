@@ -31,7 +31,7 @@ export default function HooksPage() {
   }
 
   function add() {
-    const h = { id: `hook-${Date.now()}`, description: "", introduced_in: "", type: "mystery", status: "planned", resolve_plan: "" };
+    const h = { id: `hook-${Date.now()}`, description: "", introduced_in: "", type: "mystery", status: "pending", resolve_plan: "" };
     save([...hooks, h]);
   }
 
@@ -46,25 +46,24 @@ export default function HooksPage() {
   }
 
   const STATUS_COLORS: Record<string, string> = {
-    planned: "bg-muted",
-    mentioned: "bg-primary/20 text-primary",
-    reinforced: "bg-amber-800/30 text-amber-300",
-    resolved: "bg-emerald-800/30 text-emerald-300",
-    abandoned: "bg-destructive/20 text-destructive",
+    active: "bg-primary/15 text-primary",
+    pending: "bg-muted-foreground/15 text-muted-foreground",
+    resolved: "bg-emerald-600/15 text-emerald-500",
+    abandoned: "bg-destructive/10 text-destructive/70",
   };
 
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold">Hooks Board</h2>
-        <Button onClick={add}><Plus className="w-4 h-4 mr-2" />New Hook</Button>
+        <h2 className="text-2xl font-bold">伏笔面板</h2>
+        <Button onClick={add}><Plus className="w-4 h-4 mr-2" />新建伏笔</Button>
       </div>
 
       <div className="grid grid-cols-5 gap-2 mb-4 text-sm font-medium text-muted-foreground px-4">
         <div>ID</div>
-        <div className="col-span-2">Description</div>
-        <div>Type</div>
-        <div>Status / Resolve</div>
+        <div className="col-span-2">描述</div>
+        <div>类型</div>
+        <div>状态 / 解决</div>
       </div>
 
       <div className="space-y-2">
@@ -72,7 +71,7 @@ export default function HooksPage() {
           <Card key={i}>
             <CardContent className="flex gap-2 py-3 items-center">
               <Input className="w-20" value={h.id} onChange={e => update(i, "id", e.target.value)} />
-              <Input className="flex-1" placeholder="Hook description..." value={h.description} onChange={e => update(i, "description", e.target.value)} />
+              <Input className="flex-1" placeholder="伏笔描述..." value={h.description} onChange={e => update(i, "description", e.target.value)} />
               <select
                 className="border rounded px-2 py-1 text-sm"
                 value={h.type}
@@ -88,11 +87,11 @@ export default function HooksPage() {
                   value={h.status}
                   onChange={e => update(i, "status", e.target.value)}
                 >
-                  {["planned", "mentioned", "reinforced", "resolved", "abandoned"].map(s => (
+                  {["active", "pending", "resolved", "abandoned"].map(s => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
-                <Input className="w-24" placeholder="Resolve in" value={h.resolve_plan} onChange={e => update(i, "resolve_plan", e.target.value)} />
+                <Input className="w-24" placeholder="解决章节" value={h.resolve_plan} onChange={e => update(i, "resolve_plan", e.target.value)} />
               </div>
               <Button variant="ghost" size="sm" onClick={() => remove(i)}><Trash2 className="w-4 h-4 text-red-400" /></Button>
             </CardContent>
@@ -100,7 +99,7 @@ export default function HooksPage() {
         ))}
       </div>
 
-      <Button className="mt-4" onClick={() => save(hooks)}>Save Hooks</Button>
+      <Button className="mt-4" onClick={() => save(hooks)}>保存伏笔</Button>
     </div>
   );
 }

@@ -58,19 +58,19 @@ export default function CharactersListPage() {
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold flex items-center gap-2">
-          <Users className="w-6 h-6" /> Characters
+          <Users className="w-6 h-6" /> 角色管理
         </h2>
       </div>
 
       <div className="flex gap-2 mb-6">
         <Input
-          placeholder="New character name..."
+          placeholder="新角色名称..."
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && create()}
         />
         <Button onClick={create} disabled={!newName.trim()}>
-          <Plus className="w-4 h-4 mr-2" />Create
+          <Plus className="w-4 h-4 mr-2" />创建
         </Button>
       </div>
 
@@ -78,7 +78,7 @@ export default function CharactersListPage() {
         {characters.map((name) => (
           <Card
             key={name}
-            className="cursor-pointer hover:shadow-md transition-shadow"
+            className="cursor-pointer hover:ring-1 hover:ring-primary/30 transition-shadow"
             onClick={() => router.push(`/project/${slug}/settings/characters/${encodeURIComponent(name)}`)}
           >
             <CardContent className="flex items-center justify-between py-4">
@@ -100,7 +100,7 @@ export default function CharactersListPage() {
           </Card>
         ))}
         {characters.length === 0 && (
-          <p className="text-muted-foreground text-center py-8">No characters yet. Create your first character above.</p>
+          <p className="text-muted-foreground text-center py-8">暂无角色，请在上方创建你的第一个角色。</p>
         )}
       </div>
     </div>
