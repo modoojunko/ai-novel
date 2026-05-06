@@ -35,8 +35,8 @@ Each phase transition runs through a validation gate — you can't skip ahead wi
 
 ```bash
 # Clone
-git clone https://github.com/modoojunko/NovelForge.git
-cd NovelForge
+git clone https://github.com/modoojunko/ai-novel.git
+cd ai-novel
 
 # Configure
 cp .env.example .env
