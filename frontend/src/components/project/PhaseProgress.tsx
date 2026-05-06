@@ -11,8 +11,6 @@ const PHASES = [
   { key: "archives", label: "存档" },
 ] as const;
 
-type PhaseKey = (typeof PHASES)[number]["key"];
-
 function phaseIndex(key: string): number {
   return PHASES.findIndex((p) => p.key === key);
 }

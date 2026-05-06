@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
-import { ChapterTree, parseChapterRefs, type VolumeInfo } from "@/components/project/ChapterTree";
+import { ChapterTree, type VolumeInfo } from "@/components/project/ChapterTree";
 
 type Archive = { filename: string; path: string };
 
