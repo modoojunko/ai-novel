@@ -5,13 +5,13 @@ import "./globals.css";
 
 const serifHeading = Noto_Serif_SC({
   variable: "--font-serif-heading",
-  subsets: ["chinese-simplified", "latin"],
+  subsets: ["latin"],
   weight: ["400", "700"],
 });
 
 const sansBody = Noto_Sans_SC({
   variable: "--font-sans",
-  subsets: ["chinese-simplified", "latin"],
+  subsets: ["latin"],
   weight: ["400", "500"],
 });
 
