@@ -3,10 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, FileText, ChevronLeft } from "lucide-react";
+import { ChapterTree, parseChapterRefs, type VolumeInfo } from "@/components/project/ChapterTree";
 
 type Archive = { filename: string; path: string };
 
@@ -15,9 +12,9 @@ export default function ArchivesPage() {
   const slug = params?.slug as string;
   const [projectId, setProjectId] = useState("");
   const [archives, setArchives] = useState<Archive[]>([]);
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<Archive | null>(null);
+  const [selectedFilename, setSelectedFilename] = useState<string | null>(null);
   const [content, setContent] = useState("");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     api.get(`/projects/by-slug/${slug}`).then((p: any) => setProjectId(p.id));
@@ -25,14 +22,20 @@ export default function ArchivesPage() {
 
   useEffect(() => {
     if (!projectId) return;
-    api.get(`/projects/${projectId}/archives`).then(setArchives).catch(() => {});
+    api.get(`/projects/${projectId}/archives`).then((arr) => {
+      setArchives(arr || []);
+      if (arr?.length > 0 && !selectedFilename) {
+        setSelectedFilename(arr[0].filename);
+      }
+    }).catch(() => {});
   }, [projectId]);
 
-  async function openArchive(a: Archive) {
-    setSelected(a);
-    const data = await api.get(`/projects/${projectId}/archives/${a.filename}`);
-    setContent(data.content || "");
-  }
+  useEffect(() => {
+    if (!projectId || !selectedFilename) return;
+    api.get(`/projects/${projectId}/archives/${selectedFilename}`)
+      .then((data) => setContent(data.content || ""))
+      .catch(() => setContent(""));
+  }, [projectId, selectedFilename]);
 
   function parseChapterInfo(filename: string) {
     const match = filename.match(/vol-(\d+)-ch-(\d+)-(.+)\.md/);
@@ -40,86 +43,121 @@ export default function ArchivesPage() {
     return { vol: match[1], ch: match[2], title: match[3].replace(/-/g, " ") };
   }
 
-  const filtered = archives.filter((a) => {
-    if (!search.trim()) return true;
+  // Build tree volumes from archives
+  const volMap = new Map<number, any[]>();
+  archives.forEach((a) => {
     const info = parseChapterInfo(a.filename);
-    return (
-      info.title.toLowerCase().includes(search.toLowerCase()) ||
-      a.filename.toLowerCase().includes(search.toLowerCase())
-    );
+    const volNum = parseInt(info.vol, 10);
+    if (!volMap.has(volNum)) volMap.set(volNum, []);
+    volMap.get(volNum)!.push({
+      ref: a.filename,
+      volume: volNum,
+      chapter: parseInt(info.ch, 10),
+      title: info.title,
+      status: "archived",
+    });
   });
 
-  if (selected) {
-    return (
-      <div className="max-w-3xl mx-auto">
-        <button
-          onClick={() => { setSelected(null); setContent(""); }}
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-4"
-        >
-          <ChevronLeft className="w-4 h-4" /> Back to list
-        </button>
-        <h2 className="text-xl font-bold mb-4 font-[family-name:var(--font-serif-heading)]">
-          第{parseChapterInfo(selected.filename).vol}卷 第{parseChapterInfo(selected.filename).ch}章 — {parseChapterInfo(selected.filename).title}
-        </h2>
-        <Card>
-          <CardContent className="py-6">
-            <article className="prose-warm max-w-none whitespace-pre-wrap leading-relaxed text-[15px]">
-              {content || "Loading..."}
-            </article>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const treeVolumes: VolumeInfo[] = Array.from(volMap.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([volNum, chapters]) => ({
+      name: `vol-${volNum}`,
+      volNum,
+      chapters: chapters.sort((a, b) => a.chapter - b.chapter),
+    }));
+
+  const currentInfo = selectedFilename ? parseChapterInfo(selectedFilename) : null;
+  const totalFiles = archives.length;
+  const currentIdx = selectedFilename ? archives.findIndex((a) => a.filename === selectedFilename) : -1;
+  const prevFile = currentIdx > 0 ? archives[currentIdx - 1] : null;
+  const nextFile = currentIdx < totalFiles - 1 ? archives[currentIdx + 1] : null;
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold font-[family-name:var(--font-serif-heading)]">Archives</h2>
-        <span className="text-sm text-muted-foreground">{archives.length} chapters</span>
+    <div className="flex h-[calc(100vh-120px)]">
+      {/* Left: Chapter tree */}
+      <div className="w-[220px] flex-shrink-0 border-r border-border p-3 overflow-y-auto">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[11px] text-muted-foreground uppercase tracking-wider">已存档</span>
+          <span className="text-[10px] text-muted-foreground/50">{archives.length}章</span>
+        </div>
+        {treeVolumes.length > 0 ? (
+          <ChapterTree
+            volumes={treeVolumes}
+            selectedRef={selectedFilename}
+            onSelect={setSelectedFilename}
+            expanded={expanded}
+            onToggle={(name) => setExpanded((p) => ({ ...p, [name]: !p[name] }))}
+          />
+        ) : (
+          <p className="text-xs text-muted-foreground p-2">暂无存档章节</p>
+        )}
       </div>
 
-      <div className="relative mb-6">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          className="pl-9"
-          placeholder="Search by title or filename..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+      {/* Right: Reading area */}
+      <div className="flex-1 overflow-y-auto relative" style={{ background: "oklch(0.23 0.012 245)" }}>
+        {/* Paper grain */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            opacity: 0.03,
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "repeat",
+            backgroundSize: "256px 256px",
+          }}
         />
-      </div>
 
-      {filtered.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <FileText className="w-12 h-12 mx-auto mb-4 opacity-30" />
-          {archives.length === 0
-            ? "No archived chapters yet. Complete Phase 5 writing and archive to see them here."
-            : "No matching archives."}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map((a) => {
-            const info = parseChapterInfo(a.filename);
-            return (
-              <Card
-                key={a.filename}
-                className="cursor-pointer hover:shadow-md hover:ring-1 hover:ring-primary/20 transition-all"
-                onClick={() => openArchive(a)}
+        {selectedFilename && currentInfo ? (
+          <div className="relative z-10 max-w-[640px] mx-auto py-9 px-8">
+            {/* Chapter header */}
+            <div className="text-center mb-10">
+              <span className="text-[10px] text-muted-foreground tracking-[2px] uppercase">
+                第{currentInfo.vol}卷 · 第{currentInfo.ch}章
+              </span>
+              <h2 className="mt-3 mb-2 font-[family-name:var(--font-serif-heading)] text-2xl text-foreground">
+                {currentInfo.title}
+              </h2>
+            </div>
+
+            {/* Prose */}
+            <div className="font-[family-name:var(--font-serif-heading)] text-[16px] leading-[2] text-foreground">
+              {content ? (
+                content.split("\n\n").map((para, i) => (
+                  <p key={i} className="indent-[2em] mb-[0.6em]">{para}</p>
+                ))
+              ) : (
+                <p className="text-muted-foreground/30 italic indent-0">加载中...</p>
+              )}
+            </div>
+
+            {/* Chapter nav */}
+            <div className="flex items-center justify-between mt-12 pt-5 border-t border-border">
+              <span
+                className={`text-[11px] cursor-pointer transition-colors ${
+                  prevFile ? "text-muted-foreground hover:text-primary" : "text-muted-foreground/20 cursor-default"
+                }`}
+                onClick={() => prevFile && setSelectedFilename(prevFile.filename)}
               >
-                <CardContent className="flex items-center justify-between py-4">
-                  <div>
-                    <span className="font-medium">
-                      Vol {info.vol} · Ch {info.ch}
-                    </span>
-                    <span className="text-muted-foreground ml-3 capitalize">{info.title}</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground font-mono">{a.filename}</span>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                {prevFile ? `← ${parseChapterInfo(prevFile.filename).title}` : "—"}
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                第 {currentIdx + 1} / {totalFiles} 章
+              </span>
+              <span
+                className={`text-[11px] cursor-pointer transition-colors ${
+                  nextFile ? "text-primary hover:text-primary/80" : "text-muted-foreground/20 cursor-default"
+                }`}
+                onClick={() => nextFile && setSelectedFilename(nextFile.filename)}
+              >
+                {nextFile ? `${parseChapterInfo(nextFile.filename).title} →` : "—"}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            选择左侧章节开始阅读
+          </div>
+        )}
+      </div>
     </div>
   );
 }
