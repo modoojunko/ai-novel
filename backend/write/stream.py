@@ -16,15 +16,12 @@ async def stream_segment(
     model: str = "claude-haiku-4-5-20251001",
     on_complete: Callable[[Usage], object] | None = None,
 ):
-    prompt = read_md(
-        root_path, f"prompts/{chapter_ref}-seg-{seg_idx}-prompt.md"
-    )
+    prompt = read_md(root_path, f"prompts/{chapter_ref}-seg-{seg_idx}-prompt.md")
     style = read_yaml(root_path, "settings/writing-style.yaml")
     anti_ai = read_yaml(root_path, "settings/anti-ai.yaml")
 
     system_msg = (
-        f"你是{style.get('role', '一位小说家')}。"
-        f"{style.get('core_principles', '')}"
+        f"你是{style.get('role', '一位小说家')}。{style.get('core_principles', '')}"
     )
 
     client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
@@ -37,10 +34,7 @@ async def stream_segment(
         messages=[{"role": "user", "content": prompt}],
     ) as stream:
         async for event in stream:
-            if (
-                event.type == "content_block_delta"
-                and event.delta.type == "text_delta"
-            ):
+            if event.type == "content_block_delta" and event.delta.type == "text_delta":
                 chunk = event.delta.text
                 full_text += chunk
                 violations = _scan_chunk(full_text, anti_ai)

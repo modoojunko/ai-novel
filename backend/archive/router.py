@@ -45,9 +45,14 @@ async def archive(
     usage = result.get("usage", {})
     if usage:
         await log_token_usage(
-            db, user["id"], str(project.id), chapter_ref,
-            "archive_summary", "haiku",
-            usage["input_tokens"], usage["output_tokens"],
+            db,
+            user["id"],
+            str(project.id),
+            chapter_ref,
+            "archive_summary",
+            "haiku",
+            usage["input_tokens"],
+            usage["output_tokens"],
         )
 
     await db.commit()
@@ -68,7 +73,9 @@ async def list_archives(
     if not os.path.exists(archive_dir):
         return []
     files = sorted(os.listdir(archive_dir), reverse=True)
-    return [{"filename": f, "path": f"archives/{f}"} for f in files if f.endswith(".md")]
+    return [
+        {"filename": f, "path": f"archives/{f}"} for f in files if f.endswith(".md")
+    ]
 
 
 @archives_router.get("/{filename}")

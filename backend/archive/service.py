@@ -60,13 +60,9 @@ def update_thread_state(root_path: str, chapter: dict, summary: str):
 
     t = threads["threads"][thread_name]
     t["pov"] = chapter.get("pov_character", t.get("pov", "未知"))
-    t["last_chapter"] = (
-        f"vol-{chapter.get('volume')}-ch-{chapter.get('chapter')}"
-    )
+    t["last_chapter"] = f"vol-{chapter.get('volume')}-ch-{chapter.get('chapter')}"
     t["current_state"] = summary
-    t["emotional_temperature"] = chapter.get("memo", {}).get(
-        "emotion_curve", "medium"
-    )
+    t["emotional_temperature"] = chapter.get("memo", {}).get("emotion_curve", "medium")
 
     hooks = read_yaml(root_path, "settings/hooks.yaml")
     for hook in hooks.get("hooks", []):
@@ -77,9 +73,7 @@ def update_thread_state(root_path: str, chapter: dict, summary: str):
     write_yaml(root_path, "threads.yaml", threads)
 
 
-def update_character_states(
-    root_path: str, chapter: dict, full_text: str
-):
+def update_character_states(root_path: str, chapter: dict, full_text: str):
     seg_chars = (
         chapter.get("outline", {}).get("segments", [{}])[0].get("characters", [])
     )
@@ -89,9 +83,7 @@ def update_character_states(
             continue
         if "state_history" not in char:
             char["state_history"] = []
-        state_change = chapter.get("memo", {}).get(
-            "character_state_change", ""
-        )
+        state_change = chapter.get("memo", {}).get("character_state_change", "")
         char["state_history"].append(
             {
                 "chapter": f"vol-{chapter.get('volume')}-ch-{chapter.get('chapter')}",

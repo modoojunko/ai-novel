@@ -47,9 +47,14 @@ async def run_perspective_conversion(
     guidance = message.content[0].text
 
     await log_token_usage(
-        db, user["id"], str(project.id), chapter_ref,
-        "perspective_conversion", "haiku",
-        message.usage.input_tokens, message.usage.output_tokens,
+        db,
+        user["id"],
+        str(project.id),
+        chapter_ref,
+        "perspective_conversion",
+        "haiku",
+        message.usage.input_tokens,
+        message.usage.output_tokens,
     )
 
     chapter["outline"]["perspective_guidance"] = guidance
@@ -104,7 +109,5 @@ async def get_prompt_content(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    content = read_md(
-        project.root_path, f"prompts/{chapter_ref}-{seg}-prompt.md"
-    )
+    content = read_md(project.root_path, f"prompts/{chapter_ref}-{seg}-prompt.md")
     return PlainTextResponse(content)

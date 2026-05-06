@@ -26,35 +26,35 @@ def assemble_segment_prompt(
     seg_num = seg.get("seg", seg_idx + 1)
 
     prompt = f"""## 角色定位
-你是{style.get('role', '一位小说家')}。{style.get('core_principles', '')}
+你是{style.get("role", "一位小说家")}。{style.get("core_principles", "")}
 
 ## 原则与禁忌
-{style.get('possible_mistakes', '')}
+{style.get("possible_mistakes", "")}
 
-禁止使用以下词汇：{', '.join(anti_ai.get('fatigue_words', []))}
-禁止以下句式：{', '.join(anti_ai.get('forbidden_patterns', []))}
+禁止使用以下词汇：{", ".join(anti_ai.get("fatigue_words", []))}
+禁止以下句式：{", ".join(anti_ai.get("forbidden_patterns", []))}
 
 ## 故事背景
 本段是{novel_title}第{vol}卷第{ch_num}章第{seg_num}段。
-{inject_story_context(root_path, chapter, threads.get('threads', {}))}
+{inject_story_context(root_path, chapter, threads.get("threads", {}))}
 
-{inject_character_snapshots(root_path, seg.get('characters', []))}
+{inject_character_snapshots(root_path, seg.get("characters", []))}
 
 {inject_active_hooks(root_path, chapter_ref)}
 
 ## 写作指引
-{seg.get('focus', '')}
-情绪主调：{seg.get('emotion', '')}
-关键桥段：{seg.get('key_beat', '')}
-出场角色：{', '.join(seg.get('characters', []))}
-地点：{seg.get('location', '')}
-时间：{seg.get('time', '')}
+{seg.get("focus", "")}
+情绪主调：{seg.get("emotion", "")}
+关键桥段：{seg.get("key_beat", "")}
+出场角色：{", ".join(seg.get("characters", []))}
+地点：{seg.get("location", "")}
+时间：{seg.get("time", "")}
 
-注意：{chapter.get('memo', {}).get('to_avoid', '')}
+注意：{chapter.get("memo", {}).get("to_avoid", "")}
 
 ## 写作要求
-{style.get('depiction_techniques', '')}
-输出长度：约{seg.get('target_words', 1500)}字。
+{style.get("depiction_techniques", "")}
+输出长度：约{seg.get("target_words", 1500)}字。
 不写总结、不写章节标题。
 """
     return prompt

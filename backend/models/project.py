@@ -25,6 +25,8 @@ class Project(Base):
     total_chapters: Mapped[int] = mapped_column(Integer, default=0)
     total_archives: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
 
     __table_args__ = (UniqueConstraint("user_id", "slug"),)

@@ -35,12 +35,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if request.url.path == "/api/health":
             return await call_next(request)
 
-        client = request.headers.get("X-Forwarded-For", request.client.host if request.client else "unknown")
+        client = request.headers.get(
+            "X-Forwarded-For", request.client.host if request.client else "unknown"
+        )
         now = time.monotonic()
         self.hits[client] = [t for t in self.hits[client] if now - t < self.window]
 
         if len(self.hits[client]) >= self.max_requests:
             from fastapi.responses import JSONResponse
+
             return JSONResponse({"detail": "Rate limit exceeded"}, status_code=429)
 
         self.hits[client].append(now)

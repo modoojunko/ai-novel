@@ -3,9 +3,7 @@
 from filesystem.reader import read_yaml
 
 
-def inject_story_context(
-    root_path: str, chapter: dict, thread_state: dict
-) -> str:
+def inject_story_context(root_path: str, chapter: dict, thread_state: dict) -> str:
     parts = []
     thread_name = chapter.get("thread", "")
 
@@ -35,9 +33,7 @@ def inject_story_context(
     return "\n\n".join(parts) if parts else ""
 
 
-def inject_character_snapshots(
-    root_path: str, character_names: list[str]
-) -> str:
+def inject_character_snapshots(root_path: str, character_names: list[str]) -> str:
     parts = []
     for name in character_names:
         ch_data = read_yaml(root_path, f"settings/character-setting/{name}.yaml")
@@ -67,7 +63,5 @@ def inject_active_hooks(root_path: str, current_chapter_ref: str) -> str:
         return ""
     lines = ["## 当前悬而未决的伏笔"]
     for h in hooks[:8]:
-        lines.append(
-            f"- [{h['id']}] {h['description']}（状态：{h['status']}）"
-        )
+        lines.append(f"- [{h['id']}] {h['description']}（状态：{h['status']}）")
     return "\n".join(lines)

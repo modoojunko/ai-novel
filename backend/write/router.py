@@ -43,9 +43,14 @@ async def write_stream(
     async def on_complete(usage):
         async with async_session() as session:
             await log_token_usage(
-                session, user["id"], project_id, f"{chapter_ref}-seg-{seg}",
-                "write_prose", "haiku",
-                usage.input_tokens, usage.output_tokens,
+                session,
+                user["id"],
+                project_id,
+                f"{chapter_ref}-seg-{seg}",
+                "write_prose",
+                "haiku",
+                usage.input_tokens,
+                usage.output_tokens,
             )
 
     return StreamingResponse(

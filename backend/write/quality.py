@@ -3,17 +3,13 @@ import re
 from filesystem.reader import read_yaml
 
 
-def run_quality_checks(
-    root_path: str, chapter: dict, full_text: str
-) -> dict:
+def run_quality_checks(root_path: str, chapter: dict, full_text: str) -> dict:
     anti_ai = read_yaml(root_path, "settings/anti-ai.yaml")
 
     results = {"passed": True, "checks": {}}
 
     # 1. Anti-AI fatigue words
-    fatigue_hits = [
-        w for w in anti_ai.get("fatigue_words", []) if w in full_text
-    ]
+    fatigue_hits = [w for w in anti_ai.get("fatigue_words", []) if w in full_text]
     results["checks"]["fatigue_words"] = {
         "passed": len(fatigue_hits) == 0,
         "hits": fatigue_hits,
@@ -58,19 +54,13 @@ def run_quality_checks(
     hooks_data = read_yaml(root_path, "settings/hooks.yaml")
     chapter_ref = f"vol-{chapter.get('volume')}-ch-{chapter.get('chapter')}"
     chapter_hooks = [
-        h
-        for h in hooks_data.get("hooks", [])
-        if h.get("resolve_plan") == chapter_ref
+        h for h in hooks_data.get("hooks", []) if h.get("resolve_plan") == chapter_ref
     ]
     hooks_mentioned = sum(
-        1
-        for h in chapter_hooks
-        if h.get("description", "")[:10] in full_text
+        1 for h in chapter_hooks if h.get("description", "")[:10] in full_text
     )
     results["checks"]["hook_mentions"] = {
-        "passed": (
-            hooks_mentioned == len(chapter_hooks) if chapter_hooks else True
-        ),
+        "passed": (hooks_mentioned == len(chapter_hooks) if chapter_hooks else True),
         "expected": len(chapter_hooks),
         "found": hooks_mentioned,
     }
@@ -81,7 +71,5 @@ def run_quality_checks(
         "note": "skipped in v1",
     }
 
-    results["passed"] = all(
-        c["passed"] for c in results["checks"].values()
-    )
+    results["passed"] = all(c["passed"] for c in results["checks"].values())
     return results
