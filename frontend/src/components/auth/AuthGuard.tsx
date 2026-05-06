@@ -5,16 +5,14 @@ import { useRouter } from "next/navigation";
 import { isLoggedIn } from "@/lib/auth";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const [ok, setOk] = useState(false);
+  const [ok, setOk] = useState(() => isLoggedIn());
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoggedIn()) {
+    if (!ok) {
       router.push("/login");
-    } else {
-      setOk(true);
     }
-  }, [router]);
+  }, [ok, router]);
 
   if (!ok) {
     return (

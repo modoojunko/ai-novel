@@ -1,10 +1,10 @@
 "use client";
 
-import { createContext, useContext, useCallback, useState } from "react";
+import { useState } from "react";
 
 type Toast = { id: number; message: string; type: "error" | "success" | "info" };
 
-let _listeners: Set<(toasts: Toast[]) => void> = new Set();
+const _listeners = new Set<(toasts: Toast[]) => void>();
 let _toasts: Toast[] = [];
 let _nextId = 1;
 

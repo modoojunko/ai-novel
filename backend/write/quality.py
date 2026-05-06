@@ -7,7 +7,6 @@ def run_quality_checks(
     root_path: str, chapter: dict, full_text: str
 ) -> dict:
     anti_ai = read_yaml(root_path, "settings/anti-ai.yaml")
-    style = read_yaml(root_path, "settings/writing-style.yaml")
 
     results = {"passed": True, "checks": {}}
 
