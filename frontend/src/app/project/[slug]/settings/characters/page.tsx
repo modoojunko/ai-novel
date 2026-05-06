@@ -94,13 +94,13 @@ export default function CharactersListPage() {
                 >
                   <Trash2 className="w-4 h-4 text-red-400" />
                 </Button>
-                <ArrowRight className="w-4 h-4 text-gray-400" />
+                <ArrowRight className="w-4 h-4 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
         ))}
         {characters.length === 0 && (
-          <p className="text-gray-400 text-center py-8">No characters yet. Create your first character above.</p>
+          <p className="text-muted-foreground text-center py-8">No characters yet. Create your first character above.</p>
         )}
       </div>
     </div>

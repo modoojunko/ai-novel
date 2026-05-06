@@ -13,7 +13,7 @@ export default async function ProjectLayout({
   return (
     <AuthGuard>
       <ProjectNav slug={slug} />
-      <div className="p-6">{children}</div>
+      <div className="p-6 page-enter">{children}</div>
     </AuthGuard>
   );
 }

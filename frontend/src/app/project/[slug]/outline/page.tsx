@@ -247,7 +247,7 @@ export default function OutlinePage() {
                         return (
                           <div
                             key={ref}
-                            className="flex items-center justify-between py-2 px-3 rounded hover:bg-gray-50 cursor-pointer text-sm"
+                            className="flex items-center justify-between py-2 px-3 rounded hover:bg-muted cursor-pointer text-sm"
                             onClick={() => setEditingChapter(ch)}
                           >
                             <span>
@@ -255,7 +255,7 @@ export default function OutlinePage() {
                             </span>
                             <div className="flex items-center gap-1">
                               {ch.status === "confirmed" && (
-                                <CheckCircle2 className="w-3 h-3 text-green-500" />
+                                <CheckCircle2 className="w-3 h-3 text-primary" />
                               )}
                               <Button
                                 variant="ghost"
@@ -426,7 +426,7 @@ export default function OutlinePage() {
               </Button>
             </div>
           ) : (
-            <div className="flex items-center justify-center h-64 text-gray-400">
+            <div className="flex items-center justify-center h-64 text-muted-foreground">
               Select a chapter to edit
             </div>
           )}

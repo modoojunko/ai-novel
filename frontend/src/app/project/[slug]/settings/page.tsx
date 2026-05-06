@@ -63,18 +63,18 @@ export default function SettingsHub() {
             }
           >
             <CardHeader className="flex flex-row items-center gap-3">
-              <s.icon className="w-5 h-5 text-gray-400" />
+              <s.icon className="w-5 h-5 text-primary/60" />
               <div className="flex-1">
                 <CardTitle className="text-base">{s.label}</CardTitle>
               </div>
               {checks[s.key] ? (
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                <CheckCircle2 className="w-4 h-4 text-primary" />
               ) : (
-                <Circle className="w-4 h-4 text-gray-300" />
+                <Circle className="w-4 h-4 text-muted-foreground/20" />
               )}
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-500">{s.desc}</p>
+              <p className="text-sm text-muted-foreground">{s.desc}</p>
             </CardContent>
           </Card>
         ))}

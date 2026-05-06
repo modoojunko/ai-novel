@@ -36,16 +36,16 @@ export function Toaster() {
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
       {toasts.map((t) => {
-        const bg =
+        const style =
           t.type === "error"
-            ? "bg-red-600"
+            ? "bg-destructive text-white"
             : t.type === "success"
-              ? "bg-green-600"
-              : "bg-gray-800";
+              ? "bg-primary text-primary-foreground"
+              : "bg-card text-foreground ring-1 ring-border";
         return (
           <div
             key={t.id}
-            className={`${bg} text-white text-sm px-4 py-3 rounded-lg shadow-lg animate-in slide-in-from-right`}
+            className={`${style} text-sm px-4 py-3 rounded-lg shadow-lg animate-in fade-in slide-in-from-bottom-2`}
           >
             {t.message}
           </div>

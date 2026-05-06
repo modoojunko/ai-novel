@@ -114,7 +114,7 @@ export default function PromptsPage() {
                 </Button>
               ))}
               {chapterRefs.length === 0 && (
-                <p className="text-gray-400 text-sm">No chapters yet. Create outlines first.</p>
+                <p className="text-muted-foreground text-sm">No chapters yet. Create outlines first.</p>
               )}
             </CardContent>
           </Card>
@@ -187,7 +187,7 @@ export default function PromptsPage() {
                 <CardTitle className="text-base">Perspective Guidance</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-sm whitespace-pre-wrap bg-gray-50 rounded p-4">
+                <div className="text-sm whitespace-pre-wrap bg-muted/50 rounded p-4">
                   {guidance}
                 </div>
               </CardContent>
@@ -202,7 +202,7 @@ export default function PromptsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-sm whitespace-pre-wrap bg-gray-50 rounded p-4 max-h-96 overflow-y-auto">
+                <div className="text-sm whitespace-pre-wrap bg-muted/50 rounded p-4 max-h-96 overflow-y-auto">
                   {promptContent}
                 </div>
               </CardContent>
@@ -210,13 +210,13 @@ export default function PromptsPage() {
           )}
 
           {!guidance && !promptContent && selectedRef && (
-            <div className="flex items-center justify-center h-64 text-gray-400">
+            <div className="flex items-center justify-center h-64 text-muted-foreground">
               Run perspective conversion and generate prompts to see content here
             </div>
           )}
 
           {!selectedRef && (
-            <div className="flex items-center justify-center h-64 text-gray-400">
+            <div className="flex items-center justify-center h-64 text-muted-foreground">
               Select a chapter to begin
             </div>
           )}

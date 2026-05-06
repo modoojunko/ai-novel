@@ -59,7 +59,9 @@ function Dashboard() {
   return (
     <main className="max-w-4xl mx-auto py-12 px-4">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold">My Projects</h1>
+        <h1 className="text-3xl font-bold font-[family-name:var(--font-serif-heading)] text-primary">
+          My Projects
+        </h1>
       </div>
 
       <div className="flex gap-4 mb-8">
@@ -81,8 +83,8 @@ function Dashboard() {
           {[1, 2, 3, 4].map((i) => <CardSkeleton key={i} />)}
         </div>
       ) : projects.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <p className="text-lg mb-2">No projects yet</p>
+        <div className="text-center py-16 text-muted-foreground">
+          <p className="text-lg mb-2 font-[family-name:var(--font-serif-heading)]">No projects yet</p>
           <p className="text-sm">Create one above to get started.</p>
         </div>
       ) : (
@@ -90,17 +92,17 @@ function Dashboard() {
           {projects.map((p) => (
             <Card
               key={p.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
+              className="cursor-pointer hover:shadow-md hover:ring-1 hover:ring-primary/20 transition-all"
               onClick={() => router.push(`/project/${p.slug}`)}
             >
               <CardHeader>
                 <CardTitle>{p.name}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   Phase: {p.current_phase} · Chapters: {p.total_chapters}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-muted-foreground/70 mt-1">
                   Updated: {new Date(p.updated_at).toLocaleDateString()}
                 </p>
               </CardContent>

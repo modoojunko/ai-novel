@@ -1,21 +1,28 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Noto_Serif_SC, Noto_Sans_SC, JetBrains_Mono } from "next/font/google";
 import { ClientShell } from "@/components/ClientShell";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const serifHeading = Noto_Serif_SC({
+  variable: "--font-serif-heading",
+  subsets: ["chinese-simplified", "latin"],
+  weight: ["400", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const sansBody = Noto_Sans_SC({
+  variable: "--font-sans",
+  subsets: ["chinese-simplified", "latin"],
+  weight: ["400", "500"],
+});
+
+const monoFont = JetBrains_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Novel SaaS",
-  description: "AI-assisted novel writing platform",
+  title: "NovelForge — AI-Assisted Novel Writing",
+  description: "Write your novel in the quiet warmth of the late-night study.",
 };
 
 export default function RootLayout({
@@ -26,7 +33,7 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${serifHeading.variable} ${sansBody.variable} ${monoFont.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <ClientShell>{children}</ClientShell>

@@ -54,16 +54,16 @@ export default function ArchivesPage() {
       <div className="max-w-3xl mx-auto">
         <button
           onClick={() => { setSelected(null); setContent(""); }}
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-black mb-4"
+          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-4"
         >
           <ChevronLeft className="w-4 h-4" /> Back to list
         </button>
-        <h2 className="text-xl font-bold mb-4">
+        <h2 className="text-xl font-bold mb-4 font-[family-name:var(--font-serif-heading)]">
           第{parseChapterInfo(selected.filename).vol}卷 第{parseChapterInfo(selected.filename).ch}章 — {parseChapterInfo(selected.filename).title}
         </h2>
         <Card>
           <CardContent className="py-6">
-            <article className="prose prose-sm max-w-none whitespace-pre-wrap leading-relaxed text-[15px]">
+            <article className="prose-warm max-w-none whitespace-pre-wrap leading-relaxed text-[15px]">
               {content || "Loading..."}
             </article>
           </CardContent>
@@ -75,12 +75,12 @@ export default function ArchivesPage() {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold">Archives</h2>
-        <span className="text-sm text-gray-400">{archives.length} chapters</span>
+        <h2 className="text-2xl font-bold font-[family-name:var(--font-serif-heading)]">Archives</h2>
+        <span className="text-sm text-muted-foreground">{archives.length} chapters</span>
       </div>
 
       <div className="relative mb-6">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <Input
           className="pl-9"
           placeholder="Search by title or filename..."
@@ -90,7 +90,7 @@ export default function ArchivesPage() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-muted-foreground">
           <FileText className="w-12 h-12 mx-auto mb-4 opacity-30" />
           {archives.length === 0
             ? "No archived chapters yet. Complete Phase 5 writing and archive to see them here."
@@ -103,7 +103,7 @@ export default function ArchivesPage() {
             return (
               <Card
                 key={a.filename}
-                className="cursor-pointer hover:shadow-md transition-shadow"
+                className="cursor-pointer hover:shadow-md hover:ring-1 hover:ring-primary/20 transition-all"
                 onClick={() => openArchive(a)}
               >
                 <CardContent className="flex items-center justify-between py-4">
@@ -111,9 +111,9 @@ export default function ArchivesPage() {
                     <span className="font-medium">
                       Vol {info.vol} · Ch {info.ch}
                     </span>
-                    <span className="text-gray-500 ml-3 capitalize">{info.title}</span>
+                    <span className="text-muted-foreground ml-3 capitalize">{info.title}</span>
                   </div>
-                  <span className="text-xs text-gray-400 font-mono">{a.filename}</span>
+                  <span className="text-xs text-muted-foreground font-mono">{a.filename}</span>
                 </CardContent>
               </Card>
             );

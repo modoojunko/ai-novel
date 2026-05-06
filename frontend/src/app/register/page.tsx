@@ -32,10 +32,18 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50">
-      <Card className="w-96">
+    <main className="min-h-screen flex items-center justify-center relative">
+      {/* Lamp glow */}
+      <div
+        className="absolute top-1/3 left-1/2 -translate-x-1/2 w-80 h-80 rounded-full pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse at center, oklch(0.72 0.15 72 / 8%), transparent 60%)",
+        }}
+      />
+      <Card className="relative z-10 sm:max-w-md w-full mx-4 border-border/50">
         <CardHeader>
-          <CardTitle>Create Account</CardTitle>
+          <CardTitle className="font-[family-name:var(--font-serif-heading)]">Create Account</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -64,9 +72,9 @@ export default function RegisterPage() {
             <Button type="submit" className="w-full">
               Create Account
             </Button>
-            <p className="text-sm text-center text-gray-500">
+            <p className="text-sm text-center text-muted-foreground">
               Already have an account?{" "}
-              <Link href="/login" className="underline">
+              <Link href="/login" className="underline hover:text-primary transition-colors">
                 Sign In
               </Link>
             </p>

@@ -16,10 +16,10 @@ type Thread = {
 };
 
 const TEMP_COLORS: Record<string, string> = {
-  low: "bg-blue-100 text-blue-700",
-  medium: "bg-yellow-100 text-yellow-700",
-  high: "bg-orange-100 text-orange-700",
-  climax: "bg-red-100 text-red-700",
+  low: "bg-primary/20 text-primary",
+  medium: "bg-amber-800/30 text-amber-300",
+  high: "bg-orange-800/30 text-orange-300",
+  climax: "bg-destructive/20 text-destructive",
 };
 
 const TEMP_LABELS: Record<string, string> = {
@@ -53,14 +53,14 @@ export default function ThreadsPage() {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
+        <h2 className="text-2xl font-bold flex items-center gap-2 font-[family-name:var(--font-serif-heading)]">
           <GitBranch className="w-6 h-6" /> Thread Timeline
         </h2>
-        <span className="text-sm text-gray-400">{entries.length} threads</span>
+        <span className="text-sm text-muted-foreground">{entries.length} threads</span>
       </div>
 
       {entries.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-muted-foreground">
           <GitBranch className="w-12 h-12 mx-auto mb-4 opacity-30" />
           No threads defined yet. Threads are created automatically when chapters are archived with thread assignments.
         </div>
@@ -78,14 +78,14 @@ export default function ThreadsPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <ChevronRight
-                        className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-90" : ""}`}
+                        className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? "rotate-90" : ""}`}
                       />
                       <CardTitle className="text-base">{name}</CardTitle>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${TEMP_COLORS[temp]}`}>
                         {TEMP_LABELS[temp]}
                       </span>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-400">
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" /> {t.last_chapter || "—"}
                       </span>
@@ -96,7 +96,7 @@ export default function ThreadsPage() {
                 {isOpen && (
                   <CardContent className="space-y-4 pt-0">
                     <div>
-                      <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         Current State
                       </label>
                       <p className="text-sm mt-1">{t.current_state || "No state recorded."}</p>
@@ -104,13 +104,13 @@ export default function ThreadsPage() {
 
                     {(t.pending_questions || []).length > 0 && (
                       <div>
-                        <label className="text-xs font-medium text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                           <AlertCircle className="w-3 h-3" /> Pending Questions
                         </label>
                         <ul className="mt-1 space-y-1">
                           {t.pending_questions.map((q, i) => (
-                            <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
-                              <span className="text-gray-300 mt-0.5">•</span>
+                            <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                              <span className="text-muted-foreground/40 mt-0.5">•</span>
                               {q}
                             </li>
                           ))}
@@ -120,17 +120,17 @@ export default function ThreadsPage() {
 
                     {(t.active_hooks || []).length > 0 && (
                       <div>
-                        <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Active Hooks
                         </label>
                         <div className="mt-1 space-y-1">
                           {t.active_hooks.map((h) => (
                             <div key={h.ref} className="text-sm flex items-center gap-2">
-                              <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">
+                              <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
                                 {h.ref}
                               </span>
                               <span>{h.description}</span>
-                              <span className="text-xs text-gray-400">({h.status})</span>
+                              <span className="text-xs text-muted-foreground">({h.status})</span>
                             </div>
                           ))}
                         </div>

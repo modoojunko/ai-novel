@@ -31,7 +31,7 @@ export default function ProjectPage() {
 
   return (
     <div className="flex items-center justify-center py-24">
-      <p className="text-gray-400">Loading project...</p>
+      <p className="text-muted-foreground">Loading project...</p>
     </div>
   );
 }

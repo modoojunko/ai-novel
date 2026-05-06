@@ -216,7 +216,7 @@ export default function WritePage() {
                 </Button>
               ))}
               {chapterRefs.length === 0 && (
-                <p className="text-xs text-gray-400 p-2">No chapters with prompts yet.</p>
+                <p className="text-xs text-muted-foreground p-2">No chapters with prompts yet.</p>
               )}
             </CardContent>
           </Card>
@@ -225,11 +225,11 @@ export default function WritePage() {
         {/* Center: segments */}
         <div className="col-span-7">
           {!selectedRef ? (
-            <div className="flex items-center justify-center h-64 text-gray-400">
+            <div className="flex items-center justify-center h-64 text-muted-foreground">
               Select a chapter to start writing
             </div>
           ) : segments.length === 0 ? (
-            <div className="flex items-center justify-center h-64 text-gray-400">
+            <div className="flex items-center justify-center h-64 text-muted-foreground">
               This chapter has no segments. Generate prompts first.
             </div>
           ) : (
@@ -242,10 +242,10 @@ export default function WritePage() {
                         Seg {seg.idx}: {seg.title}
                       </CardTitle>
                       {seg.status === "streaming" && (
-                        <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
                       )}
                       {seg.status === "done" && (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        <CheckCircle2 className="w-4 h-4 text-primary" />
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -268,7 +268,7 @@ export default function WritePage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <ScrollArea className="h-48 rounded border bg-gray-50 p-3">
+                    <ScrollArea className="h-48 rounded border bg-muted/30 p-3">
                       {seg.text ? (
                         <p className="text-sm whitespace-pre-wrap leading-relaxed">{seg.text}</p>
                       ) : (
@@ -334,7 +334,7 @@ export default function WritePage() {
                 <CardHeader className="py-3">
                   <CardTitle className="text-sm">Stats</CardTitle>
                 </CardHeader>
-                <CardContent className="text-xs space-y-1 text-gray-500">
+                <CardContent className="text-xs space-y-1 text-muted-foreground">
                   <div>Segments: {segments.length}</div>
                   <div>Completed: {segments.filter((s) => s.status === "done").length}</div>
                   <div>Tokens: {totalTokens.toLocaleString()}</div>
@@ -351,7 +351,7 @@ export default function WritePage() {
                   </CardHeader>
                   <CardContent className="space-y-2">
                     {qcResult.passed ? (
-                      <p className="text-sm text-green-600 font-medium flex items-center gap-1">
+                      <p className="text-sm text-primary font-medium flex items-center gap-1">
                         <CheckCircle2 className="w-4 h-4" /> All checks passed
                       </p>
                     ) : (
@@ -360,8 +360,8 @@ export default function WritePage() {
                     {qcResult.checks &&
                       Object.entries(qcResult.checks).map(([key, check]: [string, any]) => (
                         <div key={key} className="text-xs flex items-center justify-between">
-                          <span className="text-gray-500">{key.replace(/_/g, " ")}</span>
-                          <span className={check.passed ? "text-green-500" : "text-red-500"}>
+                          <span className="text-muted-foreground">{key.replace(/_/g, " ")}</span>
+                          <span className={check.passed ? "text-primary" : "text-red-500"}>
                             {check.passed ? "PASS" : "FAIL"}
                           </span>
                         </div>

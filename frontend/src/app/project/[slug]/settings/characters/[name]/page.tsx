@@ -142,7 +142,7 @@ export default function CharacterEditorPage() {
             </div>
           ))}
           {relationships.length === 0 && (
-            <p className="text-gray-400 text-sm">No relationships defined.</p>
+            <p className="text-muted-foreground text-sm">No relationships defined.</p>
           )}
         </CardContent>
       </Card>

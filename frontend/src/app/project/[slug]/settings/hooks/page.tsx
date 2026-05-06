@@ -46,11 +46,11 @@ export default function HooksPage() {
   }
 
   const STATUS_COLORS: Record<string, string> = {
-    planned: "bg-gray-200",
-    mentioned: "bg-yellow-200",
-    reinforced: "bg-orange-200",
-    resolved: "bg-green-200",
-    abandoned: "bg-red-200",
+    planned: "bg-muted",
+    mentioned: "bg-primary/20 text-primary",
+    reinforced: "bg-amber-800/30 text-amber-300",
+    resolved: "bg-emerald-800/30 text-emerald-300",
+    abandoned: "bg-destructive/20 text-destructive",
   };
 
   return (
@@ -60,7 +60,7 @@ export default function HooksPage() {
         <Button onClick={add}><Plus className="w-4 h-4 mr-2" />New Hook</Button>
       </div>
 
-      <div className="grid grid-cols-5 gap-2 mb-4 text-sm font-medium text-gray-500 px-4">
+      <div className="grid grid-cols-5 gap-2 mb-4 text-sm font-medium text-muted-foreground px-4">
         <div>ID</div>
         <div className="col-span-2">Description</div>
         <div>Type</div>
