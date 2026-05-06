@@ -21,8 +21,8 @@ const monoFont = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NovelForge — AI-Assisted Novel Writing",
-  description: "Write your novel in the quiet warmth of the late-night study.",
+  title: "NovelForge — AI 辅助长篇小说写作",
+  description: "月下青砚，笔墨生花。在深夜的静谧中，与 AI 一起完成你的长篇小说。",
 };
 
 export default function RootLayout({
