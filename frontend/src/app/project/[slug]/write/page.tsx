@@ -4,21 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Play,
-  Pause,
-  RotateCcw,
   CheckCircle2,
   AlertTriangle,
   Loader2,
   Archive,
-  ChevronRight,
-  FileText,
   Copy,
 } from "lucide-react";
+import { ChapterTree, parseChapterRefs } from "@/components/project/ChapterTree";
 
 type SegState = {
   idx: number;
@@ -41,6 +34,8 @@ export default function WritePage() {
   const [qcResult, setQcResult] = useState<any>(null);
   const [archiving, setArchiving] = useState(false);
   const abortRef = useRef<Record<number, AbortController>>({});
+  const [expandedVols, setExpandedVols] = useState<Record<string, boolean>>({});
+  const [showQc, setShowQc] = useState(false);
 
   useEffect(() => {
     api.get(`/projects/by-slug/${slug}`).then((p: any) => setProjectId(p.id));
@@ -184,213 +179,274 @@ export default function WritePage() {
   const totalViolations = segments.reduce((acc, s) => acc + s.violations.length, 0);
   const totalTokens = segments.reduce((acc, s) => acc + s.tokens, 0);
 
-  const chapterRefs: string[] = [];
-  volumes.forEach((v) => {
-    (v.chapters || []).forEach((ch: any) => {
-      chapterRefs.push(`vol-${ch.volume}-ch-${ch.chapter}`);
-    });
-  });
+  const { volumes: treeVolumes, chapterRefs } = parseChapterRefs(volumes);
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6">Writing Studio</h2>
-
-      <div className="grid grid-cols-12 gap-4">
-        {/* Left rail */}
-        <div className="col-span-2">
-          <Card>
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm">Chapters</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1 p-2">
-              {chapterRefs.map((ref) => (
-                <Button
-                  key={ref}
-                  variant={selectedRef === ref ? "default" : "ghost"}
-                  size="sm"
-                  className="w-full justify-start text-xs"
-                  onClick={() => selectChapter(ref)}
-                >
-                  <ChevronRight className="w-3 h-3 mr-1" />
-                  {ref}
-                </Button>
-              ))}
-              {chapterRefs.length === 0 && (
-                <p className="text-xs text-muted-foreground p-2">No chapters with prompts yet.</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Center: segments */}
-        <div className="col-span-7">
-          {!selectedRef ? (
-            <div className="flex items-center justify-center h-64 text-muted-foreground">
-              Select a chapter to start writing
-            </div>
-          ) : segments.length === 0 ? (
-            <div className="flex items-center justify-center h-64 text-muted-foreground">
-              This chapter has no segments. Generate prompts first.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {segments.map((seg) => (
-                <Card key={seg.idx}>
-                  <CardHeader className="py-3 flex flex-row items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-sm font-medium">
-                        Seg {seg.idx}: {seg.title}
-                      </CardTitle>
-                      {seg.status === "streaming" && (
-                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                      )}
-                      {seg.status === "done" && (
-                        <CheckCircle2 className="w-4 h-4 text-primary" />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {seg.status === "streaming" && (
-                        <Button variant="outline" size="sm" onClick={() => stopStream(seg.idx)}>
-                          <Pause className="w-3 h-3 mr-1" /> Stop
-                        </Button>
-                      )}
-                      {(seg.status === "idle" || seg.status === "paused") && (
-                        <Button size="sm" onClick={() => startStream(seg.idx)}>
-                          <Play className="w-3 h-3 mr-1" />
-                          {seg.status === "paused" ? "Resume" : "Generate"}
-                        </Button>
-                      )}
-                      {seg.status === "done" && (
-                        <Button variant="outline" size="sm" onClick={() => startStream(seg.idx)}>
-                          <RotateCcw className="w-3 h-3 mr-1" /> Regenerate
-                        </Button>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <ScrollArea className="h-48 rounded border bg-muted/30 p-3">
-                      {seg.text ? (
-                        <p className="text-sm whitespace-pre-wrap leading-relaxed">{seg.text}</p>
-                      ) : (
-                        <p className="text-sm text-gray-300 italic">
-                          {seg.status === "streaming"
-                            ? "Generating..."
-                            : "Click Generate to start writing this segment."}
-                        </p>
-                      )}
-                    </ScrollArea>
-                    {seg.violations.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {seg.violations.map((v, i) => (
-                          <span key={i} className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded">
-                            {v}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Right rail: actions + quality */}
-        <div className="col-span-3 space-y-4">
-          {selectedRef && (
-            <>
-              <Card>
-                <CardHeader className="py-3">
-                  <CardTitle className="text-sm">Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={runQualityCheck}
-                    disabled={!segments.some((s) => s.status === "done")}
-                  >
-                    <AlertTriangle className="w-3 h-3 mr-1" />
-                    Quality Check
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    onClick={doArchive}
-                    disabled={!allDone || archiving}
-                  >
-                    {archiving ? (
-                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                    ) : (
-                      <Archive className="w-3 h-3 mr-1" />
-                    )}
-                    Archive Chapter
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="py-3">
-                  <CardTitle className="text-sm">Stats</CardTitle>
-                </CardHeader>
-                <CardContent className="text-xs space-y-1 text-muted-foreground">
-                  <div>Segments: {segments.length}</div>
-                  <div>Completed: {segments.filter((s) => s.status === "done").length}</div>
-                  <div>Tokens: {totalTokens.toLocaleString()}</div>
-                  <div className={totalViolations > 0 ? "text-red-500 font-medium" : ""}>
-                    Violations: {totalViolations}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {qcResult && (
-                <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle className="text-sm">Quality Check</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {qcResult.passed ? (
-                      <p className="text-sm text-primary font-medium flex items-center gap-1">
-                        <CheckCircle2 className="w-4 h-4" /> All checks passed
-                      </p>
-                    ) : (
-                      <p className="text-sm text-red-600 font-medium">Issues found</p>
-                    )}
-                    {qcResult.checks &&
-                      Object.entries(qcResult.checks).map(([key, check]: [string, any]) => (
-                        <div key={key} className="text-xs flex items-center justify-between">
-                          <span className="text-muted-foreground">{key.replace(/_/g, " ")}</span>
-                          <span className={check.passed ? "text-primary" : "text-red-500"}>
-                            {check.passed ? "PASS" : "FAIL"}
-                          </span>
-                        </div>
-                      ))}
-                  </CardContent>
-                </Card>
-              )}
-
-              {fullText && allDone && (
-                <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle className="text-sm">Full Text</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => navigator.clipboard.writeText(fullText)}
-                    >
-                      <Copy className="w-3 h-3 mr-1" /> Copy All ({fullText.length} chars)
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-            </>
+    <div className="flex h-[calc(100vh-120px)] relative">
+      {/* Left: Chapter tree */}
+      <div className="w-[220px] flex-shrink-0 border-r border-border p-3 overflow-y-auto">
+        <span className="text-[11px] text-muted-foreground uppercase tracking-wider">卷·章</span>
+        <div className="mt-2">
+          <ChapterTree
+            volumes={treeVolumes}
+            selectedRef={selectedRef}
+            onSelect={selectChapter}
+            expanded={expandedVols}
+            onToggle={(name) => setExpandedVols((p) => ({ ...p, [name]: !p[name] }))}
+          />
+          {chapterRefs.length === 0 && (
+            <p className="text-xs text-muted-foreground p-2">暂无章节</p>
           )}
         </div>
       </div>
+
+      {/* Center: prose flow */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {!selectedRef ? (
+          <div className="flex items-center justify-center flex-1 text-muted-foreground">
+            选择左侧章节开始写作
+          </div>
+        ) : segments.length === 0 ? (
+          <div className="flex items-center justify-center flex-1 text-muted-foreground">
+            本章暂无段落。先生成提示词。
+          </div>
+        ) : (
+          <>
+            {/* Chapter header */}
+            <div className="px-8 py-5 border-b border-border">
+              <div className="flex items-baseline justify-between">
+                <div>
+                  <span className="text-[10px] text-muted-foreground">
+                    vol-{chapter?.volume} · ch-{chapter?.chapter}
+                  </span>
+                  <h3 className="text-xl font-[family-name:var(--font-serif-heading)] text-foreground mt-1">
+                    {chapter?.title || selectedRef}
+                  </h3>
+                </div>
+                <span className="text-xs text-muted-foreground">{totalTokens.toLocaleString()} tokens</span>
+              </div>
+              {/* Segment progress dots */}
+              <div className="flex items-center gap-[5px] mt-3">
+                {segments.map((seg) => (
+                  <div
+                    key={seg.idx}
+                    className={`w-[7px] h-[7px] rounded-full ${
+                      seg.status === "done"
+                        ? "bg-emerald-600"
+                        : seg.status === "streaming"
+                          ? "bg-primary shadow-[0_0_5px_var(--primary)]"
+                          : "border border-muted-foreground/30"
+                    }`}
+                  />
+                ))}
+                <span className="text-[10px] text-muted-foreground ml-2">
+                  {segments.filter((s) => s.status === "done").length}/{segments.length} segments
+                </span>
+              </div>
+            </div>
+
+            {/* Segment flow */}
+            <div className="flex-1 overflow-y-auto px-8 py-6 space-y-0">
+              {segments.map((seg) => (
+                <div
+                  key={seg.idx}
+                  className={`pb-6 mb-6 ${
+                    seg.status === "streaming"
+                      ? "border-l-[2px] border-primary pl-4 -ml-[2px] bg-primary/[0.02] rounded-r-lg"
+                      : seg.status === "idle" || seg.status === "paused"
+                        ? "border-l-[1px] border-dashed border-muted-foreground/20 pl-4 -ml-[1px]"
+                        : "border-l-[2px] border-transparent pl-4 -ml-[2px]"
+                  }`}
+                >
+                  {/* Segment header */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <div
+                      className={`w-[6px] h-[6px] rounded-full flex-shrink-0 ${
+                        seg.status === "done"
+                          ? "bg-emerald-600"
+                          : seg.status === "streaming"
+                            ? "bg-primary shadow-[0_0_4px_var(--primary)]"
+                            : "border border-muted-foreground/30"
+                      }`}
+                    />
+                    <span
+                      className={`text-[10px] ${
+                        seg.status === "done"
+                          ? "text-emerald-600/70"
+                          : seg.status === "streaming"
+                            ? "text-primary"
+                            : "text-muted-foreground/40"
+                      }`}
+                    >
+                      seg {seg.idx} · {seg.title}
+                    </span>
+                    <span className="ml-auto flex items-center gap-2">
+                      {seg.status === "streaming" && (
+                        <button
+                          onClick={() => stopStream(seg.idx)}
+                          className="text-[10px] text-primary border border-primary rounded px-2 py-0.5 hover:bg-primary/10 transition-colors"
+                        >
+                          暂停
+                        </button>
+                      )}
+                      {(seg.status === "idle" || seg.status === "paused") && (
+                        <button
+                          onClick={() => startStream(seg.idx)}
+                          className="text-[10px] text-primary border border-primary/40 rounded px-2 py-0.5 hover:bg-primary/10 transition-colors"
+                        >
+                          生成
+                        </button>
+                      )}
+                      {seg.status === "done" && (
+                        <button
+                          onClick={() => startStream(seg.idx)}
+                          className="text-[10px] text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          重生成
+                        </button>
+                      )}
+                    </span>
+                  </div>
+
+                  {/* Prose text */}
+                  {seg.text ? (
+                    <p
+                      className={`text-sm leading-relaxed whitespace-pre-wrap ${
+                        seg.status === "done"
+                          ? "font-[family-name:var(--font-serif-heading)] text-foreground"
+                          : "text-foreground/80"
+                      }`}
+                    >
+                      {seg.text}
+                      {seg.status === "streaming" && (
+                        <span className="inline-block w-[2px] h-[1em] bg-primary align-text-bottom animate-pulse ml-0.5" />
+                      )}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground/30 italic">
+                      {seg.status === "streaming" ? "生成中..." : "点击「生成」开始写作"}
+                    </p>
+                  )}
+
+                  {/* Violations */}
+                  {seg.violations && seg.violations.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {seg.violations.map((v: string, i: number) => (
+                        <span key={i} className="text-[10px] bg-destructive/10 text-destructive px-2 py-0.5 rounded">
+                          {v}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Right: slide-in QC panel */}
+      {showQc && selectedRef && (
+        <div className="w-[260px] flex-shrink-0 border-l border-border p-4 overflow-y-auto">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-muted-foreground">质量检查</span>
+            <button onClick={() => setShowQc(false)} className="text-muted-foreground hover:text-foreground">
+              <span className="text-sm">✕</span>
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start"
+              onClick={runQualityCheck}
+              disabled={!segments.some((s) => s.status === "done")}
+            >
+              <AlertTriangle className="w-3 h-3 mr-1" />
+              运行质量检查
+            </Button>
+
+            <Button
+              size="sm"
+              className="w-full justify-start"
+              onClick={doArchive}
+              disabled={!allDone || archiving}
+            >
+              {archiving ? (
+                <Loader2 className="w-3 h-3 animate-spin mr-1" />
+              ) : (
+                <Archive className="w-3 h-3 mr-1" />
+              )}
+              存档本章
+            </Button>
+
+            <div className="text-[11px] space-y-1 text-muted-foreground pt-2 border-t border-border">
+              <div className="flex justify-between">
+                <span>段落数</span>
+                <span>{segments.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>已完成</span>
+                <span>{segments.filter((s) => s.status === "done").length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Tokens</span>
+                <span>{totalTokens.toLocaleString()}</span>
+              </div>
+              <div className={`flex justify-between ${totalViolations > 0 ? "text-destructive" : ""}`}>
+                <span>违规项</span>
+                <span>{totalViolations}</span>
+              </div>
+            </div>
+
+            {qcResult && (
+              <div className="space-y-1 pt-2 border-t border-border">
+                {qcResult.passed ? (
+                  <p className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> 全部通过
+                  </p>
+                ) : (
+                  <p className="text-xs text-destructive font-medium">发现问题</p>
+                )}
+                {qcResult.checks &&
+                  Object.entries(qcResult.checks).map(([key, check]: [string, any]) => (
+                    <div key={key} className="text-[10px] flex items-center justify-between">
+                      <span className="text-muted-foreground">{key.replace(/_/g, " ")}</span>
+                      <span className={check.passed ? "text-emerald-600" : "text-destructive"}>
+                        {check.passed ? "PASS" : "FAIL"}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            {fullText && allDone && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => navigator.clipboard.writeText(fullText)}
+              >
+                <Copy className="w-3 h-3 mr-1" /> 复制全文 ({fullText.length} 字)
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* QC toggle button (shown when panel hidden) */}
+      {selectedRef && !showQc && (
+        <div className="absolute right-4 top-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowQc(true)}
+          >
+            质量检查
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
