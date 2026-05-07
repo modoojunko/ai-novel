@@ -8,36 +8,37 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{background:#0a0e17;color:#e2e8f0;font-family:"Noto Sans SC",sans-serif}
+body{background:#0a0e17;color:#e2e8f0;font-family:"Noto Sans SC",sans-serif;min-height:100vh}
 .lp{max-width:1100px;margin:0 auto;padding:0 32px}
 .lp-blue{color:#60a5fa}
 .lp-muted{color:#64748b}
-.lp-card{background:rgba(30,41,59,0.5);border:1px solid rgba(148,163,184,0.06);border-radius:12px;padding:32px;transition:all .2s}
+.lp-card{background:rgba(30,41,59,0.5);border:1px solid rgba(148,163,184,0.06);border-radius:12px;padding:32px;transition:all .2s;cursor:default}
 .lp-card:hover{background:rgba(30,41,59,0.7);border-color:rgba(59,130,246,0.2)}
 .lp-gradient{background:linear-gradient(135deg,#f1f5f9 0%,#93c5fd 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.lp-btn{padding:14px 36px;border-radius:8px;font-size:16px;font-weight:500;text-decoration:none;display:inline-block;transition:all .2s}
+.lp-btn{display:inline-block;padding:14px 36px;border-radius:8px;font-size:16px;font-weight:500;text-decoration:none;transition:all .2s}
 .lp-btn-primary{background:#3b82f6;color:#fff}
 .lp-btn-primary:hover{background:#2563eb}
 .lp-btn-outline{background:transparent;border:1px solid rgba(148,163,184,0.2);color:#94a3b8}
 .lp-btn-outline:hover{border-color:rgba(148,163,184,0.4);color:#e2e8f0}
 .lp-tag{display:inline-block;padding:6px 16px;border-radius:999px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);font-size:13px;color:#93c5fd;margin-bottom:24px}
 a{color:inherit}
+.lp-nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);background:rgba(10,14,23,0.8)}
 @media(max-width:768px){.lp-card{padding:24px}.hide-mobile{display:none!important}}
 </style>
 </head>
 <body>
 
 <!-- Nav -->
-<nav style="display:flex;align-items:center;justify-content:space-between;padding:20px 32px;max-width:1164px;margin:0 auto">
-  <div style="font-size:22px;font-weight:700;letter-spacing:.05em;color:#f1f5f9">
+<nav class="lp-nav" style="display:flex;align-items:center;justify-content:space-between;padding:16px 32px;max-width:1164px;margin:0 auto">
+  <a href="#" style="font-size:22px;font-weight:700;letter-spacing:.05em;color:#f1f5f9;text-decoration:none">
     爱<span style="color:#60a5fa">小说</span>
-  </div>
+  </a>
   <div style="display:flex;align-items:center;gap:24px">
-    <a href="#how" class="hide-mobile" style="font-size:14px;text-decoration:none;color:#94a3b8">工作流</a>
-    <a href="#features" class="hide-mobile" style="font-size:14px;text-decoration:none;color:#94a3b8">特色</a>
+    <a href="#how" style="font-size:14px;text-decoration:none;color:#94a3b8">工作流</a>
+    <a href="#features" style="font-size:14px;text-decoration:none;color:#94a3b8">特色</a>
     <a href="https://github.com/modoojunko/ai-novel" target="_blank" rel="noopener" class="hide-mobile" style="font-size:14px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:6px;color:#94a3b8;border:1px solid rgba(148,163,184,0.15)">⭐ Star</a>
-    <a href="https://novelforge-46b30.web.app/#/login" style="font-size:14px;text-decoration:none;color:#94a3b8">登录</a>
-    <a href="https://novelforge-46b30.web.app/#/register" style="font-size:14px;text-decoration:none;color:#fff;padding:8px 20px;border-radius:8px;font-weight:500;background:#3b82f6">开始使用</a>
+    <a href="https://shanghai-test-d2gyndv5ua34e4b47-1251397349.tcloudbaseapp.com/#/login" style="font-size:14px;text-decoration:none;color:#94a3b8">登录</a>
+    <a href="https://shanghai-test-d2gyndv5ua34e4b47-1251397349.tcloudbaseapp.com/#/register" style="font-size:14px;text-decoration:none;color:#fff;padding:8px 20px;border-radius:8px;font-weight:500;background:#3b82f6">开始使用</a>
   </div>
 </nav>
 
@@ -53,8 +54,8 @@ a{color:inherit}
       六阶段工作流：世界搭建 → 风格设定 → 大纲推演 → 逐段写作 → 质量检查 → 归档成稿。AI 是笔，你才是作家。
     </p>
     <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
-      <a href="https://novelforge-46b30.web.app/#/register" class="lp-btn lp-btn-primary">免费开始写作</a>
-      <a href="#how" class="lp-btn lp-btn-outline">了解更多 →</a>
+      <a href="https://shanghai-test-d2gyndv5ua34e4b47-1251397349.tcloudbaseapp.com/#/register" class="lp-btn lp-btn-primary">免费开始写作</a>
+      <a href="#how" class="lp-btn lp-btn-outline">查看完整工作流 →</a>
     </div>
   </div>
 </section>
@@ -66,21 +67,21 @@ a{color:inherit}
     <h2 style="font-size:32px;font-weight:600;color:#f1f5f9;margin-bottom:16px">写小说最大的障碍，不是写得不好</h2>
     <p style="font-size:15px;color:#64748b;max-width:480px;margin-bottom:48px">是根本没开始写。或者写了一万字之后，发现前面全要推翻重来。</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px">
-      <a href="https://novelforge-46b30.web.app/#/register" style="text-decoration:none;color:inherit" class="lp-card block">
+      <div class="lp-card">
         <div style="font-size:28px;margin-bottom:16px">😰</div>
         <h3 style="font-size:18px;font-weight:600;color:#f1f5f9;margin-bottom:10px">空白页恐惧</h3>
         <p style="font-size:14px;color:#64748b;line-height:1.7">每次打开文档面对闪烁的光标，脑子里有故事却不知道从哪下笔。AI 帮你把「想写」变成「在写」的第一步。</p>
-      </a>
-      <a href="https://novelforge-46b30.web.app/#/register" style="text-decoration:none;color:inherit" class="lp-card block">
+      </div>
+      <div class="lp-card">
         <div style="font-size:28px;margin-bottom:16px">🕸️</div>
         <h3 style="font-size:18px;font-weight:600;color:#f1f5f9;margin-bottom:10px">大纲混乱、人设崩塌</h3>
         <p style="font-size:14px;color:#64748b;line-height:1.7">写到一半发现角色行为前后矛盾，情节漏洞越来越多。用结构化工作流从源头管理世界、角色、时间线。</p>
-      </a>
-      <a href="https://novelforge-46b30.web.app/#/register" style="text-decoration:none;color:inherit" class="lp-card block">
+      </div>
+      <div class="lp-card">
         <div style="font-size:28px;margin-bottom:16px">🔄</div>
         <h3 style="font-size:18px;font-weight:600;color:#f1f5f9;margin-bottom:10px">反复推翻重写</h3>
         <p style="font-size:14px;color:#64748b;line-height:1.7">写完三章觉得风格不对，删掉重来——循环三次，热情耗尽。写作前先定风格、定视角，减少 80% 返工。</p>
-      </a>
+      </div>
     </div>
   </div>
 </section>
@@ -92,36 +93,36 @@ a{color:inherit}
     <h2 style="font-size:32px;font-weight:600;color:#f1f5f9;margin-bottom:16px">六阶段，走完一部小说</h2>
     <p style="font-size:15px;color:#64748b;max-width:480px;margin-bottom:48px">从零到一，每个阶段都有 AI 辅助，但决定权永远在你手里。</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:32px">
-      <a href="https://novelforge-46b30.web.app/#/register" style="text-decoration:none;color:inherit;text-align:center">
+      <div style="text-align:center">
         <div style="width:40px;height:40px;border-radius:50%;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:14px;font-weight:600;color:#60a5fa">1</div>
         <h3 style="font-size:18px;font-weight:600;color:#f1f5f9;margin-bottom:10px">世界搭建</h3>
         <p style="font-size:14px;color:#64748b;line-height:1.7;max-width:260px;margin:0 auto">设定世界观、规则、地理、势力。AI 帮你扩展细节，保持内部逻辑自洽。</p>
-      </a>
-      <a href="https://novelforge-46b30.web.app/#/register" style="text-decoration:none;color:inherit;text-align:center">
+      </div>
+      <div style="text-align:center">
         <div style="width:40px;height:40px;border-radius:50%;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:14px;font-weight:600;color:#60a5fa">2</div>
         <h3 style="font-size:18px;font-weight:600;color:#f1f5f9;margin-bottom:10px">风格设定</h3>
         <p style="font-size:14px;color:#64748b;line-height:1.7;max-width:260px;margin:0 auto">定义叙事风格、节奏、视角。所有 AI 生成都对齐你定下的风格规则。</p>
-      </a>
-      <a href="https://novelforge-46b30.web.app/#/register" style="text-decoration:none;color:inherit;text-align:center">
+      </div>
+      <div style="text-align:center">
         <div style="width:40px;height:40px;border-radius:50%;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:14px;font-weight:600;color:#60a5fa">3</div>
         <h3 style="font-size:18px;font-weight:600;color:#f1f5f9;margin-bottom:10px">大纲推演</h3>
         <p style="font-size:14px;color:#64748b;line-height:1.7;max-width:260px;margin:0 auto">分卷、分章、分节。拖拽调整结构，AI 检测节奏问题和逻辑漏洞。</p>
-      </a>
-      <a href="https://novelforge-46b30.web.app/#/register" style="text-decoration:none;color:inherit;text-align:center">
+      </div>
+      <div style="text-align:center">
         <div style="width:40px;height:40px;border-radius:50%;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:14px;font-weight:600;color:#60a5fa">4</div>
         <h3 style="font-size:18px;font-weight:600;color:#f1f5f9;margin-bottom:10px">提示词生成</h3>
         <p style="font-size:14px;color:#64748b;line-height:1.7;max-width:260px;margin:0 auto">基于大纲自动生成每节的写作提示词，也可手动精调引导 AI 输出。</p>
-      </a>
-      <a href="https://novelforge-46b30.web.app/#/register" style="text-decoration:none;color:inherit;text-align:center">
+      </div>
+      <div style="text-align:center">
         <div style="width:40px;height:40px;border-radius:50%;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:14px;font-weight:600;color:#60a5fa">5</div>
         <h3 style="font-size:18px;font-weight:600;color:#f1f5f9;margin-bottom:10px">逐段写作</h3>
         <p style="font-size:14px;color:#64748b;line-height:1.7;max-width:260px;margin:0 auto">AI 逐段生成内容，实时 SSE 流式输出。随时暂停、重写、调整方向。</p>
-      </a>
-      <a href="https://novelforge-46b30.web.app/#/register" style="text-decoration:none;color:inherit;text-align:center">
+      </div>
+      <div style="text-align:center">
         <div style="width:40px;height:40px;border-radius:50%;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:14px;font-weight:600;color:#60a5fa">6</div>
         <h3 style="font-size:18px;font-weight:600;color:#f1f5f9;margin-bottom:10px">归档成稿</h3>
         <p style="font-size:14px;color:#64748b;line-height:1.7;max-width:260px;margin:0 auto">质量检查（逻辑、风格、文法）通过后归档。可回溯任意历史版本。</p>
-      </a>
+      </div>
     </div>
   </div>
 </section>
@@ -133,34 +134,34 @@ a{color:inherit}
     <h2 style="font-size:32px;font-weight:600;color:#f1f5f9;margin-bottom:16px">不只是生成文字，而是帮你写出好故事</h2>
     <p style="font-size:15px;color:#64748b;max-width:480px;margin-bottom:48px">所有的 AI 能力都围绕一个目标：让你更高效地写出更高质量的长篇小说。</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">
-      <a href="https://novelforge-46b30.web.app/#/register" style="text-decoration:none;color:inherit;display:flex;gap:20px;padding:28px;border-radius:12px;align-items:flex-start;transition:all .2s;background:rgba(30,41,59,0.3);border:1px solid rgba(148,163,184,0.06)">
+      <div style="display:flex;gap:20px;padding:28px;border-radius:12px;align-items:flex-start;transition:all .2s;background:rgba(30,41,59,0.3);border:1px solid rgba(148,163,184,0.06)">
         <div style="width:44px;height:44px;border-radius:10px;flex-shrink:0;background:rgba(59,130,246,0.1);display:flex;align-items:center;justify-content:center;font-size:20px">🧠</div>
         <div>
           <div style="font-size:16px;font-weight:600;color:#f1f5f9;margin-bottom:6px">上下文感知生成</div>
           <p style="font-size:13px;color:#64748b;line-height:1.6">AI 知道前文情节、当前角色状态、风格规则，生成的内容和已有章节自然衔接。</p>
         </div>
-      </a>
-      <a href="https://novelforge-46b30.web.app/#/register" style="text-decoration:none;color:inherit;display:flex;gap:20px;padding:28px;border-radius:12px;align-items:flex-start;transition:all .2s;background:rgba(30,41,59,0.3);border:1px solid rgba(148,163,184,0.06)">
+      </div>
+      <div style="display:flex;gap:20px;padding:28px;border-radius:12px;align-items:flex-start;transition:all .2s;background:rgba(30,41,59,0.3);border:1px solid rgba(148,163,184,0.06)">
         <div style="width:44px;height:44px;border-radius:10px;flex-shrink:0;background:rgba(59,130,246,0.1);display:flex;align-items:center;justify-content:center;font-size:20px">🔍</div>
         <div>
           <div style="font-size:16px;font-weight:600;color:#f1f5f9;margin-bottom:6px">六维质量检测</div>
           <p style="font-size:13px;color:#64748b;line-height:1.6">每段生成后自动做 6 项质量检查：逻辑、风格、角色、密度、语言、节奏。</p>
         </div>
-      </a>
-      <a href="https://novelforge-46b30.web.app/#/register" style="text-decoration:none;color:inherit;display:flex;gap:20px;padding:28px;border-radius:12px;align-items:flex-start;transition:all .2s;background:rgba(30,41,59,0.3);border:1px solid rgba(148,163,184,0.06)">
+      </div>
+      <div style="display:flex;gap:20px;padding:28px;border-radius:12px;align-items:flex-start;transition:all .2s;background:rgba(30,41,59,0.3);border:1px solid rgba(148,163,184,0.06)">
         <div style="width:44px;height:44px;border-radius:10px;flex-shrink:0;background:rgba(59,130,246,0.1);display:flex;align-items:center;justify-content:center;font-size:20px">🎨</div>
         <div>
           <div style="font-size:16px;font-weight:600;color:#f1f5f9;margin-bottom:6px">风格模板系统</div>
           <p style="font-size:13px;color:#64748b;line-height:1.6">从爽文到严肃文学，设定一次，全书所有 AI 输出自动对齐你的风格。</p>
         </div>
-      </a>
-      <a href="https://novelforge-46b30.web.app/#/register" style="text-decoration:none;color:inherit;display:flex;gap:20px;padding:28px;border-radius:12px;align-items:flex-start;transition:all .2s;background:rgba(30,41,59,0.3);border:1px solid rgba(148,163,184,0.06)">
+      </div>
+      <div style="display:flex;gap:20px;padding:28px;border-radius:12px;align-items:flex-start;transition:all .2s;background:rgba(30,41,59,0.3);border:1px solid rgba(148,163,184,0.06)">
         <div style="width:44px;height:44px;border-radius:10px;flex-shrink:0;background:rgba(59,130,246,0.1);display:flex;align-items:center;justify-content:center;font-size:20px">📊</div>
         <div>
           <div style="font-size:16px;font-weight:600;color:#f1f5f9;margin-bottom:6px">用量透明可控</div>
           <p style="font-size:13px;color:#64748b;line-height:1.6">按 token 计费，模型可选（Haiku / Sonnet）。每段写作前预估算量，不会出现意外账单。</p>
         </div>
-      </a>
+      </div>
     </div>
   </div>
 </section>
@@ -170,17 +171,18 @@ a{color:inherit}
   <div class="lp">
     <h2 style="font-size:36px;font-weight:700;color:#f1f5f9;margin-bottom:16px">现在开始，写你的第一部小说</h2>
     <p style="font-size:16px;color:#64748b;margin-bottom:36px">不需要等待灵感，不需要万字规划。打开浏览器，从第一句话开始。</p>
-    <a href="https://novelforge-46b30.web.app/#/register" style="padding:16px 48px;border-radius:8px;font-size:18px;font-weight:600;text-decoration:none;display:inline-block;background:#3b82f6;color:#fff">免费开始 →</a>
+    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+      <a href="https://shanghai-test-d2gyndv5ua34e4b47-1251397349.tcloudbaseapp.com/#/register" class="lp-btn lp-btn-primary" style="padding:16px 48px;font-size:18px">免费开始 →</a>
+      <a href="https://github.com/modoojunko/ai-novel" target="_blank" rel="noopener" class="lp-btn lp-btn-outline" style="padding:16px 48px;font-size:18px">⭐ 去 GitHub 点 Star</a>
+    </div>
     <div style="display:flex;align-items:center;justify-content:center;gap:24px;margin-top:40px;font-size:14px;color:#64748b">
-      <a href="https://github.com/modoojunko/ai-novel" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:6px;text-decoration:none;color:#94a3b8">⭐ 去 GitHub 点个 Star</a>
-      <span style="color:rgba(148,163,184,0.15)">·</span>
       <a href="https://github.com/modoojunko/ai-novel/issues/new" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:6px;text-decoration:none;color:#94a3b8">💬 提建议 / 反馈问题</a>
     </div>
   </div>
 </section>
 
 <!-- Footer -->
-<footer style="text-align:center;padding:32px;border-top:1px solid rgba(148,163,184,0.06)">
+<footer style="text-align:center;padding:24px 32px;border-top:1px solid rgba(148,163,184,0.06)">
   <div class="lp" style="display:flex;justify-content:center;align-items:center;gap:24px;font-size:13px;color:#475569">
     <span>爱小说 · AI 辅助长篇小说写作平台</span>
     <span style="color:rgba(71,85,105,0.5)">|</span>
