@@ -1,6 +1,8 @@
 import { getToken, clearToken } from "./auth";
 
-const BASE = "/api";
+const BASE = import.meta.env.VITE_API_BASE_URL
+  ? `${import.meta.env.VITE_API_BASE_URL}/api`
+  : "/api";
 
 async function request(method: string, path: string, body?: unknown): Promise<any> {
   const headers: Record<string, string> = {};
