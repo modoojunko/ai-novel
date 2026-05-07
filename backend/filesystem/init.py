@@ -2,7 +2,9 @@ import os
 import shutil
 from pathlib import Path
 
-TEMPLATE_DIR = Path(__file__).parent.parent.parent / "reference"
+from config import REFERENCE_DIR
+
+TEMPLATE_DIR = Path(REFERENCE_DIR) if REFERENCE_DIR else (Path(__file__).parent.parent.parent / "reference")
 
 SKELETON_DIRS = [
     "settings/character-setting",
