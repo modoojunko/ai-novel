@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from "./env";
+
 export function getToken(): string | null {
   return localStorage.getItem("token");
 }
@@ -15,7 +17,7 @@ export function isLoggedIn(): boolean {
 }
 
 export async function login(email: string, password: string) {
-  const base = import.meta.env.VITE_API_BASE_URL || "";
+  const base = getApiBaseUrl();
   const res = await fetch(`${base}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -31,7 +33,7 @@ export async function login(email: string, password: string) {
 }
 
 export async function register(email: string, password: string, displayName: string) {
-  const base = import.meta.env.VITE_API_BASE_URL || "";
+  const base = getApiBaseUrl();
   const res = await fetch(`${base}/api/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

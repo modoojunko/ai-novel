@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
+import { getApiBaseUrl } from "@/lib/env";
 import ChapterTree, { parseChapterRefs } from "@/components/project/ChapterTree";
 import { CheckCircle2, AlertTriangle, Loader2, Archive, Copy } from "lucide-react";
 
@@ -72,7 +73,7 @@ export default function WritePage() {
       prev.map((s) => (s.idx === segIdx ? { ...s, text: "", violations: [], status: "streaming" } : s))
     );
 
-    const base = import.meta.env.VITE_API_BASE_URL || "";
+    const base = getApiBaseUrl();
     const url = `${base}/api/projects/${projectId}/chapters/${selectedRef}/write/stream/${segIdx}`;
     fetch(url, {
       headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
