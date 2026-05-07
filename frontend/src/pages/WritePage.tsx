@@ -72,7 +72,8 @@ export default function WritePage() {
       prev.map((s) => (s.idx === segIdx ? { ...s, text: "", violations: [], status: "streaming" } : s))
     );
 
-    const url = `/api/projects/${projectId}/chapters/${selectedRef}/write/stream/${segIdx}`;
+    const base = import.meta.env.VITE_API_BASE_URL || "";
+    const url = `${base}/api/projects/${projectId}/chapters/${selectedRef}/write/stream/${segIdx}`;
     fetch(url, {
       headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       signal: controller.signal,
