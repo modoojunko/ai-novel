@@ -1,31 +1,40 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
+import { getToken, clearToken } from "./auth";
 
-async function request(path: string, options?: RequestInit) {
-  const token = localStorage.getItem("token");
-  const res = await fetch(`${BASE}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options?.headers,
-    },
-  });
-  if (res.status === 401) {
-    localStorage.removeItem("token");
-    window.location.href = "/login";
+const BASE = "/api";
+
+async function request(method: string, path: string, body?: unknown): Promise<any> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
   }
+  if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const res = await fetch(`${BASE}${path}`, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+
+  if (res.status === 401) {
+    clearToken();
+    window.location.hash = "#/login";
+    throw new Error("Unauthorized");
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || "Request failed");
+    throw new Error(err.detail || res.statusText);
   }
+
   return res.json();
 }
 
 export const api = {
-  get: (path: string) => request(path),
-  post: (path: string, body?: unknown) =>
-    request(path, { method: "POST", body: JSON.stringify(body) }),
-  put: (path: string, body?: unknown) =>
-    request(path, { method: "PUT", body: JSON.stringify(body) }),
-  delete: (path: string) => request(path, { method: "DELETE" }),
+  get: (path: string) => request("GET", path),
+  post: (path: string, body?: unknown) => request("POST", path, body),
+  put: (path: string, body?: unknown) => request("PUT", path, body),
+  delete: (path: string) => request("DELETE", path),
 };

@@ -1,5 +1,3 @@
-"use client";
-
 import { Check } from "lucide-react";
 
 const PHASES = [
@@ -15,35 +13,35 @@ function phaseIndex(key: string): number {
   return PHASES.findIndex((p) => p.key === key);
 }
 
-export function PhaseProgress({ current }: { current: string }) {
-  const curIdx = phaseIndex(current);
+export default function PhaseProgress({ current }: { current: string }) {
+  const cur = phaseIndex(current);
 
   return (
     <div className="flex items-center justify-center gap-0 py-2 px-4">
       {PHASES.map((p, i) => {
-        const isDone = i < curIdx;
-        const isCurrent = i === curIdx;
+        const done = i < cur;
+        const active = i === cur;
         return (
           <div key={p.key} className="flex items-center gap-0">
             <div className="flex flex-col items-center gap-1">
               <div
                 className={`w-3 h-3 rounded-full flex items-center justify-center transition-colors ${
-                  isDone
-                    ? "bg-emerald-600"
-                    : isCurrent
-                      ? "bg-primary shadow-[0_0_8px_var(--primary)]"
-                      : "bg-muted-foreground/30 border border-muted-foreground/20"
+                  done
+                    ? "bg-success"
+                    : active
+                      ? "bg-primary shadow-[0_0_8px_hsl(var(--p))]"
+                      : "bg-base-content/20 border border-base-content/15"
                 }`}
               >
-                {isDone && <Check className="w-2 h-2 text-white" />}
+                {done && <Check className="w-2 h-2 text-success-content" />}
               </div>
               <span
                 className={`text-[10px] whitespace-nowrap ${
-                  isCurrent
+                  active
                     ? "text-primary font-medium"
-                    : isDone
-                      ? "text-emerald-600/70"
-                      : "text-muted-foreground/40"
+                    : done
+                      ? "text-success/70"
+                      : "text-base-content/30"
                 }`}
               >
                 {p.label}
@@ -52,7 +50,7 @@ export function PhaseProgress({ current }: { current: string }) {
             {i < PHASES.length - 1 && (
               <div
                 className={`w-6 h-[1.5px] mx-0.5 ${
-                  i < curIdx ? "bg-emerald-600/60" : "bg-muted-foreground/20"
+                  i < cur ? "bg-success/60" : "bg-base-content/15"
                 }`}
               />
             )}

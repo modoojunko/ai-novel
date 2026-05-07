@@ -1,25 +1,19 @@
-"use client";
-
 import { useEffect } from "react";
 import { Toaster, toast } from "@/lib/toast";
 
-export function ClientShell({ children }: { children: React.ReactNode }) {
+export default function ClientShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    const handler = (event: PromiseRejectionEvent) => {
-      const msg =
-        event.reason instanceof Error
-          ? event.reason.message
-          : String(event.reason || "Unknown error");
-      toast.error(msg);
+    const handler = (e: PromiseRejectionEvent) => {
+      toast.error(e.reason?.message || String(e.reason));
     };
     window.addEventListener("unhandledrejection", handler);
     return () => window.removeEventListener("unhandledrejection", handler);
   }, []);
 
   return (
-    <>
-      {children}
+    <div className="min-h-screen flex flex-col bg-base-100 text-base-content">
+      <div className="flex-1 flex flex-col">{children}</div>
       <Toaster />
-    </>
+    </div>
   );
 }

@@ -1,27 +1,26 @@
-"use client";
-
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 import { isLoggedIn } from "@/lib/auth";
 
-export function AuthGuard({ children }: { children: React.ReactNode }) {
+export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const [ok, setOk] = useState(false);
-  const router = useRouter();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!isLoggedIn()) {
-      router.push("/login");
+      navigate("/login", { replace: true });
     } else {
       setOk(true);
     }
-  }, [router]);
+  }, [navigate]);
 
   if (!ok) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">加载中...</p>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <span className="loading loading-spinner loading-md text-primary" />
       </div>
     );
   }
+
   return <>{children}</>;
 }

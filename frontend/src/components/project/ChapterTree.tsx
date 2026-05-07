@@ -1,7 +1,3 @@
-"use client";
-
-import { cn } from "@/lib/utils";
-
 export type ChapterInfo = {
   ref: string;
   volume: number;
@@ -17,20 +13,18 @@ export type VolumeInfo = {
   chapters: ChapterInfo[];
 };
 
-export function ChapterTree({
+export default function ChapterTree({
   volumes,
   selectedRef,
   onSelect,
   expanded = {},
   onToggle,
-  showWordCount = false,
 }: {
   volumes: VolumeInfo[];
   selectedRef: string | null;
   onSelect: (ref: string) => void;
   expanded?: Record<string, boolean>;
   onToggle?: (name: string) => void;
-  showWordCount?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-1">
@@ -40,20 +34,20 @@ export function ChapterTree({
           <div key={vol.name}>
             <button
               onClick={() => onToggle?.(vol.name)}
-              className="flex items-center gap-1.5 w-full px-2 py-1.5 text-left hover:bg-muted/50 rounded transition-colors"
+              className="flex items-center gap-1.5 w-full px-2 py-1.5 text-left hover:bg-base-300/50 rounded transition-colors"
             >
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-[10px] text-base-content/50">
                 {isOpen ? "▾" : "▸"}
               </span>
-              <span className="text-xs text-muted-foreground font-medium truncate">
+              <span className="text-xs text-base-content/60 font-medium truncate">
                 第{vol.volNum}卷
               </span>
-              <span className="text-[10px] text-muted-foreground/50 ml-auto">
+              <span className="text-[10px] text-base-content/30 ml-auto">
                 {vol.chapters.length}章
               </span>
             </button>
             {isOpen && (
-              <div className="ml-3 border-l border-border/50 pl-2">
+              <div className="ml-3 border-l border-base-300/50 pl-2">
                 {vol.chapters.map((ch) => {
                   const isSelected = selectedRef === ch.ref;
                   const isDone = ch.status === "confirmed" || ch.status === "archived";
@@ -61,31 +55,24 @@ export function ChapterTree({
                     <button
                       key={ch.ref}
                       onClick={() => onSelect(ch.ref)}
-                      className={cn(
-                        "flex items-center gap-2 w-full px-2 py-1.5 text-left rounded transition-colors text-xs",
+                      className={`flex items-center gap-2 w-full px-2 py-1.5 text-left rounded transition-colors text-xs ${
                         isSelected
-                          ? "bg-primary/8 border-l-[1.5px] border-primary text-primary font-medium"
-                          : "hover:bg-muted/30 text-muted-foreground border-l-[1.5px] border-transparent"
-                      )}
+                          ? "bg-primary/10 border-l-[1.5px] border-primary text-primary font-medium"
+                          : "hover:bg-base-300/30 text-base-content/60 border-l-[1.5px] border-transparent"
+                      }`}
                     >
                       <div
-                        className={cn(
-                          "w-[7px] h-[7px] rounded-full flex-shrink-0",
+                        className={`w-[7px] h-[7px] rounded-full flex-shrink-0 ${
                           isDone
-                            ? "bg-emerald-600"
+                            ? "bg-success"
                             : isSelected
                               ? "border-[1.5px] border-primary"
-                              : "border-[1.5px] border-muted-foreground/30"
-                        )}
+                              : "border-[1.5px] border-base-content/20"
+                        }`}
                       />
                       <span className="truncate">
                         ch-{ch.chapter} {ch.title || "(未命名)"}
                       </span>
-                      {showWordCount && ch.wordCount && (
-                        <span className="text-[10px] text-muted-foreground/50 ml-auto">
-                          {ch.wordCount}
-                        </span>
-                      )}
                     </button>
                   );
                 })}
@@ -98,13 +85,12 @@ export function ChapterTree({
   );
 }
 
-/** Parse "vol-1-ch-2" style refs into structured data */
-export function parseChapterRefs(
-  volumes: any[]
-): { volumes: VolumeInfo[]; chapterRefs: string[] } {
+export function parseChapterRefs(volumes: any[]): {
+  volumes: VolumeInfo[];
+  chapterRefs: string[];
+} {
   const result: VolumeInfo[] = [];
   const chapterRefs: string[] = [];
-
   volumes.forEach((v: any) => {
     const volNum = parseInt(v.name.replace("vol-", ""), 10);
     const chapters: ChapterInfo[] = (v.chapters || []).map((ch: any) => {
@@ -120,6 +106,5 @@ export function parseChapterRefs(
     });
     result.push({ name: v.name, volNum, chapters });
   });
-
   return { volumes: result, chapterRefs };
 }
