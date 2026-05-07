@@ -4,7 +4,11 @@ from pathlib import Path
 
 from config import REFERENCE_DIR
 
-TEMPLATE_DIR = Path(REFERENCE_DIR) if REFERENCE_DIR else (Path(__file__).parent.parent.parent / "reference")
+TEMPLATE_DIR = (
+    Path(REFERENCE_DIR)
+    if REFERENCE_DIR
+    else (Path(__file__).parent.parent.parent / "reference")
+)
 
 SKELETON_DIRS = [
     "settings/character-setting",
