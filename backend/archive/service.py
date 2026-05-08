@@ -6,7 +6,14 @@ from config import ANTHROPIC_API_KEY
 from filesystem.storage import get_storage
 
 
+def _validate_ref(ref: str) -> str:
+    if ".." in ref or "/" in ref:
+        raise ValueError("Invalid chapter reference")
+    return ref
+
+
 async def archive_chapter(root_path: str, chapter_ref: str, full_text: str) -> dict:
+    _validate_ref(chapter_ref)
     chapter = await get_storage().read_yaml(root_path, f"chapters/{chapter_ref}.yaml")
 
     vol = chapter.get("volume", 1)

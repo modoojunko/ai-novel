@@ -9,6 +9,12 @@ from config import ANTHROPIC_API_KEY
 from filesystem.storage import get_storage
 
 
+def _validate_ref(ref: str) -> str:
+    if ".." in ref or "/" in ref:
+        raise ValueError("Invalid chapter reference")
+    return ref
+
+
 async def stream_segment(
     root_path: str,
     chapter_ref: str,
@@ -16,6 +22,7 @@ async def stream_segment(
     model: str = "claude-haiku-4-5-20251001",
     on_complete: Callable[[Usage], object] | None = None,
 ):
+    _validate_ref(chapter_ref)
     prompt = await get_storage().read_md(
         root_path, f"prompts/{chapter_ref}-seg-{seg_idx}-prompt.md"
     )

@@ -7,7 +7,7 @@ from billing.service import log_token_usage
 from db import get_db
 from filesystem.storage import get_storage
 from projects.service import get_project
-from workflow.engine import update_phase
+from workflow.engine import _validate_ref, update_phase
 
 router = APIRouter(
     prefix="/api/projects/{project_id}/chapters/{chapter_ref}/archive",
@@ -31,6 +31,7 @@ async def archive(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
 
     full_text = body.get("full_text", "")
     if len(full_text) < 100:

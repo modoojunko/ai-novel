@@ -1,4 +1,13 @@
+from fastapi import HTTPException
+
 from filesystem.storage import get_storage
+
+
+def _validate_ref(ref: str) -> str:
+    if ".." in ref or "/" in ref:
+        raise HTTPException(400, "Invalid chapter reference")
+    return ref
+
 
 ALLOWED_TRANSITIONS = {
     "init": ["settings"],

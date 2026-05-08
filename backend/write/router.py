@@ -7,7 +7,7 @@ from db import async_session, get_db
 from billing.service import log_token_usage
 from filesystem.storage import get_storage
 from projects.service import get_project
-from workflow.engine import load_chapter, update_phase
+from workflow.engine import _validate_ref, load_chapter, update_phase
 from write.quality import run_quality_checks
 from write.stream import stream_segment
 
@@ -17,16 +17,10 @@ router = APIRouter(
 )
 
 
-def _validate_ref(ref: str) -> str:
-    if ".." in ref or "/" in ref:
-        raise HTTPException(400, "Invalid chapter reference")
-    return ref
-
-
 @router.get("/stream/{seg}")
 async def write_stream(
     project_id: str,
-    chapter_ref: str = Depends(_validate_ref),
+    chapter_ref: str,
     seg: int,
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -34,6 +28,7 @@ async def write_stream(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
 
     prompt_content = await get_storage().read_md(
         project.root_path, f"prompts/{chapter_ref}-seg-{seg}-prompt.md"
@@ -70,7 +65,7 @@ async def write_stream(
 @router.post("/quality-check")
 async def quality_check(
     project_id: str,
-    chapter_ref: str = Depends(_validate_ref),
+    chapter_ref: str,
     body: dict,
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -78,6 +73,7 @@ async def quality_check(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
 
     full_text = body.get("full_text", "")
     chapter = await load_chapter(project.root_path, chapter_ref)

@@ -8,7 +8,7 @@ from db import get_db
 from filesystem.storage import get_storage
 from projects.service import get_project
 from prompt.assembler import assemble_all_segments
-from workflow.engine import load_chapter, update_phase
+from workflow.engine import _validate_ref, load_chapter, update_phase
 
 router = APIRouter(
     prefix="/api/projects/{project_id}/chapters/{chapter_ref}",
@@ -26,6 +26,7 @@ async def run_perspective_conversion(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
 
     chapter = await load_chapter(project.root_path, chapter_ref)
     summary = chapter.get("outline", {}).get("summary", "")
@@ -106,6 +107,7 @@ async def get_prompt_content(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
     content = await get_storage().read_md(
         project.root_path, f"prompts/{chapter_ref}-{seg}-prompt.md"
     )

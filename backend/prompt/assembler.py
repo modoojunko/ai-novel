@@ -1,4 +1,12 @@
 from filesystem.storage import get_storage
+
+
+def _validate_ref(ref: str) -> str:
+    if ".." in ref or "/" in ref:
+        raise ValueError("Invalid chapter reference")
+    return ref
+
+
 from prompt.context import (
     inject_active_hooks,
     inject_character_snapshots,
@@ -12,6 +20,7 @@ async def assemble_segment_prompt(
     seg_idx: int,
     novel_title: str = "",
 ) -> str:
+    _validate_ref(chapter_ref)
     chapter = await get_storage().read_yaml(root_path, f"chapters/{chapter_ref}.yaml")
     style = await get_storage().read_yaml(root_path, "settings/writing-style.yaml")
     anti_ai = await get_storage().read_yaml(root_path, "settings/anti-ai.yaml")
@@ -62,6 +71,7 @@ async def assemble_segment_prompt(
 async def assemble_all_segments(
     root_path: str, chapter_ref: str, novel_title: str = ""
 ) -> list[str]:
+    _validate_ref(chapter_ref)
     chapter = await get_storage().read_yaml(root_path, f"chapters/{chapter_ref}.yaml")
     segments = chapter.get("outline", {}).get("segments", [])
     prompts = []

@@ -5,7 +5,7 @@ from auth.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
 from projects.service import get_project
-from workflow.engine import load_chapter, save_chapter, update_phase
+from workflow.engine import _validate_ref, load_chapter, save_chapter, update_phase
 from workflow.gates import gate_chapter_ready, gate_settings_complete
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["chapters"])
@@ -86,6 +86,7 @@ async def get_chapter(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
     data = await load_chapter(project.root_path, chapter_ref)
     if not data:
         raise HTTPException(404, "Chapter not found")
@@ -103,6 +104,7 @@ async def update_chapter(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
     await save_chapter(project.root_path, chapter_ref, body)
     return {"ok": True}
 
@@ -117,6 +119,7 @@ async def confirm_chapter(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
     chapter = await load_chapter(project.root_path, chapter_ref)
     ok, missing = gate_chapter_ready(chapter)
     if not ok:
