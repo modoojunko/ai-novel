@@ -17,10 +17,16 @@ router = APIRouter(
 )
 
 
+def _validate_ref(ref: str) -> str:
+    if ".." in ref or "/" in ref:
+        raise HTTPException(400, "Invalid chapter reference")
+    return ref
+
+
 @router.get("/stream/{seg}")
 async def write_stream(
     project_id: str,
-    chapter_ref: str,
+    chapter_ref: str = Depends(_validate_ref),
     seg: int,
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -64,7 +70,7 @@ async def write_stream(
 @router.post("/quality-check")
 async def quality_check(
     project_id: str,
-    chapter_ref: str,
+    chapter_ref: str = Depends(_validate_ref),
     body: dict,
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
