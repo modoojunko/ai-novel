@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import ClientShell from "@/components/ClientShell";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -22,10 +22,11 @@ import ArchivesPage from "@/pages/ArchivesPage";
 import ThreadsPage from "@/pages/ThreadsPage";
 
 export default function App() {
+  const location = useLocation();
   return (
     <ClientShell>
       <Navbar />
-      <div className="flex-1">
+      <div className="flex-1 page-enter" key={location.pathname}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
