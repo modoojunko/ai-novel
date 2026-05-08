@@ -53,8 +53,8 @@ class LocalFileBackend:
         return os.listdir(dirpath)
 
     async def init_skeleton(self, root_path: str) -> None:
-        from filesystem.init import init_project_skeleton
-        init_project_skeleton(root_path)
+        from filesystem.init import _init_project_skeleton_local
+        _init_project_skeleton_local(root_path)
 
 
 # --- Database backend (CloudBase MySQL) ---

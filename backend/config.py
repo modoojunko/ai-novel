@@ -22,3 +22,5 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = 60
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 STORAGE_BACKEND = os.getenv("STORAGE_BACKEND", "local")
+# "database" backend uses MySQL-specific syntax (ON DUPLICATE KEY UPDATE, SUBSTRING_INDEX).
+# Designed for CloudBase MySQL — not compatible with PostgreSQL or SQLite.

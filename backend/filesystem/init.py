@@ -40,7 +40,7 @@ SKELETON_FILES = [
 ]
 
 
-def init_project_skeleton(root_path: str):
+def _init_project_skeleton_local(root_path: str):
     """Create novel project directory skeleton from templates."""
     os.makedirs(root_path, exist_ok=True)
     for d in SKELETON_DIRS:
