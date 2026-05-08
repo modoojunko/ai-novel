@@ -37,7 +37,7 @@ class LocalFileBackend:
         return resolved
 
     async def read_yaml(self, root_path: str, relative_path: str) -> dict:
-        if ".." in relative_path or relative_path.startswith("/"):
+        if os.path.isabs(relative_path) or ".." in relative_path:
             raise ValueError("Path traversal detected")
         filepath = self._safe_path(root_path, relative_path)
         if not os.path.exists(filepath):
@@ -46,7 +46,7 @@ class LocalFileBackend:
             return yaml.safe_load(f) or {}
 
     async def write_yaml(self, root_path: str, relative_path: str, data: dict) -> None:
-        if ".." in relative_path or relative_path.startswith("/"):
+        if os.path.isabs(relative_path) or ".." in relative_path:
             raise ValueError("Path traversal detected")
         filepath = self._safe_path(root_path, relative_path)
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -56,7 +56,7 @@ class LocalFileBackend:
             )
 
     async def read_md(self, root_path: str, relative_path: str) -> str:
-        if ".." in relative_path or relative_path.startswith("/"):
+        if os.path.isabs(relative_path) or ".." in relative_path:
             raise ValueError("Path traversal detected")
         filepath = self._safe_path(root_path, relative_path)
         if not os.path.exists(filepath):
@@ -64,7 +64,7 @@ class LocalFileBackend:
         return Path(filepath).read_text(encoding="utf-8")
 
     async def write_md(self, root_path: str, relative_path: str, content: str) -> None:
-        if ".." in relative_path or relative_path.startswith("/"):
+        if os.path.isabs(relative_path) or ".." in relative_path:
             raise ValueError("Path traversal detected")
         filepath = self._safe_path(root_path, relative_path)
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -74,7 +74,7 @@ class LocalFileBackend:
         if not relative_path:
             dirpath = root_path
         else:
-            if ".." in relative_path or relative_path.startswith("/"):
+            if os.path.isabs(relative_path) or ".." in relative_path:
                 raise ValueError("Path traversal detected")
             dirpath = self._safe_path(root_path, relative_path)
         if not os.path.exists(dirpath):
