@@ -1,17 +1,15 @@
 from filesystem.storage import get_storage
+from prompt.context import (
+    inject_active_hooks,
+    inject_character_snapshots,
+    inject_story_context,
+)
 
 
 def _validate_ref(ref: str) -> str:
     if ".." in ref or "/" in ref:
         raise ValueError("Invalid chapter reference")
     return ref
-
-
-from prompt.context import (
-    inject_active_hooks,
-    inject_character_snapshots,
-    inject_story_context,
-)
 
 
 async def assemble_segment_prompt(
