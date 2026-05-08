@@ -28,15 +28,23 @@ class StorageBackend(Protocol):
 
 
 class LocalFileBackend:
+    @staticmethod
+    def _resolve_path(root_path: str, relative_path: str) -> str:
+        resolved = os.path.normpath(os.path.join(root_path, relative_path))
+        root = os.path.normpath(root_path)
+        if not resolved.startswith(root + os.sep) and resolved != root:
+            raise ValueError("Path traversal detected")
+        return resolved
+
     async def read_yaml(self, root_path: str, relative_path: str) -> dict:
-        filepath = os.path.join(root_path, relative_path)
+        filepath = self._resolve_path(root_path, relative_path)
         if not os.path.exists(filepath):
             return {}
         with open(filepath, encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
 
     async def write_yaml(self, root_path: str, relative_path: str, data: dict) -> None:
-        filepath = os.path.join(root_path, relative_path)
+        filepath = self._resolve_path(root_path, relative_path)
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, "w", encoding="utf-8") as f:
             yaml.dump(
@@ -44,18 +52,20 @@ class LocalFileBackend:
             )
 
     async def read_md(self, root_path: str, relative_path: str) -> str:
-        filepath = os.path.join(root_path, relative_path)
+        filepath = self._resolve_path(root_path, relative_path)
         if not os.path.exists(filepath):
             return ""
         return Path(filepath).read_text(encoding="utf-8")
 
     async def write_md(self, root_path: str, relative_path: str, content: str) -> None:
-        filepath = os.path.join(root_path, relative_path)
+        filepath = self._resolve_path(root_path, relative_path)
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         Path(filepath).write_text(content, encoding="utf-8")
 
     async def list_dir(self, root_path: str, relative_path: str = "") -> list[str]:
-        dirpath = os.path.join(root_path, relative_path) if relative_path else root_path
+        dirpath = (
+            self._resolve_path(root_path, relative_path) if relative_path else root_path
+        )
         if not os.path.exists(dirpath):
             return []
         return os.listdir(dirpath)
