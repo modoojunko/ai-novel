@@ -77,7 +77,9 @@ async def update_character_states(root_path: str, chapter: dict, full_text: str)
         chapter.get("outline", {}).get("segments", [{}])[0].get("characters", [])
     )
     for name in seg_chars:
-        char = await get_storage().read_yaml(root_path, f"settings/character-setting/{name}.yaml")
+        char = await get_storage().read_yaml(
+            root_path, f"settings/character-setting/{name}.yaml"
+        )
         if not char:
             continue
         if "state_history" not in char:
@@ -90,4 +92,6 @@ async def update_character_states(root_path: str, chapter: dict, full_text: str)
                 "timestamp": datetime.now().isoformat(),
             }
         )
-        await get_storage().write_yaml(root_path, f"settings/character-setting/{name}.yaml", char)
+        await get_storage().write_yaml(
+            root_path, f"settings/character-setting/{name}.yaml", char
+        )

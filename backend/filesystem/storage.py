@@ -10,16 +10,22 @@ from config import STORAGE_BACKEND
 
 # --- Protocol ---
 
+
 class StorageBackend(Protocol):
     async def read_yaml(self, root_path: str, relative_path: str) -> dict: ...
-    async def write_yaml(self, root_path: str, relative_path: str, data: dict) -> None: ...
+    async def write_yaml(
+        self, root_path: str, relative_path: str, data: dict
+    ) -> None: ...
     async def read_md(self, root_path: str, relative_path: str) -> str: ...
-    async def write_md(self, root_path: str, relative_path: str, content: str) -> None: ...
+    async def write_md(
+        self, root_path: str, relative_path: str, content: str
+    ) -> None: ...
     async def list_dir(self, root_path: str, relative_path: str) -> list[str]: ...
     async def init_skeleton(self, root_path: str) -> None: ...
 
 
 # --- Local filesystem backend ---
+
 
 class LocalFileBackend:
     async def read_yaml(self, root_path: str, relative_path: str) -> dict:
@@ -33,7 +39,9 @@ class LocalFileBackend:
         filepath = os.path.join(root_path, relative_path)
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, "w", encoding="utf-8") as f:
-            yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+            yaml.dump(
+                data, f, allow_unicode=True, default_flow_style=False, sort_keys=False
+            )
 
     async def read_md(self, root_path: str, relative_path: str) -> str:
         filepath = os.path.join(root_path, relative_path)
@@ -54,10 +62,12 @@ class LocalFileBackend:
 
     async def init_skeleton(self, root_path: str) -> None:
         from filesystem.init import _init_project_skeleton_local
+
         _init_project_skeleton_local(root_path)
 
 
 # --- Database backend (CloudBase MySQL) ---
+
 
 class DatabaseFileBackend:
     def __init__(self, session_factory):
@@ -84,7 +94,9 @@ class DatabaseFileBackend:
 
     async def write_yaml(self, root_path: str, relative_path: str, data: dict) -> None:
         user_id, slug = self._parse_root(root_path)
-        content = yaml.dump(data, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        content = yaml.dump(
+            data, allow_unicode=True, default_flow_style=False, sort_keys=False
+        )
         async with self._sf() as session:
             await session.execute(
                 text(
@@ -172,6 +184,7 @@ def get_storage() -> StorageBackend:
     if _storage is None:
         if STORAGE_BACKEND == "database":
             from db import async_session
+
             _storage = DatabaseFileBackend(async_session)
         else:
             _storage = LocalFileBackend()

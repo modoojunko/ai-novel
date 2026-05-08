@@ -16,7 +16,9 @@ async def stream_segment(
     model: str = "claude-haiku-4-5-20251001",
     on_complete: Callable[[Usage], object] | None = None,
 ):
-    prompt = await get_storage().read_md(root_path, f"prompts/{chapter_ref}-seg-{seg_idx}-prompt.md")
+    prompt = await get_storage().read_md(
+        root_path, f"prompts/{chapter_ref}-seg-{seg_idx}-prompt.md"
+    )
     style = await get_storage().read_yaml(root_path, "settings/writing-style.yaml")
     anti_ai = await get_storage().read_yaml(root_path, "settings/anti-ai.yaml")
 

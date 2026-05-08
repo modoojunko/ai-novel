@@ -55,7 +55,9 @@ async def run_perspective_conversion(
     )
 
     chapter["outline"]["perspective_guidance"] = guidance
-    await get_storage().write_yaml(project.root_path, f"chapters/{chapter_ref}.yaml", chapter)
+    await get_storage().write_yaml(
+        project.root_path, f"chapters/{chapter_ref}.yaml", chapter
+    )
 
     return {
         "guidance": guidance,
@@ -104,5 +106,7 @@ async def get_prompt_content(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    content = await get_storage().read_md(project.root_path, f"prompts/{chapter_ref}-{seg}-prompt.md")
+    content = await get_storage().read_md(
+        project.root_path, f"prompts/{chapter_ref}-{seg}-prompt.md"
+    )
     return PlainTextResponse(content)

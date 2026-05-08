@@ -78,6 +78,8 @@ async def quality_check(
     results = await run_quality_checks(project.root_path, chapter, full_text)
 
     chapter["quality_check"] = results
-    await get_storage().write_yaml(project.root_path, f"chapters/{chapter_ref}.yaml", chapter)
+    await get_storage().write_yaml(
+        project.root_path, f"chapters/{chapter_ref}.yaml", chapter
+    )
 
     return results

@@ -3,7 +3,9 @@
 from filesystem.storage import get_storage
 
 
-async def inject_story_context(root_path: str, chapter: dict, thread_state: dict) -> str:
+async def inject_story_context(
+    root_path: str, chapter: dict, thread_state: dict
+) -> str:
     parts = []
     thread_name = chapter.get("thread", "")
 
@@ -36,7 +38,9 @@ async def inject_story_context(root_path: str, chapter: dict, thread_state: dict
 async def inject_character_snapshots(root_path: str, character_names: list[str]) -> str:
     parts = []
     for name in character_names:
-        ch_data = await get_storage().read_yaml(root_path, f"settings/character-setting/{name}.yaml")
+        ch_data = await get_storage().read_yaml(
+            root_path, f"settings/character-setting/{name}.yaml"
+        )
         if not ch_data:
             parts.append(f"### {name}\n（新角色，无前史）")
             continue

@@ -30,7 +30,9 @@ async def get_settings(
 
     if type.startswith("character/"):
         name = type.split("/", 1)[1]
-        return await get_storage().read_yaml(project.root_path, f"settings/character-setting/{name}.yaml")
+        return await get_storage().read_yaml(
+            project.root_path, f"settings/character-setting/{name}.yaml"
+        )
 
     if type not in VALID_TYPES:
         raise HTTPException(400, f"Invalid settings type: {type}")
@@ -51,7 +53,9 @@ async def update_settings(
 
     if type.startswith("character/"):
         name = type.split("/", 1)[1]
-        await get_storage().write_yaml(project.root_path, f"settings/character-setting/{name}.yaml", body)
+        await get_storage().write_yaml(
+            project.root_path, f"settings/character-setting/{name}.yaml", body
+        )
         return {"ok": True}
 
     if type not in VALID_TYPES:
@@ -74,5 +78,7 @@ async def list_characters(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    names = await get_storage().list_dir(project.root_path, "settings/character-setting")
+    names = await get_storage().list_dir(
+        project.root_path, "settings/character-setting"
+    )
     return [n.replace(".yaml", "") for n in names if n.endswith(".yaml")]

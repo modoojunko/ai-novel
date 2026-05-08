@@ -1,6 +1,7 @@
 import os
 from urllib.parse import quote_plus
 
+
 def _build_database_url() -> str:
     url = os.getenv("DATABASE_URL")
     if url:
@@ -13,6 +14,7 @@ def _build_database_url() -> str:
         db_name = os.getenv("DB_NAME", "novelsaas")
         return f"mysql+asyncmy://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
     return "sqlite+aiosqlite:///./novelsaas.db"
+
 
 DATABASE_URL = _build_database_url()
 DATA_ROOT = os.getenv("DATA_ROOT", "./data/projects")

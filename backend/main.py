@@ -58,6 +58,7 @@ async def lifespan(app: FastAPI):
                 await conn.run_sync(Base.metadata.create_all)
         except Exception:
             import logging
+
             logging.getLogger("uvicorn.error").warning(
                 "Failed to auto-create tables (may already exist or permissions insufficient)"
             )
