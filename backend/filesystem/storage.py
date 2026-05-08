@@ -30,6 +30,8 @@ class StorageBackend(Protocol):
 class LocalFileBackend:
     @staticmethod
     def _safe_path(root_path: str, relative_path: str) -> str:
+        if ".." in relative_path or relative_path.startswith("/"):
+            raise ValueError("Path traversal detected")
         resolved = os.path.normpath(os.path.join(root_path, relative_path))
         root = os.path.normpath(root_path)
         if not resolved.startswith(root + os.sep) and resolved != root:
