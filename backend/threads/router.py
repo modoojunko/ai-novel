@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.middleware import get_current_user
 from db import get_db
-from filesystem.reader import read_yaml
+from filesystem.storage import get_storage
 from projects.service import get_project
 
 router = APIRouter(prefix="/api/projects/{project_id}/threads", tags=["threads"])
@@ -18,4 +18,4 @@ async def get_threads(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    return read_yaml(project.root_path, "threads.yaml")
+    return await get_storage().read_yaml(project.root_path, "threads.yaml")

@@ -28,8 +28,19 @@ TEMPLATE_FILES = {
     "hooks.yaml.template": "settings/hooks.yaml",
 }
 
+SKELETON_FILES = [
+    ("story.yaml", "yaml"),
+    ("author-intent.md", "md"),
+    ("current-focus.md", "md"),
+    ("settings/world-setting.yaml", "yaml"),
+    ("settings/writing-style.yaml", "yaml"),
+    ("settings/anti-ai.yaml", "yaml"),
+    ("settings/hooks.yaml", "yaml"),
+    ("threads.yaml", "yaml"),
+]
 
-def init_project_skeleton(root_path: str):
+
+def _init_project_skeleton_local(root_path: str):
     """Create novel project directory skeleton from templates."""
     os.makedirs(root_path, exist_ok=True)
     for d in SKELETON_DIRS:

@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import DATA_ROOT
-from filesystem.init import init_project_skeleton
+from filesystem.storage import get_storage
 from models.project import Project
 
 
@@ -23,7 +23,7 @@ async def create_project(db: AsyncSession, user_id: str, name: str) -> Project:
         slug = f"{slug}-{uuid.uuid4().hex[:6]}"
 
     root_path = f"{DATA_ROOT}/{user_id}/{slug}"
-    init_project_skeleton(root_path)
+    await get_storage().init_skeleton(root_path)
 
     project = Project(user_id=user_id, name=name, slug=slug, root_path=root_path)
     db.add(project)

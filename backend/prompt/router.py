@@ -1,5 +1,3 @@
-import os
-
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,11 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth.middleware import get_current_user
 from config import ANTHROPIC_API_KEY
 from db import get_db
-from filesystem.reader import read_md
-from filesystem.writer import write_yaml
+from filesystem.storage import get_storage
 from projects.service import get_project
 from prompt.assembler import assemble_all_segments
-from workflow.engine import load_chapter, update_phase
+from workflow.engine import _validate_ref, load_chapter, update_phase
 
 router = APIRouter(
     prefix="/api/projects/{project_id}/chapters/{chapter_ref}",
@@ -29,8 +26,9 @@ async def run_perspective_conversion(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
 
-    chapter = load_chapter(project.root_path, chapter_ref)
+    chapter = await load_chapter(project.root_path, chapter_ref)
     summary = chapter.get("outline", {}).get("summary", "")
     pov = chapter.get("pov_character", "主角")
 
@@ -58,7 +56,9 @@ async def run_perspective_conversion(
     )
 
     chapter["outline"]["perspective_guidance"] = guidance
-    write_yaml(project.root_path, f"chapters/{chapter_ref}.yaml", chapter)
+    await get_storage().write_yaml(
+        project.root_path, f"chapters/{chapter_ref}.yaml", chapter
+    )
 
     return {
         "guidance": guidance,
@@ -76,10 +76,8 @@ async def list_prompts(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    prompt_dir = os.path.join(project.root_path, "prompts")
-    if not os.path.exists(prompt_dir):
-        return []
-    return sorted([f for f in os.listdir(prompt_dir) if f.startswith(chapter_ref)])
+    files = await get_storage().list_dir(project.root_path, "prompts")
+    return sorted([f for f in files if f.startswith(chapter_ref)])
 
 
 @router.post("/prompts/generate")
@@ -92,7 +90,7 @@ async def generate_prompts(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    paths = assemble_all_segments(project.root_path, chapter_ref, project.name)
+    paths = await assemble_all_segments(project.root_path, chapter_ref, project.name)
     update_phase(project, "prompt")
     await db.commit()
     return {"prompts": paths}
@@ -109,5 +107,8 @@ async def get_prompt_content(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    content = read_md(project.root_path, f"prompts/{chapter_ref}-{seg}-prompt.md")
+    _validate_ref(chapter_ref)
+    content = await get_storage().read_md(
+        project.root_path, f"prompts/{chapter_ref}-{seg}-prompt.md"
+    )
     return PlainTextResponse(content)

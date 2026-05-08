@@ -52,8 +52,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    if os.getenv("AUTO_CREATE_TABLES", "1") != "0":
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+        except Exception:
+            import logging
+
+            logging.getLogger("uvicorn.error").warning(
+                "Failed to auto-create tables (may already exist or permissions insufficient)"
+            )
     yield
 
 
