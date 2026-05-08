@@ -3,8 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.middleware import get_current_user
 from db import get_db
-from filesystem.reader import list_dir, read_yaml
-from filesystem.writer import write_yaml
+from filesystem.storage import get_storage
 from projects.service import get_project
 
 router = APIRouter(prefix="/api/projects/{project_id}/settings", tags=["settings"])
@@ -31,11 +30,11 @@ async def get_settings(
 
     if type.startswith("character/"):
         name = type.split("/", 1)[1]
-        return read_yaml(project.root_path, f"settings/character-setting/{name}.yaml")
+        return await get_storage().read_yaml(project.root_path, f"settings/character-setting/{name}.yaml")
 
     if type not in VALID_TYPES:
         raise HTTPException(400, f"Invalid settings type: {type}")
-    return read_yaml(project.root_path, FILE_MAP[type])
+    return await get_storage().read_yaml(project.root_path, FILE_MAP[type])
 
 
 @router.put("/{type}")
@@ -52,12 +51,12 @@ async def update_settings(
 
     if type.startswith("character/"):
         name = type.split("/", 1)[1]
-        write_yaml(project.root_path, f"settings/character-setting/{name}.yaml", body)
+        await get_storage().write_yaml(project.root_path, f"settings/character-setting/{name}.yaml", body)
         return {"ok": True}
 
     if type not in VALID_TYPES:
         raise HTTPException(400, f"Invalid settings type: {type}")
-    write_yaml(project.root_path, FILE_MAP[type], body)
+    await get_storage().write_yaml(project.root_path, FILE_MAP[type], body)
 
     if project.current_phase == "init":
         project.current_phase = "settings"
@@ -75,5 +74,5 @@ async def list_characters(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    names = list_dir(project.root_path, "settings/character-setting")
+    names = await get_storage().list_dir(project.root_path, "settings/character-setting")
     return [n.replace(".yaml", "") for n in names if n.endswith(".yaml")]

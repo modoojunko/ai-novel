@@ -1,5 +1,3 @@
-import os
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,7 +5,7 @@ from archive.service import archive_chapter
 from auth.middleware import get_current_user
 from billing.service import log_token_usage
 from db import get_db
-from filesystem.reader import read_md
+from filesystem.storage import get_storage
 from projects.service import get_project
 from workflow.engine import update_phase
 
@@ -38,7 +36,7 @@ async def archive(
     if len(full_text) < 100:
         raise HTTPException(400, "Text too short to archive")
 
-    result = archive_chapter(project.root_path, chapter_ref, full_text)
+    result = await archive_chapter(project.root_path, chapter_ref, full_text)
     update_phase(project, "archive")
     project.total_archives += 1
 
@@ -69,10 +67,8 @@ async def list_archives(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    archive_dir = os.path.join(project.root_path, "archives")
-    if not os.path.exists(archive_dir):
-        return []
-    files = sorted(os.listdir(archive_dir), reverse=True)
+    files = await get_storage().list_dir(project.root_path, "archives")
+    files = sorted(files, reverse=True)
     return [
         {"filename": f, "path": f"archives/{f}"} for f in files if f.endswith(".md")
     ]
@@ -88,7 +84,7 @@ async def get_archive(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    content = read_md(project.root_path, f"archives/{filename}")
+    content = await get_storage().read_md(project.root_path, f"archives/{filename}")
     if not content:
         raise HTTPException(404, "Archive not found")
     return {"filename": filename, "content": content}

@@ -1,5 +1,4 @@
-from filesystem.reader import read_yaml
-from filesystem.writer import write_yaml
+from filesystem.storage import get_storage
 
 ALLOWED_TRANSITIONS = {
     "init": ["settings"],
@@ -23,9 +22,9 @@ def update_phase(project, new_phase: str):
     project.current_phase = new_phase
 
 
-def load_chapter(root_path: str, chapter_ref: str) -> dict:
-    return read_yaml(root_path, f"chapters/{chapter_ref}.yaml")
+async def load_chapter(root_path: str, chapter_ref: str) -> dict:
+    return await get_storage().read_yaml(root_path, f"chapters/{chapter_ref}.yaml")
 
 
-def save_chapter(root_path: str, chapter_ref: str, data: dict):
-    write_yaml(root_path, f"chapters/{chapter_ref}.yaml", data)
+async def save_chapter(root_path: str, chapter_ref: str, data: dict):
+    await get_storage().write_yaml(root_path, f"chapters/{chapter_ref}.yaml", data)

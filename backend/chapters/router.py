@@ -1,12 +1,9 @@
-import os
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.middleware import get_current_user
 from db import get_db
-from filesystem.reader import read_yaml
-from filesystem.writer import write_yaml
+from filesystem.storage import get_storage
 from projects.service import get_project
 from workflow.engine import load_chapter, save_chapter, update_phase
 from workflow.gates import gate_chapter_ready, gate_settings_complete
@@ -23,12 +20,11 @@ async def list_volumes(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    vol_dir = os.path.join(project.root_path, "volumes")
+    files = await get_storage().list_dir(project.root_path, "volumes")
     vols = []
-    if os.path.exists(vol_dir):
-        for f in sorted(os.listdir(vol_dir)):
-            if f.endswith(".yaml"):
-                vols.append({"filename": f, "name": f.replace(".yaml", "")})
+    for f in sorted(files):
+        if f.endswith(".yaml"):
+            vols.append({"filename": f, "name": f.replace(".yaml", "")})
     return vols
 
 
@@ -43,13 +39,13 @@ async def create_volume(
     if not project:
         raise HTTPException(404, "Project not found")
 
-    ok, missing = gate_settings_complete(project.root_path)
+    ok, missing = await gate_settings_complete(project.root_path)
     if not ok:
         raise HTTPException(400, f"Settings incomplete: {missing}")
 
     update_phase(project, "outline")
     vol_num = body.get("vol_num", project.total_volumes + 1)
-    write_yaml(
+    await get_storage().write_yaml(
         project.root_path,
         f"volumes/vol-{vol_num}.yaml",
         {
@@ -74,7 +70,7 @@ async def get_volume(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    data = read_yaml(project.root_path, f"volumes/{filename}")
+    data = await get_storage().read_yaml(project.root_path, f"volumes/{filename}")
     if not data:
         raise HTTPException(404, "Volume not found")
     return data
@@ -90,7 +86,7 @@ async def get_chapter(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    data = load_chapter(project.root_path, chapter_ref)
+    data = await load_chapter(project.root_path, chapter_ref)
     if not data:
         raise HTTPException(404, "Chapter not found")
     return data
@@ -107,7 +103,7 @@ async def update_chapter(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    save_chapter(project.root_path, chapter_ref, body)
+    await save_chapter(project.root_path, chapter_ref, body)
     return {"ok": True}
 
 
@@ -121,7 +117,7 @@ async def confirm_chapter(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    chapter = load_chapter(project.root_path, chapter_ref)
+    chapter = await load_chapter(project.root_path, chapter_ref)
     ok, missing = gate_chapter_ready(chapter)
     if not ok:
         raise HTTPException(400, f"Chapter not ready: {missing}")

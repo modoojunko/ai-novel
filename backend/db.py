@@ -6,10 +6,18 @@ from config import DATABASE_URL
 
 _is_sqlite = DATABASE_URL.startswith("sqlite")
 
+_connect_args: dict = {}
+if _is_sqlite:
+    _connect_args["check_same_thread"] = False
+elif "mysql" in DATABASE_URL or "mariadb" in DATABASE_URL:
+    _connect_args["charset"] = "utf8mb4"
+
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
-    connect_args={"check_same_thread": False} if _is_sqlite else {},
+    connect_args=_connect_args,
+    pool_size=5,
+    max_overflow=10,
 )
 
 if _is_sqlite:

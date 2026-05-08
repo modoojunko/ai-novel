@@ -6,7 +6,7 @@ from anthropic import AsyncAnthropic
 from anthropic.types import Usage
 
 from config import ANTHROPIC_API_KEY
-from filesystem.reader import read_md, read_yaml
+from filesystem.storage import get_storage
 
 
 async def stream_segment(
@@ -16,9 +16,9 @@ async def stream_segment(
     model: str = "claude-haiku-4-5-20251001",
     on_complete: Callable[[Usage], object] | None = None,
 ):
-    prompt = read_md(root_path, f"prompts/{chapter_ref}-seg-{seg_idx}-prompt.md")
-    style = read_yaml(root_path, "settings/writing-style.yaml")
-    anti_ai = read_yaml(root_path, "settings/anti-ai.yaml")
+    prompt = await get_storage().read_md(root_path, f"prompts/{chapter_ref}-seg-{seg_idx}-prompt.md")
+    style = await get_storage().read_yaml(root_path, "settings/writing-style.yaml")
+    anti_ai = await get_storage().read_yaml(root_path, "settings/anti-ai.yaml")
 
     system_msg = (
         f"你是{style.get('role', '一位小说家')}。{style.get('core_principles', '')}"

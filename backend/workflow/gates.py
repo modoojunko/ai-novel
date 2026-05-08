@@ -1,12 +1,12 @@
-from filesystem.reader import read_yaml
+from filesystem.storage import get_storage
 
 
-def gate_settings_complete(root_path: str) -> tuple[bool, list[str]]:
+async def gate_settings_complete(root_path: str) -> tuple[bool, list[str]]:
     """Check if settings are complete enough to start outlining."""
     missing = []
-    world = read_yaml(root_path, "settings/world-setting.yaml")
-    style = read_yaml(root_path, "settings/writing-style.yaml")
-    hooks = read_yaml(root_path, "settings/hooks.yaml")
+    world = await get_storage().read_yaml(root_path, "settings/world-setting.yaml")
+    style = await get_storage().read_yaml(root_path, "settings/writing-style.yaml")
+    hooks = await get_storage().read_yaml(root_path, "settings/hooks.yaml")
 
     filled_fields = sum(1 for v in world.values() if v)
     if filled_fields < 5:
@@ -44,13 +44,9 @@ def gate_chapter_ready(chapter_data: dict) -> tuple[bool, list[str]]:
     return len(missing) == 0, missing
 
 
-def gate_prompts_exist(root_path: str, chapter_ref: str) -> bool:
-    import os
-
-    prompt_dir = os.path.join(root_path, "prompts")
-    if not os.path.exists(prompt_dir):
-        return False
-    return any(f.startswith(chapter_ref) for f in os.listdir(prompt_dir))
+async def gate_prompts_exist(root_path: str, chapter_ref: str) -> bool:
+    files = await get_storage().list_dir(root_path, "prompts")
+    return any(f.startswith(chapter_ref) for f in files)
 
 
 def gate_quality_passed(chapter_data: dict) -> bool:
