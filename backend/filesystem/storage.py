@@ -29,7 +29,7 @@ class StorageBackend(Protocol):
 
 class LocalFileBackend:
     async def read_yaml(self, root_path: str, relative_path: str) -> dict:
-        if os.path.isabs(relative_path) or ".." in relative_path:
+        if os.path.isabs(relative_path):
             raise ValueError("Path traversal detected")
         resolved = os.path.normpath(os.path.join(root_path, relative_path))
         root = os.path.normpath(root_path)
@@ -41,7 +41,7 @@ class LocalFileBackend:
             return yaml.safe_load(f) or {}
 
     async def write_yaml(self, root_path: str, relative_path: str, data: dict) -> None:
-        if os.path.isabs(relative_path) or ".." in relative_path:
+        if os.path.isabs(relative_path):
             raise ValueError("Path traversal detected")
         resolved = os.path.normpath(os.path.join(root_path, relative_path))
         root = os.path.normpath(root_path)
@@ -54,7 +54,7 @@ class LocalFileBackend:
             )
 
     async def read_md(self, root_path: str, relative_path: str) -> str:
-        if os.path.isabs(relative_path) or ".." in relative_path:
+        if os.path.isabs(relative_path):
             raise ValueError("Path traversal detected")
         resolved = os.path.normpath(os.path.join(root_path, relative_path))
         root = os.path.normpath(root_path)
@@ -65,7 +65,7 @@ class LocalFileBackend:
         return Path(resolved).read_text(encoding="utf-8")
 
     async def write_md(self, root_path: str, relative_path: str, content: str) -> None:
-        if os.path.isabs(relative_path) or ".." in relative_path:
+        if os.path.isabs(relative_path):
             raise ValueError("Path traversal detected")
         resolved = os.path.normpath(os.path.join(root_path, relative_path))
         root = os.path.normpath(root_path)
@@ -78,7 +78,7 @@ class LocalFileBackend:
         if not relative_path:
             dirpath = root_path
         else:
-            if os.path.isabs(relative_path) or ".." in relative_path:
+            if os.path.isabs(relative_path):
                 raise ValueError("Path traversal detected")
             resolved = os.path.normpath(os.path.join(root_path, relative_path))
             root = os.path.normpath(root_path)
