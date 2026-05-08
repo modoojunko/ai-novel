@@ -1,10 +1,10 @@
 import re
 
-from filesystem.reader import read_yaml
+from filesystem.storage import get_storage
 
 
-def run_quality_checks(root_path: str, chapter: dict, full_text: str) -> dict:
-    anti_ai = read_yaml(root_path, "settings/anti-ai.yaml")
+async def run_quality_checks(root_path: str, chapter: dict, full_text: str) -> dict:
+    anti_ai = await get_storage().read_yaml(root_path, "settings/anti-ai.yaml")
 
     results = {"passed": True, "checks": {}}
 
@@ -51,7 +51,7 @@ def run_quality_checks(root_path: str, chapter: dict, full_text: str) -> dict:
     }
 
     # 5. Hook mention check
-    hooks_data = read_yaml(root_path, "settings/hooks.yaml")
+    hooks_data = await get_storage().read_yaml(root_path, "settings/hooks.yaml")
     chapter_ref = f"vol-{chapter.get('volume')}-ch-{chapter.get('chapter')}"
     chapter_hooks = [
         h for h in hooks_data.get("hooks", []) if h.get("resolve_plan") == chapter_ref

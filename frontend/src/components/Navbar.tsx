@@ -1,16 +1,20 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { isLoggedIn } from "../lib/auth";
 import { BookOpen } from "lucide-react";
 
 export default function Navbar() {
+  const location = useLocation();
   const loggedIn = isLoggedIn();
+
+  // Landing page has its own full-page layout
+  if (location.pathname === "/") return null;
 
   return (
     <div className="navbar bg-base-200 border-b border-base-300 px-4 lg:px-8">
       <div className="navbar-start">
         <Link to="/" className="btn btn-ghost text-xl font-serif gap-2">
           <BookOpen className="w-5 h-5 text-primary" />
-          NovelForge
+          爱小说
         </Link>
       </div>
       <div className="navbar-end gap-2">

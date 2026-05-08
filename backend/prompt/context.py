@@ -1,9 +1,11 @@
 """Context injection for prompt assembly — sliding window + cross-thread."""
 
-from filesystem.reader import read_yaml
+from filesystem.storage import get_storage
 
 
-def inject_story_context(root_path: str, chapter: dict, thread_state: dict) -> str:
+async def inject_story_context(
+    root_path: str, chapter: dict, thread_state: dict
+) -> str:
     parts = []
     thread_name = chapter.get("thread", "")
 
@@ -24,7 +26,7 @@ def inject_story_context(root_path: str, chapter: dict, thread_state: dict) -> s
 
     cross = chapter.get("crossover_ref", "")
     if cross:
-        cross_ch = read_yaml(root_path, f"chapters/{cross}.yaml")
+        cross_ch = await get_storage().read_yaml(root_path, f"chapters/{cross}.yaml")
         if cross_ch:
             parts.append(
                 f"上次交汇（{cross}）：{cross_ch.get('outline', {}).get('summary', '')[:200]}"
@@ -33,10 +35,12 @@ def inject_story_context(root_path: str, chapter: dict, thread_state: dict) -> s
     return "\n\n".join(parts) if parts else ""
 
 
-def inject_character_snapshots(root_path: str, character_names: list[str]) -> str:
+async def inject_character_snapshots(root_path: str, character_names: list[str]) -> str:
     parts = []
     for name in character_names:
-        ch_data = read_yaml(root_path, f"settings/character-setting/{name}.yaml")
+        ch_data = await get_storage().read_yaml(
+            root_path, f"settings/character-setting/{name}.yaml"
+        )
         if not ch_data:
             parts.append(f"### {name}\n（新角色，无前史）")
             continue
@@ -51,8 +55,8 @@ def inject_character_snapshots(root_path: str, character_names: list[str]) -> st
     return "\n\n".join(parts)
 
 
-def inject_active_hooks(root_path: str, current_chapter_ref: str) -> str:
-    hooks_data = read_yaml(root_path, "settings/hooks.yaml")
+async def inject_active_hooks(root_path: str, current_chapter_ref: str) -> str:
+    hooks_data = await get_storage().read_yaml(root_path, "settings/hooks.yaml")
     hooks = [
         h
         for h in hooks_data.get("hooks", [])

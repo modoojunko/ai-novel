@@ -1,8 +1,6 @@
 {
   "envId": "shanghai-test-d2gyndv5ua34e4b47",
   "cloudrun": {
-    "name": "novel-saas-frontend",
-    "buildCommand": "npm run build",
-    "outputDir": "dist"
+    "name": "novel-saas-frontend"
   }
 }
