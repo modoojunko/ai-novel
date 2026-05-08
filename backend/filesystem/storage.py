@@ -29,62 +29,47 @@ class StorageBackend(Protocol):
 
 class LocalFileBackend:
     async def read_yaml(self, root_path: str, relative_path: str) -> dict:
-        if os.path.isabs(relative_path):
+        fullpath = os.path.normpath(os.path.join(root_path, relative_path))
+        if not fullpath.startswith(root_path):
             raise ValueError("Path traversal detected")
-        resolved = os.path.normpath(os.path.join(root_path, relative_path))
-        root = os.path.normpath(root_path)
-        if not resolved.startswith(root + os.sep) and resolved != root:
-            raise ValueError("Path traversal detected")
-        if not os.path.exists(resolved):
+        if not os.path.exists(fullpath):
             return {}
-        with open(resolved, encoding="utf-8") as f:
+        with open(fullpath, encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
 
     async def write_yaml(self, root_path: str, relative_path: str, data: dict) -> None:
-        if os.path.isabs(relative_path):
+        fullpath = os.path.normpath(os.path.join(root_path, relative_path))
+        if not fullpath.startswith(root_path):
             raise ValueError("Path traversal detected")
-        resolved = os.path.normpath(os.path.join(root_path, relative_path))
-        root = os.path.normpath(root_path)
-        if not resolved.startswith(root + os.sep) and resolved != root:
-            raise ValueError("Path traversal detected")
-        os.makedirs(os.path.dirname(resolved), exist_ok=True)
-        with open(resolved, "w", encoding="utf-8") as f:
+        os.makedirs(os.path.dirname(fullpath), exist_ok=True)
+        with open(fullpath, "w", encoding="utf-8") as f:
             yaml.dump(
                 data, f, allow_unicode=True, default_flow_style=False, sort_keys=False
             )
 
     async def read_md(self, root_path: str, relative_path: str) -> str:
-        if os.path.isabs(relative_path):
+        fullpath = os.path.normpath(os.path.join(root_path, relative_path))
+        if not fullpath.startswith(root_path):
             raise ValueError("Path traversal detected")
-        resolved = os.path.normpath(os.path.join(root_path, relative_path))
-        root = os.path.normpath(root_path)
-        if not resolved.startswith(root + os.sep) and resolved != root:
-            raise ValueError("Path traversal detected")
-        if not os.path.exists(resolved):
+        if not os.path.exists(fullpath):
             return ""
-        return Path(resolved).read_text(encoding="utf-8")
+        return Path(fullpath).read_text(encoding="utf-8")
 
     async def write_md(self, root_path: str, relative_path: str, content: str) -> None:
-        if os.path.isabs(relative_path):
+        fullpath = os.path.normpath(os.path.join(root_path, relative_path))
+        if not fullpath.startswith(root_path):
             raise ValueError("Path traversal detected")
-        resolved = os.path.normpath(os.path.join(root_path, relative_path))
-        root = os.path.normpath(root_path)
-        if not resolved.startswith(root + os.sep) and resolved != root:
-            raise ValueError("Path traversal detected")
-        os.makedirs(os.path.dirname(resolved), exist_ok=True)
-        Path(resolved).write_text(content, encoding="utf-8")
+        os.makedirs(os.path.dirname(fullpath), exist_ok=True)
+        Path(fullpath).write_text(content, encoding="utf-8")
 
     async def list_dir(self, root_path: str, relative_path: str = "") -> list[str]:
         if not relative_path:
             dirpath = root_path
         else:
-            if os.path.isabs(relative_path):
+            fullpath = os.path.normpath(os.path.join(root_path, relative_path))
+            if not fullpath.startswith(root_path):
                 raise ValueError("Path traversal detected")
-            resolved = os.path.normpath(os.path.join(root_path, relative_path))
-            root = os.path.normpath(root_path)
-            if not resolved.startswith(root + os.sep) and resolved != root:
-                raise ValueError("Path traversal detected")
-            dirpath = resolved
+            dirpath = fullpath
         if not os.path.exists(dirpath):
             return []
         return os.listdir(dirpath)
