@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import AuthGuard from "@/components/auth/AuthGuard";
-import AiSuggestButton from "@/components/ui/ai-suggest-button";
-import { Plus } from "lucide-react";
+import { Plus, Wand2, Loader2 } from "lucide-react";
 
 const PHASE_LABELS: Record<string, string> = {
   init: "初始化",
@@ -24,6 +23,14 @@ interface Project {
   updated_at: string;
 }
 
+interface Suggestion {
+  titles: string[];
+  synopsis: string;
+  genre_profile: string;
+  genre_label: string;
+  atmosphere: string;
+}
+
 export default function DashboardPage() {
   return (
     <AuthGuard>
@@ -37,7 +44,10 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
-  const [summary, setSummary] = useState("");
+  const [premise, setPremise] = useState("");
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const [selectedTitle, setSelectedTitle] = useState("");
   const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
 
@@ -48,21 +58,46 @@ function Dashboard() {
       .finally(() => setLoading(false));
   }, []);
 
+  async function doSuggest() {
+    if (!premise.trim()) return;
+    setSuggesting(true);
+    try {
+      const res = await api.post("/ai/suggest-meta", { premise });
+      setSuggestion(res);
+      setSelectedTitle(res.titles?.[0] || "");
+    } catch {
+      toast.error("AI 建议失败，请重试或手动输入书名");
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
   async function create() {
     if (!name.trim()) return;
     setCreating(true);
     try {
-      const p = await api.post("/projects", { name });
+      const body: any = { name };
+      if (suggestion) {
+        body.synopsis = suggestion.synopsis;
+        body.genre_profile = suggestion.genre_profile;
+      }
+      const p = await api.post("/projects", body);
       toast.success(`「${p.name}」已创建`);
       setShowCreate(false);
-      setName("");
-      setSummary("");
+      resetForm();
       navigate(`/project/${p.slug}`);
     } catch {
       toast.error("创建失败");
     } finally {
       setCreating(false);
     }
+  }
+
+  function resetForm() {
+    setName("");
+    setPremise("");
+    setSuggestion(null);
+    setSelectedTitle("");
   }
 
   return (
@@ -143,45 +178,109 @@ function Dashboard() {
 
       {showCreate && (
         <div className="modal modal-open">
-          <div className="modal-box">
+          <div className="modal-box max-w-lg">
             <h3 className="font-bold font-serif text-lg mb-4">开始一部新小说</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="label py-1">
-                  <span className="label-text text-xs font-medium">书名 *</span>
-                </label>
-                <input
-                  className="input input-bordered w-full"
-                  placeholder="给你的小说取个名字..."
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && create()}
-                />
-              </div>
-              <div>
-                <div className="flex items-center justify-between py-1">
-                  <span className="label-text text-xs font-medium">一句话梗概</span>
-                  <AiSuggestButton
-                    label="AI 建议书名"
-                    onClick={() => toast.info("即将上线")}
+
+            {!suggestion ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="label py-1">
+                    <span className="label-text text-xs font-medium">说说你的故事</span>
+                  </label>
+                  <textarea
+                    className="textarea textarea-bordered w-full h-28"
+                    placeholder="用一段话描述你想写的故事：一个退役刑警调查三年前的悬案，却发现所有线索都指向他自己…"
+                    value={premise}
+                    onChange={(e) => setPremise(e.target.value)}
                   />
                 </div>
-                <input
-                  className="input input-bordered w-full"
-                  placeholder="用一句话描述你的故事..."
-                  value={summary}
-                  onChange={(e) => setSummary(e.target.value)}
-                />
+                <button
+                  className="btn btn-primary w-full"
+                  onClick={doSuggest}
+                  disabled={suggesting || !premise.trim()}
+                >
+                  {suggesting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="w-4 h-4" />
+                  )}
+                  {suggesting ? "AI 正在为你构思…" : "AI 起名 & 写简介"}
+                </button>
+                <p className="text-[11px] text-base-content/40 text-center">
+                  也可以跳过 — 直接输入书名创建
+                </p>
+                <div>
+                  <label className="label py-1">
+                    <span className="label-text text-xs font-medium">书名</span>
+                  </label>
+                  <input
+                    className="input input-bordered w-full"
+                    placeholder="给你的小说取个名字…"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && create()}
+                  />
+                </div>
               </div>
-              <div className="flex gap-3 justify-end pt-2">
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="label py-1">
+                    <span className="label-text text-xs font-medium">选择一个书名</span>
+                  </label>
+                  <div className="space-y-2">
+                    {suggestion.titles.map((t, i) => (
+                      <button
+                        key={i}
+                        className={`btn w-full justify-start text-sm ${
+                          selectedTitle === t ? "btn-primary" : "btn-outline"
+                        }`}
+                        onClick={() => {
+                          setSelectedTitle(t);
+                          setName(t);
+                        }}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="card bg-base-100 border border-base-300 p-3">
+                  <span className="text-[10px] text-base-content/60 uppercase">简介</span>
+                  <p className="text-sm mt-1 leading-relaxed">{suggestion.synopsis}</p>
+                </div>
+
+                <div className="flex gap-2 text-[11px] text-base-content/60">
+                  <span className="badge badge-outline">{suggestion.genre_label}</span>
+                  <span className="badge badge-outline">{suggestion.atmosphere}</span>
+                </div>
+
+                <div className="flex gap-3 justify-end pt-2">
+                  <button className="btn btn-ghost btn-sm" onClick={resetForm}>
+                    重新构思
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={create}
+                    disabled={creating || !name.trim()}
+                  >
+                    {creating ? "创建中…" : `创建《${name}》`}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!suggestion && (
+              <div className="flex gap-3 justify-end pt-4">
                 <button className="btn btn-ghost" onClick={() => setShowCreate(false)}>
                   取消
                 </button>
                 <button className="btn btn-primary" onClick={create} disabled={creating || !name.trim()}>
-                  {creating ? "创建中..." : "创建小说"}
+                  {creating ? "创建中…" : "创建小说"}
                 </button>
               </div>
-            </div>
+            )}
           </div>
           <div className="modal-backdrop" onClick={() => setShowCreate(false)} />
         </div>
