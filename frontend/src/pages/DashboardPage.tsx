@@ -49,6 +49,7 @@ function Dashboard() {
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [selectedTitle, setSelectedTitle] = useState("");
   const [creating, setCreating] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -181,9 +182,9 @@ function Dashboard() {
           <div className="modal-box max-w-lg">
             <h3 className="font-bold font-serif text-lg mb-4">开始一部新小说</h3>
 
-            {!suggestion ? (
+            {/* State 0: AI greeting — author describes story or clicks skip */}
+            {!suggestion && !manualMode && (
               <div className="space-y-4">
-                {/* AI greeting */}
                 <div className="flex gap-3 items-start">
                   <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
                     <Wand2 className="w-4 h-4 text-primary" />
@@ -196,7 +197,7 @@ function Dashboard() {
 
                 <textarea
                   className="textarea textarea-bordered w-full h-28"
-                  placeholder="比如：一个退役刑警在调查三年前的悬案时，发现所有线索都指向他自己。或者：现代都市里，一个程序员发现自己写的代码正在改变现实…"
+                  placeholder="比如：一个退役刑警在调查三年前的悬案时，发现所有线索都指向他自己。"
                   value={premise}
                   onChange={(e) => setPremise(e.target.value)}
                   onKeyDown={(e) => {
@@ -212,89 +213,79 @@ function Dashboard() {
                   onClick={doSuggest}
                   disabled={suggesting || !premise.trim()}
                 >
-                  {suggesting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Wand2 className="w-4 h-4" />
-                  )}
+                  {suggesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
                   {suggesting ? "AI 正在构思…" : "AI 帮我起名 & 分析类型"}
                 </button>
 
-                <p className="text-[11px] text-base-content/40 text-center">
-                  也可以跳过 — 直接输入书名创建
-                </p>
-                <div>
-                  <input
-                    className="input input-bordered w-full"
-                    placeholder="已有书名？直接输入…"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && create()}
-                  />
-                </div>
+                <div className="divider text-[11px] text-base-content/40">或者</div>
+
+                <button className="btn btn-ghost w-full text-sm" onClick={() => setManualMode(true)}>
+                  跳过 — 我已经有书名和想法了
+                </button>
               </div>
-            ) : (
+            )}
+
+            {/* State 1: AI results — author picks a title */}
+            {suggestion && (
               <div className="space-y-4">
                 <div>
-                  <label className="label py-1">
-                    <span className="label-text text-xs font-medium">AI 为你准备了</span>
-                  </label>
-                  <div className="space-y-2">
+                  <span className="label-text text-xs font-medium">AI 为你准备了</span>
+                  <div className="space-y-2 mt-2">
                     {suggestion.titles.map((t, i) => (
                       <button
                         key={i}
-                        className={`btn w-full justify-start text-sm ${
-                          selectedTitle === t ? "btn-primary" : "btn-outline"
-                        }`}
-                        onClick={() => {
-                          setSelectedTitle(t);
-                          setName(t);
-                        }}
+                        className={`btn w-full justify-start text-sm ${selectedTitle === t ? "btn-primary" : "btn-outline"}`}
+                        onClick={() => { setSelectedTitle(t); setName(t); }}
                       >
                         {t}
                       </button>
                     ))}
                   </div>
                 </div>
-
                 <div className="card bg-base-100 border border-base-300 p-3">
                   <span className="text-[10px] text-base-content/60 uppercase">简介</span>
                   <p className="text-sm mt-1 leading-relaxed">{suggestion.synopsis}</p>
                 </div>
-
                 <div className="flex gap-2 text-[11px] text-base-content/60">
                   <span className="badge badge-outline">{suggestion.genre_label}</span>
                   <span className="badge badge-outline">{suggestion.atmosphere}</span>
                 </div>
-
                 <div className="text-[11px] text-base-content/50 bg-base-200 rounded p-2">
-                  创建后会自动填好：小说简介、类型设定（{suggestion.genre_label}的世界观和文风模板）。
-                  你可以在设置页面修改。
+                  创建后自动填好：小说简介、类型设定。可在设置页面修改。
                 </div>
-
                 <div className="flex gap-3 justify-end pt-2">
-                  <button className="btn btn-ghost btn-sm" onClick={resetForm}>
-                    重新构思
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={create}
-                    disabled={creating || !name.trim()}
-                  >
+                  <button className="btn btn-ghost btn-sm" onClick={resetForm}>重新构思</button>
+                  <button className="btn btn-primary" onClick={create} disabled={creating || !name.trim()}>
                     {creating ? "创建中…" : `创建《${name}》`}
                   </button>
                 </div>
               </div>
             )}
 
-            {!suggestion && (
-              <div className="flex gap-3 justify-end pt-4">
-                <button className="btn btn-ghost" onClick={() => setShowCreate(false)}>
-                  取消
-                </button>
-                <button className="btn btn-primary" onClick={create} disabled={creating || !name.trim()}>
-                  {creating ? "创建中…" : "创建小说"}
-                </button>
+            {/* State 2: Manual mode — author has a title already */}
+            {manualMode && !suggestion && (
+              <div className="space-y-4">
+                <div>
+                  <label className="label py-1"><span className="label-text text-xs font-medium">书名</span></label>
+                  <input
+                    className="input input-bordered w-full"
+                    placeholder="给你的小说取个名字…"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && create()}
+                  />
+                </div>
+                <div className="text-[11px] text-base-content/50">
+                  书名确定后可以随时修改。简介和类型可以在设置页面补充。
+                </div>
+                <div className="flex gap-3 justify-end pt-2">
+                  <button className="btn btn-ghost" onClick={() => { setManualMode(false); setName(""); }}>
+                    返回
+                  </button>
+                  <button className="btn btn-primary" onClick={create} disabled={creating || !name.trim()}>
+                    {creating ? "创建中…" : "创建"}
+                  </button>
+                </div>
               </div>
             )}
           </div>
