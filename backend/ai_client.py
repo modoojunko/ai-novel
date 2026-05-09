@@ -64,10 +64,15 @@ class AIClient:
                 openai_messages.append({"role": "system", "content": system})
             for m in messages:
                 openai_messages.append({"role": m["role"], "content": m["content"]})
+            # Default: disable thinking for writing/chat tasks
+            extra = {"thinking": {"type": "disabled"}}
+            if "thinking" in kwargs:
+                extra["thinking"] = kwargs.pop("thinking")
             response = await self._client.chat.completions.create(
                 model=model,
                 messages=openai_messages,
                 max_tokens=max_tokens,
+                extra_body=extra,
                 **kwargs,
             )
             return response.choices[0].message.content or ""
@@ -101,11 +106,15 @@ class AIClient:
                 openai_messages.append({"role": "system", "content": system})
             for m in messages:
                 openai_messages.append({"role": m["role"], "content": m["content"]})
+            extra = {"thinking": {"type": "disabled"}}
+            if "thinking" in kwargs:
+                extra["thinking"] = kwargs.pop("thinking")
             stream = await self._client.chat.completions.create(
                 model=model,
                 messages=openai_messages,
                 max_tokens=max_tokens,
                 stream=True,
+                extra_body=extra,
                 **kwargs,
             )
             async for chunk in stream:
