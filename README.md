@@ -1,4 +1,4 @@
-# NovelForge
+# AI Novel · 爱小说
 
 AI-assisted long-form novel writing platform. Take your story from idea to archive through a structured 6-phase workflow — worldbuilding, outlining, prompt engineering, streaming prose generation, and archival.
 
