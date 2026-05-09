@@ -1,0 +1,22 @@
+# AI Model Configuration — 复制为 ai_config.yaml 并填入真实值
+# 修改后重启后端生效
+
+provider:
+  # 模型服务商。可选: deepseek | anthropic
+  name: deepseek
+  api_key: sk-...
+  # DeepSeek: https://api.deepseek.com/anthropic
+  # Anthropic: 留空
+  base_url: https://api.deepseek.com/anthropic
+
+models:
+  haiku:
+    id: deepseek-v4-flash
+    description: 快写模型 — 日常章节、书名建议
+  sonnet:
+    id: deepseek-v4-pro
+    description: 精写模型 — 关键章节
+  review:
+    id: deepseek-v4-pro
+    description: 推理模型 — 评审报告
+    thinking: true
