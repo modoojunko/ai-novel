@@ -97,7 +97,7 @@ export default function LandingPage() {
           <p style={{ fontSize: 15, color: "#64748b", maxWidth: 480, marginBottom: 48 }}>从零到一，每个阶段都有 AI 辅助，但决定权永远在你手里。</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8" style={{ position: "relative" }}>
             {[
-              ["1", "世界搭建", "设定世界观、规则、地理、势力。AI 帮你扩展细节，保持内部逻辑自洽。"],
+              ["1", "世界搭建", "设定世界规则、地理、势力。AI 帮你扩展细节，保持内部逻辑自洽。"],
               ["2", "风格设定", "定义叙事风格、节奏、视角。所有 AI 生成都对齐你定下的风格规则。"],
               ["3", "大纲推演", "分卷、分章、分节。拖拽调整结构，AI 检测节奏问题和逻辑漏洞。"],
               ["4", "提示词生成", "基于大纲自动生成每节的写作提示词，也可手动精调引导 AI 输出。"],
