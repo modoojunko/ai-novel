@@ -53,9 +53,9 @@ export default function WritePage() {
     setQcResult(null);
     const ch = await api.get(`/projects/${projectId}/chapters/${ref}`);
     setChapter(ch);
-    const segs = (ch?.outline?.segments || []).map((s: any, i: number) => ({
+    const segs = (ch?.segments || []).map((s: any, i: number) => ({
       idx: i + 1,
-      title: s.focus?.slice(0, 40) || `Segment ${i + 1}`,
+      title: s.goal?.slice(0, 40) || `Segment ${i + 1}`,
       text: "",
       status: "idle" as const,
       violations: [],

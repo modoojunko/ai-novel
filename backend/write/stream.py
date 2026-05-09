@@ -19,7 +19,7 @@ async def stream_segment(
     root_path: str,
     chapter_ref: str,
     seg_idx: int,
-    model: str = "claude-haiku-4-5-20251001",
+    model: str | None = None,
     on_complete: Callable[[Usage], object] | None = None,
 ):
     _validate_ref(chapter_ref)
@@ -28,6 +28,9 @@ async def stream_segment(
     )
     style = await get_storage().read_yaml(root_path, "settings/writing-style.yaml")
     anti_ai = await get_storage().read_yaml(root_path, "settings/anti-ai.yaml")
+
+    if model is None:
+        model = style.get("writing_model", "haiku")
 
     system_msg = (
         f"你是{style.get('role', '一位小说家')}。{style.get('core_principles', '')}"
@@ -60,13 +63,24 @@ async def stream_segment(
 
 def _scan_chunk(text: str, anti_ai: dict) -> list[str]:
     violations = []
-    for word in anti_ai.get("fatigue_words", []):
+
+    # Flatten fatigue_words_zh
+    fw = anti_ai.get("fatigue_words_zh", {})
+    all_words = []
+    for category in fw.values():
+        if isinstance(category, list):
+            all_words.extend(category)
+    for word in all_words:
         if word in text:
             violations.append(f"疲劳词: {word}")
-    for pattern in anti_ai.get("forbidden_patterns", []):
+
+    # Scan structural_tic_patterns
+    for tic in anti_ai.get("structural_tic_patterns", []):
+        if not isinstance(tic, dict):
+            continue
         try:
-            if re.search(pattern, text):
-                violations.append(f"禁用句式: {pattern}")
+            if re.search(tic.get("pattern", ""), text):
+                violations.append(f"禁用句式[{tic.get('name', '')}]")
         except re.error:
             pass
     return violations

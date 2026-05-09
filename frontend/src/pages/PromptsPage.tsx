@@ -42,7 +42,7 @@ export default function PromptsPage() {
     setPromptContent("");
     const ch = await api.get(`/projects/${projectId}/chapters/${ref}`);
     setChapter(ch);
-    setGuidance(ch?.outline?.perspective_guidance || "");
+    setGuidance(ch?.outline?.summary || "");
   }
 
   async function runPerspectiveConversion() {

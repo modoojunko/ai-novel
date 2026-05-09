@@ -21,25 +21,40 @@ async def gate_settings_complete(root_path: str) -> tuple[bool, list[str]]:
 
 
 def gate_chapter_ready(chapter_data: dict) -> tuple[bool, list[str]]:
-    """Check if chapter outline is ready for prompt generation."""
+    """Check if chapter outline is ready for prompt generation.
+
+    Verifies chapter.yaml against reference/chapter.yaml.template schema.
+    """
     missing = []
     memo = chapter_data.get("memo", {})
-    memo_fields = [
-        "why_this_scene",
-        "reader_promise",
-        "reader_question",
-        "emotion_curve",
-        "character_state_change",
-        "thread_position",
-        "to_avoid",
-    ]
-    for f in memo_fields:
-        if not memo.get(f):
-            missing.append(f"memo.{f} is empty")
 
-    segments = chapter_data.get("outline", {}).get("segments", [])
+    # current_task — chapter's must-do action
+    if not memo.get("current_task"):
+        missing.append("memo.current_task is empty")
+
+    # reader_expectation — nested object; state + detail must be non-empty
+    rexp = memo.get("reader_expectation", {})
+    if not rexp.get("state"):
+        missing.append("memo.reader_expectation.state is empty")
+    if not rexp.get("strategy"):
+        missing.append("memo.reader_expectation.strategy is empty")
+
+    # required_changes — at least 1 change per chapter
+    changes = memo.get("required_changes", [])
+    if not changes:
+        missing.append("memo.required_changes is empty")
+
+    # prohibitions — optional, skip
+
+    # emotional_design — must have primary_mood
+    ed = chapter_data.get("emotional_design", {})
+    if not ed.get("primary_mood"):
+        missing.append("emotional_design.primary_mood is empty")
+
+    # segments — must exist in outline
+    segments = chapter_data.get("segments", [])
     if not segments:
-        missing.append("no segments defined")
+        missing.append("segments is empty")
 
     return len(missing) == 0, missing
 
