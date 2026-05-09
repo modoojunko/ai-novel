@@ -14,7 +14,10 @@ def slugify(name: str) -> str:
     return slug or "untitled"
 
 
-async def create_project(db: AsyncSession, user_id: str, name: str) -> Project:
+async def create_project(
+    db: AsyncSession, user_id: str, name: str,
+    synopsis: str = "", genre_profile: str = "",
+) -> Project:
     slug = slugify(name)
     existing = await db.execute(
         select(Project).where(Project.user_id == user_id, Project.slug == slug)
@@ -24,6 +27,18 @@ async def create_project(db: AsyncSession, user_id: str, name: str) -> Project:
 
     root_path = f"{DATA_ROOT}/{user_id}/{slug}"
     await get_storage().init_skeleton(root_path)
+
+    # Write AI-suggested metadata into project files
+    if synopsis or genre_profile:
+        story = await get_storage().read_yaml(root_path, "story.yaml")
+        if synopsis:
+            story["synopsis"] = synopsis
+        await get_storage().write_yaml(root_path, "story.yaml", story)
+
+    if genre_profile:
+        style = await get_storage().read_yaml(root_path, "settings/writing-style.yaml")
+        style["genre_profile"] = genre_profile
+        await get_storage().write_yaml(root_path, "settings/writing-style.yaml", style)
 
     project = Project(user_id=user_id, name=name, slug=slug, root_path=root_path)
     db.add(project)

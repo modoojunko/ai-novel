@@ -12,7 +12,7 @@ from db import Base, engine
 import models  # noqa: F401 — register models with Base
 
 from auth.router import router as auth_router
-from projects.router import router as projects_router
+from projects.router import ai_router, router as projects_router
 from settings.router import router as settings_router
 from chapters.router import router as chapters_router
 from prompt.router import router as prompt_router
@@ -74,6 +74,7 @@ app.add_middleware(
 )
 app.add_middleware(RateLimitMiddleware, max_requests=120, window=60)
 
+app.include_router(ai_router)
 app.include_router(auth_router)
 app.include_router(projects_router)
 app.include_router(settings_router)
