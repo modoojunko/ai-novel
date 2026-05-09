@@ -13,7 +13,7 @@ init → settings → outline → prompt → write → archive
 | 阶段 | 说明 |
 |------|------|
 | **1. Init** | 创建项目，搭建小说骨架 |
-| **2. Settings** | 世界观、角色、文风、Anti-AI 模式、线索钩子 |
+| **2. Settings** | 世界设定、角色、文风、Anti-AI 模式、线索钩子 |
 | **3. Outline** | 卷结构、章节大纲、情感节拍 |
 | **4. Prompt** | 段落拆分、视角转换、逐段提示词组装 |
 | **5. Write** | SSE 流式生成 + 6 项质量检查，实时暂停/取消 |

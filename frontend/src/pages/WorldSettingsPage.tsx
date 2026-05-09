@@ -7,7 +7,7 @@ const FIELDS = [
   { key: "politics", label: "政治/权力结构", type: "textarea" as const, placeholder: "政府、组织、权力关系" },
   { key: "culture", label: "文化/社会风貌", type: "textarea" as const, placeholder: "习俗、价值观、社会阶层" },
   { key: "technology", label: "技术水平", type: "textarea" as const, placeholder: "科技发展阶段、特殊技术" },
-  { key: "rules", label: "世界观特殊规则", type: "textarea" as const, placeholder: "魔法系统、超自然规则等" },
+  { key: "rules", label: "世界规则", type: "textarea" as const, placeholder: "魔法系统、超自然规则等" },
   { key: "history", label: "关键历史事件", type: "textarea" as const, placeholder: "影响当前局势的过去事件" },
 ];
 
