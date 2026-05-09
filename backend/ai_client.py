@@ -79,7 +79,11 @@ class AIClient:
                 max_tokens=max_tokens,
                 **kwargs,
             )
-            return response.content[0].text
+            # DeepSeek returns thinking blocks by default — skip them, take the first text block
+            for block in response.content:
+                if getattr(block, "type", "") == "text" and block.text:
+                    return block.text
+            return ""
 
     async def chat_stream(
         self,
@@ -118,8 +122,11 @@ class AIClient:
                 **kwargs,
             ) as stream:
                 async for event in stream:
-                    if event.type == "content_block_delta" and event.delta.type == "text_delta":
-                        yield StreamEvent(text=event.delta.text)
+                    if event.type == "content_block_delta":
+                        delta_type = getattr(event.delta, "type", "")
+                        if delta_type == "text_delta":
+                            yield StreamEvent(text=event.delta.text)
+                        # Skip thinking_delta blocks
                     elif event.type == "message_stop":
                         tokens = 0
                         if hasattr(event, "usage") and event.usage:
