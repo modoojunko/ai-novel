@@ -2,10 +2,9 @@ import json
 import re
 from collections.abc import Callable
 
-from anthropic import AsyncAnthropic
 from anthropic.types import Usage
 
-from config import ANTHROPIC_API_KEY
+from ai_client import create_ai_client, resolve_model
 from filesystem.storage import get_storage
 
 
@@ -31,12 +30,13 @@ async def stream_segment(
 
     if model is None:
         model = style.get("writing_model", "haiku")
+    model = resolve_model(model)
 
     system_msg = (
         f"你是{style.get('role', '一位小说家')}。{style.get('core_principles', '')}"
     )
 
-    client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    client = create_ai_client()
 
     full_text = ""
     async with client.messages.stream(

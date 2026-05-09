@@ -1,12 +1,12 @@
 import json
 
-from anthropic import AsyncAnthropic
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ai_client import create_ai_client, resolve_model
 from auth.middleware import get_current_user
-from config import ANTHROPIC_API_KEY
+from config import AI_API_KEY
 from db import get_db
 from projects.service import (
     create_project,
@@ -64,7 +64,7 @@ async def suggest_meta(
     db: AsyncSession = Depends(get_db),
 ):
     """Given a story premise, suggest titles, synopsis, genre, and pen name."""
-    if not ANTHROPIC_API_KEY:
+    if not AI_API_KEY:
         raise HTTPException(503, "AI service not configured")
 
     prompt = f"""你是一位资深出版编辑。一位作者想写一本小说，给了你下面这段话描述ta的故事构思。请根据这个构思给出以下建议，用 JSON 格式返回（不要额外文本）。
@@ -87,10 +87,10 @@ async def suggest_meta(
 - 类型判断要准确——如果提到探案/悬疑/失踪 → suspense-crime；如果提到修真/修炼/境界 → xianxia 或 xuanhuan
 - 如果无法确定类型，默认选 urban-daily"""
 
-    client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    client = create_ai_client()
     try:
         response = await client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=resolve_model("haiku"),
             max_tokens=800,
             messages=[{"role": "user", "content": prompt}],
         )

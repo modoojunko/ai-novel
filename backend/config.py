@@ -23,6 +23,13 @@ JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-me")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = 60
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+AI_API_KEY = os.getenv("AI_API_KEY", ANTHROPIC_API_KEY)  # ANTHROPIC_API_KEY is fallback
+AI_BASE_URL = os.getenv("AI_BASE_URL", "")
+AI_MODEL_MAP = {
+    # provider-agnostic names → actual model IDs
+    "haiku": os.getenv("AI_MODEL_HAIKU", "deepseek-v4-flash"),
+    "sonnet": os.getenv("AI_MODEL_SONNET", "deepseek-v4-pro"),
+}
 STORAGE_BACKEND = os.getenv("STORAGE_BACKEND", "local")
 # "database" backend uses MySQL-specific syntax (ON DUPLICATE KEY UPDATE, SUBSTRING_INDEX).
 # Designed for CloudBase MySQL — not compatible with PostgreSQL or SQLite.
