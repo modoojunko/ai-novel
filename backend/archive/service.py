@@ -1,8 +1,6 @@
 from datetime import datetime
 
-from anthropic import Anthropic
-
-from config import ANTHROPIC_API_KEY
+from ai_client import get_ai_client
 from filesystem.storage import get_storage
 
 
@@ -24,18 +22,14 @@ async def archive_chapter(root_path: str, chapter_ref: str, full_text: str) -> d
     await get_storage().write_md(root_path, archive_path, full_text)
 
     # Generate 200-char summary via AI
-    client = Anthropic(api_key=ANTHROPIC_API_KEY)
-    message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+    client = get_ai_client()
+    summary_text = await client.chat(
+        model="haiku",
+        system="",
+        messages=[{"role": "user", "content": f"用200字以内总结本章核心事件，只陈述事实不评论：\n\n{full_text[:3000]}"}],
         max_tokens=200,
-        messages=[
-            {
-                "role": "user",
-                "content": f"用200字以内总结本章核心事件，只陈述事实不评论：\n\n{full_text[:3000]}",
-            }
-        ],
     )
-    summary = message.content[0].text[:200]
+    summary = summary_text[:200]
 
     chapter["archive_summary"] = summary
     chapter["archive_path"] = archive_path
@@ -48,10 +42,6 @@ async def archive_chapter(root_path: str, chapter_ref: str, full_text: str) -> d
     return {
         "archive_path": archive_path,
         "summary": summary,
-        "usage": {
-            "input_tokens": message.usage.input_tokens,
-            "output_tokens": message.usage.output_tokens,
-        },
     }
 
 
