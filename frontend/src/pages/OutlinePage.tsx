@@ -7,34 +7,49 @@ import AiSuggestButton from "@/components/ui/ai-suggest-button";
 import { Save, Loader2, Send, Trash2 } from "lucide-react";
 
 type Segment = {
-  seg: number;
-  focus: string;
-  emotion: string;
-  key_beat: string;
+  seg_number: number;
+  function: string;
+  goal: string;
+  what_to_write: string;
   characters: string[];
-  location: string;
-  time: string;
-  target_words: number;
+  emotional_tone: string;
+  word_target: number;
+  ends_with: string;
+  dialogue_intent: string;
 };
 
 type Chapter = {
   volume: number;
   chapter: number;
   title: string;
-  pov_character: string;
-  thread: string;
-  story_time: string;
-  concurrent_with: string;
-  crossover_ref: string;
   outline: {
     summary: string;
-    perspective_guidance: string;
-    segments: Segment[];
+    key_points: string[];
+    characters: string[];
+    location: string;
+    time: string;
+    narrative_pov: string;
   };
   memo: {
-    to_avoid: string;
-    notes: string;
+    current_task: string;
+    reader_expectation: {
+      state: string;
+      strategy: string;
+      detail: string;
+    };
+    required_changes: string[];
+    prohibitions: string[];
+    key_choices: string[];
   };
+  emotional_design: {
+    primary_mood: string;
+    mood_progression: string;
+    intensity_peak: string;
+    satisfaction_beat: string;
+    emotional_hook: string;
+    intensity_level: number;
+  };
+  segments: Segment[];
   status: string;
 };
 
@@ -49,27 +64,38 @@ function emptyChapter(vol: number, ch: number): Chapter {
     volume: vol,
     chapter: ch,
     title: "",
-    pov_character: "",
-    thread: "",
-    story_time: "",
-    concurrent_with: "",
-    crossover_ref: "",
-    outline: { summary: "", perspective_guidance: "", segments: [] },
-    memo: { to_avoid: "", notes: "" },
-    status: "outlining",
+    outline: { summary: "", key_points: [], characters: [], location: "", time: "", narrative_pov: "" },
+    memo: {
+      current_task: "",
+      reader_expectation: { state: "", strategy: "", detail: "" },
+      required_changes: [],
+      prohibitions: [],
+      key_choices: [],
+    },
+    emotional_design: {
+      primary_mood: "",
+      mood_progression: "",
+      intensity_peak: "",
+      satisfaction_beat: "",
+      emotional_hook: "",
+      intensity_level: 5,
+    },
+    segments: [],
+    status: "outline",
   };
 }
 
 function emptySegment(segNum: number): Segment {
   return {
-    seg: segNum,
-    focus: "",
-    emotion: "",
-    key_beat: "",
+    seg_number: segNum,
+    function: "",
+    goal: "",
+    what_to_write: "",
     characters: [],
-    location: "",
-    time: "",
-    target_words: 1500,
+    emotional_tone: "",
+    word_target: 500,
+    ends_with: "",
+    dialogue_intent: "",
   };
 }
 
@@ -150,22 +176,22 @@ export default function OutlinePage() {
 
   function addSegment() {
     if (!editingChapter) return;
-    const segs = [...(editingChapter.outline?.segments || [])];
+    const segs = [...(editingChapter.segments || [])];
     segs.push(emptySegment(segs.length + 1));
-    updateChapterField("outline.segments", segs);
+    updateChapterField("segments", segs);
   }
 
   function updateSegment(idx: number, field: string, value: any) {
     if (!editingChapter) return;
-    const segs = [...(editingChapter.outline?.segments || [])];
+    const segs = [...(editingChapter.segments || [])];
     (segs[idx] as any)[field] = value;
-    updateChapterField("outline.segments", segs);
+    updateChapterField("segments", segs);
   }
 
   function removeSegment(idx: number) {
     if (!editingChapter) return;
-    const segs = editingChapter.outline?.segments?.filter((_, i) => i !== idx) || [];
-    updateChapterField("outline.segments", segs);
+    const segs = editingChapter.segments?.filter((_, i) => i !== idx) || [];
+    updateChapterField("segments", segs);
   }
 
   async function confirmChapter(ref: string) {
@@ -278,11 +304,11 @@ export default function OutlinePage() {
                         <div className="px-3 pb-3 space-y-3 border-t border-base-300 pt-3">
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <label className="label py-0.5"><span className="label-text text-[11px]">POV 角色</span></label>
+                              <label className="label py-0.5"><span className="label-text text-[11px]">叙事视角</span></label>
                               <input
                                 className="input input-bordered input-sm w-full"
-                                value={editingChapter.pov_character || ""}
-                                onChange={(e) => updateChapterField("pov_character", e.target.value)}
+                                value={editingChapter.narrative_pov || ""}
+                                onChange={(e) => updateChapterField("narrative_pov", e.target.value)}
                               />
                             </div>
                             <div>
@@ -311,10 +337,10 @@ export default function OutlinePage() {
                             </div>
                           </div>
                           <div>
-                            <label className="label py-0.5"><span className="label-text text-[11px]">Memo: 避免事项</span></label>
+                            <label className="label py-0.5"><span className="label-text text-[11px]">Memo: 当前任务</span></label>
                             <input
                               className="input input-bordered input-sm w-full"
-                              value={editingChapter.memo?.to_avoid || ""}
+                              value={editingChapter.memo?.current_task || ""}
                               onChange={(e) => updateChapterField("memo.to_avoid", e.target.value)}
                             />
                           </div>
@@ -343,21 +369,21 @@ export default function OutlinePage() {
                     </button>
                   </div>
                   <div className="space-y-1">
-                    {(editingChapter.outline?.segments || []).map((seg: any, i: number) => (
+                    {(editingChapter.segments || []).map((seg: any, i: number) => (
                       <div key={i} className="flex items-center gap-3 py-2 px-2 rounded hover:bg-base-300/30 group">
-                        <span className="text-[10px] text-base-content/60 w-4">{seg.seg || i + 1}</span>
+                        <span className="text-[10px] text-base-content/60 w-4">{seg.seg_number || i + 1}</span>
                         <input
                           className="input input-bordered input-xs flex-1"
                           placeholder="段落主题..."
-                          value={seg.focus || ""}
-                          onChange={(e) => updateSegment(i, "focus", e.target.value)}
+                          value={seg.goal || ""}
+                          onChange={(e) => updateSegment(i, "goal", e.target.value)}
                         />
                         <input
                           className="input input-bordered input-xs w-20"
                           type="number"
                           placeholder="字数"
-                          value={seg.target_words || 1500}
-                          onChange={(e) => updateSegment(i, "target_words", Number(e.target.value))}
+                          value={seg.word_target || 1500}
+                          onChange={(e) => updateSegment(i, "word_target", Number(e.target.value))}
                         />
                         <button
                           onClick={() => removeSegment(i)}

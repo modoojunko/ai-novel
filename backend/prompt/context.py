@@ -6,31 +6,23 @@ from filesystem.storage import get_storage
 async def inject_story_context(
     root_path: str, chapter: dict, thread_state: dict
 ) -> str:
+    """Inject story context from chapter outline and memo."""
     parts = []
-    thread_name = chapter.get("thread", "")
+    outline = chapter.get("outline", {})
+    memo = chapter.get("memo", {})
 
-    if thread_state and thread_name in thread_state:
-        t = thread_state[thread_name]
-        parts.append(f"当前线索状态：{t.get('current_state', '')}")
-        parts.append(f"情绪温度：{t.get('emotional_temperature', 'medium')}")
+    # Chapter summary
+    if outline.get("summary"):
+        parts.append(f"本章概要：{outline['summary']}")
 
-    concurrent = chapter.get("concurrent_with", [])
-    for ref in concurrent:
-        if thread_state:
-            for tname, tdata in thread_state.items():
-                if tdata.get("last_chapter") == ref:
-                    parts.append(
-                        f"同时发生（{tname}）：{tdata.get('current_state', '')}"
-                    )
-                    break
+    # Current task
+    if memo.get("current_task"):
+        parts.append(f"当前任务：{memo['current_task']}")
 
-    cross = chapter.get("crossover_ref", "")
-    if cross:
-        cross_ch = await get_storage().read_yaml(root_path, f"chapters/{cross}.yaml")
-        if cross_ch:
-            parts.append(
-                f"上次交汇（{cross}）：{cross_ch.get('outline', {}).get('summary', '')[:200]}"
-            )
+    # Key points
+    key_points = outline.get("key_points", [])
+    if key_points:
+        parts.append(f"关键情节点：{'; '.join(key_points)}")
 
     return "\n\n".join(parts) if parts else ""
 
@@ -47,10 +39,10 @@ async def inject_character_snapshots(root_path: str, character_names: list[str])
         history = ch_data.get("state_history", [])
         parts.append(
             f"### {name}\n"
-            f"身份：{ch_data.get('role', '未知')}\n"
-            f"当前状态：{history[-1].get('state', '初始') if history else '初始'}\n"
-            f"动机：{ch_data.get('current_motivation', '不明')}\n"
-            f"所在：{ch_data.get('current_location', '不明')}"
+            f"身份：{ch_data.get('story_role', '未知')}\n"
+            f"当前状态：{history[-1].get('status', '初始') if history else '初始'}\n"
+            f"价值观：{ch_data.get('values', '不明')}\n"
+            f"所在：{ch_data.get('environment', '不明')}"
         )
     return "\n\n".join(parts)
 
@@ -60,7 +52,7 @@ async def inject_active_hooks(root_path: str, current_chapter_ref: str) -> str:
     hooks = [
         h
         for h in hooks_data.get("hooks", [])
-        if h.get("status") in ("mentioned", "reinforced")
+        if h.get("status") in ("pending", "mentioned")
         and h.get("introduced_in") != current_chapter_ref
     ]
     if not hooks:
