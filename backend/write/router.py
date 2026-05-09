@@ -3,8 +3,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.middleware import get_current_user
-from db import async_session, get_db
-from billing.service import log_token_usage
+from db import get_db
 from filesystem.storage import get_storage
 from projects.service import get_project
 from workflow.engine import _validate_ref, load_chapter, update_phase

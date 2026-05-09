@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ai_client import get_ai_client, resolve_model
+from ai_client import get_ai_client
 from auth.middleware import get_current_user
 from config import AI_API_KEY
 from db import get_db
