@@ -3,7 +3,6 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.middleware import get_current_user
-from config import ANTHROPIC_API_KEY
 from db import get_db
 from filesystem.storage import get_storage
 from projects.service import get_project
@@ -32,12 +31,12 @@ async def run_perspective_conversion(
     summary = chapter.get("outline", {}).get("summary", "")
     pov = chapter.get("pov_character", "主角")
 
-    import anthropic
+    from ai_client import create_ai_client, resolve_model
     from billing.service import log_token_usage
 
-    client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    client = create_ai_client()
     message = await client.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model=resolve_model("haiku"),
         max_tokens=500,
         system="将以下上帝视角章纲转换为沉浸式写作指引。用第二人称'你'。保留所有关键事件，但用感官细节替换概括性描述。200-300字。",
         messages=[{"role": "user", "content": f"视角：{pov}\n章纲：{summary}"}],

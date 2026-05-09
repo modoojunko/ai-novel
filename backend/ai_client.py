@@ -1,13 +1,10 @@
 """AI client — provider-agnostic. Supports Anthropic and OpenAI API formats."""
 
-import json
-import re
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
 from anthropic import AsyncAnthropic
-from anthropic.types import Usage as AnthropicUsage
 from openai import AsyncOpenAI
 
 from config import AI_API_KEY, AI_BASE_URL, AI_MODEL_MAP, AI_API_FORMAT

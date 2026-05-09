@@ -1,7 +1,7 @@
 import json
 import re
 
-from ai_client import get_ai_client, resolve_model, StreamEvent
+from ai_client import get_ai_client
 from filesystem.storage import get_storage
 
 
