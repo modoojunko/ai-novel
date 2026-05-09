@@ -297,60 +297,62 @@ export default function OutlinePage() {
                       >
                         <span>更多字段</span>
                         <span className="text-[10px]">
-                          {showAdvFields ? "▾ POV、线索、时间线" : "▸ POV、线索、时间线"}
+                          {showAdvFields ? "▾ 视角、地点、读者预期" : "▸ POV、线索、时间线"}
                         </span>
                       </button>
                       {showAdvFields && (
                         <div className="px-3 pb-3 space-y-3 border-t border-base-300 pt-3">
+                          <div>
+                            <label className="label py-0.5"><span className="label-text text-[11px]">叙事视角</span></label>
+                            <input
+                              className="input input-bordered input-sm w-full"
+                              value={editingChapter.outline?.narrative_pov || ""}
+                              onChange={(e) => updateChapterField("outline.narrative_pov", e.target.value)}
+                            />
+                          </div>
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <label className="label py-0.5"><span className="label-text text-[11px]">叙事视角</span></label>
+                              <label className="label py-0.5"><span className="label-text text-[11px]">地点</span></label>
                               <input
                                 className="input input-bordered input-sm w-full"
-                                value={editingChapter.narrative_pov || ""}
-                                onChange={(e) => updateChapterField("narrative_pov", e.target.value)}
+                                value={editingChapter.outline?.location || ""}
+                                onChange={(e) => updateChapterField("outline.location", e.target.value)}
                               />
                             </div>
                             <div>
-                              <label className="label py-0.5"><span className="label-text text-[11px]">故事线索</span></label>
+                              <label className="label py-0.5"><span className="label-text text-[11px]">时间</span></label>
                               <input
                                 className="input input-bordered input-sm w-full"
-                                value={editingChapter.thread || ""}
-                                onChange={(e) => updateChapterField("thread", e.target.value)}
-                              />
-                            </div>
-                            <div>
-                              <label className="label py-0.5"><span className="label-text text-[11px]">故事时间</span></label>
-                              <input
-                                className="input input-bordered input-sm w-full"
-                                value={editingChapter.story_time || ""}
-                                onChange={(e) => updateChapterField("story_time", e.target.value)}
-                              />
-                            </div>
-                            <div>
-                              <label className="label py-0.5"><span className="label-text text-[11px]">并线章节</span></label>
-                              <input
-                                className="input input-bordered input-sm w-full"
-                                value={editingChapter.concurrent_with || ""}
-                                onChange={(e) => updateChapterField("concurrent_with", e.target.value)}
+                                value={editingChapter.outline?.time || ""}
+                                onChange={(e) => updateChapterField("outline.time", e.target.value)}
                               />
                             </div>
                           </div>
                           <div>
-                            <label className="label py-0.5"><span className="label-text text-[11px]">Memo: 当前任务</span></label>
+                            <label className="label py-0.5"><span className="label-text text-[11px]">当前任务（memo）</span></label>
                             <input
                               className="input input-bordered input-sm w-full"
                               value={editingChapter.memo?.current_task || ""}
-                              onChange={(e) => updateChapterField("memo.to_avoid", e.target.value)}
+                              onChange={(e) => updateChapterField("memo.current_task", e.target.value)}
                             />
                           </div>
-                          <div>
-                            <label className="label py-0.5"><span className="label-text text-[11px]">Memo: 备注</span></label>
-                            <input
-                              className="input input-bordered input-sm w-full"
-                              value={editingChapter.memo?.notes || ""}
-                              onChange={(e) => updateChapterField("memo.notes", e.target.value)}
-                            />
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="label py-0.5"><span className="label-text text-[11px]">读者情绪状态</span></label>
+                              <input
+                                className="input input-bordered input-sm w-full"
+                                value={editingChapter.memo?.reader_expectation?.state || ""}
+                                onChange={(e) => updateChapterField("memo.reader_expectation.state", e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className="label py-0.5"><span className="label-text text-[11px]">情绪策略</span></label>
+                              <input
+                                className="input input-bordered input-sm w-full"
+                                value={editingChapter.memo?.reader_expectation?.strategy || ""}
+                                onChange={(e) => updateChapterField("memo.reader_expectation.strategy", e.target.value)}
+                              />
+                            </div>
                           </div>
                         </div>
                       )}
