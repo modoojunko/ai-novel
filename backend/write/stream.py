@@ -1,10 +1,7 @@
 import json
 import re
-from collections.abc import Callable
 
-from anthropic.types import Usage
-
-from ai_client import create_ai_client, resolve_model
+from ai_client import get_ai_client, resolve_model, StreamEvent
 from filesystem.storage import get_storage
 
 
@@ -19,7 +16,6 @@ async def stream_segment(
     chapter_ref: str,
     seg_idx: int,
     model: str | None = None,
-    on_complete: Callable[[Usage], object] | None = None,
 ):
     _validate_ref(chapter_ref)
     prompt = await get_storage().read_md(
@@ -30,35 +26,23 @@ async def stream_segment(
 
     if model is None:
         model = style.get("writing_model", "haiku")
-    model = resolve_model(model)
 
-    system_msg = (
-        f"你是{style.get('role', '一位小说家')}。{style.get('core_principles', '')}"
-    )
+    system_msg = style.get("role", "一位小说家")
 
-    client = create_ai_client()
-
+    client = get_ai_client()
     full_text = ""
-    async with client.messages.stream(
+    async for event in client.chat_stream(
         model=model,
-        max_tokens=4096,
         system=system_msg,
         messages=[{"role": "user", "content": prompt}],
-    ) as stream:
-        async for event in stream:
-            if event.type == "content_block_delta" and event.delta.type == "text_delta":
-                chunk = event.delta.text
-                full_text += chunk
-                violations = _scan_chunk(full_text, anti_ai)
-                yield f"data: {json.dumps({'type': 'violation' if violations else 'chunk', 'text': chunk, 'violations': violations}, ensure_ascii=False)}\n\n"
-
-            elif event.type == "message_stop":
-                tokens = 0
-                if hasattr(event, "usage") and event.usage:
-                    tokens = event.usage.output_tokens
-                    if on_complete:
-                        await on_complete(event.usage)
-                yield f"data: {json.dumps({'type': 'done', 'full_text': full_text, 'total_tokens': tokens}, ensure_ascii=False)}\n\n"
+        max_tokens=4096,
+    ):
+        if event.text:
+            full_text += event.text
+            violations = _scan_chunk(full_text, anti_ai)
+            yield f"data: {json.dumps({'type': 'violation' if violations else 'chunk', 'text': event.text, 'violations': violations}, ensure_ascii=False)}\n\n"
+        elif event.is_done:
+            yield f"data: {json.dumps({'type': 'done', 'full_text': full_text, 'total_tokens': event.tokens}, ensure_ascii=False)}\n\n"
 
 
 def _scan_chunk(text: str, anti_ai: dict) -> list[str]:

@@ -39,21 +39,8 @@ async def write_stream(
     update_phase(project, "write")
     await db.commit()
 
-    async def on_complete(usage):
-        async with async_session() as session:
-            await log_token_usage(
-                session,
-                user["id"],
-                project_id,
-                f"{chapter_ref}-seg-{seg}",
-                "write_prose",
-                "haiku",
-                usage.input_tokens,
-                usage.output_tokens,
-            )
-
     return StreamingResponse(
-        stream_segment(project.root_path, chapter_ref, seg, on_complete=on_complete),
+        stream_segment(project.root_path, chapter_ref, seg),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

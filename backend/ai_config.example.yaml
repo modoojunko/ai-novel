@@ -2,11 +2,14 @@
 # 修改后重启后端生效
 
 provider:
-  # 模型服务商。可选: deepseek | anthropic
+  # 模型服务商。可选: deepseek | anthropic | openai
   name: deepseek
+  # API 格式。anthropic（Anthropic SDK）或 openai（OpenAI SDK）
+  # DeepSeek 两种都支持；Anthropic 只能用 anthropic；OpenAI 用 openai
+  api_format: anthropic
   api_key: sk-...
-  # DeepSeek: https://api.deepseek.com/anthropic
-  # Anthropic: 留空
+  # Anthropic 格式时：DeepSeek = https://api.deepseek.com/anthropic，Anthropic 留空
+  # OpenAI 格式时：DeepSeek = https://api.deepseek.com，OpenAI 留空
   base_url: https://api.deepseek.com/anthropic
 
 models:

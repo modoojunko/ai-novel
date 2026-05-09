@@ -54,6 +54,7 @@ AI_API_KEY = (
     or os.getenv("ANTHROPIC_API_KEY", "")
 )
 AI_BASE_URL = _provider.get("base_url", "") or os.getenv("AI_BASE_URL", "")
+AI_API_FORMAT = _provider.get("api_format", "anthropic")  # "anthropic" or "openai"
 AI_MODEL_MAP = {}
 for _name, _info in _models.items():
     if isinstance(_info, dict) and "id" in _info:
