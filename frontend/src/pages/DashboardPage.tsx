@@ -183,17 +183,30 @@ function Dashboard() {
 
             {!suggestion ? (
               <div className="space-y-4">
-                <div>
-                  <label className="label py-1">
-                    <span className="label-text text-xs font-medium">说说你的故事</span>
-                  </label>
-                  <textarea
-                    className="textarea textarea-bordered w-full h-28"
-                    placeholder="用一段话描述你想写的故事：一个退役刑警调查三年前的悬案，却发现所有线索都指向他自己…"
-                    value={premise}
-                    onChange={(e) => setPremise(e.target.value)}
-                  />
+                {/* AI greeting */}
+                <div className="flex gap-3 items-start">
+                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <Wand2 className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="bg-base-200 rounded-lg p-3 text-sm leading-relaxed">
+                    你想写一个什么样的故事？简单描述就行——主角是谁、在什么世界、发生了什么。
+                    不用想书名，先跟我聊聊你的故事。
+                  </div>
                 </div>
+
+                <textarea
+                  className="textarea textarea-bordered w-full h-28"
+                  placeholder="比如：一个退役刑警在调查三年前的悬案时，发现所有线索都指向他自己。或者：现代都市里，一个程序员发现自己写的代码正在改变现实…"
+                  value={premise}
+                  onChange={(e) => setPremise(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      doSuggest();
+                    }
+                  }}
+                />
+
                 <button
                   className="btn btn-primary w-full"
                   onClick={doSuggest}
@@ -204,18 +217,16 @@ function Dashboard() {
                   ) : (
                     <Wand2 className="w-4 h-4" />
                   )}
-                  {suggesting ? "AI 正在为你构思…" : "AI 起名 & 写简介"}
+                  {suggesting ? "AI 正在构思…" : "AI 帮我起名 & 分析类型"}
                 </button>
+
                 <p className="text-[11px] text-base-content/40 text-center">
                   也可以跳过 — 直接输入书名创建
                 </p>
                 <div>
-                  <label className="label py-1">
-                    <span className="label-text text-xs font-medium">书名</span>
-                  </label>
                   <input
                     className="input input-bordered w-full"
-                    placeholder="给你的小说取个名字…"
+                    placeholder="已有书名？直接输入…"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && create()}
@@ -226,7 +237,7 @@ function Dashboard() {
               <div className="space-y-4">
                 <div>
                   <label className="label py-1">
-                    <span className="label-text text-xs font-medium">选择一个书名</span>
+                    <span className="label-text text-xs font-medium">AI 为你准备了</span>
                   </label>
                   <div className="space-y-2">
                     {suggestion.titles.map((t, i) => (
@@ -254,6 +265,11 @@ function Dashboard() {
                 <div className="flex gap-2 text-[11px] text-base-content/60">
                   <span className="badge badge-outline">{suggestion.genre_label}</span>
                   <span className="badge badge-outline">{suggestion.atmosphere}</span>
+                </div>
+
+                <div className="text-[11px] text-base-content/50 bg-base-200 rounded p-2">
+                  创建后会自动填好：小说简介、类型设定（{suggestion.genre_label}的世界观和文风模板）。
+                  你可以在设置页面修改。
                 </div>
 
                 <div className="flex gap-3 justify-end pt-2">
