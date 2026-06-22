@@ -12,7 +12,7 @@ export type TreeNode = {
   badgeColor?: string;
   actions?: TreeNodeAction[];
   children?: TreeNode[];
-  data?: any;
+  data?: unknown;
 };
 
 interface TreeCallbacks {
@@ -46,6 +46,7 @@ function TreeNodeItem({
             ? "bg-primary/10 text-primary font-medium"
             : "hover:bg-base-300/30 text-base-content/70"
           }`}
+        style={{ paddingLeft: `${12 + depth * 16}px` }}
         onClick={() => onSelect(node)}
       >
         {/* Expand/collapse arrow */}
