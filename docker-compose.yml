@@ -13,10 +13,11 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://novel:novel@postgres:5432/novelsaas
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_API_KEY: ${AI_API_KEY:-}
       DATA_ROOT: /data/projects
     volumes:
       - novel_data:/data/projects
+      - ./backend:/app
     depends_on:
       postgres:
         condition: service_healthy

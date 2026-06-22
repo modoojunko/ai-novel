@@ -4,9 +4,9 @@ const PHASES = [
   { key: "init", label: "初始化" },
   { key: "settings", label: "设定" },
   { key: "outline", label: "大纲" },
-  { key: "prompts", label: "提示词" },
+  { key: "prompts", label: "细纲" },
   { key: "write", label: "写作" },
-  { key: "archives", label: "存档" },
+  { key: "archives", label: "正文" },
 ] as const;
 
 function phaseIndex(key: string): number {

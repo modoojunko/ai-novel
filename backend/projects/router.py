@@ -76,16 +76,17 @@ async def suggest_meta(
 {{
   "titles": ["书名选项1", "书名选项2", "书名选项3"],
   "synopsis": "一段 80-120 字的简介，适合放在小说封面或简介区",
-  "genre_profile": "suspense-crime|urban-romance|ancient-politics|scifi-apocalypse|xuanhuan|xianxia|western-fantasy|urban-daily 中的一个",
-  "genre_label": "类型的中文名称",
+  "genre_profile": "悬疑刑侦 | 都市言情 | 古风权谋 | 科幻末世 | 传统玄幻 | 东方仙侠 | 西方奇幻 | 都市日常 中的一个（用中文，不要用英文）",
+  "genre_label": "与 genre_profile 相同的中文名称",
   "atmosphere": "一句话描述这本书的氛围（如：压抑紧绷的暗流涌动 / 轻松温暖的都市日常）"
 }}
 
 要求：
 - 书名要有冲击力，不是烂大街的名字。每本书名 ≤8 字
 - 简介要用大白话，不是文学评论腔。直接讲这个故事关于什么，不写"这是一个关于…的故事"
-- 类型判断要准确——如果提到探案/悬疑/失踪 → suspense-crime；如果提到修真/修炼/境界 → xianxia 或 xuanhuan
-- 如果无法确定类型，默认选 urban-daily"""
+- 类型判断要准确——如果提到探案/悬疑/失踪 → 悬疑刑侦；如果提到修真/修炼/境界 → 东方仙侠 或 传统玄幻
+- genre_profile 必须是以上 8 种之一，用中文，不要用英文
+- 如果无法确定类型，默认选 都市日常"""
 
     client = get_ai_client()
     try:

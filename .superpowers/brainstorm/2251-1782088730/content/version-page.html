@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif; background: #14100b; color: #e8e0d4; display: flex; justify-content: center; padding: 20px; }
+  .app { width: 1100px; border-radius: 12px; overflow: hidden; border: 1px solid #2a241e; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+
+  .topbar { display: flex; align-items: center; padding: 0 16px; height: 48px; background: #1a1510; border-bottom: 1px solid #2a241e; }
+  .topbar-left { display: flex; align-items: center; gap: 8px; }
+  .topbar-title { font-weight: 600; font-size: 14px; color: #e8e0d4; }
+  .topbar-nav { margin-left: 20px; display: flex; gap: 0; }
+  .topbar-tab { padding: 6px 18px; font-size: 13px; color: #6a5a4a; cursor: pointer; border-radius: 6px 6px 0 0; border-bottom: 2px solid transparent; transition: all 0.15s; user-select: none; }
+  .topbar-tab:hover { color: #b8a08a; }
+  .topbar-tab.active { color: #d4a373; border-bottom-color: #d4a373; font-weight: 500; }
+  .topbar-spacer { flex: 1; }
+  .topbar-meta { font-size: 11px; color: #4a4035; }
+
+  .main { display: flex; min-height: 650px; }
+  .left { width: 230px; background: #18130e; border-right: 1px solid #2a241e; display: flex; flex-direction: column; }
+  .left-header { padding: 12px 12px 8px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2a241e; }
+  .left-header span { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #6a5a4a; }
+  .left-tree { flex: 1; padding: 4px 6px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #2a241e #18130e; }
+  .left-tree::-webkit-scrollbar { width: 4px; }
+  .left-tree::-webkit-scrollbar-track { background: #18130e; }
+  .left-tree::-webkit-scrollbar-thumb { background: #2a241e; border-radius: 2px; }
+  .left-footer { padding: 10px 12px; border-top: 1px solid #2a241e; }
+
+  .tnode { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 5px; cursor: pointer; font-size: 13px; color: #8a7a6a; transition: all 0.1s; user-select: none; }
+  .tnode:hover { background: #201a14; }
+  .tnode.active { background: #d4a37312; color: #d4a373; font-weight: 500; }
+  .tnode .ico { width: 18px; text-align: center; flex-shrink: 0; font-size: 13px; }
+  .tnode .lbl { flex: 1; }
+  .tnode .badge { font-size: 10px; padding: 1px 7px; border-radius: 8px; flex-shrink: 0; }
+  .tnode .badge.cnt { background: #2a241e; color: #6a5a4a; }
+  .tnode .badge.done { background: #22c55e12; color: #22c55e; }
+  .tnode .badge.writing { background: #f59e0b12; color: #f59e0b; }
+  .tnode .badge.draft { background: #3b82f612; color: #3b82f6; }
+  .subtree { padding-left: 18px; }
+  .add-row { font-size: 12px; color: #4a4035; padding: 7px 10px; border: 1px dashed #2a241e; border-radius: 5px; cursor: pointer; text-align: center; }
+  .add-row:hover { border-color: #d4a37344; color: #d4a373; }
+
+  .right { flex: 1; padding: 24px 36px; overflow-y: auto; background: #16110c; scrollbar-width: thin; scrollbar-color: #2a241e #16110c; }
+  .right::-webkit-scrollbar { width: 5px; }
+  .right::-webkit-scrollbar-track { background: #16110c; }
+  .right::-webkit-scrollbar-thumb { background: #2a241e; border-radius: 3px; }
+
+  .page-title { font-size: 20px; font-family: "EB Garamond", "Noto Serif SC", serif; font-weight: 600; color: #e8e0d4; margin-bottom: 4px; }
+  .page-subtitle { font-size: 12px; color: #6a5a4a; margin-bottom: 20px; }
+
+  .chapter-meta { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .chapter-meta .fd { display: flex; align-items: center; gap: 6px; }
+  .chapter-meta label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #6a5a4a; }
+  .chapter-meta .val { font-size: 13px; color: #e8e0d4; }
+  .chapter-meta .sel { background: #1a1510; border: 1px solid #2a241e; border-radius: 4px; padding: 4px 8px; font-size: 12px; color: #e8e0d4; outline: none; }
+
+  .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #6a5a4a; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  .section-label .hint { color: #4a4035; text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+  .outline-editor { width: 100%; min-height: 80px; background: #1a1510; border: 1px solid #2a241e; border-radius: 6px; padding: 10px 14px; font-size: 13px; color: #b8a08a; line-height: 1.7; resize: vertical; outline: none; font-family: inherit; scrollbar-width: thin; scrollbar-color: #2a241e #14100b; }
+  .outline-editor:focus { border-color: #3b82f644; }
+
+  .prose-editor { width: 100%; min-height: 280px; background: #18130e; border: 1px solid #2a241e; border-radius: 6px; padding: 16px 20px; font-family: "EB Garamond", "Noto Serif SC", serif; font-size: 16px; line-height: 2; color: #d8d0c4; resize: vertical; outline: none; scrollbar-width: thin; scrollbar-color: #2a241e #14100b; }
+  .prose-editor:focus { border-color: #d4a37344; }
+  .prose-editor::-webkit-scrollbar { width: 5px; }
+  .prose-editor::-webkit-scrollbar-track { background: #14100b; }
+  .prose-editor::-webkit-scrollbar-thumb { background: #2a241e; border-radius: 3px; }
+
+  .ch-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .ch-actions .act { font-size: 11px; color: #6a5a4a; padding: 6px 14px; border-radius: 4px; cursor: pointer; border: 1px solid #2a241e; }
+  .ch-actions .act:hover { background: #201a14; color: #b8a08a; }
+  .ch-actions .act.primary { background: #d4a37314; border-color: #d4a37344; color: #d4a373; }
+  .ch-actions .act.save { background: #22c55e10; border-color: #22c55e44; color: #22c55e; }
+
+  /* VERSION BAR — switches between editor and version view */
+  .version-bar { display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: #1a1510; border: 1px solid #2a241e; border-radius: 6px; margin-bottom: 16px; }
+  .version-bar .vl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #6a5a4a; }
+  .version-bar .vn { font-size: 13px; font-weight: 600; color: #d4a373; }
+  .version-bar .vt { font-size: 11px; color: #4a4035; }
+  .version-bar .vd { width: 1px; height: 20px; background: #2a241e; }
+  .version-bar .vbtn { font-size: 11px; color: #6a5a4a; padding: 3px 10px; border-radius: 4px; cursor: pointer; border: 1px solid #2a241e; }
+  .version-bar .vbtn:hover { background: #201a14; color: #b8a08a; border-color: #3a3025; }
+  .version-bar .vbtn.active { background: #d4a3730a; border-color: #d4a37344; color: #d4a373; }
+  .version-bar .vs { flex: 1; }
+  .version-bar .vstatus { font-size: 11px; }
+  .version-bar .vstatus.unsaved { color: #f59e0b; }
+  .version-bar .vstatus.saved { color: #22c55e; }
+
+  /* VERSION HISTORY PAGE — full right panel */
+  .version-page { }
+  .version-page .back-link { font-size: 11px; color: #6a5a4a; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 16px; padding: 4px 10px; border-radius: 4px; border: 1px solid #2a241e; }
+  .version-page .back-link:hover { color: #d4a373; border-color: #d4a37344; background: #d4a3730a; }
+
+  .v-table { width: 100%; border-collapse: collapse; }
+  .v-table th { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #4a4035; font-weight: 500; text-align: left; padding: 8px 12px; border-bottom: 1px solid #2a241e; }
+  .v-table td { font-size: 13px; padding: 10px 12px; border-bottom: 1px solid #2a241e20; vertical-align: top; }
+  .v-table tr:hover td { background: #1a1510; }
+  .v-table .v-ver { font-weight: 500; color: #d8d0c4; }
+  .v-table .v-ver.current { color: #d4a373; }
+  .v-table .v-date { font-size: 11px; color: #6a5a4a; }
+  .v-table .v-comment { font-size: 12px; color: #8a7a6a; }
+  .v-table .v-badge { font-size: 10px; padding: 1px 6px; border-radius: 8px; }
+  .v-table .v-badge.current { background: #d4a37312; color: #d4a373; }
+  .v-table .v-badge.old { background: #2a241e; color: #6a5a4a; }
+
+  .v-table .restore-btn { font-size: 10px; color: #d4a373; padding: 3px 10px; border-radius: 4px; cursor: pointer; border: 1px solid #d4a37344; background: transparent; display: none; }
+  .v-table tr:hover .restore-btn { display: inline-block; }
+  .v-table .restore-btn:hover { background: #d4a37312; }
+
+  .v-diff { margin-top: 12px; padding: 12px 16px; background: #1a1510; border: 1px solid #2a241e; border-radius: 6px; }
+  .v-diff .diff-header { font-size: 11px; color: #6a5a4a; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .v-diff .diff-header .vsn { color: #d4a373; font-weight: 500; }
+  .v-diff .diff-line { font-size: 12px; line-height: 1.7; font-family: "EB Garamond", "Noto Serif SC", serif; }
+  .v-diff .diff-line.add { color: #22c55e; border-left: 2px solid #22c55e; padding-left: 8px; }
+  .v-diff .diff-line.del { color: #ef4444; border-left: 2px solid #ef4444; padding-left: 8px; }
+
+  .rpanel { display: none; flex-direction: column; flex: 1; }
+  .rpanel.active { display: flex; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-title">迷雾中的真相</span>
+      <span style="font-size:10px;color:#4a4035;margin-left:4px">悬疑刑侦</span>
+    </div>
+    <div class="topbar-nav">
+      <div class="topbar-tab active">📖 正文</div>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-meta">最后编辑：2026-06-21</div>
+  </div>
+
+  <div class="main">
+
+    <!-- LEFT TREE (unchanged) -->
+    <div class="left">
+      <div class="left-header"><span>卷 · 章</span><span style="font-size:10px;color:#4a4035">3卷 · 7章</span></div>
+      <div class="left-tree">
+        <div class="tnode active" style="font-weight:500;color:#d4a373">
+          <span class="ico">▾</span><span class="lbl">第一卷 · 迷雾</span><span class="badge done">3章</span>
+        </div>
+        <div class="subtree">
+          <div class="tnode active" style="font-size:12px;padding-left:28px">
+            <span class="ico"><span style="font-size:10px;color:#4a4035">ch-2</span></span>
+            <span class="lbl">暗流涌动</span><span class="badge writing">✎</span>
+          </div>
+          <div class="tnode" style="font-size:12px;padding-left:28px">
+            <span class="ico"><span style="font-size:10px;color:#4a4035">ch-1</span></span>
+            <span class="lbl">不速之客</span><span class="badge done">✓</span>
+          </div>
+          <div class="tnode" style="font-size:12px;padding-left:28px">
+            <span class="ico"><span style="font-size:10px;color:#4a4035">ch-3</span></span>
+            <span class="lbl">深渊回望</span><span class="badge draft">纲</span>
+          </div>
+        </div>
+        <div class="tnode"><span class="ico">▸</span><span class="lbl">第二卷 · 暗战</span><span class="badge cnt">2章</span></div>
+        <div class="tnode"><span class="ico">▸</span><span class="lbl">第三卷 · 终局</span><span class="badge cnt">0章</span></div>
+      </div>
+      <div class="left-footer" style="font-size:10px;color:#4a4035;display:flex;gap:12px">
+        <span>● 完成</span><span>● 写作中</span><span>● 章纲</span>
+      </div>
+    </div>
+
+    <!-- ====== RIGHT PANEL: EDITOR VIEW ====== -->
+    <div class="rpanel active" id="editorView">
+
+      <div class="chapter-meta">
+        <div class="fd"><label>章节</label><span class="val">第一卷 · ch-2 暗流涌动</span></div>
+        <div class="fd"><label>状态</label><select class="sel"><option>未开始</option><option>章纲</option><option selected>写作中</option><option>待修改</option><option>已完成</option></select></div>
+        <div class="fd" style="margin-left:auto"><span style="font-size:11px;color:#4a4035">1,256 字</span></div>
+      </div>
+
+      <!-- Version bar — click "历史版本" to switch to version page -->
+      <div class="version-bar">
+        <span class="vl">版本</span>
+        <span class="vn">v4</span>
+        <span class="vt">· 2026-06-21 14:32</span>
+        <span class="vd"></span>
+        <span class="vbtn active" id="gotoHistoryBtn">📋 历史版本</span>
+        <span class="vs"></span>
+        <span class="vstatus unsaved">⚠️ 未保存</span>
+      </div>
+
+      <div><div class="section-label">章纲 <span class="hint">这章要发生什么</span></div>
+        <textarea class="outline-editor">林深在废弃工厂发现关键物证——一个带有血迹的打火机。他正要拍照时听到脚步声，匆忙躲进暗处。来人是派出所民警赵刚，赵刚说自己只是例行巡逻。但林深注意到他的鞋底沾着厂房里特有的红色粉尘。赵刚离开后，林深发现打火机上刻着一串数字——是自己的警号。</textarea>
+      </div>
+
+      <div style="margin-top:16px">
+        <div class="section-label">正文</div>
+        <textarea class="prose-editor">废弃工厂的大门虚掩着，锈蚀的铁链像一条死蛇瘫在地上。林深侧身挤进门缝，手电筒的光切开黑暗，照亮了满地的碎玻璃和鸟粪。
+
+现场基本保持着三年前的模样——不对，应该说有人刻意维持着。他蹲下身，手指在地面上划出一道浅浅的痕迹。灰尘很厚，至少两个月没人来过。但角落里的脚印是新鲜的。
+
+脚印通向厂房深处。他跟着脚印走，在废料堆后面发现了一个打火机。银色的，Zippo，底部刻着字。
+
+他捡起来，就着手电筒的光看——警号：033142。
+
+他自己的警号。</textarea>
+      </div>
+
+      <div class="ch-actions">
+        <span class="act save">💾 保存 (v5)</span>
+        <span class="act primary">预览</span>
+      </div>
+    </div>
+
+    <!-- ====== RIGHT PANEL: VERSION HISTORY ====== -->
+    <div class="rpanel" id="historyView">
+
+      <div class="version-page">
+
+        <div class="back-link" id="backToEditorBtn">← 返回编辑器</div>
+
+        <div class="page-title">版本历史</div>
+        <div class="page-subtitle">第一卷 · ch-2 暗流涌动</div>
+
+        <table class="v-table">
+          <thead>
+            <tr><th style="width:60px">版本</th><th style="width:140px">时间</th><th>备注</th><th style="width:80px">当前</th><th style="width:90px"></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="v-ver current">v4</span></td>
+              <td><span class="v-date">2026-06-21 14:32</span></td>
+              <td><span class="v-comment">新增 350 字，修改章纲细节</span></td>
+              <td><span class="v-badge current">当前</span></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><span class="v-ver">v3</span></td>
+              <td><span class="v-date">2026-06-21 11:20</span></td>
+              <td><span class="v-comment">大幅修改章纲，调整情节走向</span></td>
+              <td></td>
+              <td><button class="restore-btn">恢复到 v3</button></td>
+            </tr>
+            <tr>
+              <td><span class="v-ver">v2</span></td>
+              <td><span class="v-date">2026-06-20 22:15</span></td>
+              <td><span class="v-comment">续写 800 字，增加工厂场景</span></td>
+              <td></td>
+              <td><button class="restore-btn">恢复到 v2</button></td>
+            </tr>
+            <tr>
+              <td><span class="v-ver">v1</span></td>
+              <td><span class="v-date">2026-06-20 19:03</span></td>
+              <td><span class="v-comment">首次创建</span></td>
+              <td></td>
+              <td><button class="restore-btn">恢复到 v1</button></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Diff preview for selected version -->
+        <div class="v-diff">
+          <div class="diff-header">📋 v4 → v3 的差异</div>
+          <div class="diff-line del" style="margin-bottom:4px">林深在废弃工厂发现了一个打火机。他听到脚步声，躲进暗处。来人是赵刚。</div>
+          <div class="diff-line add">林深在废弃工厂发现关键物证——一个带有血迹的打火机。他正要拍照时听到脚步声，匆忙躲进暗处。来人是派出所民警赵刚，赵刚说自己只是例行巡逻。但林深注意到他的鞋底沾着厂房里特有的红色粉尘。</div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  document.getElementById('gotoHistoryBtn').addEventListener('click', () => {
+    document.getElementById('editorView').classList.remove('active');
+    document.getElementById('historyView').classList.add('active');
+  });
+  document.getElementById('backToEditorBtn').addEventListener('click', () => {
+    document.getElementById('historyView').classList.remove('active');
+    document.getElementById('editorView').classList.add('active');
+  });
+</script>
+</body>
+</html>

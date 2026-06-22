@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif; background: #14100b; color: #e8e0d4; display: flex; justify-content: center; padding: 20px; }
+  .app { width: 1100px; border-radius: 12px; overflow: hidden; border: 1px solid #2a241e; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+
+  /* TOP BAR */
+  .topbar { display: flex; align-items: center; padding: 0 16px; height: 48px; background: #1a1510; border-bottom: 1px solid #2a241e; }
+  .topbar-title { font-weight: 600; font-size: 14px; color: #e8e0d4; }
+  .topbar-sep { margin: 0 10px; font-size: 11px; color: #4a4035; }
+  .topbar-path { font-size: 13px; color: #8a7a6a; }
+  .topbar-path em { color: #d4a373; font-style: normal; }
+  .topbar-badge { margin-left: 10px; font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #f59e0b20; color: #f59e0b; }
+  .topbar-spacer { flex: 1; }
+  .topbar-action { font-size: 11px; color: #8a7a6a; padding: 4px 12px; border-radius: 4px; cursor: default; }
+  .topbar-action:hover { background: #2a241e; }
+
+  /* MAIN */
+  .main { display: flex; min-height: 600px; }
+
+  /* LEFT PANEL */
+  .left { width: 230px; background: #18130e; border-right: 1px solid #2a241e; display: flex; flex-direction: column; }
+  .left-search { padding: 10px 10px 6px; }
+  .left-search input { width: 100%; padding: 5px 8px; font-size: 11px; border: 1px solid #2a241e; border-radius: 4px; background: #14100b; color: #8a7a6a; outline: none; }
+  .left-search input:focus { border-color: #d4a37344; }
+  .left-tree { flex: 1; padding: 4px 6px; overflow-y: auto; }
+  .left-tree::-webkit-scrollbar { width: 4px; }
+  .left-tree::-webkit-scrollbar-thumb { background: #2a241e; border-radius: 2px; }
+
+  .tnode { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 5px; cursor: default; font-size: 12px; color: #8a7a6a; transition: all 0.1s; }
+  .tnode:hover { background: #201a14; }
+  .tnode.active { background: #d4a37314; color: #d4a373; font-weight: 500; }
+  .tnode.vol { font-weight: 500; color: #b8a08a; }
+  .tnode.vol.active { color: #d4a373; }
+  .tnode .icon { width: 16px; text-align: center; font-size: 11px; flex-shrink: 0; }
+  .tnode .label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tnode .ch-num { font-size: 10px; color: #4a4035; margin-right: 4px; }
+  .tnode .status { font-size: 10px; padding: 1px 5px; border-radius: 8px; flex-shrink: 0; }
+  .tnode .status.done { background: #22c55e18; color: #22c55e; }
+  .tnode .status.writing { background: #f59e0b18; color: #f59e0b; }
+  .tnode .status.draft { background: #3b82f618; color: #3b82f6; }
+  .tnode .status.pending { color: #4a4035; }
+  .tnode .children { padding-left: 16px; }
+
+  .left-footer { padding: 8px 10px; border-top: 1px solid #2a241e; font-size: 10px; color: #4a4035; display: flex; gap: 12px; }
+
+  /* RIGHT PANEL */
+  .right { flex: 1; padding: 24px 40px; overflow-y: auto; background: #16110c; }
+  .right::-webkit-scrollbar { width: 6px; }
+  .right::-webkit-scrollbar-thumb { background: #2a241e; border-radius: 3px; }
+
+  .chapter-header { margin-bottom: 20px; text-align: center; }
+  .chapter-header .vol-ch { font-size: 10px; color: #6a5a4a; letter-spacing: 2px; text-transform: uppercase; }
+  .chapter-header h1 { font-size: 22px; font-family: "EB Garamond", "Noto Serif SC", serif; font-weight: 600; margin-top: 8px; color: #e8e0d4; }
+
+  .outline-box { padding: 12px 16px; background: #1a1510; border-left: 3px solid #3b82f6; border-radius: 6px; margin-bottom: 20px; }
+  .outline-box .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #3b82f6; font-weight: 600; display: block; margin-bottom: 4px; }
+  .outline-box p { font-size: 13px; color: #b8a08a; line-height: 1.6; }
+
+  .prose { font-family: "EB Garamond", "Noto Serif SC", serif; font-size: 16px; line-height: 2; color: #d8d0c4; }
+  .prose p { text-indent: 2em; margin-bottom: 0.4em; }
+  .prose .cursor-area { height: 1.6em; background: #2a241e; border-radius: 2px; width: 70%; margin: 0.4em 0 0.4em 2em; display: flex; align-items: center; }
+  .prose .cursor-area .cursor { width: 2px; height: 1em; background: #d4a373; animation: blink 1s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .action-bar { display: flex; justify-content: flex-end; gap: 16px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #2a241e; }
+  .action-bar span { font-size: 11px; color: #6a5a4a; cursor: default; }
+  .action-bar span:hover { color: #d4a373; }
+
+  /* SETTINGS VIEW (shown in separate mockup within) */
+  .settings-preview { display: none; }
+
+  /* Info callout for non-chapter nodes */
+  .info-callout { display: flex; align-items: center; justify-content: center; min-height: 200px; color: #4a4035; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <span class="topbar-title">迷雾中的真相</span>
+    <span class="topbar-sep">/</span>
+    <span class="topbar-path">第一卷 · <em>ch-2</em> 暗流涌动</span>
+    <span class="topbar-badge">写作中 · 1,256字</span>
+    <div class="topbar-spacer"></div>
+    <span class="topbar-action">保存</span>
+    <span class="topbar-action">预览</span>
+    <span class="topbar-action" style="color:#d4a373">AI 续写 ▸</span>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- LEFT PANEL -->
+    <div class="left">
+      <div class="left-search"><input placeholder="搜索卷/章..." value=""></div>
+      <div class="left-tree">
+
+        <!-- Settings node -->
+        <div class="tnode">
+          <span class="icon">⚙️</span>
+          <span class="label">设定</span>
+        </div>
+
+        <!-- Volume 1 (expanded, with active chapter) -->
+        <div class="tnode vol active">
+          <span class="icon">▾</span>
+          <span class="label">第一卷 · 迷雾</span>
+          <span class="status writing">3章</span>
+        </div>
+        <div class="children">
+          <div class="tnode" style="font-size:11px; padding-left:28px">
+            <span class="ch-num">ch-1</span>
+            <span class="label">不速之客</span>
+            <span class="status done">✓</span>
+          </div>
+          <div class="tnode active" style="font-size:11px; padding-left:28px">
+            <span class="ch-num">ch-2</span>
+            <span class="label">暗流涌动</span>
+            <span class="status writing">✎</span>
+          </div>
+          <div class="tnode" style="font-size:11px; padding-left:28px">
+            <span class="ch-num">ch-3</span>
+            <span class="label">深渊回望</span>
+            <span class="status draft">纲</span>
+          </div>
+          <div class="tnode" style="font-size:11px; padding-left:28px; color:#4a4035">
+            <span class="ch-num">ch-4</span>
+            <span class="label">（空位）</span>
+            <span class="status pending">+</span>
+          </div>
+        </div>
+
+        <!-- Volume 2 (collapsed) -->
+        <div class="tnode vol">
+          <span class="icon">▸</span>
+          <span class="label">第二卷 · 暗战</span>
+          <span class="status pending">2章</span>
+        </div>
+
+        <!-- Volume 3 (collapsed) -->
+        <div class="tnode vol">
+          <span class="icon">▸</span>
+          <span class="label">第三卷 · 终局</span>
+          <span class="status pending">1章</span>
+        </div>
+
+        <!-- Divider -->
+        <div style="height:1px;background:#2a241e;margin:8px 0"></div>
+
+        <!-- Threads node -->
+        <div class="tnode">
+          <span class="icon">🔗</span>
+          <span class="label">线索 · 时间线</span>
+          <span class="status draft">3</span>
+        </div>
+
+        <!-- Add volume -->
+        <div class="tnode" style="color:#4a4035; font-size:11px">
+          <span class="icon">+</span>
+          <span class="label">新建卷</span>
+        </div>
+      </div>
+
+      <div class="left-footer">
+        <span><span style="color:#22c55e;display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-right:4px;vertical-align:middle"></span>完成</span>
+        <span><span style="color:#f59e0b;display:inline-block;width:8px;height:8px;border-radius:50%;background:#f59e0b;margin-right:4px;vertical-align:middle"></span>写作中</span>
+        <span><span style="color:#3b82f6;display:inline-block;width:8px;height:8px;border-radius:50%;background:#3b82f6;margin-right:4px;vertical-align:middle"></span>章纲</span>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: Chapter Editor -->
+    <div class="right">
+
+      <!-- Chapter header -->
+      <div class="chapter-header">
+        <div class="vol-ch">第一卷 · 第二章</div>
+        <h1>暗流涌动</h1>
+      </div>
+
+      <!-- Chapter outline (章纲) -->
+      <div class="outline-box">
+        <span class="label">章纲</span>
+        <p>林深在废弃工厂发现关键物证——一个带有血迹的打火机。他正要拍照时听到脚步声，匆忙躲进暗处。来人是派出所民警赵刚，赵刚说自己只是例行巡逻。但林深注意到他的鞋底沾着厂房里特有的红色粉尘。赵刚离开后，林深发现打火机上刻着一串数字——是自己的警号。</p>
+      </div>
+
+      <!-- Prose -->
+      <div class="prose">
+        <p>废弃工厂的大门虚掩着，锈蚀的铁链像一条死蛇瘫在地上。林深侧身挤进门缝，手电筒的光切开黑暗，照亮了满地的碎玻璃和鸟粪。</p>
+        <p>现场基本保持着三年前的模样——不对，应该说有人刻意维持着。他蹲下身，手指在地面上划出一道浅浅的痕迹。灰尘很厚，至少两个月没人来过。但角落里的脚印是新鲜的。</p>
+        <p>脚印通向厂房深处。他跟着脚印走，在废料堆后面发现了一个打火机。银色的，Zippo，底部刻着字。他捡起来，用手电筒照——</p>
+        <p style="color:#6a5a4a; font-style:italic">警号：033142。</p>
+        <p>他自己的警号。</p>
+        <div class="cursor-area"><span class="cursor"></span></div>
+      </div>
+
+      <!-- Action bar -->
+      <div class="action-bar">
+        <span>章纲 ✎</span>
+        <span>分段重写</span>
+        <span style="color:#22c55e">质量检查 ◉</span>
+        <span style="color:#d4a373">AI 续写 ▸</span>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:12px;width:1100px">
+  <table style="width:100%;font-size:11px;color:#4a4035;border-collapse:collapse">
+    <tr>
+      <td style="padding:8px 12px;border:1px solid #2a241e;width:25%"><strong style="color:#8a7a6a">选「设定」</strong><br>右侧展示多Tab设定面板（世界/风格/角色/伏笔）</td>
+      <td style="padding:8px 12px;border:1px solid #2a241e;width:25%"><strong style="color:#8a7a6a">选「卷」</strong><br>右侧展示卷纲编辑器 + 卷内章列表</td>
+      <td style="padding:8px 12px;border:1px solid #2a241e;width:25%"><strong style="color:#8a7a6a">选「章」</strong><br>右侧展示章纲 + 正文编辑器（即当前主图）</td>
+      <td style="padding:8px 12px;border:1px solid #2a241e;width:25%"><strong style="color:#8a7a6a">选「线索」</strong><br>右侧展示时间线/伏笔追踪面板</td>
+    </tr>
+  </table>
+</div>
+</body>
+</html>

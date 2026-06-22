@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif; background: #14100b; color: #e8e0d4; display: flex; justify-content: center; padding: 20px; }
+  .app { width: 1100px; border-radius: 12px; overflow: hidden; border: 1px solid #2a241e; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+
+  .topbar { display: flex; align-items: center; padding: 0 16px; height: 48px; background: #1a1510; border-bottom: 1px solid #2a241e; }
+  .topbar-title { font-weight: 600; font-size: 14px; color: #e8e0d4; }
+  .topbar-sep { margin: 0 10px; font-size: 11px; color: #4a4035; }
+  .topbar-path { font-size: 13px; color: #8a7a6a; }
+  .topbar-path em { color: #d4a373; font-style: normal; }
+  .topbar-badge { margin-left: 10px; font-size: 10px; padding: 2px 8px; border-radius: 10px; }
+  .topbar-badge.draft { background: #3b82f620; color: #3b82f6; }
+  .topbar-badge.writing { background: #f59e0b20; color: #f59e0b; }
+  .topbar-badge.done { background: #22c55e20; color: #22c55e; }
+  .topbar-spacer { flex: 1; }
+  .topbar-btn { font-size: 11px; color: #8a7a6a; padding: 4px 12px; border-radius: 4px; cursor: default; border: 1px solid transparent; }
+  .topbar-btn:hover { background: #2a241e; border-color: #3a3025; }
+  .topbar-btn.primary { color: #d4a373; border: 1px solid #d4a37344; }
+
+  .main { display: flex; min-height: 650px; }
+
+  /* LEFT PANEL */
+  .left { width: 240px; background: #18130e; border-right: 1px solid #2a241e; display: flex; flex-direction: column; }
+
+  .left-header { padding: 12px 12px 8px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2a241e; }
+  .left-header span { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6a5a4a; }
+
+  .left-tree { flex: 1; padding: 4px 6px; overflow-y: auto; }
+  .left-tree::-webkit-scrollbar { width: 4px; }
+  .left-tree::-webkit-scrollbar-thumb { background: #2a241e; border-radius: 2px; }
+
+  .tnode { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 5px; cursor: default; font-size: 13px; color: #8a7a6a; transition: all 0.1s; }
+  .tnode:hover { background: #201a14; }
+  .tnode.active { background: #d4a37314; color: #d4a373; font-weight: 500; }
+  .tnode .icon { width: 18px; text-align: center; font-size: 11px; flex-shrink: 0; }
+  .tnode .label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tnode .ch-num { font-size: 11px; color: #4a4035; margin-right: 4px; min-width: 32px; }
+  .tnode .actions { font-size: 10px; color: #4a4035; display: none; gap: 4px; }
+  .tnode:hover .actions { display: flex; }
+  .tnode .actions span { padding: 2px 4px; border-radius: 3px; cursor: default; }
+  .tnode .actions span:hover { background: #2a241e; color: #d4a373; }
+  .tnode .status-tag { font-size: 10px; padding: 1px 6px; border-radius: 8px; flex-shrink: 0; }
+  .tnode .status-tag.done { background: #22c55e15; color: #22c55e; }
+  .tnode .status-tag.writing { background: #f59e0b15; color: #f59e0b; }
+  .tnode .status-tag.draft { background: #3b82f615; color: #3b82f6; }
+  .tnode .status-tag.plan { color: #4a4035; }
+  .tnode.children { padding-left: 20px; }
+
+  .left-footer { padding: 10px 12px; border-top: 1px solid #2a241e; display: flex; gap: 8px; }
+  .left-footer .btn { font-size: 11px; padding: 4px 10px; border-radius: 4px; cursor: default; border: 1px dashed #3a3025; color: #6a5a4a; flex: 1; text-align: center; }
+  .left-footer .btn:hover { border-color: #d4a37344; color: #d4a373; }
+
+  /* RIGHT PANEL */
+  .right { flex: 1; padding: 28px 40px; overflow-y: auto; background: #16110c; }
+  .right::-webkit-scrollbar { width: 6px; }
+  .right::-webkit-scrollbar-thumb { background: #2a241e; border-radius: 3px; }
+
+  /* ---- CHAPTER EDITOR ---- */
+  .chapter-meta { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .chapter-meta .field { display: flex; align-items: center; gap: 6px; }
+  .chapter-meta label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #6a5a4a; }
+  .chapter-meta input[type=text] { background: #1a1510; border: 1px solid #2a241e; border-radius: 4px; padding: 4px 10px; font-size: 13px; color: #e8e0d4; outline: none; width: 200px; }
+  .chapter-meta input:focus { border-color: #d4a37344; }
+  .chapter-meta select { background: #1a1510; border: 1px solid #2a241e; border-radius: 4px; padding: 4px 8px; font-size: 12px; color: #e8e0d4; outline: none; }
+
+  .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #6a5a4a; font-weight: 600; margin-bottom: 6px; }
+  .section-label .hint { color: #4a4035; text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 8px; }
+
+  textarea.outline-editor { width: 100%; min-height: 80px; background: #1a1510; border: 1px solid #2a241e; border-radius: 6px; padding: 10px 14px; font-size: 13px; color: #b8a08a; line-height: 1.7; resize: vertical; outline: none; font-family: inherit; }
+  textarea.outline-editor:focus { border-color: #3b82f644; }
+
+  .prose-editor { width: 100%; min-height: 280px; background: #18130e; border: 1px solid #2a241e; border-radius: 6px; padding: 16px 20px; font-family: "EB Garamond", "Noto Serif SC", serif; font-size: 16px; line-height: 2; color: #d8d0c4; resize: vertical; outline: none; }
+  .prose-editor:focus { border-color: #d4a37344; }
+
+  .chapter-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .chapter-actions .act { font-size: 11px; color: #6a5a4a; padding: 6px 14px; border-radius: 4px; cursor: default; border: 1px solid #2a241e; }
+  .chapter-actions .act:hover { background: #201a14; color: #b8a08a; }
+  .chapter-actions .act.primary { background: #d4a37314; border-color: #d4a37344; color: #d4a373; }
+
+  /* ---- VOLUME VIEW ---- */
+  .vol-name { font-size: 22px; font-family: "EB Garamond", "Noto Serif SC", serif; font-weight: 600; margin-bottom: 16px; color: #e8e0d4; }
+  .vol-name input { width: 100%; background: transparent; border: none; border-bottom: 1px solid #2a241e; font-size: 22px; font-family: inherit; font-weight: 600; color: #e8e0d4; padding: 4px 0; outline: none; }
+  .vol-name input:focus { border-color: #d4a37344; }
+  .vol-chapter-list { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+  .vol-ch-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; border: 1px solid transparent; cursor: default; }
+  .vol-ch-row:hover { background: #1a1510; border-color: #2a241e; }
+  .vol-ch-row .drag { font-size: 10px; color: #3a3025; cursor: grab; }
+  .vol-ch-row .idx { font-size: 11px; color: #4a4035; min-width: 36px; }
+  .vol-ch-row .name { flex: 1; font-size: 13px; color: #b8a08a; }
+  .vol-ch-row .name input { background: transparent; border: none; font-size: 13px; color: #e8e0d4; width: 100%; outline: none; }
+  .vol-ch-row .sts { font-size: 10px; padding: 1px 6px; border-radius: 8px; }
+  .vol-ch-row .sts.done { background: #22c55e15; color: #22c55e; }
+  .vol-ch-row .sts.writing { background: #f59e0b15; color: #f59e0b; }
+  .vol-ch-row .sts.draft { background: #3b82f615; color: #3b82f6; }
+  .vol-ch-row .del { font-size: 10px; color: #4a4035; padding: 2px 6px; border-radius: 3px; cursor: default; display: none; }
+  .vol-ch-row:hover .del { display: inline; }
+  .vol-ch-row .del:hover { color: #ef4444; background: #ef444415; }
+
+  .add-chapter { font-size: 12px; color: #4a4035; padding: 8px 12px; border: 1px dashed #2a241e; border-radius: 6px; cursor: default; margin-top: 4px; text-align: center; }
+  .add-chapter:hover { border-color: #d4a37344; color: #d4a373; }
+
+  /* ---- SETTINGS VIEW ---- */
+  .settings-tabs { display: flex; gap: 0; border-bottom: 1px solid #2a241e; margin-bottom: 20px; }
+  .settings-tab { padding: 8px 16px; font-size: 12px; color: #6a5a4a; cursor: default; border-bottom: 2px solid transparent; }
+  .settings-tab.active { color: #d4a373; border-bottom-color: #d4a373; }
+  .settings-tab:hover { color: #b8a08a; }
+
+  .setting-group { margin-bottom: 20px; }
+  .setting-group h4 { font-size: 13px; font-weight: 500; color: #b8a08a; margin-bottom: 8px; }
+  .setting-group textarea { width: 100%; min-height: 100px; background: #1a1510; border: 1px solid #2a241e; border-radius: 6px; padding: 10px 14px; font-size: 13px; color: #b8a08a; line-height: 1.7; resize: vertical; outline: none; font-family: inherit; }
+  .setting-group textarea:focus { border-color: #d4a37344; }
+
+  .char-card { display: flex; gap: 12px; padding: 10px 14px; background: #1a1510; border: 1px solid #2a241e; border-radius: 6px; margin-bottom: 8px; cursor: default; }
+  .char-card:hover { border-color: #3a3025; }
+  .char-card .avatar { width: 36px; height: 36px; border-radius: 50%; background: #2a241e; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #6a5a4a; flex-shrink: 0; }
+  .char-card .info { flex: 1; }
+  .char-card .name { font-size: 13px; color: #d8d0c4; font-weight: 500; }
+  .char-card .desc { font-size: 11px; color: #6a5a4a; margin-top: 2px; }
+
+  .status-legend { display: flex; gap: 16px; font-size: 10px; color: #4a4035; padding: 8px 0; }
+  .status-legend span { display: flex; align-items: center; gap: 4px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .dot.done { background: #22c55e; }
+  .dot.writing { background: #f59e0b; }
+  .dot.draft { background: #3b82f6; }
+  .dot.plan { border: 1.5px solid #4a4035; background: transparent; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <span class="topbar-title">迷雾中的真相</span>
+    <span class="topbar-sep">/</span>
+    <span class="topbar-path">第一卷 · ch-2 暗流涌动</span>
+    <span class="topbar-badge writing">写作中</span>
+    <div class="topbar-spacer"></div>
+    <span class="topbar-btn">保存</span>
+    <span class="topbar-btn primary">预览</span>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- ======== LEFT TREE ======== -->
+    <div class="left">
+      <div class="left-header">
+        <span>小说结构</span>
+        <span style="font-size:10px;color:#4a4035">3卷 · 7章</span>
+      </div>
+      <div class="left-tree">
+
+        <!-- ⚙️ Settings -->
+        <div class="tnode">
+          <span class="icon">⚙️</span>
+          <span class="label">设定</span>
+          <span class="actions"><span>✎</span></span>
+        </div>
+
+        <!-- 📖 Volume 1 (expanded) -->
+        <div class="tnode active" style="margin-top:4px">
+          <span class="icon">▾</span>
+          <span class="label" style="font-weight:500;color:#d4a373">第一卷 · 迷雾</span>
+          <span class="actions"><span>✎ 名称</span><span>+ 章</span><span>🗑</span></span>
+        </div>
+        <div class="children">
+          <div class="tnode" style="padding-left:28px;font-size:12px">
+            <span class="ch-num">ch-1</span>
+            <span class="label">不速之客</span>
+            <span class="status-tag done">✓ 完成</span>
+            <span class="actions"><span>✎</span><span>🗑</span></span>
+          </div>
+          <div class="tnode active" style="padding-left:28px;font-size:12px">
+            <span class="ch-num">ch-2</span>
+            <span class="label">暗流涌动</span>
+            <span class="status-tag writing">✎ 写作中</span>
+            <span class="actions"><span>✎</span><span>🗑</span></span>
+          </div>
+          <div class="tnode" style="padding-left:28px;font-size:12px">
+            <span class="ch-num">ch-3</span>
+            <span class="label">深渊回望</span>
+            <span class="status-tag draft">纲 已完</span>
+            <span class="actions"><span>✎</span><span>🗑</span></span>
+          </div>
+          <div class="tnode" style="padding-left:28px;font-size:11px;color:#4a4035">
+            <span class="ch-num">＋</span>
+            <span class="label" style="color:#4a4035">添加章节</span>
+          </div>
+        </div>
+
+        <!-- 📖 Volume 2 (collapsed) -->
+        <div class="tnode" style="margin-top:2px">
+          <span class="icon">▸</span>
+          <span class="label">第二卷 · 暗战</span>
+          <span class="status-tag plan">2章</span>
+          <span class="actions"><span>✎</span><span>+</span><span>🗑</span></span>
+        </div>
+
+        <!-- 📖 Volume 3 (collapsed) -->
+        <div class="tnode" style="margin-top:2px">
+          <span class="icon">▸</span>
+          <span class="label">第三卷 · 终局</span>
+          <span class="status-tag plan">0章</span>
+          <span class="actions"><span>✎</span><span>+</span><span>🗑</span></span>
+        </div>
+
+        <!-- 🔗 Threads -->
+        <div class="tnode" style="margin-top:6px">
+          <span class="icon">🔗</span>
+          <span class="label">线索</span>
+          <span class="status-tag draft">3条</span>
+          <span class="actions"><span>✎</span></span>
+        </div>
+      </div>
+
+      <div class="left-footer">
+        <span class="btn">＋ 新建卷</span>
+      </div>
+    </div>
+
+    <!-- ======== RIGHT: CHAPTER EDITOR ======== -->
+    <div class="right">
+
+      <!-- Chapter metadata bar -->
+      <div class="chapter-meta">
+        <div class="field">
+          <label>章节名</label>
+          <input type="text" value="暗流涌动">
+        </div>
+        <div class="field">
+          <label>状态</label>
+          <select>
+            <option>未开始</option>
+            <option>章纲</option>
+            <option selected>写作中</option>
+            <option>待修改</option>
+            <option>已完成</option>
+          </select>
+        </div>
+        <div class="field" style="margin-left:auto">
+          <span style="font-size:11px;color:#4a4035">字数：1,256</span>
+        </div>
+      </div>
+
+      <!-- 章纲 -->
+      <div>
+        <div class="section-label">章纲 <span class="hint">这章要发生什么</span></div>
+        <textarea class="outline-editor">林深在废弃工厂发现关键物证——一个带有血迹的打火机。他正要拍照时听到脚步声，匆忙躲进暗处。来人是派出所民警赵刚，赵刚说自己只是例行巡逻。但林深注意到他的鞋底沾着厂房里特有的红色粉尘。赵刚离开后，林深发现打火机上刻着一串数字——是自己的警号。</textarea>
+      </div>
+
+      <!-- 正文 -->
+      <div style="margin-top:20px">
+        <div class="section-label">正文</div>
+        <textarea class="prose-editor">废弃工厂的大门虚掩着，锈蚀的铁链像一条死蛇瘫在地上。林深侧身挤进门缝，手电筒的光切开黑暗，照亮了满地的碎玻璃和鸟粪。
+
+现场基本保持着三年前的模样——不对，应该说有人刻意维持着。他蹲下身，手指在地面上划出一道浅浅的痕迹。灰尘很厚，至少两个月没人来过。但角落里的脚印是新鲜的。
+
+脚印通向厂房深处。他跟着脚印走，在废料堆后面发现了一个打火机。银色的，Zippo，底部刻着字。
+
+他捡起来，就着手电筒的光看——警号：033142。
+
+他自己的警号。
+
+林深的手微微颤抖。三年前他在这起案子上签了字，结论是意外。但现在，这个打火机告诉他，他亲手掩埋了真相。</textarea>
+      </div>
+
+      <!-- Actions -->
+      <div class="chapter-actions">
+        <span class="act">保存</span>
+        <span class="act primary">预览阅读模式</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom: What each tree node opens -->
+<div style="margin-top:12px;width:1100px;display:flex;gap:0;font-size:11px;color:#4a4035">
+  <div style="flex:1;padding:10px 14px;border:1px solid #2a241e;border-radius:6px 0 0 6px">
+    <strong style="color:#8a7a6a;display:block;margin-bottom:4px">⚙️ 点击「设定」</strong>
+    右侧切换为设定面板：世界设定 / 风格规则 / 角色列表 / 伏笔追踪，多 Tab 手动编辑
+  </div>
+  <div style="flex:1;padding:10px 14px;border:1px solid #2a241e;border-left:none">
+    <strong style="color:#8a7a6a;display:block;margin-bottom:4px">📖 点击「卷」</strong>
+    右侧切换为卷编辑器：卷名 + 卷纲（整卷故事弧）+ 卷内章列表（可拖拽排序、增删章、标记状态）
+  </div>
+  <div style="flex:1;padding:10px 14px;border:1px solid #2a241e;border-left:none">
+    <strong style="color:#8a7a6a;display:block;margin-bottom:4px">📄 点击「章」</strong>
+    右侧切换为当前 mockup 展示的章编辑器：章名 + 状态 + 章纲 + 正文（纯文本编辑器）
+  </div>
+  <div style="flex:1;padding:10px 14px;border:1px solid #2a241e;border-left:none;border-radius:0 6px 6px 0">
+    <strong style="color:#8a7a6a;display:block;margin-bottom:4px">🔗 点击「线索」</strong>
+    右侧切换为线索板：时间线 + 伏笔列表 + 角色关系，全部手动记录
+  </div>
+</div>
+
+<div style="margin-top:8px;width:1100px;padding:10px 14px;border:1px dashed #2a241e;border-radius:6px;font-size:11px;color:#3a3025;text-align:center">
+  ⚠️ 以上所有功能无需 AI 即可完整使用。AI 辅助按钮（如「AI 写章纲」「AI 续写」「AI 检测」）在后续版本中作为增强项添加，不侵入基础 UX。
+</div>
+</body>
+</html>

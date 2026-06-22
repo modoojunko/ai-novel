@@ -4,9 +4,9 @@ import PhaseProgress from "./PhaseProgress";
 const TABS = [
   { href: "settings", label: "设定" },
   { href: "outline", label: "大纲" },
-  { href: "prompts", label: "提示词" },
+  { href: "prompts", label: "细纲" },
   { href: "write", label: "写作" },
-  { href: "archives", label: "存档" },
+  { href: "archives", label: "正文" },
   { href: "threads", label: "线索" },
 ];
 
@@ -24,7 +24,7 @@ export default function ProjectNav() {
   const phase = currentPhase(loc.pathname);
 
   return (
-    <nav className="border-b border-base-300 bg-base-200">
+    <nav className="border-b border-base-300/60 bg-base-200/80 backdrop-blur-sm">
       <PhaseProgress current={phase} />
       <div className="tabs tabs-bordered px-6">
         {TABS.map((t) => {

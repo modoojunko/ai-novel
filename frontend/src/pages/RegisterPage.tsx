@@ -24,7 +24,7 @@ export default function RegisterPage() {
     <main className="min-h-screen flex items-center justify-center">
       <div className="card bg-base-200 border border-base-300 sm:max-w-md w-full mx-4 shadow-lg">
         <div className="card-body">
-          <h2 className="card-title font-serif">创建账号</h2>
+          <h2 className="card-title font-display">创建账号</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <input
               type="text"

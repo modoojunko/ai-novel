@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif; background: #14100b; color: #e8e0d4; display: flex; justify-content: center; padding: 20px; }
+  .app { width: 1100px; border-radius: 12px; overflow: hidden; border: 1px solid #2a241e; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+
+  /* TOP BAR */
+  .topbar { display: flex; align-items: center; padding: 0 16px; height: 48px; background: #1a1510; border-bottom: 1px solid #2a241e; }
+  .topbar-left { display: flex; align-items: center; gap: 8px; }
+  .topbar-title { font-weight: 600; font-size: 14px; color: #e8e0d4; }
+  .topbar-nav { margin-left: 20px; display: flex; gap: 0; }
+  .topbar-tab { padding: 6px 18px; font-size: 13px; color: #6a5a4a; cursor: default; border-radius: 6px 6px 0 0; border-bottom: 2px solid transparent; }
+  .topbar-tab.active { color: #d4a373; border-bottom-color: #d4a373; font-weight: 500; }
+  .topbar-tab:hover { color: #b8a08a; }
+  .topbar-spacer { flex: 1; }
+  .topbar-meta { font-size: 11px; color: #4a4035; }
+
+  .main { display: flex; min-height: 650px; }
+
+  /* LEFT PANEL */
+  .left { width: 230px; background: #18130e; border-right: 1px solid #2a241e; display: flex; flex-direction: column; }
+  .left-header { padding: 12px 12px 8px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2a241e; }
+  .left-header span { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #6a5a4a; }
+
+  .left-tree { flex: 1; padding: 4px 6px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #2a241e #18130e; }
+  .left-tree::-webkit-scrollbar { width: 4px; }
+  .left-tree::-webkit-scrollbar-thumb { background: #2a241e; border-radius: 2px; }
+  .left-tree::-webkit-scrollbar-track { background: #18130e; }
+
+  .tnode { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 5px; cursor: default; font-size: 13px; color: #8a7a6a; transition: all 0.1s; }
+  .tnode:hover { background: #201a14; }
+  .tnode.active { background: #d4a37312; color: #d4a373; font-weight: 500; }
+  .tnode .ico { width: 18px; text-align: center; flex-shrink: 0; font-size: 13px; }
+  .tnode .lbl { flex: 1; }
+  .tnode .badge { font-size: 10px; padding: 1px 7px; border-radius: 8px; flex-shrink: 0; }
+  .tnode .badge.cnt { background: #2a241e; color: #6a5a4a; }
+  .tnode .badge.done { background: #22c55e12; color: #22c55e; }
+  .tnode .badge.writing { background: #f59e0b12; color: #f59e0b; }
+  .tnode .badge.draft { background: #3b82f612; color: #3b82f6; }
+  .tnode .badge.warn { background: #ef444412; color: #ef4444; }
+  .tnode .act { font-size: 10px; color: #4a4035; display: none; padding: 2px 4px; border-radius: 3px; }
+  .tnode:hover .act { display: inline; }
+  .tnode .act:hover { color: #d4a373; background: #2a241e; }
+
+  .subtree { padding-left: 18px; }
+
+  .left-footer { padding: 10px 12px; border-top: 1px solid #2a241e; }
+
+  /* RIGHT PANEL */
+  .right { flex: 1; padding: 24px 36px; overflow-y: auto; background: #16110c; scrollbar-width: thin; scrollbar-color: #2a241e #16110c; }
+  .right::-webkit-scrollbar { width: 5px; }
+  .right::-webkit-scrollbar-track { background: #16110c; }
+  .right::-webkit-scrollbar-thumb { background: #2a241e; border-radius: 3px; }
+  .right::-webkit-scrollbar-thumb:hover { background: #3a3025; }
+  .right::-webkit-scrollbar { width: 6px; }
+  .right::-webkit-scrollbar-thumb { background: #2a241e; border-radius: 3px; }
+
+  /* ---- FORMS ---- */
+  .page-title { font-size: 20px; font-family: "EB Garamond", "Noto Serif SC", serif; font-weight: 600; color: #e8e0d4; margin-bottom: 20px; }
+
+  .field-group { margin-bottom: 18px; }
+  .field-group label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6a5a4a; font-weight: 500; margin-bottom: 5px; }
+  .field-group .hint { font-size: 11px; color: #4a4035; font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .field-group input[type=text], .field-group textarea { width: 100%; background: #1a1510; border: 1px solid #2a241e; border-radius: 5px; padding: 8px 12px; font-size: 13px; color: #e8e0d4; outline: none; font-family: inherit; }
+  .field-group input:focus, .field-group textarea:focus { border-color: #d4a37344; }
+  .field-group textarea { min-height: 90px; line-height: 1.7; resize: vertical; scrollbar-width: thin; scrollbar-color: #2a241e #14100b; }
+  .field-group textarea::-webkit-scrollbar { width: 5px; }
+  .field-group textarea::-webkit-scrollbar-track { background: #14100b; border-radius: 3px; }
+  .field-group textarea::-webkit-scrollbar-thumb { background: #2a241e; border-radius: 3px; }
+  .field-group textarea::-webkit-scrollbar-thumb:hover { background: #3a3025; }
+
+  .char-card { display: flex; gap: 12px; padding: 10px 14px; background: #1a1510; border: 1px solid #2a241e; border-radius: 6px; margin-bottom: 6px; cursor: default; }
+  .char-card:hover { border-color: #3a3025; }
+  .char-card .av { width: 36px; height: 36px; border-radius: 50%; background: #2a241e; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; color: #6a5a4a; }
+  .char-card .info { flex: 1; }
+  .char-card .nm { font-size: 13px; color: #d8d0c4; font-weight: 500; }
+  .char-card .ds { font-size: 11px; color: #6a5a4a; }
+
+  .vol-ch-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 5px; cursor: default; }
+  .vol-ch-row:hover { background: #1a1510; }
+  .vol-ch-row .idx { font-size: 11px; color: #4a4035; min-width: 32px; }
+  .vol-ch-row .nm { flex: 1; font-size: 13px; color: #b8a08a; }
+  .vol-ch-row .st { font-size: 10px; padding: 1px 6px; border-radius: 8px; }
+  .vol-ch-row .st.done { background: #22c55e12; color: #22c55e; }
+  .vol-ch-row .st.writing { background: #f59e0b12; color: #f59e0b; }
+  .vol-ch-row .st.draft { background: #3b82f612; color: #3b82f6; }
+
+  .add-row { font-size: 12px; color: #4a4035; padding: 7px 10px; border: 1px dashed #2a241e; border-radius: 5px; cursor: default; text-align: center; }
+  .add-row:hover { border-color: #d4a37344; color: #d4a373; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-title">迷雾中的真相</span>
+      <span style="font-size:10px;color:#4a4035;margin-left:4px">悬疑刑侦</span>
+    </div>
+    <div class="topbar-nav">
+      <div class="topbar-tab active" style="color:#d4a373;border-bottom-color:#d4a373">📋 设定</div>
+      <div class="topbar-tab">📖 正文</div>
+      <div class="topbar-tab">🔗 线索</div>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-meta">最后编辑：2026-06-21</div>
+  </div>
+
+  <div class="main">
+
+    <!-- ===== 当前选「设定」= 左侧出现设定树 ===== -->
+    <div class="left">
+      <div class="left-header"><span>设定目录</span></div>
+      <div class="left-tree">
+
+        <div class="tnode active">
+          <span class="ico">🌍</span>
+          <span class="lbl">世界设定</span>
+          <span class="act">✎</span>
+        </div>
+        <div class="tnode">
+          <span class="ico">🎨</span>
+          <span class="lbl">风格规则</span>
+          <span class="act">✎</span>
+        </div>
+        <div class="tnode">
+          <span class="ico">👥</span>
+          <span class="lbl">角色</span>
+          <span class="badge cnt">4个</span>
+          <span class="act">✎</span>
+        </div>
+        <div class="subtree">
+          <div class="tnode" style="font-size:12px;padding-left:28px">
+            <span class="ico">·</span>
+            <span class="lbl">林深（主角）</span>
+          </div>
+          <div class="tnode" style="font-size:12px;padding-left:28px">
+            <span class="ico">·</span>
+            <span class="lbl">赵刚（配角）</span>
+          </div>
+          <div class="tnode" style="font-size:12px;padding-left:28px">
+            <span class="ico">·</span>
+            <span class="lbl">苏晚晴（关键人物）</span>
+          </div>
+        </div>
+        <div class="tnode">
+          <span class="ico">🎯</span>
+          <span class="lbl">伏笔</span>
+          <span class="badge cnt">3条</span>
+          <span class="act">✎</span>
+        </div>
+        <div class="tnode">
+          <span class="ico">📝</span>
+          <span class="lbl">小说简介</span>
+          <span class="act">✎</span>
+        </div>
+      </div>
+      <div class="left-footer">
+        <div class="add-row">+ 新建角色</div>
+      </div>
+    </div>
+
+    <!-- 右侧：世界设定编辑器 -->
+    <div class="right">
+
+      <div class="page-title">🌍 世界设定</div>
+
+      <div class="field-group">
+        <label>地理环境 <span class="hint">故事发生的世界长什么样</span></label>
+        <textarea>小城雾镇位于江南丘陵地带，三面环山，一面临水。老城区保留着九十年代的建筑风貌，新城区在河西缓慢发展。废弃的纺织三厂是城市工业时代的遗物，如今成了流浪汉和毒贩的据点。
+
+雾镇全年多雾，尤其是秋冬季节，早晨的浓雾能见度常不到五米。这种气候特征在故事中多次成为关键情节的环境要素。</textarea>
+      </div>
+
+      <div class="field-group">
+        <label>权力结构 <span class="hint">警察系统、地方政府、地下势力</span></label>
+        <textarea>雾镇公安局辖3个派出所，编制约120人。刑侦队实际能出外勤的不到15人。局长周国平在位八年，与本地地产商关系密切。
+
+地下势力以"毛哥"为首，控制着河西的赌博和高利贷市场。毛哥与公安局某位副局长的关系是公开的秘密。</textarea>
+      </div>
+
+      <div class="field-group">
+        <label>时代背景 <span class="hint">故事发生的具体时间</span></label>
+        <textarea>主线故事发生在2019年秋冬季。三年前的悬案发生在2016年夏。手机支付已普及但监控覆盖不全面，老旧小区基本无监控。</textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 选「正文」时的示意切换 -->
+<div style="margin-top:12px;width:1100px;display:flex;gap:0;font-size:11px;color:#4a4035">
+  <div style="flex:1;padding:10px 14px;border:1px solid #2a241e;border-radius:6px 0 0 6px;background:#1a1510">
+    <strong style="color:#8a7a6a;display:block;margin-bottom:4px">📋 点击「设定」</strong>
+    左侧显示设定目录树：世界设定 / 风格 / 角色 / 伏笔 / 简介
+    <br>右侧显示选中项的编辑表单
+  </div>
+  <div style="flex:1;padding:10px 14px;border:1px solid #2a241e;border-left:none;background:#1a1510">
+    <strong style="color:#8a7a6a;display:block;margin-bottom:4px">📖 点击「正文」</strong>
+    左侧显示卷/章树：第一卷·迷雾 → ch-1/ch-2...
+    <br>右侧显示章编辑器（章纲 + 正文）或卷编辑器（卷纲 + 章列表）
+  </div>
+  <div style="flex:1;padding:10px 14px;border:1px solid #2a241e;border-left:none;border-radius:0 6px 6px 0;background:#1a1510">
+    <strong style="color:#8a7a6a;display:block;margin-bottom:4px">🔗 点击「线索」</strong>
+    左侧显示时间线/伏笔/关系
+    <br>右侧显示对应详情
+  </div>
+</div>
+
+<div style="margin-top:8px;width:1100px;padding:10px 14px;border:1px dashed #2a241e;border-radius:6px;font-size:11px;color:#3a3025;text-align:center">
+  当前选中的是「设定 → 世界设定」，树上 active 高亮。切换到「正文」时左侧树和右侧内容同时切换，顶部 tab 的高亮也变化。
+</div>
+</body>
+</html>

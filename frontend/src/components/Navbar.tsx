@@ -10,9 +10,9 @@ export default function Navbar() {
   if (location.pathname === "/") return null;
 
   return (
-    <div className="navbar bg-base-200 border-b border-base-300 px-4 lg:px-8">
+    <div className="navbar bg-base-200/80 backdrop-blur-sm border-b border-base-300 px-4 lg:px-8">
       <div className="navbar-start">
-        <Link to="/" className="btn btn-ghost text-xl font-serif gap-2">
+        <Link to="/" className="btn btn-ghost text-xl font-display gap-2">
           <BookOpen className="w-5 h-5 text-primary" />
           爱小说
         </Link>
