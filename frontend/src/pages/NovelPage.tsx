@@ -264,7 +264,19 @@ export default function NovelPage() {
               />
             );
           case "volume":
-            return <VolumeEditor volumeId={viewState.volumeId} />;
+            return (
+              <VolumeEditor
+                projectId={project.id}
+                volumeRef={viewState.volumeId}
+                onChapterSelect={(chapterRef) =>
+                  setViewState({
+                    tab: "writing",
+                    panel: "chapter",
+                    chapterRef,
+                  })
+                }
+              />
+            );
           case "chapter":
             return <ChapterEditor chapterRef={viewState.chapterRef} />;
           case "versions":

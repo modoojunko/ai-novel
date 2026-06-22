@@ -20,6 +20,7 @@ class StorageBackend(Protocol):
     async def write_md(
         self, root_path: str, relative_path: str, content: str
     ) -> None: ...
+    async def delete_file(self, root_path: str, relative_path: str) -> None: ...
     async def list_dir(self, root_path: str, relative_path: str) -> list[str]: ...
     async def init_skeleton(self, root_path: str) -> None: ...
 
@@ -61,6 +62,13 @@ class LocalFileBackend:
             raise ValueError("Path traversal detected")
         os.makedirs(os.path.dirname(fullpath), exist_ok=True)
         Path(fullpath).write_text(content, encoding="utf-8")
+
+    async def delete_file(self, root_path: str, relative_path: str) -> None:
+        fullpath = os.path.normpath(os.path.join(root_path, relative_path))
+        if not fullpath.startswith(root_path):
+            raise ValueError("Path traversal detected")
+        if os.path.exists(fullpath):
+            os.remove(fullpath)
 
     async def list_dir(self, root_path: str, relative_path: str = "") -> list[str]:
         if not relative_path:
@@ -146,6 +154,18 @@ class DatabaseFileBackend:
                     "ON DUPLICATE KEY UPDATE content=VALUES(content)"
                 ),
                 {"uid": user_id, "slug": slug, "fp": relative_path, "content": content},
+            )
+            await session.commit()
+
+    async def delete_file(self, root_path: str, relative_path: str) -> None:
+        user_id, slug = self._parse_root(root_path)
+        async with self._sf() as session:
+            await session.execute(
+                text(
+                    "DELETE FROM novel_files "
+                    "WHERE user_id=:uid AND project_slug=:slug AND file_path=:fp"
+                ),
+                {"uid": user_id, "slug": slug, "fp": relative_path},
             )
             await session.commit()
 

@@ -76,6 +76,141 @@ async def get_volume(
     return data
 
 
+@router.put("/volumes/{filename}")
+async def update_volume(
+    project_id: str,
+    filename: str,
+    body: dict,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await get_project(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Project not found")
+    data = await get_storage().read_yaml(project.root_path, f"volumes/{filename}")
+    if not data:
+        raise HTTPException(404, "Volume not found")
+    for k in ("title", "summary", "chapters"):
+        if k in body:
+            data[k] = body[k]
+    await get_storage().write_yaml(project.root_path, f"volumes/{filename}", data)
+    return {"ok": True}
+
+
+@router.delete("/volumes/{filename}")
+async def delete_volume(
+    project_id: str,
+    filename: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await get_project(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Project not found")
+    data = await get_storage().read_yaml(project.root_path, f"volumes/{filename}")
+    if not data:
+        raise HTTPException(404, "Volume not found")
+    await get_storage().delete_file(project.root_path, f"volumes/{filename}")
+    return {"ok": True}
+
+
+@router.post("/chapters")
+async def create_chapter(
+    project_id: str,
+    body: dict,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await get_project(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Project not found")
+    vol = body.get("volume", 1)
+    ch = body.get("chapter", 1)
+    title = body.get("title", f"第{ch}章")
+    chapter_ref = f"vol-{vol}-ch-{ch}"
+
+    # Create chapter file with template defaults
+    chapter_data = {
+        "volume": vol,
+        "chapter": ch,
+        "title": title,
+        "status": "outline",
+        "outline": {
+            "summary": "",
+            "key_points": [],
+            "characters": [],
+            "location": "",
+            "time": "",
+            "narrative_pov": "",
+        },
+        "memo": {
+            "current_task": "",
+            "reader_expectation": {"state": "", "strategy": "", "detail": ""},
+            "payoff_plan": {"must_resolve": [], "must_hold": [], "partial_advance": []},
+            "downtime_functions": [],
+            "key_choices": [],
+            "required_changes": [],
+            "prohibitions": [],
+        },
+        "segments": [],
+    }
+    await get_storage().write_yaml(
+        project.root_path, f"chapters/{chapter_ref}.yaml", chapter_data
+    )
+
+    # Update volume chapter list
+    vol_filename = f"vol-{vol}.yaml"
+    vol_data = await get_storage().read_yaml(
+        project.root_path, f"volumes/{vol_filename}"
+    )
+    if vol_data is None:
+        vol_data = {"volume": vol, "title": f"Volume {vol}", "summary": "", "chapters": []}
+    if "chapters" not in vol_data or vol_data["chapters"] is None:
+        vol_data["chapters"] = []
+    vol_data["chapters"].append(
+        {"chapter": ch, "title": title, "word_count": 0, "status": "outline"}
+    )
+    await get_storage().write_yaml(
+        project.root_path, f"volumes/{vol_filename}", vol_data
+    )
+
+    project.total_chapters = (project.total_chapters or 0) + 1
+    await db.commit()
+    return {"chapter_ref": chapter_ref}
+
+
+@router.delete("/chapters/{chapter_ref}")
+async def delete_chapter(
+    project_id: str,
+    chapter_ref: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await get_project(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
+    await get_storage().delete_file(
+        project.root_path, f"chapters/{chapter_ref}.yaml"
+    )
+    # Remove from volume chapter list
+    parts = chapter_ref.split("-")
+    vol = int(parts[1])
+    ch = int(parts[3])
+    vol_filename = f"vol-{vol}.yaml"
+    vol_data = await get_storage().read_yaml(
+        project.root_path, f"volumes/{vol_filename}"
+    )
+    if vol_data and "chapters" in vol_data:
+        vol_data["chapters"] = [
+            c for c in vol_data["chapters"] if c.get("chapter") != ch
+        ]
+        await get_storage().write_yaml(
+            project.root_path, f"volumes/{vol_filename}", vol_data
+        )
+    return {"ok": True}
+
+
 @router.get("/chapters/{chapter_ref}")
 async def get_chapter(
     project_id: str,
