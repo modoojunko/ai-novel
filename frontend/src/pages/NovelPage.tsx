@@ -219,6 +219,23 @@ export default function NovelPage() {
   // Tab switching
   // -----------------------------------------------------------------------
 
+  // -----------------------------------------------------------------------
+  // Empty state callbacks (no-op until real API wiring)
+  // -----------------------------------------------------------------------
+
+  const handleCreateVolume = useCallback(() => {
+    console.log("TODO: create volume");
+  }, []);
+
+  const handleCreateChapter = useCallback(() => {
+    console.log("TODO: create chapter");
+  }, []);
+
+  const handleGoSettings = useCallback(() => {
+    setTab("settings");
+    setViewState({ tab: "settings", panel: "world" });
+  }, []);
+
   const handleTabSwitch = useCallback((newTab: TabId) => {
     setTab(newTab);
     if (newTab === "settings") {
@@ -239,7 +256,13 @@ export default function NovelPage() {
       case "writing":
         switch (viewState.panel) {
           case "empty":
-            return <EmptyState />;
+            return (
+              <EmptyState
+                onCreateVolume={handleCreateVolume}
+                onCreateChapter={handleCreateChapter}
+                onGoSettings={handleGoSettings}
+              />
+            );
           case "volume":
             return <VolumeEditor volumeId={viewState.volumeId} />;
           case "chapter":
@@ -247,7 +270,13 @@ export default function NovelPage() {
           case "versions":
             return <VersionHistory chapterRef={viewState.chapterRef} />;
           default:
-            return <EmptyState />;
+            return (
+              <EmptyState
+                onCreateVolume={handleCreateVolume}
+                onCreateChapter={handleCreateChapter}
+                onGoSettings={handleGoSettings}
+              />
+            );
         }
       default:
         return <EmptyState />;
