@@ -1,12 +1,12 @@
 export type TreeNodeAction = {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   onClick: (node: TreeNode) => void;
 };
 
 export type TreeNode = {
   id: string;
-  icon?: string;
+  icon?: React.ReactNode;
   label?: string;
   badge?: string;
   badgeColor?: string;

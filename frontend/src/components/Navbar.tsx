@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { isLoggedIn } from "../lib/auth";
 import { BookOpen } from "lucide-react";
+import ThemeToggle from "../components/novel/ThemeToggle";
 
 export default function Navbar() {
   const location = useLocation();
@@ -18,6 +19,7 @@ export default function Navbar() {
         </Link>
       </div>
       <div className="navbar-end gap-2">
+        <ThemeToggle />
         {loggedIn ? (
           <>
             <Link to="/dashboard" className="btn btn-ghost btn-sm">

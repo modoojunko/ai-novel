@@ -3,22 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import AuthGuard from "@/components/auth/AuthGuard";
+import DeleteConfirmModal from "@/components/novel/DeleteConfirmModal";
 import { Plus, Wand2, Loader2 } from "lucide-react";
-
-const PHASE_LABELS: Record<string, string> = {
-  init: "初始化",
-  settings: "设定",
-  outline: "大纲",
-  prompts: "细纲",
-  write: "写作",
-  archives: "正文",
-};
 
 interface Project {
   id: string;
   name: string;
   slug: string;
   current_phase: string;
+  total_volumes: number;
   total_chapters: number;
   updated_at: string;
 }
@@ -50,7 +43,21 @@ function Dashboard() {
   const [selectedTitle, setSelectedTitle] = useState("");
   const [creating, setCreating] = useState(false);
   const [manualMode, setManualMode] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const navigate = useNavigate();
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    const { id, name } = deleteTarget;
+    try {
+      await api.delete(`/projects/${id}`);
+      setProjects((prev: Project[]) => prev.filter((p) => p.id !== id));
+      toast.success(`《${name}》已删除`);
+      setDeleteTarget(null);
+    } catch {
+      toast.error("删除失败");
+    }
+  }
 
   useEffect(() => {
     api.get("/projects")
@@ -131,16 +138,14 @@ function Dashboard() {
       ) : (
         <div className="grid grid-cols-2 gap-4">
           {projects.map((p) => {
-            const phaseIdx = ["init","settings","outline","prompts","write","archives"].indexOf(p.current_phase);
             return (
               <div
                 key={p.id}
                 className="card bg-base-200/70 border border-base-300/40 cursor-pointer
                           hover:bg-base-200 hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5
                           transition-all duration-300 group"
-                onClick={() => navigate(`/project/${p.slug}`)}
               >
-                <div className="card-body py-5">
+                <div className="card-body py-5" onClick={() => navigate(`/project/${p.slug}`)}>
                   <div className="flex items-start justify-between">
                     <div className="min-w-0">
                       <h3 className="font-serif text-base truncate group-hover:text-primary transition-colors">{p.name}</h3>
@@ -148,23 +153,18 @@ function Dashboard() {
                         {p.total_chapters}章 · 更新于{new Date(p.updated_at).toLocaleDateString("zh-CN")}
                       </p>
                     </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(p); }}
+                      className="opacity-0 group-hover:opacity-100 btn btn-ghost btn-xs text-error/60 hover:text-error transition-all shrink-0"
+                      title="删除小说"
+                    >
+                      🗑
+                    </button>
                   </div>
-                  <div className="flex items-center gap-[3px] mt-3">
-                    {["init","settings","outline","prompts","write","archives"].map((ph, i) => (
-                      <div
-                        key={ph}
-                        className={`w-[7px] h-[7px] rounded-full ${
-                          i < phaseIdx
-                            ? "bg-success"
-                            : i === phaseIdx
-                              ? "bg-primary shadow-[0_0_4px_hsl(var(--p))]"
-                              : "border border-base-content/20"
-                        }`}
-                      />
-                    ))}
-                    <span className="text-[11px] text-base-content/50 ml-2">
-                      {PHASE_LABELS[p.current_phase] || p.current_phase}
-                    </span>
+                  <div className="flex items-center gap-3 mt-3 text-xs text-base-content/50">
+                    <span>{p.total_volumes || 0} 卷</span>
+                    <span>·</span>
+                    <span>{p.total_chapters || 0} 章</span>
                   </div>
                 </div>
               </div>
@@ -294,6 +294,16 @@ function Dashboard() {
           </div>
           <div className="modal-backdrop" onClick={() => setShowCreate(false)} />
         </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <DeleteConfirmModal
+          title="小说"
+          confirmText={deleteTarget.name}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </main>
   );

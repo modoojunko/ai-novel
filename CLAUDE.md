@@ -85,6 +85,15 @@ cd frontend && npx tsc --noEmit
 
 # Run a single backend test
 cd backend && python -m pytest tests/ -k "test_name"
+
+# Run all backend API tests
+cd backend && python -m pytest tests/ -v
+
+# Run all frontend E2E tests (requires Docker running on :80)
+cd frontend && npx playwright test
+
+# Run ALL tests (backend + frontend)
+bash scripts/test-all.sh
 ```
 
 ## Architecture
@@ -135,15 +144,12 @@ frontend/src/
   main.tsx              — entry point, renders App
   pages/                — flat page components (one per route):
     LandingPage, LoginPage, RegisterPage, DashboardPage,
-    ProjectLayout (nested routes via <Outlet>), ProjectRedirectPage,
-    SettingsHubPage, WorldSettingsPage, StyleSettingsPage,
-    AntiAiSettingsPage, HooksPage, CharactersListPage, CharacterEditorPage,
-    OutlinePage, PromptsPage, WritePage, ArchivesPage, ThreadsPage
+    ProjectLayout (<Outlet> wrapper), NovelPage (dual-panel main layout)
   components/
     auth/AuthGuard.tsx  — redirect to /login if no token
-    project/ProjectNav.tsx — phase-based tab navigation
-    settings/           — settings forms
-    ui/                 — daisyUI + Tailwind primitives
+    novel/              — new layout components:
+      StructureTree, EmptyState, VolumeEditor, ChapterEditor,
+      VersionHistory, SettingsFormField, ThemeToggle
     ClientShell.tsx     — top-level layout wrapper
     Navbar.tsx, Footer.tsx
   lib/

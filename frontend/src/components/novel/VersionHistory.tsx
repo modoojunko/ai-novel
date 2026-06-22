@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
+import { ClipboardList } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -117,8 +118,9 @@ export default function VersionHistory({
 
       {/* ── Diff section ──────────────────────────────────────────── */}
       <div className="mt-10">
-        <h3 className="text-base font-medium text-base-content mb-3">
-          📋 差异对比
+        <h3 className="text-base font-medium text-base-content mb-3 flex items-center gap-1.5">
+          <ClipboardList className="w-4 h-4" />
+          差异对比
         </h3>
         {diffAvailable ? (
           <div className="rounded-lg border border-base-300 bg-base-200/30 p-4 text-sm font-mono leading-relaxed whitespace-pre-wrap text-base-content/70">
