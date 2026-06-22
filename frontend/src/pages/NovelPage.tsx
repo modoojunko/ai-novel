@@ -252,7 +252,12 @@ export default function NovelPage() {
   const renderContent = useCallback(() => {
     switch (viewState.tab) {
       case "settings":
-        return <SettingsFormField settingKey={viewState.panel} />;
+        return (
+          <SettingsFormField
+            projectId={project.id}
+            settingKey={viewState.panel}
+          />
+        );
       case "writing":
         switch (viewState.panel) {
           case "empty":
