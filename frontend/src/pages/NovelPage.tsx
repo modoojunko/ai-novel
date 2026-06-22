@@ -292,7 +292,19 @@ export default function NovelPage() {
               />
             );
           case "versions":
-            return <VersionHistory chapterRef={viewState.chapterRef} />;
+            return (
+              <VersionHistory
+                projectId={project.id}
+                chapterRef={viewState.chapterRef}
+                onBack={() =>
+                  setViewState({
+                    tab: "writing",
+                    panel: "chapter",
+                    chapterRef: viewState.chapterRef,
+                  })
+                }
+              />
+            );
           default:
             return (
               <EmptyState
