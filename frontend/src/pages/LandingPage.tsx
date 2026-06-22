@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import ThemeToggle from "@/components/novel/ThemeToggle";
 
 const GH_REPO = "https://github.com/modoojunko/ai-novel";
 const FEEDBACK_URL = `${GH_REPO}/issues/new`;
@@ -40,6 +41,7 @@ export default function LandingPage() {
             >
               ⭐ Star
             </a>
+            <ThemeToggle />
             <Link to="/login" className="text-sm text-base-content/50 hover:text-base-content transition-colors no-underline">
               登录
             </Link>
@@ -76,7 +78,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-lg lg:text-xl text-base-content/50 leading-relaxed max-w-2xl mx-auto mb-10">
-            六阶段工作流：世界搭建 → 风格设定 → 大纲推演 → 逐段写作 → 质量检查 → 归档成稿。
+            从世界设定到卷章管理，从逐章写作到版本回溯。
             AI 是笔，你才是作家。
           </p>
 
@@ -134,21 +136,18 @@ export default function LandingPage() {
           <div className="mb-14 text-center animate-fade-up">
             <span className="text-xs tracking-[0.25em] text-primary font-medium">工作流程</span>
             <h2 className="text-3xl lg:text-4xl font-bold font-serif mt-3 mb-4">
-              六阶段，走完一部小说
+              小说结构驱动创作
             </h2>
             <p className="text-base text-base-content/50 max-w-lg mx-auto">
-              从零到一，每个阶段都有 AI 辅助，但决定权永远在你手里。
+              设定世界、分卷规划、逐章写作。所有内容你亲手掌控，AI 随叫随到。
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-x-10 gap-y-12">
             {[
-              ["01", "世界搭建", "设定世界规则、地理、势力。AI 帮你扩展细节，保持内部逻辑自洽。"],
-              ["02", "风格设定", "定义叙事风格、节奏、视角。所有 AI 生成都对齐你定下的风格规则。"],
-              ["03", "大纲推演", "分卷、分章、分节。拖拽调整结构，AI 检测节奏问题和逻辑漏洞。"],
-              ["04", "细纲规划", "把每章拆成段落，设定每段目标和视角。AI 辅助生成段落细纲，也可手动精调。"],
-              ["05", "正文写作", "AI 逐段生成正文，实时 SSE 流式输出。随时暂停、重写、调整方向。"],
-              ["06", "正文归档", "质量检查（逻辑、风格、文法）通过后归档。可回溯任意历史版本。"],
+              ["01", "设定世界", "世界规则、角色、风格。每个设定项独立存储，可随时回溯。"],
+              ["02", "分卷规划", "创建卷，写卷纲。在卷下建章，每章可写章纲规划场景。"],
+              ["03", "逐章写作", "每章独立编辑章纲和正文。写一页是一页，自动保存版本。"],
             ].map(([num, title, desc], i) => (
               <div key={num as string} className="text-center group animate-fade-up" style={{ animationDelay: `${0.1 + i * 0.05}s` }}>
                 <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20

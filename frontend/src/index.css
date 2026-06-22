@@ -21,7 +21,7 @@ body {
   color: inherit;
 }
 
-/* 自定义滚动条 */
+/* 自定义滚动条 — WebKit */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -37,6 +37,12 @@ body {
   background: rgba(212, 163, 115, 0.3);
 }
 
+/* 自定义滚动条 — Firefox */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 163, 115, 0.15) transparent;
+}
+
 /* 字体 */
 .font-serif {
   font-family: "Noto Serif SC", "EB Garamond", serif;
@@ -46,20 +52,20 @@ body {
   font-family: "EB Garamond", "Noto Serif SC", serif;
 }
 
-/* 页面切入动画 */
+/* 页面切入动画 — 带微缩放效果 */
 @keyframes page-fade-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(16px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 .page-enter {
-  animation: page-fade-in 0.3s ease-out both;
+  animation: page-fade-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* 渐入效果通用类 */
@@ -82,6 +88,23 @@ body {
 .animate-fade-up-2 { animation-delay: 0.2s; }
 .animate-fade-up-3 { animation-delay: 0.3s; }
 .animate-fade-up-4 { animation-delay: 0.4s; }
+
+/* Shimmer 骨架屏动画 */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-custom {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(212, 163, 115, 0.08) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
 
 /* 背景色/边框色切换过渡 */
 *,

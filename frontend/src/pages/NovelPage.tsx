@@ -3,12 +3,24 @@ import { useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { TreeNode } from "@/components/novel/StructureTree";
 import StructureTree from "@/components/novel/StructureTree";
-import ThemeToggle from "@/components/novel/ThemeToggle";
 import EmptyState from "@/components/novel/EmptyState";
 import VolumeEditor from "@/components/novel/VolumeEditor";
 import ChapterEditor from "@/components/novel/ChapterEditor";
 import VersionHistory from "@/components/novel/VersionHistory";
 import SettingsFormField from "@/components/novel/SettingsFormField";
+import DeleteConfirmModal from "@/components/novel/DeleteConfirmModal";
+import { useOnboarding } from "@/hooks/useOnboarding";
+import {
+  Globe,
+  Feather,
+  Shield,
+  Anchor,
+  Users,
+  Book,
+  FileText,
+  Trash2,
+  ClipboardList,
+} from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -32,12 +44,12 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "writing", label: "正文" },
 ];
 
-const SETTINGS_TREE_ITEMS: { id: string; icon: string; label: string }[] = [
-  { id: "world", icon: "🌍", label: "世界设定" },
-  { id: "style", icon: "✍️", label: "写作风格" },
-  { id: "anti-ai", icon: "🛡️", label: "反AI规则" },
-  { id: "hooks", icon: "⚓", label: "伏笔面板" },
-  { id: "characters", icon: "👥", label: "角色管理" },
+const SETTINGS_TREE_ITEMS: { id: string; icon: React.ReactNode; label: string }[] = [
+  { id: "world", icon: <Globe className="w-3.5 h-3.5" />, label: "世界设定" },
+  { id: "style", icon: <Feather className="w-3.5 h-3.5" />, label: "写作风格" },
+  { id: "anti-ai", icon: <Shield className="w-3.5 h-3.5" />, label: "反AI规则" },
+  { id: "hooks", icon: <Anchor className="w-3.5 h-3.5" />, label: "伏笔面板" },
+  { id: "characters", icon: <Users className="w-3.5 h-3.5" />, label: "角色管理" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -50,11 +62,24 @@ export default function NovelPage() {
   const [project, setProject] = useState<any>(null);
   const [volumes, setVolumes] = useState<any[]>([]);
   const [tab, setTab] = useState<TabId>("writing");
+  const [showDelete, setShowDelete] = useState(false);
   const [viewState, setViewState] = useState<ViewState>({
     tab: "writing",
     panel: "empty",
   });
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const { settingsStatus, allConfirmed, isNew, confirmSetting, loading: onboardingLoading } =
+    useOnboarding(project?.id, volumes);
+
+  // Switch default tab based on onboarding state
+  useEffect(() => {
+    if (!project || loading || onboardingLoading) return;
+    if (isNew && tab === "writing") {
+      setTab("settings");
+      setViewState({ tab: "settings", panel: "world" });
+    }
+  }, [isNew, loading, onboardingLoading, project]);
 
   // -----------------------------------------------------------------------
   // Fetch project by slug
@@ -99,6 +124,14 @@ export default function NovelPage() {
     loadVolumes();
   }, [loadVolumes]);
 
+  // Auto-expand the first volume on load
+  useEffect(() => {
+    if (volumes.length > 0 && expandedIds.size === 0) {
+      const firstVolId = volumes[0].name || `vol-1`;
+      setExpandedIds(new Set([firstVolId]));
+    }
+  }, [volumes, expandedIds.size]);
+
   // -----------------------------------------------------------------------
   // Derive writing tree nodes from volumes
   // -----------------------------------------------------------------------
@@ -107,19 +140,19 @@ export default function NovelPage() {
     return volumes.map((v) => {
       const volNum = parseInt((v.name || "").replace("vol-", ""), 10) || 0;
       const chapterNodes: TreeNode[] = (v.chapters || []).map((ch: any) => {
-        const ref = `vol-${ch.volume}-ch-${ch.chapter}`;
+        const ref = `vol-${volNum}-ch-${ch.chapter}`;
         const isDone =
           ch.status === "confirmed" || ch.status === "archived";
         return {
           id: ref,
-          icon: "📄",
+          icon: <FileText className="w-3.5 h-3.5" />,
           label: ch.title || `ch-${ch.chapter}`,
           badge: isDone ? "done" : undefined,
           badgeColor: isDone ? "var(--su)" : undefined,
           data: { type: "chapter", ref, volume: ch.volume, chapter: ch.chapter },
           actions: [
             {
-              icon: "📋",
+              icon: <ClipboardList className="w-3 h-3" />,
               label: "版本历史",
               onClick: (node: TreeNode) => {
                 setViewState({
@@ -135,7 +168,7 @@ export default function NovelPage() {
 
       return {
         id: v.name || `vol-${volNum}`,
-        icon: "📚",
+        icon: <Book className="w-3.5 h-3.5" />,
         label: `第${volNum}卷`,
         badge: `${chapterNodes.length}章`,
         children: chapterNodes,
@@ -220,16 +253,71 @@ export default function NovelPage() {
   // -----------------------------------------------------------------------
 
   // -----------------------------------------------------------------------
-  // Empty state callbacks (no-op until real API wiring)
+  // Create volume from empty state
   // -----------------------------------------------------------------------
 
-  const handleCreateVolume = useCallback(() => {
-    console.log("TODO: create volume");
-  }, []);
+  const handleCreateVolume = useCallback(async () => {
+    if (!project?.id) return;
+    try {
+      const volNum = volumes.length + 1;
+      const result = await api.post(`/projects/${project.id}/volumes`, {
+        title: `第${volNum}卷`,
+        vol_num: volNum,
+      });
+      await loadVolumes();
+      setViewState({
+        tab: "writing",
+        panel: "volume",
+        volumeId: result.filename?.replace(".yaml", "") || `vol-${volNum}`,
+      });
+      // Auto-expand the new volume
+      setExpandedIds((prev) => {
+        const next = new Set(prev);
+        next.add(result.filename?.replace(".yaml", "") || `vol-${volNum}`);
+        return next;
+      });
+    } catch (e: any) {
+      console.error("创建卷失败", e);
+    }
+  }, [project?.id, volumes.length, loadVolumes]);
 
-  const handleCreateChapter = useCallback(() => {
-    console.log("TODO: create chapter");
-  }, []);
+  // -----------------------------------------------------------------------
+  // Create chapter from empty state (auto-create a volume first if needed)
+  // -----------------------------------------------------------------------
+
+  const handleCreateChapter = useCallback(async () => {
+    if (!project?.id) return;
+    try {
+      // If no volumes exist, create one first
+      let targetVol = volumes[0];
+      if (!targetVol) {
+        const volResult = await api.post(`/projects/${project.id}/volumes`, {
+          title: `第一卷`,
+          vol_num: 1,
+        });
+        await loadVolumes();
+        targetVol = { name: volResult.filename?.replace(".yaml", "") || "vol-1" };
+      }
+
+      const volRef = targetVol.name || "vol-1";
+      const volNum = parseInt(volRef.replace("vol-", ""), 10) || 1;
+
+      // Get current chapter count from this volume
+      const volData = await api.get(`/projects/${project.id}/volumes/${volRef}.yaml`);
+      const nextCh = (volData?.chapters?.length || 0) + 1;
+
+      const result = await api.post(`/projects/${project.id}/chapters`, {
+        volume: volNum,
+        chapter: nextCh,
+        title: `第${nextCh}章`,
+      });
+      await loadVolumes();
+      const ref = (result.chapter_ref as string) || `vol-${volNum}-ch-${nextCh}`;
+      setViewState({ tab: "writing", panel: "chapter", chapterRef: ref });
+    } catch (e: any) {
+      console.error("创建章节失败", e);
+    }
+  }, [project?.id, volumes, loadVolumes]);
 
   const handleGoSettings = useCallback(() => {
     setTab("settings");
@@ -256,6 +344,8 @@ export default function NovelPage() {
           <SettingsFormField
             projectId={project.id}
             settingKey={viewState.panel}
+            confirmed={settingsStatus?.[viewState.panel] ?? false}
+            onConfirm={() => confirmSetting(viewState.panel)}
           />
         );
       case "writing":
@@ -266,6 +356,7 @@ export default function NovelPage() {
                 onCreateVolume={handleCreateVolume}
                 onCreateChapter={handleCreateChapter}
                 onGoSettings={handleGoSettings}
+                settingsComplete={allConfirmed}
               />
             );
           case "volume":
@@ -280,6 +371,7 @@ export default function NovelPage() {
                     chapterRef,
                   })
                 }
+                onVolumeChange={loadVolumes}
               />
             );
           case "chapter":
@@ -316,11 +408,12 @@ export default function NovelPage() {
                 onCreateVolume={handleCreateVolume}
                 onCreateChapter={handleCreateChapter}
                 onGoSettings={handleGoSettings}
+                settingsComplete={allConfirmed}
               />
             );
         }
       default:
-        return <EmptyState />;
+        return <EmptyState settingsComplete={allConfirmed} />;
     }
   }, [viewState]);
 
@@ -330,8 +423,31 @@ export default function NovelPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <span className="loading loading-spinner loading-md text-primary" />
+      <div className="flex flex-col h-full">
+        {/* Skeleton top bar */}
+        <div className="flex items-center justify-between px-4 py-2 border-b border-base-300 bg-base-200/50">
+          <div className="skeleton h-5 w-32" />
+          <div className="flex gap-1">
+            <div className="skeleton h-8 w-12" />
+            <div className="skeleton h-8 w-12" />
+          </div>
+          <div className="flex gap-2">
+            <div className="skeleton h-8 w-8" />
+            <div className="skeleton h-8 w-8" />
+          </div>
+        </div>
+        <div className="flex flex-1 overflow-hidden">
+          <aside className="w-56 flex-shrink-0 border-r border-base-300 bg-base-200/30 p-2">
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="skeleton h-7 w-full" />
+              ))}
+            </div>
+          </aside>
+          <main className="flex-1 flex items-center justify-center">
+            <span className="loading loading-spinner loading-md text-primary" />
+          </main>
+        </div>
       </div>
     );
   }
@@ -349,6 +465,7 @@ export default function NovelPage() {
   // -----------------------------------------------------------------------
 
   return (
+    <>
     <div className="flex flex-col h-full">
       {/* ── Top bar ─────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-base-300 bg-base-200/50">
@@ -374,9 +491,15 @@ export default function NovelPage() {
           ))}
         </div>
 
-        {/* Theme toggle placeholder */}
+        {/* Actions */}
         <div className="flex items-center gap-2">
-          <ThemeToggle />
+          <button
+            onClick={() => setShowDelete(true)}
+            className="text-base-content/30 hover:text-error transition-colors p-1.5 rounded-md hover:bg-error/10"
+            title="删除小说"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
@@ -399,5 +522,18 @@ export default function NovelPage() {
         </main>
       </div>
     </div>
+
+      {showDelete && (
+        <DeleteConfirmModal
+          title="小说"
+          confirmText={project.name}
+          onConfirm={async () => {
+            await api.delete(`/projects/${project.id}`);
+            window.location.href = "/dashboard";
+          }}
+          onCancel={() => setShowDelete(false)}
+        />
+      )}
+    </>
   );
 }

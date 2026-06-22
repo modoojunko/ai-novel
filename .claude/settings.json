@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(docker compose *)",
+      "Bash(docker restart *)",
+      "Bash(curl -s http://localhost:80/api/health)",
+      "Bash(xxd)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -X PUT http://localhost:80/api/projects/test/settings/character/test-char -H \"Content-Type: application/json\" -d '{\"name\":\"test-char\",\"role\":\"protagonist\"}')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost/)",
+      "Bash(curl -s http://localhost/)"
+    ]
+  }
+}

@@ -23,6 +23,7 @@ interface VolumeEditorProps {
   projectId: string;
   volumeRef: string;
   onChapterSelect: (chapterRef: string) => void;
+  onVolumeChange?: () => void;  // called after create/delete to refresh parent tree
 }
 
 // ---------------------------------------------------------------------------
@@ -64,6 +65,7 @@ export default function VolumeEditor({
   projectId,
   volumeRef,
   onChapterSelect,
+  onVolumeChange,
 }: VolumeEditorProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -133,6 +135,7 @@ export default function VolumeEditor({
       });
       // Reload to reflect the new chapter in the list
       await loadVolume();
+      onVolumeChange?.();
       // Navigate to the new chapter
       const ref = result.chapter_ref as string;
       if (ref) onChapterSelect(ref);
@@ -150,6 +153,7 @@ export default function VolumeEditor({
     try {
       await api.delete(`/projects/${projectId}/chapters/${chapterRef}`);
       await loadVolume();
+      onVolumeChange?.();
     } catch (e: any) {
       setError(e.message || "删除章节失败");
     }
@@ -163,6 +167,7 @@ export default function VolumeEditor({
     if (!window.confirm("确定要删除本卷及其所有章节吗？")) return;
     try {
       await api.delete(`/projects/${projectId}/volumes/${filename}`);
+      onVolumeChange?.();
       // Navigate back to parent — rely on parent to handle the empty state
       onChapterSelect("");
     } catch (e: any) {
