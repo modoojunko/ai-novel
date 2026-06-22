@@ -1,7 +1,22 @@
+import { useEffect, useState } from "react";
+
+const THEME_KEY = "ai-novel-theme";
+
 export default function ThemeToggle() {
+  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || "novelforge");
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
+
   return (
-    <button className="btn btn-ghost btn-sm btn-square text-base-content/60">
-      <span>🌙</span>
+    <button
+      onClick={() => setTheme((t) => (t === "novelforge" ? "parchment" : "novelforge"))}
+      className="text-sm text-base-content/50 hover:text-base-content transition-colors px-3 py-1.5 rounded-md border border-base-content/10 hover:border-base-content/30"
+      title={theme === "novelforge" ? "切换到浅色主题" : "切换到深色主题"}
+    >
+      {theme === "novelforge" ? "☀️" : "🌙"}
     </button>
   );
 }

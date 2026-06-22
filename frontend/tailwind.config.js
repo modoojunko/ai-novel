@@ -35,6 +35,27 @@ export default {
           error: "#c97a7a",
         },
       },
+      {
+        parchment: {
+          /* 羊皮纸暖白风格 — 适合白天 */
+          primary: "#8b6914",
+          "primary-content": "#faf6ee",
+          secondary: "#6b7a54",
+          "secondary-content": "#faf6ee",
+          accent: "#a67c52",
+          "accent-content": "#faf6ee",
+          neutral: "#3d352a",
+          "neutral-content": "#e8ddd0",
+          "base-100": "#faf6ee",
+          "base-200": "#f0e8d8",
+          "base-300": "#e0d5c0",
+          "base-content": "#3d352a",
+          info: "#7a9db8",
+          success: "#5a8a5a",
+          warning: "#b8944a",
+          error: "#b85a5a",
+        },
+      },
     ],
   },
 };
