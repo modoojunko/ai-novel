@@ -79,7 +79,7 @@ export default function PromptsPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <h2 className="text-2xl font-bold font-serif mb-6">提示词查看器</h2>
+      <h2 className="text-2xl font-bold font-serif mb-6">细纲查看器</h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Chapter selector + actions */}
@@ -124,7 +124,7 @@ export default function PromptsPage() {
                     disabled={generating}
                   >
                     {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                    生成提示词
+                    生成细纲
                   </button>
                 </div>
               </div>
@@ -134,7 +134,7 @@ export default function PromptsPage() {
           {prompts.length > 0 && (
             <div className="card bg-base-200 border border-base-300">
               <div className="card-body">
-                <h3 className="card-title text-base">提示词文件</h3>
+                <h3 className="card-title text-base">细纲文件</h3>
                 <div className="space-y-1">
                   {prompts.map((p) => {
                     const segName = p.replace(`${selectedRef}-`, "").replace("-prompt.md", "");
@@ -171,7 +171,7 @@ export default function PromptsPage() {
           {promptContent && (
             <div className="card bg-base-200 border border-base-300">
               <div className="card-body">
-                <h3 className="card-title text-base">提示词：{selectedPrompt}</h3>
+                <h3 className="card-title text-base">细纲：{selectedPrompt}</h3>
                 <div className="text-sm whitespace-pre-wrap bg-base-300/50 rounded p-4 max-h-96 overflow-y-auto">
                   {promptContent}
                 </div>
@@ -181,7 +181,7 @@ export default function PromptsPage() {
 
           {!guidance && !promptContent && selectedRef && (
             <div className="flex items-center justify-center h-64 text-base-content/60">
-              运行视角转换并生成提示词以查看内容
+              运行视角转换并生成细纲以查看内容
             </div>
           )}
 

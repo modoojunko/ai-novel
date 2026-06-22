@@ -9,9 +9,9 @@ const PHASE_LABELS: Record<string, string> = {
   init: "初始化",
   settings: "设定",
   outline: "大纲",
-  prompts: "提示词",
+  prompts: "细纲",
   write: "写作",
-  archives: "存档",
+  archives: "正文",
 };
 
 interface Project {
@@ -104,7 +104,7 @@ function Dashboard() {
   return (
     <main className="max-w-4xl mx-auto py-12 px-4">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold font-serif text-primary">我的小说</h1>
+        <h1 className="text-3xl font-bold font-display text-base-content">我的小说</h1>
         <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
           <Plus className="w-4 h-4" />
           开始新小说
@@ -135,14 +135,16 @@ function Dashboard() {
             return (
               <div
                 key={p.id}
-                className="card bg-base-200 border border-base-300 cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
+                className="card bg-base-200/70 border border-base-300/40 cursor-pointer
+                          hover:bg-base-200 hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5
+                          transition-all duration-300 group"
                 onClick={() => navigate(`/project/${p.slug}`)}
               >
                 <div className="card-body py-5">
                   <div className="flex items-start justify-between">
                     <div className="min-w-0">
-                      <h3 className="font-serif text-base truncate">{p.name}</h3>
-                      <p className="text-xs text-base-content/60 mt-1">
+                      <h3 className="font-serif text-base truncate group-hover:text-primary transition-colors">{p.name}</h3>
+                      <p className="text-xs text-base-content/50 mt-1">
                         {p.total_chapters}章 · 更新于{new Date(p.updated_at).toLocaleDateString("zh-CN")}
                       </p>
                     </div>
@@ -155,12 +157,12 @@ function Dashboard() {
                           i < phaseIdx
                             ? "bg-success"
                             : i === phaseIdx
-                              ? "bg-primary shadow-[0_0_3px_hsl(var(--p))]"
-                              : "border border-base-content/25"
+                              ? "bg-primary shadow-[0_0_4px_hsl(var(--p))]"
+                              : "border border-base-content/20"
                         }`}
                       />
                     ))}
-                    <span className="text-[11px] text-base-content/60 ml-2">
+                    <span className="text-[11px] text-base-content/50 ml-2">
                       {PHASE_LABELS[p.current_phase] || p.current_phase}
                     </span>
                   </div>
@@ -169,10 +171,11 @@ function Dashboard() {
             );
           })}
           <div
-            className="border border-dashed border-base-300 rounded-xl flex items-center justify-center min-h-[100px] cursor-pointer hover:border-primary/30 hover:bg-primary/5 transition-colors"
+            className="border border-dashed border-base-300/40 rounded-xl flex items-center justify-center min-h-[100px] cursor-pointer
+                      hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm hover:shadow-primary/5 transition-all duration-300"
             onClick={() => setShowCreate(true)}
           >
-            <span className="text-base-content/60 text-sm">+ 开始新小说</span>
+            <span className="text-base-content/40 text-sm group-hover:text-base-content/60">+ 开始新小说</span>
           </div>
         </div>
       )}

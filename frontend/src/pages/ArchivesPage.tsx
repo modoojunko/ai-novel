@@ -73,7 +73,7 @@ export default function ArchivesPage() {
       {/* Left: Chapter tree */}
       <div className="w-[220px] flex-shrink-0 border-r border-base-300 p-3 overflow-y-auto">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] text-base-content/60 uppercase tracking-wider">已存档</span>
+          <span className="text-[11px] text-base-content/60 uppercase tracking-wider">正文</span>
           <span className="text-[10px] text-base-content/40">{archives.length}章</span>
         </div>
         {treeVolumes.length > 0 ? (
@@ -85,7 +85,7 @@ export default function ArchivesPage() {
             onToggle={(name) => setExpanded((p) => ({ ...p, [name]: !p[name] }))}
           />
         ) : (
-          <p className="text-xs text-base-content/60 p-2">暂无存档章节</p>
+          <p className="text-xs text-base-content/60 p-2">暂无正文章节</p>
         )}
       </div>
 

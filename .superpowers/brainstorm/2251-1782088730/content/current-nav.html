@@ -1,0 +1,58 @@
+<h2>现状：6阶段状态机导航 (Current)</h2>
+<p class="subtitle">每个阶段是一个独立页面，用进度条串联，必须先完成前一个才能到后一个</p>
+
+<div class="mockup" style="margin-top:1rem">
+  <div class="mockup-header">ProjectNav + PhaseProgress</div>
+  <div class="mockup-body" style="padding:1rem">
+    <!-- Phase dots -->
+    <div style="display:flex;gap:0.25rem;justify-content:center;margin-bottom:1rem">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:0.25rem">
+        <div style="width:12px;height:12px;border-radius:50%;background:#22c55e"></div>
+        <span style="font-size:10px;color:#22c55e">初始化</span>
+      </div>
+      <div style="width:24px;height:2px;margin-top:5px;background:#22c55e"></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:0.25rem">
+        <div style="width:12px;height:12px;border-radius:50%;background:#22c55e"></div>
+        <span style="font-size:10px;color:#22c55e">设定</span>
+      </div>
+      <div style="width:24px;height:2px;margin-top:5px;background:#22c55e"></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:0.25rem">
+        <div style="width:12px;height:12px;border-radius:50%;background:#d4a373;box-shadow:0 0 8px #d4a373"></div>
+        <span style="font-size:10px;color:#d4a373;font-weight:bold">大纲</span>
+      </div>
+      <div style="width:24px;height:2px;margin-top:5px;background:color-mix(in srgb, #22c55e 50%, transparent)"></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:0.25rem">
+        <div style="width:12px;height:12px;border-radius:50%;border:1.5px solid color-mix(in srgb, currentColor 20%, transparent)"></div>
+        <span style="font-size:10px;color:color-mix(in srgb, currentColor 30%, transparent)">细纲</span>
+      </div>
+      <div style="width:24px;height:2px;margin-top:5px;background:color-mix(in srgb, currentColor 15%, transparent)"></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:0.25rem">
+        <div style="width:12px;height:12px;border-radius:50%;border:1.5px solid color-mix(in srgb, currentColor 20%, transparent)"></div>
+        <span style="font-size:10px;color:color-mix(in srgb, currentColor 30%, transparent)">写作</span>
+      </div>
+      <div style="width:24px;height:2px;margin-top:5px;background:color-mix(in srgb, currentColor 15%, transparent)"></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:0.25rem">
+        <div style="width:12px;height:12px;border-radius:50%;border:1.5px solid color-mix(in srgb, currentColor 20%, transparent)"></div>
+        <span style="font-size:10px;color:color-mix(in srgb, currentColor 30%, transparent)">正文</span>
+      </div>
+    </div>
+    <!-- Tabs -->
+    <div style="display:flex;gap:0;border-bottom:1px solid color-mix(in srgb, currentColor 15%, transparent);padding:0 1.5rem">
+      <div style="padding:0.5rem 1rem;border-bottom:2px solid;color:#d4a373;font-size:13px">设定</div>
+      <div style="padding:0.5rem 1rem;color:color-mix(in srgb, currentColor 50%, transparent);font-size:13px">大纲</div>
+      <div style="padding:0.5rem 1rem;color:color-mix(in srgb, currentColor 50%, transparent);font-size:13px">细纲</div>
+      <div style="padding:0.5rem 1rem;color:color-mix(in srgb, currentColor 50%, transparent);font-size:13px">写作</div>
+      <div style="padding:0.5rem 1rem;color:color-mix(in srgb, currentColor 50%, transparent);font-size:13px">正文</div>
+      <div style="padding:0.5rem 1rem;color:color-mix(in srgb, currentColor 50%, transparent);font-size:13px">线索</div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:1rem">
+  <p style="color:color-mix(in srgb, currentColor 60%, transparent);font-size:14px">
+    <strong>问题：</strong>
+    小说结构是<code>小说→卷→章→正文</code>，但导航却是<code>设定→大纲→细纲→写作→正文</code>。
+    「大纲」和「细纲」不是独立页面——它们是卷和章的属性。
+    进度条暗示用户必须线性推进，但作家的工作方式是自由跳跃的。
+  </p>
+</div>

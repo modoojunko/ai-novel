@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif; background: #14100b; color: #e8e0d4; display: flex; justify-content: center; padding: 20px; }
+  .app { width: 1100px; border-radius: 12px; overflow: hidden; border: 1px solid #2a241e; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+
+  .topbar { display: flex; align-items: center; padding: 0 16px; height: 48px; background: #1a1510; border-bottom: 1px solid #2a241e; }
+  .topbar-left { display: flex; align-items: center; gap: 8px; }
+  .topbar-title { font-weight: 600; font-size: 14px; color: #e8e0d4; }
+  .topbar-nav { margin-left: 20px; display: flex; gap: 0; }
+  .topbar-tab { padding: 6px 18px; font-size: 13px; color: #6a5a4a; cursor: pointer; border-radius: 6px 6px 0 0; border-bottom: 2px solid transparent; transition: all 0.15s; user-select: none; }
+  .topbar-tab:hover { color: #b8a08a; }
+  .topbar-tab.active { color: #d4a373; border-bottom-color: #d4a373; font-weight: 500; }
+  .topbar-spacer { flex: 1; }
+  .topbar-meta { font-size: 11px; color: #4a4035; }
+
+  .main { display: flex; min-height: 650px; }
+  .left { width: 230px; background: #18130e; border-right: 1px solid #2a241e; display: flex; flex-direction: column; }
+  .left-header { padding: 12px 12px 8px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2a241e; }
+  .left-header span { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #6a5a4a; }
+  .left-tree { flex: 1; padding: 4px 6px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #2a241e #18130e; }
+  .left-tree::-webkit-scrollbar { width: 4px; }
+  .left-tree::-webkit-scrollbar-track { background: #18130e; }
+  .left-tree::-webkit-scrollbar-thumb { background: #2a241e; border-radius: 2px; }
+  .left-footer { padding: 10px 12px; border-top: 1px solid #2a241e; }
+
+  .tnode { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 5px; cursor: pointer; font-size: 13px; color: #8a7a6a; transition: all 0.1s; user-select: none; }
+  .tnode:hover { background: #201a14; }
+  .tnode.active { background: #d4a37312; color: #d4a373; font-weight: 500; }
+  .tnode .ico { width: 18px; text-align: center; flex-shrink: 0; font-size: 13px; }
+  .tnode .lbl { flex: 1; }
+  .tnode .badge { font-size: 10px; padding: 1px 7px; border-radius: 8px; flex-shrink: 0; }
+  .tnode .badge.cnt { background: #2a241e; color: #6a5a4a; }
+  .tnode .badge.done { background: #22c55e12; color: #22c55e; }
+  .tnode .badge.writing { background: #f59e0b12; color: #f59e0b; }
+  .tnode .badge.draft { background: #3b82f612; color: #3b82f6; }
+  .tnode .act { font-size: 10px; color: #4a4035; display: none; padding: 2px 4px; border-radius: 3px; }
+  .tnode:hover .act { display: inline; }
+  .tnode .act:hover { color: #d4a373; background: #2a241e; }
+  .subtree { padding-left: 18px; }
+  .add-row { font-size: 12px; color: #4a4035; padding: 7px 10px; border: 1px dashed #2a241e; border-radius: 5px; cursor: pointer; text-align: center; }
+  .add-row:hover { border-color: #d4a37344; color: #d4a373; }
+
+  .right { flex: 1; padding: 24px 36px; overflow-y: auto; background: #16110c; scrollbar-width: thin; scrollbar-color: #2a241e #16110c; }
+  .right::-webkit-scrollbar { width: 5px; }
+  .right::-webkit-scrollbar-track { background: #16110c; }
+  .right::-webkit-scrollbar-thumb { background: #2a241e; border-radius: 3px; }
+
+  .page-title { font-size: 20px; font-family: "EB Garamond", "Noto Serif SC", serif; font-weight: 600; color: #e8e0d4; margin-bottom: 20px; }
+  .field-group { margin-bottom: 18px; }
+  .field-group label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6a5a4a; font-weight: 500; margin-bottom: 5px; }
+  .field-group .hint { font-size: 11px; color: #4a4035; font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .field-group input[type=text], .field-group textarea { width: 100%; background: #1a1510; border: 1px solid #2a241e; border-radius: 5px; padding: 8px 12px; font-size: 13px; color: #e8e0d4; outline: none; font-family: inherit; }
+  .field-group input:focus, .field-group textarea:focus { border-color: #d4a37344; }
+  .field-group textarea { min-height: 90px; line-height: 1.7; resize: vertical; scrollbar-width: thin; scrollbar-color: #2a241e #14100b; }
+  .field-group textarea::-webkit-scrollbar { width: 5px; }
+  .field-group textarea::-webkit-scrollbar-track { background: #14100b; }
+  .field-group textarea::-webkit-scrollbar-thumb { background: #2a241e; border-radius: 3px; }
+
+  .chapter-meta { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .chapter-meta .fd { display: flex; align-items: center; gap: 6px; }
+  .chapter-meta label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #6a5a4a; }
+  .chapter-meta .val { font-size: 13px; color: #e8e0d4; }
+  .chapter-meta .sel { background: #1a1510; border: 1px solid #2a241e; border-radius: 4px; padding: 4px 8px; font-size: 12px; color: #e8e0d4; outline: none; }
+
+  .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #6a5a4a; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  .section-label .hint { color: #4a4035; text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+  .outline-editor { width: 100%; min-height: 80px; background: #1a1510; border: 1px solid #2a241e; border-radius: 6px; padding: 10px 14px; font-size: 13px; color: #b8a08a; line-height: 1.7; resize: vertical; outline: none; font-family: inherit; scrollbar-width: thin; scrollbar-color: #2a241e #14100b; }
+  .outline-editor:focus { border-color: #3b82f644; }
+
+  .prose-editor { width: 100%; min-height: 260px; background: #18130e; border: 1px solid #2a241e; border-radius: 6px; padding: 16px 20px; font-family: "EB Garamond", "Noto Serif SC", serif; font-size: 16px; line-height: 2; color: #d8d0c4; resize: vertical; outline: none; scrollbar-width: thin; scrollbar-color: #2a241e #14100b; }
+  .prose-editor:focus { border-color: #d4a37344; }
+  .prose-editor::-webkit-scrollbar { width: 5px; }
+  .prose-editor::-webkit-scrollbar-track { background: #14100b; }
+  .prose-editor::-webkit-scrollbar-thumb { background: #2a241e; border-radius: 3px; }
+
+  /* VERSION BAR — key new component */
+  .version-bar { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: #1a1510; border: 1px solid #2a241e; border-radius: 6px; margin-bottom: 16px; }
+  .version-bar .v-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #6a5a4a; }
+  .version-bar .v-number { font-size: 13px; font-weight: 600; color: #d4a373; }
+  .version-bar .v-time { font-size: 11px; color: #4a4035; }
+  .version-bar .v-divider { width: 1px; height: 20px; background: #2a241e; }
+  .version-bar .v-btn { font-size: 11px; color: #6a5a4a; padding: 3px 10px; border-radius: 4px; cursor: pointer; border: 1px solid #2a241e; }
+  .version-bar .v-btn:hover { background: #201a14; color: #b8a08a; border-color: #3a3025; }
+  .version-bar .v-btn.current { background: #d4a3730a; border-color: #d4a37344; color: #d4a373; }
+  .version-bar .v-spacer { flex: 1; }
+  .version-bar .v-saved { font-size: 11px; color: #22c55e; }
+  .version-bar .v-unsaved { font-size: 11px; color: #f59e0b; }
+
+  /* VERSION HISTORY PANEL (dropdown) */
+  .version-history { background: #1a1510; border: 1px solid #2a241e; border-radius: 6px; margin-bottom: 16px; overflow: hidden; }
+  .version-history .vh-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #201a14; border-bottom: 1px solid #2a241e; }
+  .version-history .vh-header span { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6a5a4a; }
+  .version-history .vh-header .close { font-size: 10px; color: #4a4035; cursor: pointer; padding: 2px 6px; border-radius: 3px; }
+  .version-history .vh-header .close:hover { color: #d4a373; background: #2a241e; }
+  .version-history .vh-list { max-height: 200px; overflow-y: auto; }
+  .vh-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #2a241e15; }
+  .vh-item:hover { background: #201a14; }
+  .vh-item:last-child { border-bottom: none; }
+  .vh-item .v-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .vh-item .v-dot.current { background: #d4a373; }
+  .vh-item .v-dot.old { background: #4a4035; }
+  .vh-item .v-info { flex: 1; }
+  .vh-item .v-ver { font-size: 12px; color: #d8d0c4; font-weight: 500; }
+  .vh-item .v-date { font-size: 10px; color: #4a4035; }
+  .vh-item .v-restore { font-size: 10px; color: #d4a373; padding: 2px 8px; border-radius: 3px; cursor: pointer; border: 1px solid #d4a37344; display: none; }
+  .vh-item:hover .v-restore { display: inline; }
+  .vh-item .v-restore:hover { background: #d4a37312; }
+
+  .ch-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .ch-actions .act { font-size: 11px; color: #6a5a4a; padding: 6px 14px; border-radius: 4px; cursor: pointer; border: 1px solid #2a241e; }
+  .ch-actions .act:hover { background: #201a14; color: #b8a08a; }
+  .ch-actions .act.primary { background: #d4a37314; border-color: #d4a37344; color: #d4a373; }
+  .ch-actions .act.save { background: #22c55e10; border-color: #22c55e44; color: #22c55e; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-title">迷雾中的真相</span>
+      <span style="font-size:10px;color:#4a4035;margin-left:4px">悬疑刑侦</span>
+    </div>
+    <div class="topbar-nav" id="tabNav">
+      <div class="topbar-tab" data-tab="settings">📋 设定</div>
+      <div class="topbar-tab active" data-tab="writing">📖 正文</div>
+      <div class="topbar-tab" data-tab="threads">🔗 线索</div>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-meta">最后编辑：2026-06-21</div>
+  </div>
+
+  <div class="main">
+
+    <!-- ======== 正文视图 ======== -->
+    <div class="view" id="viewWriting" style="display:flex;flex:1">
+      <div class="left">
+        <div class="left-header"><span>卷 · 章</span><span style="font-size:10px;color:#4a4035">3卷 · 7章</span></div>
+        <div class="left-tree">
+          <div class="tnode active" style="font-weight:500;color:#d4a373">
+            <span class="ico">▾</span><span class="lbl">第一卷 · 迷雾</span><span class="badge done">3章</span><span class="act">✎</span>
+          </div>
+          <div class="subtree">
+            <div class="tnode" style="font-size:12px;padding-left:28px">
+              <span class="ico"><span style="font-size:10px;color:#4a4035">ch-1</span></span>
+              <span class="lbl">不速之客</span><span class="badge done">✓ 完成</span>
+            </div>
+            <div class="tnode active" style="font-size:12px;padding-left:28px">
+              <span class="ico"><span style="font-size:10px;color:#4a4035">ch-2</span></span>
+              <span class="lbl">暗流涌动</span><span class="badge writing">✎ 写作中</span>
+            </div>
+            <div class="tnode" style="font-size:12px;padding-left:28px">
+              <span class="ico"><span style="font-size:10px;color:#4a4035">ch-3</span></span>
+              <span class="lbl">深渊回望</span><span class="badge draft">纲</span>
+            </div>
+          </div>
+          <div class="tnode"><span class="ico">▸</span><span class="lbl">第二卷 · 暗战</span><span class="badge cnt">2章</span></div>
+          <div class="tnode"><span class="ico">▸</span><span class="lbl">第三卷 · 终局</span><span class="badge cnt">0章</span></div>
+          <div style="margin-top:8px"><div class="add-row">+ 新建卷</div></div>
+        </div>
+        <div class="left-footer" style="font-size:10px;color:#4a4035;display:flex;gap:12px">
+          <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;margin-right:4px"></span>完成</span>
+          <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#f59e0b;margin-right:4px"></span>写作中</span>
+          <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#3b82f6;margin-right:4px"></span>章纲</span>
+        </div>
+      </div>
+
+      <div class="right">
+        <!-- Chapter meta -->
+        <div class="chapter-meta">
+          <div class="fd"><label>章节</label><span class="val">ch-2 暗流涌动</span></div>
+          <div class="fd"><label>状态</label><select class="sel"><option>未开始</option><option>章纲</option><option selected>写作中</option><option>待修改</option><option>已完成</option></select></div>
+          <div class="fd" style="margin-left:auto"><span style="font-size:11px;color:#4a4035">字数：1,256</span></div>
+        </div>
+
+        <!-- ⭐ VERSION BAR — chapter -->
+        <div class="version-bar">
+          <span class="v-label">版本</span>
+          <span class="v-number">v4</span>
+          <span class="v-time">· 2026-06-21 14:32</span>
+          <span class="v-divider"></span>
+          <span class="v-btn current" id="showHistoryBtn">📋 历史版本</span>
+          <span class="v-spacer"></span>
+          <span class="v-unsaved">⚠️ 未保存</span>
+        </div>
+
+        <!-- ⭐ VERSION HISTORY panel (can be toggled) -->
+        <div class="version-history" id="versionHistory" style="display:block">
+          <div class="vh-header">
+            <span>版本历史 · 暗流涌动</span>
+            <span class="close" id="closeHistoryBtn">✕</span>
+          </div>
+          <div class="vh-list">
+            <div class="vh-item">
+              <div class="v-dot current"></div>
+              <div class="v-info"><div class="v-ver">v4 · 当前版本</div><div class="v-date">2026-06-21 14:32 — 新增 350 字</div></div>
+            </div>
+            <div class="vh-item">
+              <div class="v-dot old"></div>
+              <div class="v-info"><div class="v-ver">v3</div><div class="v-date">2026-06-21 11:20 — 修改章纲</div></div>
+              <span class="v-restore">恢复到 v3</span>
+            </div>
+            <div class="vh-item">
+              <div class="v-dot old"></div>
+              <div class="v-info"><div class="v-ver">v2</div><div class="v-date">2026-06-20 22:15 — 续写 800 字</div></div>
+              <span class="v-restore">恢复到 v2</span>
+            </div>
+            <div class="vh-item">
+              <div class="v-dot old"></div>
+              <div class="v-info"><div class="v-ver">v1</div><div class="v-date">2026-06-20 19:03 — 首次创建</div></div>
+              <span class="v-restore">恢复到 v1</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 章纲 -->
+        <div>
+          <div class="section-label">章纲 <span class="hint">这章要发生什么</span></div>
+          <textarea class="outline-editor">林深在废弃工厂发现关键物证——一个带有血迹的打火机。他正要拍照时听到脚步声，匆忙躲进暗处。来人是派出所民警赵刚，赵刚说自己只是例行巡逻。但林深注意到他的鞋底沾着厂房里特有的红色粉尘。赵刚离开后，林深发现打火机上刻着一串数字——是自己的警号。</textarea>
+        </div>
+
+        <!-- 正文 -->
+        <div style="margin-top:16px">
+          <div class="section-label">正文</div>
+          <textarea class="prose-editor">废弃工厂的大门虚掩着，锈蚀的铁链像一条死蛇瘫在地上。林深侧身挤进门缝，手电筒的光切开黑暗，照亮了满地的碎玻璃和鸟粪。
+
+现场基本保持着三年前的模样——不对，应该说有人刻意维持着。他蹲下身，手指在地面上划出一道浅浅的痕迹。灰尘很厚，至少两个月没人来过。但角落里的脚印是新鲜的。
+
+脚印通向厂房深处。他跟着脚印走，在废料堆后面发现了一个打火机。银色的，Zippo，底部刻着字。
+
+他捡起来，就着手电筒的光看——警号：033142。
+
+他自己的警号。</textarea>
+        </div>
+
+        <div class="ch-actions">
+          <span class="act save" id="saveBtn">💾 保存 (v5)</span>
+          <span class="act primary">预览阅读模式</span>
+        </div>
+
+        <div style="margin-top:8px;font-size:11px;color:#4a4035;text-align:right">
+          每次保存自动创建版本 · 设定和正文各自独立版本
+        </div>
+      </div>
+    </div>
+
+    <!-- ======== 设定视图 ======== -->
+    <div class="view" id="viewSettings" style="display:none;flex:1">
+      <div class="left">
+        <div class="left-header"><span>设定目录</span></div>
+        <div class="left-tree">
+          <div class="tnode active"><span class="ico">🌍</span><span class="lbl">世界设定</span><span class="badge cnt">v6</span></div>
+          <div class="tnode"><span class="ico">🎨</span><span class="lbl">风格规则</span><span class="badge cnt">v3</span></div>
+          <div class="tnode"><span class="ico">👥</span><span class="lbl">角色</span><span class="badge cnt">4个</span></div>
+          <div class="subtree">
+            <div class="tnode" style="font-size:12px;padding-left:28px"><span class="ico">·</span><span class="lbl">林深（主角）</span></div>
+            <div class="tnode" style="font-size:12px;padding-left:28px"><span class="ico">·</span><span class="lbl">赵刚（配角）</span></div>
+            <div class="tnode" style="font-size:12px;padding-left:28px"><span class="ico">·</span><span class="lbl">苏晚晴（关键人物）</span></div>
+          </div>
+          <div class="tnode"><span class="ico">🎯</span><span class="lbl">伏笔</span><span class="badge cnt">3条</span></div>
+          <div class="tnode"><span class="ico">📝</span><span class="lbl">小说简介</span><span class="badge cnt">v2</span></div>
+        </div>
+        <div class="left-footer"><div class="add-row">+ 新建角色</div></div>
+      </div>
+
+      <div class="right">
+        <div class="page-title">🌍 世界设定</div>
+
+        <!-- ⭐ VERSION BAR — settings -->
+        <div class="version-bar">
+          <span class="v-label">版本</span>
+          <span class="v-number">v6</span>
+          <span class="v-time">· 2026-06-20 15:10</span>
+          <span class="v-divider"></span>
+          <span class="v-btn current">📋 历史版本</span>
+          <span class="v-spacer"></span>
+          <span class="v-saved">✓ 已保存</span>
+        </div>
+
+        <div class="field-group">
+          <label>地理环境 <span class="hint">故事发生的世界长什么样</span></label>
+          <textarea>小城雾镇位于江南丘陵地带，三面环山，一面临水。老城区保留着九十年代的建筑风貌，新城区在河西缓慢发展。废弃的纺织三厂是城市工业时代的遗物，如今成了流浪汉和毒贩的据点。
+
+雾镇全年多雾，尤其是秋冬季节，早晨的浓雾能见度常不到五米。</textarea>
+        </div>
+        <div class="field-group">
+          <label>权力结构</label>
+          <textarea>雾镇公安局辖3个派出所，编制约120人。刑侦队实际能出外勤的不到15人。局长周国平在位八年，与本地地产商关系密切。</textarea>
+        </div>
+        <div class="field-group">
+          <label>时代背景</label>
+          <textarea>主线故事发生在2019年秋冬季。三年前的悬案发生在2016年夏。</textarea>
+        </div>
+        <div class="ch-actions">
+          <span class="act save">💾 保存 (v7)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Tab switching
+  const tabs = document.querySelectorAll('.topbar-tab');
+  const views = {
+    settings: document.getElementById('viewSettings'),
+    writing: document.getElementById('viewWriting'),
+  };
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.tab;
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      Object.keys(views).forEach(key => {
+        views[key].style.display = key === target ? 'flex' : 'none';
+      });
+    });
+  });
+
+  // Version history toggle
+  const historyPanel = document.getElementById('versionHistory');
+  document.getElementById('showHistoryBtn').addEventListener('click', () => {
+    historyPanel.style.display = historyPanel.style.display === 'none' ? 'block' : 'none';
+  });
+  document.getElementById('closeHistoryBtn').addEventListener('click', () => {
+    historyPanel.style.display = 'none';
+  });
+
+  // Save button
+  document.getElementById('saveBtn').addEventListener('click', () => {
+    const badge = document.querySelector('.v-unsaved');
+    badge.textContent = '✓ 已保存';
+    badge.style.color = '#22c55e';
+    const vNum = document.querySelector('.v-number');
+    vNum.textContent = 'v5';
+  });
+</script>
+</body>
+</html>

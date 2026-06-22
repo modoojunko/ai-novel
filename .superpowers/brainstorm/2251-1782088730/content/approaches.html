@@ -1,0 +1,48 @@
+<h2>方案对比：三种改造思路</h2>
+<p class="subtitle">选一个方向，我再展开细节设计</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>最小改动</h3>
+      <p>保留当前6个Tab标签，只做两件事：<br>
+        <strong>1)</strong> 去掉 PhaseProgress 进度条（移除错误的「阶段」暗示）<br>
+        <strong>2)</strong> 统一 backend phase 字段对应的 UI 标签为完整中文：<br>
+        初始化→设定→大纲→细纲→写作→正文→线索<br>
+        <strong>3)</strong> 侧边栏改为卷/章结构树<br>
+        <em>≈ 1-2 个文件改动，30 分钟</em>
+      </p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>结构优先 (推荐)</h3>
+      <p>重新组织导航标签，让结构可见：<br>
+        <strong>设定</strong> → 小说级元数据（世界/风格/角色/伏笔）<br>
+        <strong>卷管理</strong> → 卷列表 + 卷纲编辑 + 卷内章列表<br>
+        <strong>写作区</strong> → 选一章 → 写正文（合并当前prompts+write）<br>
+        <strong>正文</strong> → 已完成的章阅读器<br>
+        <strong>线索</strong> → 时间线/伏笔<br>
+        <br>
+        在左侧新增一个始终可见的小说结构树（卷/章/状态）<br>
+        <em>≈ 4-5 个文件改动，2-3 小时</em>
+      </p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>完全重构</h3>
+      <p>抛弃Tab导航，改为双面板布局：<br>
+        <strong>左侧面板</strong> — 小说结构树（设定/卷/章/正文），始终可见<br>
+        <strong>右侧主区</strong> — 根据左侧选择动态切换内容<br>
+        选择「设定」→展示设定页；选择「第1卷」→展示卷纲；选择「第3章」→展示章纲+正文<br>
+        <br>
+        没有「阶段」概念，只有结构导航。章节状态作为小标签显示在树节点上。<br>
+        <em>≈ 8-10 个文件，全天后端配合，可能需要新的 API</em>
+      </p>
+    </div>
+  </div>
+</div>

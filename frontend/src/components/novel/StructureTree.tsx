@@ -7,7 +7,7 @@ export type TreeNodeAction = {
 export type TreeNode = {
   id: string;
   icon?: string;
-  label: string;
+  label?: string;
   badge?: string;
   badgeColor?: string;
   actions?: TreeNodeAction[];
@@ -69,7 +69,7 @@ function TreeNodeItem({
         )}
 
         {/* Label */}
-        <span className="text-xs truncate flex-1">{node.label}</span>
+        <span className="text-xs truncate flex-1">{node.label ?? "(未命名)"}</span>
 
         {/* Badge */}
         {node.badge && (
