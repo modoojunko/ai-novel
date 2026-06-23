@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import { Eye, EyeOff, Maximize2, Minimize2 } from "lucide-react";
+import { streamChapterWrite } from "@/lib/ai";
+import { getToken } from "@/lib/auth";
+import { getApiBaseUrl } from "@/lib/env";
+import { Copy, Eye, EyeOff, Maximize2, Minimize2, Sparkles } from "lucide-react";
+import { TabBar } from "./settings/FormField";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -99,6 +103,13 @@ export default function ChapterEditor({
   const [previewMode, setPreviewMode] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
 
+  // View tabs + AI writing state
+  const [viewTab, setViewTab] = useState<"prose" | "prompt">("prose");
+  const [streaming, setStreaming] = useState(false);
+  const [streamedText, setStreamedText] = useState("");
+  const [promptText, setPromptText] = useState("");
+  const streamControllerRef = useRef<AbortController | null>(null);
+
   // Dirty tracking
   const [initialOutline, setInitialOutline] = useState("");
   const [initialProse, setInitialProse] = useState("");
@@ -191,6 +202,112 @@ export default function ChapterEditor({
   const handleSave = useCallback(() => {
     saveFnRef.current?.();
   }, []);
+
+  // -----------------------------------------------------------------------
+  // AI writing: start streaming
+  // -----------------------------------------------------------------------
+
+  const handleStartWriting = useCallback(() => {
+    setStreaming(true);
+    setStreamedText("");
+
+    const ctrl = streamChapterWrite(projectId, chapterRef, {
+      onChunk: (text: string) => {
+        setStreamedText((prev) => prev + text);
+      },
+      onDone: (fullText: string) => {
+        setStreaming(false);
+        setProse(fullText);
+        setInitialProse(fullText);
+        setStreamedText("");
+        // Auto-save after AI completes
+        saveFnRef.current?.();
+      },
+      onError: (error: string) => {
+        setStreaming(false);
+        setError(error);
+      },
+    });
+
+    streamControllerRef.current = ctrl;
+  }, [projectId, chapterRef]);
+
+  // -----------------------------------------------------------------------
+  // AI writing: stop streaming
+  // -----------------------------------------------------------------------
+
+  const handleStopWriting = useCallback(() => {
+    streamControllerRef.current?.abort();
+    setStreaming(false);
+  }, []);
+
+  // -----------------------------------------------------------------------
+  // Prompt: copy to clipboard
+  // -----------------------------------------------------------------------
+
+  const handleCopyPrompt = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(promptText);
+    } catch {
+      // Clipboard not available
+    }
+  }, [promptText]);
+
+  // -----------------------------------------------------------------------
+  // Prompt: load prompt content
+  // -----------------------------------------------------------------------
+
+  const loadPrompt = useCallback(async () => {
+    if (promptText) return; // Already loaded
+    setPromptText("加载中…");
+    try {
+      const token = getToken();
+      const base = getApiBaseUrl();
+
+      // List prompt files for this chapter
+      const listRes = await fetch(
+        `${base}/api/projects/${projectId}/chapters/${chapterRef}/prompts`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!listRes.ok) {
+        setPromptText("暂无提示词");
+        return;
+      }
+      const files: string[] = await listRes.json();
+      if (!files.length) {
+        setPromptText("暂无提示词");
+        return;
+      }
+
+      // Fetch each segment's prompt content
+      const prefix = `${chapterRef}-`;
+      const suffix = "-prompt.md";
+      const contents: string[] = [];
+
+      for (const file of files) {
+        const seg = file.replace(prefix, "").replace(suffix, "");
+        const contentRes = await fetch(
+          `${base}/api/projects/${projectId}/chapters/${chapterRef}/prompts/${seg}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (contentRes.ok) {
+          const text = await contentRes.text();
+          contents.push(`## ${seg}\n\n${text}`);
+        }
+      }
+
+      setPromptText(contents.join("\n\n---\n\n") || "暂无提示词");
+    } catch {
+      setPromptText("暂无提示词");
+    }
+  }, [projectId, chapterRef, promptText]);
+
+  // Load prompt when switching to the prompt tab
+  useEffect(() => {
+    if (viewTab === "prompt") {
+      loadPrompt();
+    }
+  }, [viewTab, loadPrompt]);
 
   // -----------------------------------------------------------------------
   // Load chapter data
@@ -366,50 +483,111 @@ export default function ChapterEditor({
         />
       </div>
 
-      {/* ── 正文 (prose) ────────────────────────────────────────────── */}
+      {/* ── 正文 / 提示词 (view tabs) ──────────────────────────────── */}
+      <style>{`
+        @keyframes blink-cursor {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0; }
+        }
+      `}</style>
       <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <label className="label-text font-medium text-base-content/80">
-            正文
-          </label>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPreviewMode(!previewMode)}
-              className={`btn btn-ghost btn-xs gap-1 ${
-                previewMode ? "text-primary" : "text-base-content/50"
-              }`}
-              title={previewMode ? "切换到编辑" : "预览 Markdown"}
-            >
-              {previewMode ? (
-                <EyeOff className="w-3.5 h-3.5" />
-              ) : (
-                <Eye className="w-3.5 h-3.5" />
-              )}
-              {previewMode ? "编辑" : "预览"}
-            </button>
-            <button
-              onClick={() => setFocusMode(true)}
-              className="btn btn-ghost btn-xs gap-1 text-base-content/50 hover:text-base-content"
-              title="专注模式"
-            >
-              <Maximize2 className="w-3.5 h-3.5" />
-              专注
-            </button>
-          </div>
-        </div>
+        <TabBar
+          tabs={[
+            { id: "prose", label: "正文" },
+            { id: "prompt", label: "提示词" },
+          ]}
+          activeTab={viewTab}
+          onTabChange={(tab) => setViewTab(tab as "prose" | "prompt")}
+        >
+          {viewTab === "prose" && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPreviewMode(!previewMode)}
+                className={`btn btn-ghost btn-xs gap-1 ${
+                  previewMode ? "text-primary" : "text-base-content/50"
+                }`}
+                title={previewMode ? "切换到编辑" : "预览 Markdown"}
+              >
+                {previewMode ? (
+                  <EyeOff className="w-3.5 h-3.5" />
+                ) : (
+                  <Eye className="w-3.5 h-3.5" />
+                )}
+                {previewMode ? "编辑" : "预览"}
+              </button>
+              <button
+                onClick={() => setFocusMode(true)}
+                className="btn btn-ghost btn-xs gap-1 text-base-content/50 hover:text-base-content"
+                title="专注模式"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                专注
+              </button>
+            </div>
+          )}
+        </TabBar>
 
-        {previewMode ? (
-          <div
-            className="w-full font-serif text-base leading-[2] min-h-[300px] p-4 rounded-lg border border-base-300 bg-base-100/50 text-base-content"
-            dangerouslySetInnerHTML={{ __html: previewHtml }}
-          />
-        ) : (
-          <textarea
-            value={prose}
-            onChange={(e) => setProse(e.target.value)}
-            className="textarea textarea-bordered w-full font-serif text-base leading-[2] min-h-[300px] resize-y"
-            placeholder="正文（在此撰写小说内容）"
-          />
+        {viewTab === "prose" && (
+          <div className="space-y-3">
+            {!streaming && (
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleStartWriting}
+                  className="btn btn-primary btn-sm gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  AI 写本章
+                </button>
+              </div>
+            )}
+
+            {streaming ? (
+              <div className="space-y-3">
+                <div className="w-full min-h-[300px] p-4 rounded-lg border border-base-300 bg-base-100/50 font-serif text-base leading-[2] whitespace-pre-wrap">
+                  {streamedText}
+                  <span
+                    className="inline-block w-0.5 h-5 bg-primary align-middle ml-0.5"
+                    style={{ animation: "blink-cursor 1s step-end infinite" }}
+                  />
+                </div>
+                <button
+                  onClick={handleStopWriting}
+                  className="btn btn-error btn-sm gap-1.5"
+                >
+                  ⏹ 停止
+                </button>
+              </div>
+            ) : previewMode ? (
+              <div
+                className="w-full font-serif text-base leading-[2] min-h-[300px] p-4 rounded-lg border border-base-300 bg-base-100/50 text-base-content"
+                dangerouslySetInnerHTML={{ __html: previewHtml }}
+              />
+            ) : (
+              <textarea
+                value={prose}
+                onChange={(e) => setProse(e.target.value)}
+                className="textarea textarea-bordered w-full font-serif text-base leading-[2] min-h-[300px] resize-y"
+                placeholder="正文（在此撰写小说内容）"
+              />
+            )}
+          </div>
+        )}
+
+        {viewTab === "prompt" && (
+          <div className="space-y-3">
+            <div className="flex justify-end">
+              <button
+                onClick={handleCopyPrompt}
+                className="btn btn-ghost btn-xs gap-1 text-base-content/50"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                复制
+              </button>
+            </div>
+            <pre className="w-full min-h-[300px] p-4 rounded-lg border border-base-300 bg-base-100/50 text-sm font-mono leading-relaxed overflow-auto whitespace-pre-wrap">
+              {promptText || "暂无提示词"}
+            </pre>
+          </div>
         )}
       </div>
 
