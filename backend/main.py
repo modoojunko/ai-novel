@@ -15,6 +15,7 @@ from auth.router import router as auth_router
 from projects.router import ai_router, router as projects_router
 from settings.router import router as settings_router
 from settings.status import router as settings_status_router
+from settings.ai_router import router as settings_ai_router
 from chapters.router import router as chapters_router
 from prompt.router import router as prompt_router
 from write.router import router as write_router
@@ -81,6 +82,7 @@ app.include_router(auth_router)
 app.include_router(projects_router)
 app.include_router(settings_router)
 app.include_router(settings_status_router)
+app.include_router(settings_ai_router)
 app.include_router(chapters_router)
 app.include_router(prompt_router)
 app.include_router(write_router)
