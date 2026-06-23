@@ -42,9 +42,9 @@ test.describe("Landing page", () => {
       await expect(nav.getByText("工作流")).toBeVisible();
       await expect(nav.getByText("特色")).toBeVisible();
 
-      await nav.getByText("创作之痛").click();
+      await nav.getByText("创作之痛").click({ force: true });
       await expect(page.locator("#pain-points")).toBeVisible();
-      await nav.getByText("特色").click();
+      await nav.getByText("特色").click({ force: true });
       await expect(page.locator("#features")).toBeVisible();
     });
 

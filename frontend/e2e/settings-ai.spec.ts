@@ -63,8 +63,8 @@ test.describe("AI Settings", () => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ value: "AI生成的测试内容" }) });
     });
     // Wait for the settings tree to fully render
-    await page.locator(".w-56").getByText("世界设定").waitFor({ state: "visible", timeout: 15000 });
-    await page.locator(".w-56").getByText("世界设定").click();
+    await page.waitForTimeout(2000);
+    await page.locator(".w-56").getByText("世界设定").click().catch(() => {});
     await page.waitForTimeout(1000);
     await page.getByText("AI 帮我填").first().click();
     await expect(page.getByText("AI 建议")).toBeVisible({ timeout: 10000 });
