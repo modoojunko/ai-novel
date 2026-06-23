@@ -2,10 +2,16 @@ import { useEffect, useState } from "react";
 
 type ToastType = "error" | "success" | "info";
 
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface Toast {
   id: number;
   message: string;
   type: ToastType;
+  action?: ToastAction;
 }
 
 let _toasts: Toast[] = [];
@@ -16,30 +22,25 @@ function notify() {
   for (const fn of _listeners) fn([..._toasts]);
 }
 
+function addToast(type: ToastType, msg: string, action?: ToastAction) {
+  const id = _nextId++;
+  _toasts.push({ id, message: msg, type, action });
+  notify();
+  setTimeout(() => {
+    _toasts = _toasts.filter((t) => t.id !== id);
+    notify();
+  }, 4000);
+}
+
 export const toast = {
-  error(msg: string) {
-    _toasts.push({ id: _nextId++, message: msg, type: "error" });
-    notify();
-    setTimeout(() => {
-      _toasts = _toasts.filter((t) => t.id !== _nextId - 1);
-      notify();
-    }, 4000);
+  error(msg: string, opts?: { action?: ToastAction }) {
+    addToast("error", msg, opts?.action);
   },
-  success(msg: string) {
-    _toasts.push({ id: _nextId++, message: msg, type: "success" });
-    notify();
-    setTimeout(() => {
-      _toasts = _toasts.filter((t) => t.id !== _nextId - 1);
-      notify();
-    }, 4000);
+  success(msg: string, opts?: { action?: ToastAction }) {
+    addToast("success", msg, opts?.action);
   },
-  info(msg: string) {
-    _toasts.push({ id: _nextId++, message: msg, type: "info" });
-    notify();
-    setTimeout(() => {
-      _toasts = _toasts.filter((t) => t.id !== _nextId - 1);
-      notify();
-    }, 4000);
+  info(msg: string, opts?: { action?: ToastAction }) {
+    addToast("info", msg, opts?.action);
   },
 };
 
@@ -47,9 +48,7 @@ export function useToasts() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   useEffect(() => {
     _listeners.add(setToasts);
-    return () => {
-      _listeners.delete(setToasts);
-    };
+    return () => { _listeners.delete(setToasts); };
   }, []);
   return toasts;
 }
@@ -67,8 +66,16 @@ export function Toaster() {
   return (
     <div className="toast toast-end toast-bottom z-50">
       {toasts.map((t) => (
-        <div key={t.id} className={bgMap[t.type]}>
+        <div key={t.id} className={`${bgMap[t.type]} flex items-center gap-3`}>
           <span>{t.message}</span>
+          {t.action && (
+            <button
+              onClick={t.action.onClick}
+              className="btn btn-ghost btn-xs text-current font-medium opacity-70 hover:opacity-100"
+            >
+              {t.action.label}
+            </button>
+          )}
         </div>
       ))}
     </div>
