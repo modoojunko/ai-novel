@@ -17,6 +17,7 @@ from settings.router import router as settings_router
 from settings.status import router as settings_status_router
 from settings.ai_router import router as settings_ai_router
 from chapters.router import router as chapters_router
+from chapters.versions import router as chapters_versions_router
 from prompt.router import router as prompt_router
 from write.router import router as write_router
 from archive.router import archives_router, router as archive_router
@@ -91,6 +92,7 @@ app.include_router(archives_router)
 app.include_router(billing_router)
 app.include_router(threads_router)
 app.include_router(novel_router)
+app.include_router(chapters_versions_router)
 
 
 @app.get("/api/health")
