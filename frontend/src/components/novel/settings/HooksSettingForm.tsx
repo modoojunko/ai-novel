@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { TabBar, SaveButton } from "./FormField";
+import AISuggestionModal from "./AISuggestionModal";
+import { Sparkles, Loader2 } from "lucide-react";
 
 interface Props { projectId: string; settingKey: string }
 
@@ -26,6 +28,13 @@ export default function HooksSettingForm({ projectId, settingKey }: Props) {
   const [resolved, setResolved] = useState<any[]>([]);
   const [abandoned, setAbandoned] = useState<any[]>([]);
 
+  // AI modal state
+  const [aiField, setAiField] = useState<string | null>(null);
+  const [aiFieldLabel, setAiFieldLabel] = useState("");
+  const [aiContent, setAiContent] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiPendingField, setAiPendingField] = useState<string | null>(null);
+
   useEffect(() => {
     setLoading(true);
     api.get(`/projects/${projectId}/settings/${settingKey}`)
@@ -46,6 +55,44 @@ export default function HooksSettingForm({ projectId, settingKey }: Props) {
     finally { setSaving(false); }
   }
 
+  async function handleAIGenerate(tabName: string, hookIndex: number) {
+    const fieldKey = `${tabName}-${hookIndex}`;
+    setAiPendingField(fieldKey);
+    setAiLoading(true);
+    setAiField(fieldKey);
+    setAiFieldLabel("伏笔描述");
+    setAiContent("");
+    try {
+      const hooks = tabName === "active" ? active : tabName === "resolved" ? resolved : abandoned;
+      const res = await api.post(`/projects/${projectId}/settings/ai/hooks/description`, {
+        context: { hooks, index: hookIndex, current: hooks[hookIndex] },
+      });
+      setAiContent(typeof res.value === "string" ? res.value : JSON.stringify(res.value, null, 2));
+    } catch (e: any) {
+      setAiContent(`生成失败：${e.message}`);
+    } finally {
+      setAiLoading(false);
+      setAiPendingField(null);
+    }
+  }
+
+  function handleAIAccept() {
+    if (!aiField) return;
+    const parts = aiField.split("-");
+    const tabName = parts[0];
+    const index = parseInt(parts[1], 10);
+    const updater = (hooks: any[]) => {
+      const n = [...hooks];
+      n[index] = { ...n[index], description: aiContent };
+      return n;
+    };
+    if (tabName === "active") setActive(updater(active));
+    else if (tabName === "resolved") setResolved(updater(resolved));
+    else setAbandoned(updater(abandoned));
+    setAiField(null);
+    setAiContent("");
+  }
+
   if (loading) return <div className="flex justify-center py-12"><span className="loading loading-spinner loading-md text-primary" /></div>;
 
   return (
@@ -54,16 +101,49 @@ export default function HooksSettingForm({ projectId, settingKey }: Props) {
         <SaveButton saving={saving} onClick={handleSave} />
       </TabBar>
 
-      {tab === "active" && <HookTable hooks={active} onChange={setActive} simple={false} />}
-      {tab === "resolved" && <HookTable hooks={resolved} onChange={setResolved} simple={false} />}
-      {tab === "abandoned" && <HookTable hooks={abandoned} onChange={setAbandoned} simple={true} />}
+      {tab === "active" && (
+        <HookTable hooks={active} onChange={setActive} simple={false}
+          onAIGenerate={(i) => handleAIGenerate("active", i)}
+          isAiLoading={(i) => aiPendingField === `active-${i}`} />
+      )}
+      {tab === "resolved" && (
+        <HookTable hooks={resolved} onChange={setResolved} simple={false}
+          onAIGenerate={(i) => handleAIGenerate("resolved", i)}
+          isAiLoading={(i) => aiPendingField === `resolved-${i}`} />
+      )}
+      {tab === "abandoned" && (
+        <HookTable hooks={abandoned} onChange={setAbandoned} simple={true}
+          onAIGenerate={(i) => handleAIGenerate("abandoned", i)}
+          isAiLoading={(i) => aiPendingField === `abandoned-${i}`} />
+      )}
 
       {error && <p className="text-sm text-error/80 mt-3">{error}</p>}
+
+      <AISuggestionModal
+        open={aiField !== null}
+        fieldLabel={aiFieldLabel}
+        content={aiContent}
+        loading={aiLoading}
+        onAccept={handleAIAccept}
+        onRetry={() => {
+          if (aiField) {
+            const parts = aiField.split("-");
+            handleAIGenerate(parts[0], parseInt(parts[1], 10));
+          }
+        }}
+        onClose={() => { setAiField(null); setAiContent(""); }}
+      />
     </div>
   );
 }
 
-function HookTable({ hooks, onChange, simple }: { hooks: any[]; onChange: (v: any[]) => void; simple: boolean }) {
+function HookTable({ hooks, onChange, simple, onAIGenerate, isAiLoading }: {
+  hooks: any[]; onChange: (v: any[]) => void; simple: boolean;
+  onAIGenerate?: (i: number) => void;
+  isAiLoading?: (i: number) => boolean;
+}) {
+  const showAI = !!onAIGenerate;
+
   return (
     <div>
       <button onClick={() => onChange([...hooks, { description: "", introduced_in: "", type: "mystery", priority: "2" }])}
@@ -76,6 +156,16 @@ function HookTable({ hooks, onChange, simple }: { hooks: any[]; onChange: (v: an
         <div className="space-y-2">
           {hooks.map((h, i) => (
             <div key={i} className="flex items-center gap-2 group bg-base-200/20 rounded-lg px-3 py-2">
+              {showAI && (
+                <button
+                  onClick={() => onAIGenerate!(i)}
+                  disabled={isAiLoading?.(i) ?? false}
+                  className="text-xs text-primary/50 hover:text-primary transition-colors flex items-center gap-1 disabled:opacity-40"
+                  title="AI 帮我填"
+                >
+                  {isAiLoading?.(i) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                </button>
+              )}
               <input className="flex-1 bg-transparent border border-base-300/50 rounded-lg px-3 py-1.5 text-sm outline-none transition-colors focus:border-primary/40 placeholder:text-base-content/20"
                 placeholder="伏笔描述" value={h.description || ""}
                 onChange={(e) => update(hooks, onChange, i, "description", e.target.value)} />
