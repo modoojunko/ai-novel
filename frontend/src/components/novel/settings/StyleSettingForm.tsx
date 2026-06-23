@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Field, ListEditor, TabBar, SaveButton } from "./FormField";
+import AISuggestionModal from "./AISuggestionModal";
 
 interface Props { projectId: string; settingKey: string }
 
@@ -20,6 +21,14 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
   const [principles, setPrinciples] = useState<string[]>([""]);
   const [mistakes, setMistakes] = useState<string[]>([""]);
   const [techniques, setTechniques] = useState<string[]>([""]);
+
+  // AI modal state
+  const [aiField, setAiField] = useState<string | null>(null);
+  const [aiContent, setAiContent] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiPendingField, setAiPendingField] = useState<string | null>(null);
+
+  const currentValues = { role, core_principles: principles, possible_mistakes: mistakes, depiction_techniques: techniques };
 
   useEffect(() => {
     setLoading(true);
@@ -48,6 +57,39 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
     finally { setSaving(false); }
   }
 
+  async function handleAIGenerate(field: string) {
+    setAiPendingField(field);
+    setAiLoading(true);
+    setAiField(field);
+    setAiContent("");
+    try {
+      const res = await api.post(`/projects/${projectId}/settings/ai/style/${field}`, {
+        context: currentValues,
+      });
+      setAiContent(typeof res.value === "string" ? res.value : JSON.stringify(res.value, null, 2));
+    } catch (e: any) {
+      setAiContent(`生成失败：${e.message}`);
+    } finally {
+      setAiLoading(false);
+      setAiPendingField(null);
+    }
+  }
+
+  function handleAIAccept() {
+    if (!aiField) return;
+    if (aiField === "role") {
+      setRole(aiContent);
+    } else if (aiField === "core_principles") {
+      setPrinciples(aiContent.split("\n").filter(Boolean));
+    } else if (aiField === "common_mistakes") {
+      setMistakes(aiContent.split("\n").filter(Boolean));
+    } else if (aiField === "depiction_techniques") {
+      setTechniques(aiContent.split("\n").filter(Boolean));
+    }
+    setAiField(null);
+    setAiContent("");
+  }
+
   if (loading) return <div className="flex justify-center py-12"><span className="loading loading-spinner loading-md text-primary" /></div>;
 
   return (
@@ -57,13 +99,33 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
       </TabBar>
 
       {tab === "role" && (
-        <Field label="叙事身份" hint="一句话描述叙事距离（近/全知）+ 叙事态度（中立/讽刺/共情）" value={role} onChange={setRole} />
+        <Field label="叙事身份" hint="一句话描述叙事距离（近/全知）+ 叙事态度（中立/讽刺/共情）" value={role} onChange={setRole}
+          aiGeneratable aiLoading={aiPendingField === "role"} onAIGenerate={() => handleAIGenerate("role")} />
       )}
-      {tab === "principles" && <ListEditor items={principles} onChange={setPrinciples} placeholder='例如：每章"突然"不超过 3 次' />}
-      {tab === "mistakes" && <ListEditor items={mistakes} onChange={setMistakes} placeholder='例如：过度使用"他皱了皱眉"类表情描写' />}
-      {tab === "techniques" && <ListEditor items={techniques} onChange={setTechniques} placeholder="例如：情绪通过动作表现 — 紧张=抠指甲" />}
+      {tab === "principles" && (
+        <ListEditor items={principles} onChange={setPrinciples} placeholder='例如：每章"突然"不超过 3 次'
+          aiGeneratable aiLoading={aiPendingField === "core_principles"} onAIGenerate={() => handleAIGenerate("core_principles")} />
+      )}
+      {tab === "mistakes" && (
+        <ListEditor items={mistakes} onChange={setMistakes} placeholder='例如：过度使用"他皱了皱眉"类表情描写'
+          aiGeneratable aiLoading={aiPendingField === "common_mistakes"} onAIGenerate={() => handleAIGenerate("common_mistakes")} />
+      )}
+      {tab === "techniques" && (
+        <ListEditor items={techniques} onChange={setTechniques} placeholder="例如：情绪通过动作表现 — 紧张=抠指甲"
+          aiGeneratable aiLoading={aiPendingField === "depiction_techniques"} onAIGenerate={() => handleAIGenerate("depiction_techniques")} />
+      )}
 
       {error && <p className="text-sm text-error/80 mt-3">{error}</p>}
+
+      <AISuggestionModal
+        open={aiField !== null}
+        fieldLabel={aiField || ""}
+        content={aiContent}
+        loading={aiLoading}
+        onAccept={handleAIAccept}
+        onRetry={() => aiField && handleAIGenerate(aiField)}
+        onClose={() => { setAiField(null); setAiContent(""); }}
+      />
     </div>
   );
 }
