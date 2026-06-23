@@ -98,7 +98,31 @@ test.describe("AI Chapter Writing", () => {
     await expect(page.locator("h2")).toContainText("第一章", { timeout: 15000 });
 
     await page.getByText("提示词").click();
-    // Should show the prompt viewer area (pre element or placeholder)
     await expect(page.locator("pre").first()).toBeVisible();
+  });
+
+  test("quality check button is visible", async ({ page }) => {
+    const tree = page.locator(".w-56");
+    await expect(tree.getByText("第1卷")).toBeVisible({ timeout: 10000 });
+    await tree.getByText("第一章").click();
+    await expect(page.locator("h2")).toContainText("第一章", { timeout: 15000 });
+    await expect(page.getByText("质量检查")).toBeVisible();
+  });
+
+  test("archive button is visible", async ({ page }) => {
+    const tree = page.locator(".w-56");
+    await expect(tree.getByText("第1卷")).toBeVisible({ timeout: 10000 });
+    await tree.getByText("第一章").click();
+    await expect(page.locator("h2")).toContainText("第一章", { timeout: 15000 });
+    // "归档" matches both status dropdown option and the archive button - use specific role
+    await expect(page.getByRole("button", { name: "归档" })).toBeVisible();
+  });
+
+  test("history button is visible", async ({ page }) => {
+    const tree = page.locator(".w-56");
+    await expect(tree.getByText("第1卷")).toBeVisible({ timeout: 10000 });
+    await tree.getByText("第一章").click();
+    await expect(page.locator("h2")).toContainText("第一章", { timeout: 15000 });
+    await expect(page.getByText("历史版本")).toBeVisible();
   });
 });
