@@ -3,7 +3,8 @@ import { api } from "@/lib/api";
 import { streamChapterWrite } from "@/lib/ai";
 import { getToken } from "@/lib/auth";
 import { getApiBaseUrl } from "@/lib/env";
-import { Copy, Eye, EyeOff, Maximize2, Minimize2, Sparkles } from "lucide-react";
+import { toast } from "@/lib/toast";
+import { Archive, Copy, Eye, EyeOff, Maximize2, Minimize2, Search, Sparkles } from "lucide-react";
 import { TabBar } from "./settings/FormField";
 
 // ---------------------------------------------------------------------------
@@ -119,6 +120,16 @@ export default function ChapterEditor({
     outline !== initialOutline ||
     prose !== initialProse ||
     status !== initialStatus;
+
+  // Quality check + archive state
+  const [qcLoading, setQcLoading] = useState(false);
+  const [qcResults, setQcResults] = useState<any>(null);
+  const [archiving, setArchiving] = useState(false);
+
+  // Clear QC results when prose changes (user edited after check)
+  useEffect(() => {
+    if (qcResults) setQcResults(null);
+  }, [prose]);
 
   // Refs for auto-save (avoid stale closures in timer callbacks)
   const savingRef = useRef(false);
@@ -343,6 +354,48 @@ export default function ChapterEditor({
 
   // Preview HTML (memoized)
   const previewHtml = useMemo(() => renderMarkdown(prose), [prose]);
+
+  // -----------------------------------------------------------------------
+  // Quality check handler
+  // -----------------------------------------------------------------------
+
+  const handleQualityCheck = useCallback(async () => {
+    if (!prose.trim()) return;
+    setQcLoading(true);
+    setQcResults(null);
+    try {
+      const res = await api.post(`/projects/${projectId}/chapters/${chapterRef}/write/quality-check`, {
+        full_text: prose,
+      });
+      setQcResults(res);
+    } catch (e: any) {
+      setError(e.message || "质量检查失败");
+    } finally {
+      setQcLoading(false);
+    }
+  }, [projectId, chapterRef, prose]);
+
+  // -----------------------------------------------------------------------
+  // Archive handler
+  // -----------------------------------------------------------------------
+
+  const handleArchive = useCallback(async () => {
+    if (!prose.trim()) return;
+    if (!window.confirm("确认归档本章？归档后正文将锁定为只读状态。")) return;
+    setArchiving(true);
+    try {
+      await api.post(`/projects/${projectId}/chapters/${chapterRef}/archive`, {
+        full_text: prose,
+      });
+      setStatus("archived");
+      setError(null);
+      toast.success("归档成功");
+    } catch (e: any) {
+      setError(e.message || "归档失败");
+    } finally {
+      setArchiving(false);
+    }
+  }, [projectId, chapterRef, prose]);
 
   // -----------------------------------------------------------------------
   // Loading state
@@ -611,6 +664,45 @@ export default function ChapterEditor({
           <span className="tabular-nums">{wordCount} 字</span>
         </div>
       </div>
+
+      {/* ── Quality Check + Archive ──────────────────────── */}
+      <div className="flex items-center gap-3 pt-3">
+        <button
+          onClick={handleQualityCheck}
+          disabled={qcLoading || !prose.trim()}
+          className="btn btn-ghost btn-xs gap-1.5 text-base-content/50 hover:text-base-content disabled:opacity-30"
+        >
+          {qcLoading ? <span className="loading loading-spinner loading-xs" /> : <Search className="w-3.5 h-3.5" />}
+          质量检查
+        </button>
+        <button
+          onClick={handleArchive}
+          disabled={archiving || !prose.trim()}
+          className="btn btn-ghost btn-xs gap-1.5 text-base-content/50 hover:text-base-content disabled:opacity-30"
+        >
+          {archiving ? <span className="loading loading-spinner loading-xs" /> : <Archive className="w-3.5 h-3.5" />}
+          归档
+        </button>
+      </div>
+
+      {/* ── Quality Check Results ────────────────────────── */}
+      {qcResults && (
+        <div className="mt-3 p-4 rounded-lg border border-base-300 bg-base-200/30 space-y-2">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-base-content/60">质量检查</span>
+            <span className={`text-xs font-medium ${qcResults.passed ? "text-success" : "text-warning"}`}>
+              {qcResults.passed ? "✅ 通过" : "⚠️ 需修改"}
+            </span>
+          </div>
+          {Object.entries(qcResults.checks || {}).map(([key, check]: [string, any]) => (
+            <div key={key} className="flex items-center gap-2 text-xs text-base-content/60">
+              <span>{check.passed ? "✅" : "❌"}</span>
+              <span className="flex-1 capitalize">{key.replace(/_/g, " ")}</span>
+              {check.detail && <span className="text-base-content/40 truncate max-w-[200px]">{check.detail}</span>}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Error message */}
       {error && chapter && (
