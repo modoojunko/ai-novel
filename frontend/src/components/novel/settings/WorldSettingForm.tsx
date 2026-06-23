@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Field, TabBar, SaveButton } from "./FormField";
+import AISuggestionModal from "./AISuggestionModal";
 
 interface Props { projectId: string; settingKey: string }
 
@@ -18,6 +19,14 @@ export default function WorldSettingForm({ projectId, settingKey }: Props) {
   const [geo, setGeo] = useState({ scenes: "", climate: "", limits: "" });
   const [politics, setPolitics] = useState({ rule: "", factions: "", social: "", cost: "" });
   const [rules, setRules] = useState({ world: "", society: "", personal: "" });
+
+  // AI modal state
+  const [aiField, setAiField] = useState<string | null>(null);
+  const [aiContent, setAiContent] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiPendingField, setAiPendingField] = useState<string | null>(null);
+
+  const currentValues = { geography: geo, politics, rules };
 
   useEffect(() => {
     setLoading(true);
@@ -39,6 +48,41 @@ export default function WorldSettingForm({ projectId, settingKey }: Props) {
     finally { setSaving(false); }
   }
 
+  function getFieldValue(fieldName: string): string {
+    return (geo as any)[fieldName] ?? (politics as any)[fieldName] ?? (rules as any)[fieldName] ?? "";
+  }
+
+  function setFieldValue(fieldName: string, value: string) {
+    if (fieldName in geo) setGeo((p) => ({ ...p, [fieldName]: value }));
+    else if (fieldName in politics) setPolitics((p) => ({ ...p, [fieldName]: value }));
+    else if (fieldName in rules) setRules((p) => ({ ...p, [fieldName]: value }));
+  }
+
+  async function handleAIGenerate(field: string) {
+    setAiPendingField(field);
+    setAiLoading(true);
+    setAiField(field);
+    setAiContent("");
+    try {
+      const res = await api.post(`/projects/${projectId}/settings/ai/world/${field}`, {
+        context: currentValues,
+      });
+      setAiContent(typeof res.value === "string" ? res.value : JSON.stringify(res.value, null, 2));
+    } catch (e: any) {
+      setAiContent(`生成失败：${e.message}`);
+    } finally {
+      setAiLoading(false);
+      setAiPendingField(null);
+    }
+  }
+
+  function handleAIAccept() {
+    if (!aiField) return;
+    setFieldValue(aiField, aiContent);
+    setAiField(null);
+    setAiContent("");
+  }
+
   if (loading) return <div className="flex justify-center py-12"><span className="loading loading-spinner loading-md text-primary" /></div>;
 
   return (
@@ -49,27 +93,48 @@ export default function WorldSettingForm({ projectId, settingKey }: Props) {
 
       {tab === "geo" && (
         <div className="space-y-5">
-          <Field label="主要场景" hint="关键地点、空间关系、距离" value={geo.scenes} onChange={(v) => setGeo((p) => ({ ...p, scenes: v }))} />
-          <Field label="气候" hint="气候特征、季节、极端天气" value={geo.climate} onChange={(v) => setGeo((p) => ({ ...p, climate: v }))} />
-          <Field label="地理限制" hint="山脉、水域、边界 — 什么分隔了区域" value={geo.limits} onChange={(v) => setGeo((p) => ({ ...p, limits: v }))} />
+          <Field label="主要场景" hint="关键地点、空间关系、距离" value={geo.scenes} onChange={(v) => setGeo((p) => ({ ...p, scenes: v }))}
+            aiGeneratable aiLoading={aiPendingField === "scenes"} onAIGenerate={() => handleAIGenerate("scenes")} />
+          <Field label="气候" hint="气候特征、季节、极端天气" value={geo.climate} onChange={(v) => setGeo((p) => ({ ...p, climate: v }))}
+            aiGeneratable aiLoading={aiPendingField === "climate"} onAIGenerate={() => handleAIGenerate("climate")} />
+          <Field label="地理限制" hint="山脉、水域、边界" value={geo.limits} onChange={(v) => setGeo((p) => ({ ...p, limits: v }))}
+            aiGeneratable aiLoading={aiPendingField === "limits"} onAIGenerate={() => handleAIGenerate("limits")} />
         </div>
       )}
       {tab === "politics" && (
         <div className="space-y-5">
-          <Field label="统治形式" hint="谁统治？中央/联邦/宗派？权力是否受限？" value={politics.rule} onChange={(v) => setPolitics((p) => ({ ...p, rule: v }))} />
-          <Field label="主要势力" hint="至少 2-3 个势力" value={politics.factions} onChange={(v) => setPolitics((p) => ({ ...p, factions: v }))} />
-          <Field label="社会分层" hint="阶级结构、流动性" value={politics.social} onChange={(v) => setPolitics((p) => ({ ...p, social: v }))} />
-          <Field label="不服从的代价" hint="违抗的后果，谁执行惩罚" value={politics.cost} onChange={(v) => setPolitics((p) => ({ ...p, cost: v }))} />
+          <Field label="统治形式" hint="谁统治？" value={politics.rule} onChange={(v) => setPolitics((p) => ({ ...p, rule: v }))}
+            aiGeneratable aiLoading={aiPendingField === "rule"} onAIGenerate={() => handleAIGenerate("rule")} />
+          <Field label="主要势力" hint="至少 2-3 个势力" value={politics.factions} onChange={(v) => setPolitics((p) => ({ ...p, factions: v }))}
+            aiGeneratable aiLoading={aiPendingField === "factions"} onAIGenerate={() => handleAIGenerate("factions")} />
+          <Field label="社会分层" hint="阶级结构" value={politics.social} onChange={(v) => setPolitics((p) => ({ ...p, social: v }))}
+            aiGeneratable aiLoading={aiPendingField === "social"} onAIGenerate={() => handleAIGenerate("social")} />
+          <Field label="不服从的代价" hint="违抗的后果" value={politics.cost} onChange={(v) => setPolitics((p) => ({ ...p, cost: v }))}
+            aiGeneratable aiLoading={aiPendingField === "cost"} onAIGenerate={() => handleAIGenerate("cost")} />
         </div>
       )}
       {tab === "rules" && (
         <div className="space-y-5">
-          <Field label="世界级规则" hint="力量体系、物理法则、魔法来源" value={rules.world} onChange={(v) => setRules((p) => ({ ...p, world: v }))} />
-          <Field label="社会级规则" hint="法律、门派规章、禁忌" value={rules.society} onChange={(v) => setRules((p) => ({ ...p, society: v }))} />
-          <Field label="个人级规则" hint="血咒、功法限制、契约" value={rules.personal} onChange={(v) => setRules((p) => ({ ...p, personal: v }))} />
+          <Field label="世界级规则" hint="力量体系" value={rules.world} onChange={(v) => setRules((p) => ({ ...p, world: v }))}
+            aiGeneratable aiLoading={aiPendingField === "world"} onAIGenerate={() => handleAIGenerate("world")} />
+          <Field label="社会级规则" hint="法律、禁忌" value={rules.society} onChange={(v) => setRules((p) => ({ ...p, society: v }))}
+            aiGeneratable aiLoading={aiPendingField === "society"} onAIGenerate={() => handleAIGenerate("society")} />
+          <Field label="个人级规则" hint="血咒、功法限制" value={rules.personal} onChange={(v) => setRules((p) => ({ ...p, personal: v }))}
+            aiGeneratable aiLoading={aiPendingField === "personal"} onAIGenerate={() => handleAIGenerate("personal")} />
         </div>
       )}
+
       {error && <p className="text-sm text-error/80 mt-3">{error}</p>}
+
+      <AISuggestionModal
+        open={aiField !== null}
+        fieldLabel={aiField || ""}
+        content={aiContent}
+        loading={aiLoading}
+        onAccept={handleAIAccept}
+        onRetry={() => aiField && handleAIGenerate(aiField)}
+        onClose={() => { setAiField(null); setAiContent(""); }}
+      />
     </div>
   );
 }
