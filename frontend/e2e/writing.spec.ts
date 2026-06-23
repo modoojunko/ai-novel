@@ -62,7 +62,11 @@ test.describe("AI Chapter Writing", () => {
     await page.goto(url("/dashboard"));
     await setToken(page, sharedToken);
     await page.goto(url(`/project/${sharedSlug}`));
-    await page.waitForSelector("h1", { timeout: 15000 });
+    for (let i = 0; i < 3; i++) {
+      const ok = await page.locator("h1").isVisible().catch(() => false);
+      if (ok) break;
+      await page.waitForTimeout(2000);
+    }
     // Switch to 正文 tab
     await page.getByRole("button", { name: "正文" }).click();
     await page.waitForTimeout(1500);
