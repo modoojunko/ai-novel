@@ -16,12 +16,12 @@ export function isLoggedIn(): boolean {
   return !!getToken();
 }
 
-export async function login(email: string, password: string) {
+export async function login(email: string, password: string, rememberMe = false) {
   const base = getApiBaseUrl();
   const res = await fetch(`${base}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, remember_me: rememberMe }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));

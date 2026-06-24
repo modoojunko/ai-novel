@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
+from config import JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_REMEMBER_DAYS, JWT_SECRET
 from models.user import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -19,8 +19,11 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-def create_access_token(user_id: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRE_MINUTES)
+def create_access_token(user_id: str, remember_me: bool = False) -> str:
+    if remember_me:
+        expire = datetime.now(timezone.utc) + timedelta(days=JWT_REMEMBER_DAYS)
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRE_MINUTES)
     return jwt.encode(
         {"sub": user_id, "exp": expire}, JWT_SECRET, algorithm=JWT_ALGORITHM
     )

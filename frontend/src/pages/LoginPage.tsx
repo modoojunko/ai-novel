@@ -5,6 +5,7 @@ import { login } from "@/lib/auth";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -12,7 +13,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     try {
-      await login(email, password);
+      await login(email, password, rememberMe);
       navigate("/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -42,6 +43,15 @@ export default function LoginPage() {
               required
               minLength={8}
             />
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="checkbox checkbox-sm checkbox-primary"
+              />
+              <span className="text-xs text-base-content/50">记住我（保持登录 30 天）</span>
+            </label>
             {error && <p className="text-error text-sm">{error}</p>}
             <button type="submit" className="btn btn-primary w-full">
               登录
