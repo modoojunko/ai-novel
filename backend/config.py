@@ -33,7 +33,8 @@ DATA_ROOT = os.getenv("DATA_ROOT", "./data/projects")
 REFERENCE_DIR = os.getenv("REFERENCE_DIR", "")
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-me")
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRE_MINUTES = 60
+JWT_EXPIRE_MINUTES = 10080  # 7 days
+JWT_REMEMBER_DAYS = 30  # "remember me" extends to 30 days
 import yaml
 from pathlib import Path
 

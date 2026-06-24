@@ -24,6 +24,7 @@ class RegisterBody(BaseModel):
 class LoginBody(BaseModel):
     email: EmailStr
     password: str
+    remember_me: bool = False
 
 
 class TokenResponse(BaseModel):
@@ -47,7 +48,7 @@ async def login(body: LoginBody, db: AsyncSession = Depends(get_db)):
     user = await get_user_by_email(db, body.email)
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(401, "Invalid email or password")
-    token = create_access_token(str(user.id))
+    token = create_access_token(str(user.id), remember_me=body.remember_me)
     return TokenResponse(access_token=token, user=_user_dict(user))
 
 
