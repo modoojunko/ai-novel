@@ -22,6 +22,8 @@ interface Suggestion {
   genre_profile: string;
   genre_label: string;
   atmosphere: string;
+  elements?: Record<string, string>;
+  missing?: string[];
 }
 
 export default function DashboardPage() {
@@ -253,6 +255,32 @@ function Dashboard() {
                   <span className="badge badge-outline">{suggestion.genre_label}</span>
                   <span className="badge badge-outline">{suggestion.atmosphere}</span>
                 </div>
+
+                {/* Story elements */}
+                {suggestion.elements && (
+                  <div className="bg-base-200/50 border border-base-300/50 rounded-lg p-3 space-y-1.5">
+                    <span className="text-[10px] uppercase tracking-wider text-base-content/40 font-medium">故事要素</span>
+                    {Object.entries(suggestion.elements).map(([key, val]) => (
+                      <div key={key} className="flex items-center gap-2 text-xs">
+                        <span className={val ? "text-success" : "text-warning"}>
+                          {val ? "✅" : "⚠️"}
+                        </span>
+                        <span className="text-base-content/50 w-16 shrink-0">{key}</span>
+                        <span className={val ? "text-base-content/80" : "text-base-content/30 italic"}>
+                          {val || "未提及"}
+                        </span>
+                      </div>
+                    ))}
+                    {suggestion.missing && suggestion.missing.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-base-300/40">
+                        <p className="text-[11px] text-warning/70">
+                          {suggestion.missing.join("；")}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="text-[11px] text-base-content/50 bg-base-200 rounded p-2">
                   创建后自动填好：小说简介、类型设定。可在设置页面修改。
                 </div>
