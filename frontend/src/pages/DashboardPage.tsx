@@ -246,6 +246,17 @@ function Dashboard() {
                       </button>
                     ))}
                   </div>
+                  {selectedTitle && (
+                    <div className="mt-2">
+                      <label className="label-text text-xs text-base-content/40">或修改标题</label>
+                      <input
+                        className="input input-bordered w-full text-sm mt-1"
+                        value={name}
+                        onChange={(e) => { setName(e.target.value); setSelectedTitle(e.target.value); }}
+                        placeholder="修改标题…"
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="card bg-base-100 border border-base-300 p-3">
                   <span className="text-[10px] text-base-content/60 uppercase">简介</span>
