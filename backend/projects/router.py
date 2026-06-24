@@ -86,7 +86,18 @@ async def suggest_meta(
 - 简介要用大白话，不是文学评论腔。直接讲这个故事关于什么，不写"这是一个关于…的故事"
 - 类型判断要准确——如果提到探案/悬疑/失踪 → 悬疑刑侦；如果提到修真/修炼/境界 → 东方仙侠 或 传统玄幻
 - genre_profile 必须是以上 8 种之一，用中文，不要用英文
-- 如果无法确定类型，默认选 都市日常"""
+- 如果无法确定类型，默认选 都市日常
+
+额外分析这个故事构思的要素完整性，判断是否包含主角、世界背景、核心冲突：
+{{
+  "elements": {{
+    "主角": "从构思中提取的主角身份和特征" if 提取到 else "",
+    "世界背景": "从构思中提取的时空背景" if 提取到 else "",
+    "核心冲突": "从构思中提取的核心矛盾" if 提取到 else ""
+  }},
+  "missing": []
+}}
+如果缺少哪个要素，missing 列出具体缺失的描述。如果构思过于简短无法分析完整的三个要素，missing 中要包含"建议补充更多故事细节"。"""
 
     client = get_ai_client()
     try:
@@ -94,7 +105,7 @@ async def suggest_meta(
             model="haiku",
             system="",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=800,
+            max_tokens=1200,
         )
         # Extract JSON from response (handle ```json fences)
         if "```" in text:
