@@ -77,14 +77,21 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
 
   function handleAIAccept() {
     if (!aiField) return;
+    // Try JSON.parse first (AI may return a JSON array)
+    let parsed: string | string[] = aiContent;
+    try {
+      const v = JSON.parse(aiContent);
+      if (Array.isArray(v)) parsed = v;
+    } catch {}
+
     if (aiField === "role") {
       setRole(aiContent);
     } else if (aiField === "core_principles") {
-      setPrinciples(aiContent.split("\n").filter(Boolean));
+      setPrinciples(Array.isArray(parsed) ? parsed : aiContent.split("\n").filter(Boolean));
     } else if (aiField === "common_mistakes") {
-      setMistakes(aiContent.split("\n").filter(Boolean));
+      setMistakes(Array.isArray(parsed) ? parsed : aiContent.split("\n").filter(Boolean));
     } else if (aiField === "depiction_techniques") {
-      setTechniques(aiContent.split("\n").filter(Boolean));
+      setTechniques(Array.isArray(parsed) ? parsed : aiContent.split("\n").filter(Boolean));
     }
     setAiField(null);
     setAiContent("");
