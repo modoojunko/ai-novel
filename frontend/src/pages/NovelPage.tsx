@@ -10,6 +10,7 @@ import VersionHistory from "@/components/novel/VersionHistory";
 import SettingsFormField from "@/components/novel/SettingsFormField";
 import DeleteConfirmModal from "@/components/novel/DeleteConfirmModal";
 import { useOnboarding } from "@/hooks/useOnboarding";
+import DeductionPanel from "@/components/novel/story/DeductionPanel";
 import {
   Globe,
   Feather,
@@ -26,14 +27,15 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-type TabId = "settings" | "writing";
+type TabId = "settings" | "writing" | "deduction";
 
 type ViewState =
   | { tab: "settings"; panel: string }
   | { tab: "writing"; panel: "empty" }
   | { tab: "writing"; panel: "volume"; volumeId: string }
   | { tab: "writing"; panel: "chapter"; chapterRef: string }
-  | { tab: "writing"; panel: "versions"; chapterRef: string };
+  | { tab: "writing"; panel: "versions"; chapterRef: string }
+  | { tab: "deduction"; panel: "main" };
 
 // ---------------------------------------------------------------------------
 // Tab labels
@@ -42,6 +44,7 @@ type ViewState =
 const TABS: { id: TabId; label: string }[] = [
   { id: "settings", label: "设定" },
   { id: "writing", label: "正文" },
+  { id: "deduction", label: "🔮 推演" },
 ];
 
 const SETTINGS_TREE_ITEMS: { id: string; icon: React.ReactNode; label: string }[] = [
@@ -252,6 +255,13 @@ export default function NovelPage() {
   // Tab switching
   // -----------------------------------------------------------------------
 
+  const getCurrentChapterRef = useCallback((): string | undefined => {
+    if (viewState.tab === "writing" && (viewState.panel === "chapter" || viewState.panel === "versions")) {
+      return viewState.chapterRef;
+    }
+    return undefined;
+  }, [viewState]);
+
   // -----------------------------------------------------------------------
   // Create volume from empty state
   // -----------------------------------------------------------------------
@@ -328,6 +338,8 @@ export default function NovelPage() {
     setTab(newTab);
     if (newTab === "settings") {
       setViewState({ tab: "settings", panel: "world" });
+    } else if (newTab === "deduction") {
+      setViewState({ tab: "deduction", panel: "main" });
     } else {
       setViewState({ tab: "writing", panel: "empty" });
     }
@@ -347,6 +359,10 @@ export default function NovelPage() {
             confirmed={settingsStatus?.[viewState.panel] ?? false}
             onConfirm={() => confirmSetting(viewState.panel)}
           />
+        );
+      case "deduction":
+        return (
+          <DeductionPanel projectId={project.id} chapterRef={getCurrentChapterRef()} />
         );
       case "writing":
         switch (viewState.panel) {
@@ -415,7 +431,7 @@ export default function NovelPage() {
       default:
         return <EmptyState settingsComplete={allConfirmed} />;
     }
-  }, [viewState]);
+  }, [viewState, getCurrentChapterRef]);
 
   // -----------------------------------------------------------------------
   // Loading state
@@ -505,16 +521,18 @@ export default function NovelPage() {
 
       {/* ── Dual panel ──────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left tree panel */}
-        <aside className="w-56 flex-shrink-0 overflow-y-auto border-r border-base-300 bg-base-200/30 p-2">
-          <StructureTree
-            nodes={activeNodes}
-            selectedId={selectedId}
-            onSelect={handleSelect}
-            expandedIds={expandedIds}
-            onToggle={handleToggle}
-          />
-        </aside>
+        {/* Left tree panel - hidden for deduction */}
+        {tab !== "deduction" && (
+          <aside className="w-56 flex-shrink-0 overflow-y-auto border-r border-base-300 bg-base-200/30 p-2">
+            <StructureTree
+              nodes={activeNodes}
+              selectedId={selectedId}
+              onSelect={handleSelect}
+              expandedIds={expandedIds}
+              onToggle={handleToggle}
+            />
+          </aside>
+        )}
 
         {/* Right content panel */}
         <main className="flex-1 overflow-y-auto p-4">
