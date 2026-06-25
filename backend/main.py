@@ -24,6 +24,7 @@ from archive.router import archives_router, router as archive_router
 from billing.router import router as billing_router
 from threads.router import router as threads_router
 from novel.router import router as novel_router
+from story.router import router as story_router
 
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
 
@@ -93,6 +94,7 @@ app.include_router(billing_router)
 app.include_router(threads_router)
 app.include_router(novel_router)
 app.include_router(chapters_versions_router)
+app.include_router(story_router)
 
 
 @app.get("/api/health")
