@@ -283,8 +283,12 @@ DecisionLog:
 ```
 Stage
   ├── terrain: 地形环境描述
-  ├── time: 当前时间（推演内部时间线）
-  ├── weather: 环境条件（影响感知范围）
+  ├── time: 当前时间
+  ├── weather: 天气
+  ├── lighting: "充足|昏暗|黑暗"（影响视觉）
+  ├── noise: "安静|嘈杂|风声|雨声"（影响听觉）
+  ├── visibility_modifiers: "起雾|扬沙|障碍物"（影响视觉）
+  ├── terrain_effects: "峡谷回音|开阔视野"（地形对感知的影响）
   ├── characters: 角色位置和状态（引用）
   ├── event_pool: 已发生的公开事件列表
   └── round: 当前回合号
@@ -298,18 +302,18 @@ Stage
 Character
   ├── name / role / appearance / speech（基础属性）
   │
-  ├── cognition_6layers（认知6层，从角色设定加载）
-  │   ├── world_view    — 对世界运作的信念
-  │   ├── self_image    — 如何看待自己
-  │   ├── values        — 行为边界
-  │   ├── abilities     — 能力上限
-  │   ├── skills        — 习得技能
-  │   └── environment   — 背景 + 当前处境（含主观关系认知）
+  ├── cognition_6layers（认知6层）
+  │   ├── world_view
+  │   ├── self_image
+  │   ├── values
+  │   ├── abilities
+  │   ├── skills
+  │   └── environment（含主观关系认知）
   │
-  ├── perception（感知能力 · 推演前定义）
-  │   ├── vision: 视觉范围（方向/距离/遮挡）
-  │   ├── hearing: 听觉范围（距离/环境干扰）
-  │   └── special: 特殊直觉（如老兵第六感）
+  ├── perception_config（起始定义，推演前确定）
+  │   ├── vision: "开阔|受限|极差" + 距离说明
+  │   ├── hearing: "灵敏|正常|受干扰" + 距离说明
+  │   └── special: "第六感/直觉（可选）"
   │
   ├── runtime_state（运行时状态）
   │   ├── position: 当前位置

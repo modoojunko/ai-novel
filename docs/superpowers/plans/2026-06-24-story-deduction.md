@@ -65,7 +65,11 @@ class StageState:
     terrain: str = ""
     time: str = ""
     weather: str = ""
-    events: list[dict] = field(default_factory=list)  # public event pool
+    lighting: str = "充足"
+    noise: str = "安静"
+    visibility_modifiers: str = ""
+    terrain_effects: str = ""
+    events: list[dict] = field(default_factory=list)
     round: int = 0
 
 
@@ -115,6 +119,7 @@ class CharacterState:
     knowledge: list[str] = field(default_factory=list)
     relationships: dict[str, Any] = field(default_factory=dict)
     cognition_6: dict[str, str] = field(default_factory=dict)
+    perception_config: dict[str, str] = field(default_factory=dict)  # vision/hearing/special
 
 
 @dataclass
