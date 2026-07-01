@@ -62,17 +62,70 @@ _FALLBACK = DecisionLog(
 )
 
 
+def _repair_json(text: str) -> str | None:
+    """Try to repair common JSON-in-JSON issues (single quotes, trailing commas, etc)."""
+    # Replace single quotes around keys/values with double quotes
+    # This handles: {'key': 'value'} → {"key": "value"}
+    import re
+    result = text
+
+    # Replace single quotes at word boundaries (keys and string values)
+    result = re.sub(r"(?<=[{, ])'([^']+?)'(?=\s*[:,\]}])", r'"\1"', result)
+
+    # Remove trailing commas before ] or }
+    result = re.sub(r",\s*([}\]])", r"\1", result)
+
+    # Replace Python/JS literals
+    result = result.replace("None", "null").replace("undefined", "null")
+    result = result.replace("True", "true").replace("False", "false")
+
+    try:
+        json.loads(result)
+        return result
+    except json.JSONDecodeError:
+        return None
+
+
+def _extract_fallback_text(text: str) -> dict | None:
+    """Last resort: extract whatever useful info we can from plain text."""
+    lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
+    # Pick the most action-like line
+    for line in lines[:5]:
+        # Skip obvious meta-text
+        if any(kw in line for kw in ["分析", "评估", "考虑", "因为", "所以", "决定"]):
+            continue
+        if len(line) > 8:
+            return {
+                "see": "", "hear": "", "sense": "", "understanding": "",
+                "values_checked": "", "ability_assessment": "",
+                "emotion": "", "urgency": "",
+                "decision_process": "",
+                "action_type": "动作", "action_target": "",
+                "action_description": line[:200],
+                "inner_monologue": "", "action_impact": "",
+            }
+    return None
+
+
 def _extract_json(text: str) -> dict | None:
-    """Extract JSON from LLM response. Tries multiple formats. Returns None if all fail."""
+    """Extract JSON from LLM response. Tries multiple formats + repair. Never crashes."""
     cleaned = text.strip()
 
-    # Try: direct JSON
-    try:
-        return json.loads(cleaned)
-    except json.JSONDecodeError:
-        pass
+    # 1. Direct JSON
+    for src in [cleaned]:
+        try:
+            return json.loads(src)
+        except json.JSONDecodeError:
+            pass
+        # Repair and retry
+        repaired = _repair_json(src)
+        if repaired:
+            try:
+                return json.loads(repaired)
+            except json.JSONDecodeError:
+                pass
 
-    # Try: markdown code fence
+    # 2. Markdown code fence (```json ... ```)
     if "```" in cleaned:
         parts = cleaned.split("```")
         for i, part in enumerate(parts):
@@ -81,23 +134,38 @@ def _extract_json(text: str) -> dict | None:
             part = part.strip()
             if part.startswith("json"):
                 part = part[4:].strip()
-            try:
-                return json.loads(part)
-            except json.JSONDecodeError:
-                continue
+            for src in [part]:
+                try:
+                    return json.loads(src)
+                except json.JSONDecodeError:
+                    pass
+                repaired = _repair_json(src)
+                if repaired:
+                    try:
+                        return json.loads(repaired)
+                    except json.JSONDecodeError:
+                        pass
 
-    # Try: find first { ... } or [ ... ] block
+    # 3. Find { ... } or [ ... ] block
     for left, right in [("{", "}"), ("[", "]")]:
         start = cleaned.find(left)
         if start >= 0:
             end = cleaned.rfind(right)
             if end > start:
-                try:
-                    return json.loads(cleaned[start:end + 1])
-                except json.JSONDecodeError:
-                    continue
+                for src in [cleaned[start:end + 1]]:
+                    try:
+                        return json.loads(src)
+                    except json.JSONDecodeError:
+                        pass
+                    repaired = _repair_json(src)
+                    if repaired:
+                        try:
+                            return json.loads(repaired)
+                        except json.JSONDecodeError:
+                            pass
 
-    return None
+    # 4. Last resort: extract action from plain text
+    return _extract_fallback_text(cleaned)
 
 
 def _parse_decision(text: str, character_id: str, sensory: SensoryInput, round_num: int) -> Decision:
