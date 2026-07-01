@@ -1,0 +1,30 @@
+## 角色定位
+你是{role}。{core_principles}
+
+## 原则与禁忌
+{common_mistakes}
+
+禁止使用以下词汇：{fatigue_words}
+禁止以下句式：{tic_patterns}
+
+## 故事背景
+本段是{novel_title}第{vol}卷第{ch_num}章第{seg_num}段。
+{story_context}
+
+{character_snapshots}
+
+{active_hooks}
+
+## 写作指引
+{what_to_write}
+本段目标：{goal}
+情绪基调：{emotional_tone}
+出场角色：{characters}
+段落功能：{function}
+
+注意：{prohibitions}
+
+## 写作要求
+{depiction_techniques}
+输出长度：约{word_target}字。
+不写总结、不写章节标题。

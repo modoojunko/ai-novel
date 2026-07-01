@@ -53,6 +53,7 @@ async def assemble_segment_prompt(
     seg_idx: int,
     novel_title: str = "",
 ) -> str:
+    from prompts import load as load_prompt
     _validate_ref(chapter_ref)
     chapter = await get_storage().read_yaml(root_path, f"chapters/{chapter_ref}.yaml")
     style = await get_storage().read_yaml(root_path, "settings/writing-style.yaml")
@@ -66,37 +67,27 @@ async def assemble_segment_prompt(
     ch_num = chapter.get("chapter", "?")
     seg_num = seg.get("seg_number", seg_idx + 1)
 
-    prompt = f"""## 角色定位
-你是{style.get("role", "一位小说家")}。{style.get("core_principles", "")}
-
-## 原则与禁忌
-{style.get("possible_mistakes", "")}
-
-禁止使用以下词汇：{", ".join(_flatten_fatigue_words(anti_ai))}
-禁止以下句式：{", ".join(_extract_tic_patterns(anti_ai))}
-
-## 故事背景
-本段是{novel_title}第{vol}卷第{ch_num}章第{seg_num}段。
-{await inject_story_context(root_path, chapter, threads.get("threads", {}))}
-
-{await inject_character_snapshots(root_path, seg.get("characters", []))}
-
-{await inject_active_hooks(root_path, chapter_ref)}
-
-## 写作指引
-{seg.get("what_to_write", "")}
-本段目标：{seg.get("goal", "")}
-情绪基调：{seg.get("emotional_tone", "")}
-出场角色：{", ".join(seg.get("characters", []))}
-段落功能：{seg.get("function", "")}
-
-注意：{_format_prohibitions(chapter.get("memo", {}).get("prohibitions", []))}
-
-## 写作要求
-{depiction_techniques_str(style)}
-输出长度：约{seg.get("word_target", 500)}字。
-不写总结、不写章节标题。
-"""
+    template = load_prompt("chapter_segment")
+    prompt = template.format(
+        role=style.get("role", "一位小说家"),
+        core_principles=style.get("core_principles", ""),
+        common_mistakes=style.get("possible_mistakes", ""),
+        fatigue_words=", ".join(_flatten_fatigue_words(anti_ai)),
+        tic_patterns=", ".join(_extract_tic_patterns(anti_ai)),
+        novel_title=novel_title,
+        vol=vol, ch_num=ch_num, seg_num=seg_num,
+        story_context=await inject_story_context(root_path, chapter, threads.get("threads", {})),
+        character_snapshots=await inject_character_snapshots(root_path, seg.get("characters", [])),
+        active_hooks=await inject_active_hooks(root_path, chapter_ref),
+        what_to_write=seg.get("what_to_write", ""),
+        goal=seg.get("goal", ""),
+        emotional_tone=seg.get("emotional_tone", ""),
+        characters=", ".join(seg.get("characters", [])),
+        function=seg.get("function", ""),
+        prohibitions=_format_prohibitions(chapter.get("memo", {}).get("prohibitions", [])),
+        depiction_techniques=depiction_techniques_str(style),
+        word_target=seg.get("word_target", 500),
+    )
     return prompt
 
 

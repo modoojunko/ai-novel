@@ -4,7 +4,7 @@ import json
 import time
 
 from ai_client import get_ai_client
-from story.prompts import CHARACTER_DECISION_PROMPT
+from prompts import load as load_prompt
 from story.models import SensoryInput, DecisionLog, Decision, CharacterState, StageState
 
 
@@ -28,7 +28,7 @@ def _build_decision_prompt(
     if character.urgency:
         state_lines.insert(0, f"紧急：{character.urgency}")
 
-    return CHARACTER_DECISION_PROMPT.format(
+    return load_prompt("story_character").format(
         character_cognition="\n".join(cognition_lines) or "（无特殊设定）",
         character_state="\n".join(state_lines),
         see=sensory.see or "（无特殊视觉信息）",

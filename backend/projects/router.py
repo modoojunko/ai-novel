@@ -67,39 +67,12 @@ async def suggest_meta(
     if not AI_API_KEY:
         raise HTTPException(503, "AI service not configured")
 
-    prompt = f"""你是一位资深出版编辑。一位作者想写一本小说，给了你下面这段话描述ta的故事构思。请根据这个构思给出以下建议，用 JSON 格式返回（不要额外文本）。
+    from prompts import load as load_prompt
 
-故事构思：
-{body.premise}
-
-返回格式：
-{{
-  "titles": ["书名选项1", "书名选项2", "书名选项3"],
-  "synopsis": "一段 80-120 字的简介，适合放在小说封面或简介区",
-  "genre_profile": "悬疑刑侦 | 都市言情 | 古风权谋 | 科幻末世 | 传统玄幻 | 东方仙侠 | 西方奇幻 | 都市日常 中的一个（用中文，不要用英文）",
-  "genre_label": "与 genre_profile 相同的中文名称",
-  "atmosphere": "一句话描述这本书的氛围（如：压抑紧绷的暗流涌动 / 轻松温暖的都市日常）"
-}}
-
-要求：
-- 书名要有冲击力，不是烂大街的名字。每本书名 ≤8 字
-- 简介要用大白话，不是文学评论腔。直接讲这个故事关于什么，不写"这是一个关于…的故事"
-- 类型判断要准确——如果提到探案/悬疑/失踪 → 悬疑刑侦；如果提到修真/修炼/境界 → 东方仙侠 或 传统玄幻
-- genre_profile 必须是以上 8 种之一，用中文，不要用英文
-- 如果无法确定类型，默认选 都市日常
-
-额外分析这个故事构思的要素完整性，判断是否包含主角、世界背景、核心冲突：
-{{
-  "elements": {{
-    "主角": "从构思中提取的主角身份和特征" if 提取到 else "",
-    "世界背景": "从构思中提取的时空背景" if 提取到 else "",
-    "核心冲突": "从构思中提取的核心矛盾" if 提取到 else ""
-  }},
-  "missing": []
-}}
-如果缺少哪个要素，missing 列出具体缺失的描述。如果构思过于简短无法分析完整的三个要素，missing 中要包含"建议补充更多故事细节"。"""
+    prompt = load_prompt("suggest_meta").format(premise=body.premise)
 
     client = get_ai_client()
+
     try:
         text = await client.chat(
             model="haiku",
