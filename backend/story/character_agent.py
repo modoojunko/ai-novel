@@ -1,7 +1,9 @@
 """Character agent — builds prompts, calls LLM, parses decisions."""
 
+import asyncio
 import json
 import logging
+import re
 import time
 
 from ai_client import get_ai_client
@@ -9,6 +11,28 @@ from prompts import load as load_prompt
 from story.models import SensoryInput, DecisionLog, Decision, CharacterState, StageState
 
 logger = logging.getLogger(__name__)
+
+# ── Timeout: single LLM call max wait ──────────────────────────────
+_LLM_TIMEOUT = 10  # seconds
+
+# ── Fallback when LLM fails ────────────────────────────────────────
+
+_FALLBACK = DecisionLog(
+    see="（无法获取）",
+    hear="（无法获取）",
+    sense="（无法获取）",
+    understanding="（LLM返回异常）",
+    values_checked="（无法判断）",
+    ability_assessment="（无法评估）",
+    emotion="（未知）",
+    urgency="（未知）",
+    decision_process="（LLM返回异常，使用默认行为）",
+    action_type="等待",
+    action_target="",
+    action_description="（AI 决策异常，原地待命中）",
+    inner_monologue="…",
+    action_impact="（未知）",
+)
 
 
 def _build_decision_prompt(
@@ -42,40 +66,21 @@ def _build_decision_prompt(
     )
 
 
-# ── Fallback when LLM fails ────────────────────────────────────────
-
-_FALLBACK = DecisionLog(
-    see="（无法获取）",
-    hear="（无法获取）",
-    sense="（无法获取）",
-    understanding="（LLM返回异常）",
-    values_checked="（无法判断）",
-    ability_assessment="（无法评估）",
-    emotion="（未知）",
-    urgency="（未知）",
-    decision_process="（LLM返回异常，使用默认行为）",
-    action_type="等待",
-    action_target="",
-    action_description="（AI 决策异常，原地待命中）",
-    inner_monologue="…",
-    action_impact="（未知）",
-)
-
-
 def _repair_json(text: str) -> str | None:
-    """Try to repair common JSON-in-JSON issues (single quotes, trailing commas, etc)."""
-    # Replace single quotes around keys/values with double quotes
-    # This handles: {'key': 'value'} → {"key": "value"}
-    import re
-    result = text
+    """Repair common issues: Chinese punctuation, trailing commas, single quotes, Python/JS literals."""
+    result = text.strip()
 
-    # Replace single quotes at word boundaries (keys and string values)
+    # Chinese punctuation → English
+    result = result.replace("：", ":").replace("，", ",")
+    result = result.replace("（", "(").replace("）", ")")
+
+    # Single-quoted keys/values → double-quoted
     result = re.sub(r"(?<=[{, ])'([^']+?)'(?=\s*[:,\]}])", r'"\1"', result)
 
-    # Remove trailing commas before ] or }
+    # Trailing commas before ] or }
     result = re.sub(r",\s*([}\]])", r"\1", result)
 
-    # Replace Python/JS literals
+    # Python/JS → JSON literals
     result = result.replace("None", "null").replace("undefined", "null")
     result = result.replace("True", "true").replace("False", "false")
 
@@ -89,17 +94,14 @@ def _repair_json(text: str) -> str | None:
 def _extract_fallback_text(text: str) -> dict | None:
     """Last resort: extract whatever useful info we can from plain text."""
     lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
-    # Pick the most action-like line
     for line in lines[:5]:
-        # Skip obvious meta-text
         if any(kw in line for kw in ["分析", "评估", "考虑", "因为", "所以", "决定"]):
             continue
         if len(line) > 8:
             return {
                 "see": "", "hear": "", "sense": "", "understanding": "",
                 "values_checked": "", "ability_assessment": "",
-                "emotion": "", "urgency": "",
-                "decision_process": "",
+                "emotion": "", "urgency": "", "decision_process": "",
                 "action_type": "动作", "action_target": "",
                 "action_description": line[:200],
                 "inner_monologue": "", "action_impact": "",
@@ -111,92 +113,99 @@ def _extract_json(text: str) -> dict | None:
     """Extract JSON from LLM response. Tries multiple formats + repair. Never crashes."""
     cleaned = text.strip()
 
-    # 1. Direct JSON
-    for src in [cleaned]:
+    # 1. Direct parse (try raw, then repaired)
+    for src in [cleaned, _repair_json(cleaned)]:
+        if not src:
+            continue
         try:
             return json.loads(src)
         except json.JSONDecodeError:
             pass
-        # Repair and retry
-        repaired = _repair_json(src)
-        if repaired:
-            try:
-                return json.loads(repaired)
-            except json.JSONDecodeError:
-                pass
 
     # 2. Markdown code fence (```json ... ```)
     if "```" in cleaned:
-        parts = cleaned.split("```")
-        for i, part in enumerate(parts):
-            if i % 2 != 1:
-                continue
+        for part in cleaned.split("```"):
             part = part.strip()
+            if not part:
+                continue
             if part.startswith("json"):
                 part = part[4:].strip()
-            for src in [part]:
+            for src in [part, _repair_json(part)]:
+                if not src:
+                    continue
                 try:
                     return json.loads(src)
                 except json.JSONDecodeError:
                     pass
-                repaired = _repair_json(src)
-                if repaired:
-                    try:
-                        return json.loads(repaired)
-                    except json.JSONDecodeError:
-                        pass
 
-    # 3. Find { ... } or [ ... ] block
+    # 3. First { ... } or [ ... ] block
     for left, right in [("{", "}"), ("[", "]")]:
         start = cleaned.find(left)
         if start >= 0:
             end = cleaned.rfind(right)
             if end > start:
-                for src in [cleaned[start:end + 1]]:
+                block = cleaned[start:end + 1]
+                for src in [block, _repair_json(block)]:
+                    if not src:
+                        continue
                     try:
                         return json.loads(src)
                     except json.JSONDecodeError:
                         pass
-                    repaired = _repair_json(src)
-                    if repaired:
-                        try:
-                            return json.loads(repaired)
-                        except json.JSONDecodeError:
-                            pass
 
-    # 4. Last resort: extract action from plain text
+    # 4. Desperate: extract action-like sentence
     return _extract_fallback_text(cleaned)
+
+
+# ── Field validation ───────────────────────────────────────────────
+# Ensure critical fields have valid types, not None or wrong type
+
+_STRING_FIELDS = {
+    "see", "hear", "sense", "understanding", "values_checked",
+    "ability_assessment", "emotion", "urgency", "decision_process",
+    "action_type", "action_target", "action_description",
+    "inner_monologue", "action_impact",
+}
+
+
+def _validate_decision_data(data: dict) -> dict:
+    """Ensure all fields exist with correct types. Fills missing with empty string."""
+    validated = {}
+    for field in _STRING_FIELDS:
+        val = data.get(field)
+        if not isinstance(val, str):
+            val = str(val) if val is not None else ""
+        validated[field] = val
+    return validated
 
 
 def _parse_decision(text: str, character_id: str, sensory: SensoryInput, round_num: int) -> Decision:
     """Parse LLM response into Decision. Never crashes — uses fallback on failure."""
     data = _extract_json(text)
     if data is None:
-        logger.warning("Non-JSON response from %s round %d: %.150s", character_id, round_num, text)
+        logger.warning("Non-JSON from %s round %d: %.150s", character_id, round_num, text)
         return Decision(
             character_id=character_id, sensory_input=sensory,
             log=_FALLBACK, round=round_num, timestamp=int(time.time()),
         )
 
+    data = _validate_decision_data(data)
     return Decision(
         character_id=character_id, sensory_input=sensory,
-        log=DecisionLog(
-            see=data.get("see", ""), hear=data.get("hear", ""),
-            sense=data.get("sense", ""),
-            understanding=data.get("understanding", ""),
-            values_checked=data.get("values_checked", ""),
-            ability_assessment=data.get("ability_assessment", ""),
-            emotion=data.get("emotion", ""),
-            urgency=data.get("urgency", ""),
-            decision_process=data.get("decision_process", ""),
-            action_type=data.get("action_type", ""),
-            action_target=data.get("action_target", ""),
-            action_description=data.get("action_description", ""),
-            inner_monologue=data.get("inner_monologue", ""),
-            action_impact=data.get("action_impact", ""),
-        ),
+        log=DecisionLog(**data),
         round=round_num, timestamp=int(time.time()),
     )
+
+
+# ── Retry: stronger prompt to force pure JSON ──────────────────────
+
+_STRICT_SYSTEM = (
+    "你是一位小说角色扮演者。"
+    "只输出纯 JSON，不要任何其他文字。"
+    "禁止markdown代码块、禁止注释、禁止中文标点。"
+    "字段名和类型不可修改。"
+    "输出非法 JSON 会导致系统故障。"
+)
 
 
 async def run_character_decision(
@@ -205,24 +214,31 @@ async def run_character_decision(
     stage: StageState,
     round_num: int,
 ) -> Decision:
-    """Run one character's decision. Retries once on failure. Always returns a Decision."""
+    """Run one character's decision. Retries once with stricter prompt on failure."""
     prompt = _build_decision_prompt(character, sensory, stage)
     client = get_ai_client()
 
     for attempt in range(2):
         try:
-            text = await client.chat(
-                model="haiku",
-                system="你是一位小说角色扮演者。只输出 JSON，不要任何其他文字。",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=1024,
+            text = await asyncio.wait_for(
+                client.chat(
+                    model="haiku",
+                    system=_STRICT_SYSTEM if attempt == 1
+                           else "你是一位小说角色扮演者。只输出 JSON，不要任何其他文字。",
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=1024,
+                ),
+                timeout=_LLM_TIMEOUT,
             )
             if _extract_json(text) is not None:
                 return _parse_decision(text, character.character_id, sensory, round_num)
-            logger.warning("Bad JSON from %s (attempt %d), retrying…", character.character_id, attempt)
+            logger.warning("Bad JSON from %s (attempt %d)", character.character_id, attempt)
+        except asyncio.TimeoutError:
+            logger.warning("Timeout %s (attempt %d)", character.character_id, attempt)
         except Exception as e:
-            logger.warning("LLM call failed for %s (attempt %d): %s", character.character_id, attempt, e)
+            logger.warning("LLM fail %s (attempt %d): %s", character.character_id, attempt, e)
 
+    logger.error("All LLM attempts failed for %s round %d — using fallback", character.character_id, round_num)
     return Decision(
         character_id=character_id, sensory_input=sensory,
         log=_FALLBACK, round=round_num, timestamp=int(time.time()),
@@ -236,8 +252,6 @@ async def run_all_decisions(
     round_num: int,
 ) -> list[Decision]:
     """Run decisions for all characters in parallel. Never crashes."""
-    import asyncio
-
     tasks = [
         run_character_decision(char, sensory_inputs.get(cid, SensoryInput()), stage, round_num)
         for cid, char in characters.items()
