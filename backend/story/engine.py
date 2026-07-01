@@ -10,7 +10,7 @@ from story.models import (
     StageState, SensoryInput, Decision, CharacterState, RoundResult,
 )
 from story.character_agent import run_all_decisions
-from story.prompts import STAGE_SYNTHESIS_PROMPT
+from prompts import load as load_prompt
 
 
 class DeductionEngine:
@@ -174,7 +174,7 @@ class DeductionEngine:
             action_desc = d.log.action_description or d.log.action_type
             decisions_text.append(f"  - {d.character_id}：{action_desc}")
 
-        prompt = STAGE_SYNTHESIS_PROMPT.format(
+        prompt = load_prompt("story_stage").format(
             stage=f"{self.stage.terrain} · 第{self.round}回合",
             decisions="\n".join(decisions_text),
         )

@@ -1,6 +1,4 @@
-"""Prompt templates for story deduction character agents."""
-
-CHARACTER_DECISION_PROMPT = """你正在扮演一个小说角色。基于以下信息，决定ta在这一轮会做什么。
+你正在扮演一个小说角色。基于以下信息，决定ta在这一轮会做什么。
 
 ## 角色设定
 {character_cognition}
@@ -26,7 +24,7 @@ CHARACTER_DECISION_PROMPT = """你正在扮演一个小说角色。基于以下�
 
 请严格按照以下 JSON 格式输出你的决策过程（不要输出其他文字）：
 
-{{
+{
   "see": "你看到了什么",
   "hear": "你听到了什么",
   "sense": "你嗅到/感觉到/直觉到什么",
@@ -41,25 +39,4 @@ CHARACTER_DECISION_PROMPT = """你正在扮演一个小说角色。基于以下�
   "action_description": "具体动作描述",
   "inner_monologue": "角色的内心独白（第一人称）",
   "action_impact": "你觉得这一行动可能带来什么后果"
-}}
-"""
-
-STAGE_SYNTHESIS_PROMPT = """作为剧情推演助手，将所有角色的决策合成为连贯的剧情事件。
-
-## 当前舞台
-{stage}
-
-## 各角色决策
-{decisions}
-
-请输出本轮发生的剧情事件列表（JSON数组，不要其他文字）：
-[
-  {{
-    "actor": "角色名",
-    "action": "动作描述",
-    "target": "目标（可选）",
-    "result": "结果描述",
-    "visibility": "公开|仅角色可见"
-  }}
-]
-"""
+}

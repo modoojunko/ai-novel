@@ -10,7 +10,7 @@ from auth.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
 from projects.service import get_project
-from settings.ai_prompts import get_prompt
+from prompts import load as load_prompt
 
 router = APIRouter(prefix="/api/projects/{project_id}/settings", tags=["settings-ai"])
 
@@ -46,9 +46,7 @@ async def generate_all_settings(
     results = {}
 
     for t in types:
-        prompt = get_prompt(t)
-        if not prompt:
-            continue
+        prompt = load_prompt(f"settings_{t}")
         try:
             text = await client.chat(
                 model="haiku",
@@ -90,9 +88,7 @@ async def generate_field(
     if not premise:
         raise HTTPException(400, "No story premise found.")
 
-    prompt = get_prompt(stype)
-    if not prompt:
-        raise HTTPException(400, f"Unknown type: {stype}")
+    prompt = load_prompt(f"settings_{stype}")
 
     context = body.get("context", {})
     client = get_ai_client()
