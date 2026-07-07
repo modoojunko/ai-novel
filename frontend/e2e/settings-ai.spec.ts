@@ -62,9 +62,16 @@ test.describe("AI Settings", () => {
     await page.route("**/api/projects/**/settings/ai/**", async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ value: "AI生成的测试内容" }) });
     });
-    // Wait for the settings tree to fully render
-    await page.waitForTimeout(2000);
-    await page.locator(".w-56").getByText("世界设定").click().catch(() => {});
+    // Retry with reload fallback for flaky SPA hydration
+    for (let i = 0; i < 3; i++) {
+      const btn = page.locator(".w-56").getByText("世界设定");
+      if (await btn.isVisible().catch(() => false)) {
+        await btn.click();
+        break;
+      }
+      await page.reload();
+      await page.waitForTimeout(3000);
+    }
     await page.waitForTimeout(1000);
     await page.getByText("AI 帮我填").first().click();
     await expect(page.getByText("AI 建议")).toBeVisible({ timeout: 10000 });
