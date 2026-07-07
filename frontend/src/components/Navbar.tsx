@@ -25,6 +25,9 @@ export default function Navbar() {
             <Link to="/dashboard" className="btn btn-ghost btn-sm">
               我的小说
             </Link>
+            <Link to="/admin" className="btn btn-ghost btn-sm text-primary/70 hover:text-primary">
+              管理后台
+            </Link>
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => {
