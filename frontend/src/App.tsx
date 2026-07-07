@@ -8,9 +8,31 @@ import RegisterPage from "@/pages/RegisterPage";
 import DashboardPage from "@/pages/DashboardPage";
 import ProjectLayout from "@/pages/ProjectLayout";
 import NovelPage from "@/pages/NovelPage";
+import AdminLayout from "@/pages/admin/AdminLayout";
+import AdminDashboardPage from "@/pages/admin/AdminDashboardPage";
+import AdminUsersPage from "@/pages/admin/AdminUsersPage";
+import AdminUserDetailPage from "@/pages/admin/AdminUserDetailPage";
+import AdminProjectsPage from "@/pages/admin/AdminProjectsPage";
+import AdminTokenLogsPage from "@/pages/admin/AdminTokenLogsPage";
 
 export default function App() {
   const location = useLocation();
+
+  // Admin routes — standalone layout, no ClientShell/Navbar/Footer
+  if (location.pathname.startsWith("/admin")) {
+    return (
+      <Routes>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="users/:userId" element={<AdminUserDetailPage />} />
+          <Route path="projects" element={<AdminProjectsPage />} />
+          <Route path="tokens" element={<AdminTokenLogsPage />} />
+        </Route>
+      </Routes>
+    );
+  }
+
   return (
     <ClientShell>
       <Navbar />
