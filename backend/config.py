@@ -64,5 +64,6 @@ for _name, _info in _models.items():
 AI_MODEL_MAP.setdefault("haiku", os.getenv("AI_MODEL_HAIKU", "deepseek-v4-flash"))
 AI_MODEL_MAP.setdefault("sonnet", os.getenv("AI_MODEL_SONNET", "deepseek-v4-pro"))
 STORAGE_BACKEND = os.getenv("STORAGE_BACKEND", "local")
+ADMIN_EMAILS = [e.strip() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()]
 # "database" backend uses MySQL-specific syntax (ON DUPLICATE KEY UPDATE, SUBSTRING_INDEX).
 # Designed for CloudBase MySQL — not compatible with PostgreSQL or SQLite.
