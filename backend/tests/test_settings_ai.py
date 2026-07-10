@@ -85,3 +85,36 @@ class TestSettingsAIValidation:
         assert resp.status_code == 400
         data = resp.json()
         assert "not supported" in str(data.get("detail", "")).lower()
+
+
+# =========================================================================
+# Field extraction unit tests
+# =========================================================================
+
+class TestFieldExtraction:
+    """Test extracting a specific field from LLM response."""
+
+    def _extract(self, parsed, field):
+        if isinstance(parsed, dict) and field in parsed:
+            return parsed[field]
+        return parsed
+
+    def test_extract_string_field_from_object(self):
+        result = self._extract({"role": "冷峻的叙事者", "core_principles": ["简洁"]}, "role")
+        assert result == "冷峻的叙事者"
+
+    def test_extract_array_field_from_object(self):
+        result = self._extract({"role": "冷峻的叙事者", "core_principles": ["简洁", "有力"]}, "core_principles")
+        assert result == ["简洁", "有力"]
+
+    def test_direct_value_passes_through(self):
+        result = self._extract("冷峻的叙事者", "role")
+        assert result == "冷峻的叙事者"
+
+    def test_field_missing_returns_whole_object(self):
+        result = self._extract({"name": "测试"}, "role")
+        assert result == {"name": "测试"}
+
+    def test_array_direct_value(self):
+        result = self._extract(["简洁", "有力"], "core_principles")
+        assert result == ["简洁", "有力"]

@@ -14,6 +14,13 @@ from prompts import load as load_prompt
 
 router = APIRouter(prefix="/api/projects/{project_id}/settings", tags=["settings-ai"])
 
+
+def _extract_field_value(parsed: dict | list | str, field: str):
+    """Extract a specific field from LLM response if it's a full settings object."""
+    if isinstance(parsed, dict) and field in parsed:
+        return parsed[field]
+    return parsed
+
 VALID_TYPES = {"world", "style", "anti-ai", "hooks", "characters"}
 # Only these types get per-field generation (anti-ai excluded)
 FIELD_GENERATABLE = {"world", "style", "hooks", "characters"}
@@ -113,11 +120,7 @@ async def generate_field(
             cleaned = cleaned.split("\n", 1)[-1]
             cleaned = cleaned.rsplit("```", 1)[0]
         parsed = json.loads(cleaned.strip())
-        # LLM may return full settings object — extract the requested field
-        if isinstance(parsed, dict) and field in parsed:
-            value = parsed[field]
-        else:
-            value = parsed
+        value = _extract_field_value(parsed, field)
         return {"value": value}
     except Exception as e:
         raise HTTPException(500, f"AI generation failed: {str(e)}")
