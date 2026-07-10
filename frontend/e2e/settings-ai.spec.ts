@@ -17,7 +17,35 @@ test.describe("AI Settings", () => {
     const resp = await page.request.post(`${API_URL}/projects`, {
       data: { name },
       headers: { Authorization: `Bearer ${token}` },
+      test("anti-ai tab has no AI buttons", async ({ page }) => {
+    await page.getByText("反AI规则").click();
+    const aiBtns = page.getByText("AI 帮我填");
+    await expect(aiBtns).toHaveCount(0);
+  });
+
+  // ── Verify backend extracts field value, doesn't return raw JSON ──
+  test("API returns extracted field value not raw JSON", async ({ page }) => {
+    await page.route("**/api/projects/**/settings/ai/style/role", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ value: "冷峻的叙事者" }),
+      });
     });
+    // Click 写作风格 tab
+    await page.getByText("世界设定").first().click();
+    await page.waitForTimeout(500);
+    await page.getByText("写作风格").first().click();
+    await page.waitForTimeout(500);
+    await page.getByText("AI 帮我填").first().click();
+    await expect(page.getByText("AI 建议")).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    const modalText = await page.locator(".modal-box").innerText();
+    expect(modalText).toContain("冷峻的叙事者");
+    expect(modalText).not.toContain('"role"');
+    expect(modalText).not.toContain("core_principles");
+  });
+});
     sharedSlug = (await resp.json()).slug;
     await ctx.close();
   });
