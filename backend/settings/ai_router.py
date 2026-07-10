@@ -112,7 +112,12 @@ async def generate_field(
         if cleaned.startswith("```"):
             cleaned = cleaned.split("\n", 1)[-1]
             cleaned = cleaned.rsplit("```", 1)[0]
-        value = json.loads(cleaned.strip())
+        parsed = json.loads(cleaned.strip())
+        # LLM may return full settings object — extract the requested field
+        if isinstance(parsed, dict) and field in parsed:
+            value = parsed[field]
+        else:
+            value = parsed
         return {"value": value}
     except Exception as e:
         raise HTTPException(500, f"AI generation failed: {str(e)}")
