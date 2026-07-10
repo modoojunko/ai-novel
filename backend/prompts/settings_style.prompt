@@ -6,7 +6,7 @@
 
 请生成写作风格设定的 JSON（只输出 JSON，不要其他文字）：
 {
-  "role": "叙事角色定位（如：上帝视角的说书人）",
+  "role": "叙事角色定位，一句话描述叙事距离和态度",
   "core_principles": ["原则1", "原则2", "原则3"],
   "common_mistakes": ["常见错误1"],
   "depiction_techniques": {
