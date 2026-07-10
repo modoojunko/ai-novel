@@ -150,12 +150,25 @@ async def generate_field(
             }],
             max_tokens=1024,
         )
-        cleaned = text.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[-1]
-            cleaned = cleaned.rsplit("```", 1)[0]
-        parsed = json.loads(cleaned.strip())
+        cleaned = _clean_llm_json(text)
+        cleaned = _repair_json_str(cleaned)
+        parsed = json.loads(cleaned)
         value = _extract_field_value(parsed, field)
         return {"value": value}
+    except (json.JSONDecodeError, ValueError):
+        try:
+            text2 = await client.chat(
+                model="haiku",
+                system="只输出纯 JSON，不要markdown、不要注释、不要中文标点。",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1024,
+            )
+            cleaned2 = _clean_llm_json(text2)
+            cleaned2 = _repair_json_str(cleaned2)
+            parsed2 = json.loads(cleaned2)
+            value2 = _extract_field_value(parsed2, field)
+            return {"value": value2}
+        except Exception as e2:
+            raise HTTPException(500, f"AI generation failed: {str(e2)}")
     except Exception as e:
         raise HTTPException(500, f"AI generation failed: {str(e)}")
