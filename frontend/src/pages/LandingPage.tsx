@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import ThemeToggle from "@/components/novel/ThemeToggle";
+import { isLoggedIn } from "@/lib/auth";
 
 const GH_REPO = "https://github.com/modoojunko/ai-novel";
 const FEEDBACK_URL = `${GH_REPO}/issues/new`;
@@ -42,12 +43,23 @@ export default function LandingPage() {
               ⭐ Star
             </a>
             <ThemeToggle />
-            <Link to="/login" className="text-sm text-base-content/50 hover:text-base-content transition-colors no-underline">
-              登录
-            </Link>
-            <Link to="/register" className="btn btn-primary btn-sm">
-              开始使用
-            </Link>
+            {(() => {
+              const logged = isLoggedIn();
+              return logged ? (
+                <Link to="/dashboard" className="btn btn-primary btn-sm">
+                  我的小说
+                </Link>
+              ) : (
+                <>
+                  <Link to="/login" className="text-sm text-base-content/50 hover:text-base-content transition-colors no-underline">
+                    登录
+                  </Link>
+                  <Link to="/register" className="btn btn-primary btn-sm">
+                    开始使用
+                  </Link>
+                </>
+              );
+            })()}
           </div>
         </div>
       </nav>
