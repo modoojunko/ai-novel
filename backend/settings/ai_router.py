@@ -1,6 +1,7 @@
 """AI-assisted settings generation endpoints."""
 
 import json
+import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +21,40 @@ def _extract_field_value(parsed: dict | list | str, field: str):
     if isinstance(parsed, dict) and field in parsed:
         return parsed[field]
     return parsed
+
+
+def _clean_llm_json(text: str) -> str:
+    """Extract and repair JSON from LLM response. Handles ``` fences."""
+    cleaned = text.strip()
+    # Markdown code fence
+    if "```" in cleaned:
+        for part in cleaned.split("```"):
+            part = part.strip()
+            if not part:
+                continue
+            if part.startswith("json"):
+                part = part[4:].strip()
+            try:
+                json.loads(part)
+                return part
+            except json.JSONDecodeError:
+                continue
+    # Find first { or [ block
+    for left, right in [("{", "}"), ("[", "]")]:
+        start = cleaned.find(left)
+        if start >= 0:
+            end = cleaned.rfind(right)
+            if end > start:
+                return cleaned[start:end + 1]
+    return cleaned
+
+
+def _repair_json_str(s: str) -> str:
+    """Repair trailing commas, single quotes, Python literals."""
+    s = re.sub(r",\s*([}\]])", r"\1", s)
+    s = re.sub(r"(?<=[{, ])'([^']+?)'(?=\s*[:,\]}])", r'"\1"', s)
+    s = s.replace("None", "null").replace("True", "true").replace("False", "false")
+    return s
 
 VALID_TYPES = {"world", "style", "anti-ai", "hooks", "characters"}
 # Only these types get per-field generation (anti-ai excluded)
