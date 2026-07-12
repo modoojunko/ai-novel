@@ -58,6 +58,13 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
   }
 
   async function handleAIGenerate(field: string) {
+    // If field has content already, show it directly (skip API call)
+    const existing = getCurrentFieldValue(field);
+    if (existing) {
+      setAiField(field);
+      setAiContent(typeof existing === "string" ? existing : JSON.stringify(existing, null, 2));
+      return;
+    }
     setAiPendingField(field);
     setAiLoading(true);
     setAiField(field);
@@ -73,6 +80,14 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
       setAiLoading(false);
       setAiPendingField(null);
     }
+  }
+
+  function getCurrentFieldValue(field: string): string | string[] | null {
+    if (field === "role") return role || null;
+    if (field === "core_principles") return principles.length > 0 && principles[0] !== "" ? principles : null;
+    if (field === "common_mistakes") return mistakes.length > 0 && mistakes[0] !== "" ? mistakes : null;
+    if (field === "depiction_techniques") return techniques.length > 0 && techniques[0] !== "" ? techniques : null;
+    return null;
   }
 
   function handleAIAccept() {
