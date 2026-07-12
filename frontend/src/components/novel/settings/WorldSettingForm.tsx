@@ -58,9 +58,9 @@ export default function WorldSettingForm({ projectId, settingKey }: Props) {
     else if (fieldName in rules) setRules((p) => ({ ...p, [fieldName]: value }));
   }
 
-  async function handleAIGenerate(field: string) {
+  async function handleAIGenerate(field: string, forceApi: boolean = false) {
     // If field has content already, show it directly (skip API call)
-    const existing = getFieldValue(field);
+    const existing = !forceApi ? getFieldValue(field) : '';
     if (existing && existing.trim()) {
       setAiField(field);
       setAiContent(existing);
@@ -139,7 +139,7 @@ export default function WorldSettingForm({ projectId, settingKey }: Props) {
         content={aiContent}
         loading={aiLoading}
         onAccept={handleAIAccept}
-        onRetry={() => aiField && handleAIGenerate(aiField)}
+        onRetry={() => aiField && handleAIGenerate(aiField, true)}
         onClose={() => { setAiField(null); setAiContent(""); }}
       />
     </div>
