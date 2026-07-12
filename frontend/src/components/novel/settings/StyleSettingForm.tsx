@@ -57,9 +57,9 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
     finally { setSaving(false); }
   }
 
-  async function handleAIGenerate(field: string) {
+  async function handleAIGenerate(field: string, forceApi: boolean = false) {
     // If field has content already, show it directly (skip API call)
-    const existing = getCurrentFieldValue(field);
+    const existing = !forceApi ? getCurrentFieldValue(field) : null;
     if (existing) {
       setAiField(field);
       setAiContent(typeof existing === "string" ? existing : JSON.stringify(existing, null, 2));
@@ -145,7 +145,7 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
         content={aiContent}
         loading={aiLoading}
         onAccept={handleAIAccept}
-        onRetry={() => aiField && handleAIGenerate(aiField)}
+        onRetry={() => aiField && handleAIGenerate(aiField, true)}
         onClose={() => { setAiField(null); setAiContent(""); }}
       />
     </div>
