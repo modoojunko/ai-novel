@@ -1,7 +1,6 @@
 """AI-assisted settings generation endpoints."""
 
 import json
-import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,49 +13,6 @@ from projects.service import get_project
 from prompts import load as load_prompt
 
 router = APIRouter(prefix="/api/projects/{project_id}/settings", tags=["settings-ai"])
-
-
-def _extract_field_value(parsed: dict | list | str, field: str):
-    """Extract a specific field from LLM response if it's a full settings object."""
-    if isinstance(parsed, dict) and field in parsed:
-        return parsed[field]
-    return parsed
-
-
-def _clean_llm_json(text: str) -> str:
-    """Extract and repair JSON from LLM response. Handles ``` fences."""
-    cleaned = text.strip()
-    # Markdown code fence
-    if "```" in cleaned:
-        for part in cleaned.split("```"):
-            part = part.strip()
-            if not part:
-                continue
-            if part.startswith("json"):
-                part = part[4:].strip()
-            try:
-                json.loads(part)
-                return part
-            except json.JSONDecodeError:
-                continue
-    # Find first { or [ block
-    for left, right in [("{", "}"), ("[", "]")]:
-        start = cleaned.find(left)
-        if start >= 0:
-            end = cleaned.rfind(right)
-            if end > start:
-                return cleaned[start:end + 1]
-    return cleaned
-
-
-def _repair_json_str(s: str) -> str:
-    """Repair trailing commas, single quotes, Python literals."""
-    s = re.sub(r",\s*([}\]])", r"\1", s)
-    s = re.sub(r"(?<=[{, ])'([^']+?)'(?=\s*[:,\]}])", r'"\1"', s)
-    s = s.replace("None", "null").replace("True", "true").replace("False", "false")
-    # Strip control chars
-    s = re.sub(r"[--]", "", s)
-    return s
 
 VALID_TYPES = {"world", "style", "anti-ai", "hooks", "characters"}
 # Only these types get per-field generation (anti-ai excluded)
@@ -141,39 +97,14 @@ async def generate_field(
         text = await client.chat(
             model="haiku",
             system="你是小说设定专家。只输出 JSON，不要任何其他文字。",
-            messages=[{
-                "role": "user",
-                "content": (
-                    f"基于以下故事前提和已有设定，生成字段「{field}」的内容。\n\n"
-                    f"故事前提：{premise}\n"
-                    f"已有设定：{json.dumps(context, ensure_ascii=False)}\n\n"
-                    f"请只输出「{field}」字段的 JSON 值，不要其他字段和文字。
-
-"
-                    f"注意：必须基于以上故事前提来生成，不要使用通用的模板式回答。"
-                )
-            }],
+            messages=[{"role": "user", "content": formatted_prompt}],
             max_tokens=1024,
         )
-        cleaned = _clean_llm_json(text)
-        cleaned = _repair_json_str(cleaned)
-        parsed = json.loads(cleaned)
-        value = _extract_field_value(parsed, field)
+        cleaned = text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[-1]
+            cleaned = cleaned.rsplit("```", 1)[0]
+        value = json.loads(cleaned.strip())
         return {"value": value}
-    except (json.JSONDecodeError, ValueError):
-        try:
-            text2 = await client.chat(
-                model="haiku",
-                system="只输出纯 JSON，不要markdown、不要注释、不要中文标点。",
-                messages=[{"role": "user", "content": formatted_prompt}],
-                max_tokens=1024,
-            )
-            cleaned2 = _clean_llm_json(text2)
-            cleaned2 = _repair_json_str(cleaned2)
-            parsed2 = json.loads(cleaned2)
-            value2 = _extract_field_value(parsed2, field)
-            return {"value": value2}
-        except Exception as e2:
-            raise HTTPException(500, f"AI generation failed: {str(e2)}")
     except Exception as e:
         raise HTTPException(500, f"AI generation failed: {str(e)}")

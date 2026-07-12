@@ -59,6 +59,13 @@ export default function WorldSettingForm({ projectId, settingKey }: Props) {
   }
 
   async function handleAIGenerate(field: string) {
+    // If field has content already, show it directly (skip API call)
+    const existing = getFieldValue(field);
+    if (existing && existing.trim()) {
+      setAiField(field);
+      setAiContent(existing);
+      return;
+    }
     setAiPendingField(field);
     setAiLoading(true);
     setAiField(field);
