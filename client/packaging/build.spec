@@ -7,7 +7,9 @@ from pathlib import Path
 
 block_cipher = None
 
-root_dir = Path(__file__).parent.parent.parent  # project root (contains client/, server/)
+# PyInstaller spec 执行时没有 __file__，使用 SPEC 变量或 cwd
+spec_dir = Path(SPEC).parent if 'SPEC' in dir() else Path.cwd()
+root_dir = spec_dir.parent.parent  # client/packaging/ -> client/ -> project root
 frontend_dist = root_dir / "client" / "frontend" / "dist"
 backend_dir = root_dir / "client" / "backend"
 
@@ -44,14 +46,24 @@ a = Analysis(
         'prompt',
         'write',
         'archive',
-        'workflow',
+        'workflow.engine',
+        'workflow.gates',
         'filesystem',
+        'filesystem.storage',
+        'filesystem.init',
         'story',
+        'story.engine',
+        'story.character_agent',
+        'story.models',
         'threads',
         'novel',
         'models',
+        'models.user',
+        'models.project',
+        'models.token_log',
+        'models.novel_file',
     ],
-    hookspath=[],
+    hookspath=[str(spec_dir / "hooks")],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
