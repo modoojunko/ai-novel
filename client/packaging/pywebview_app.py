@@ -89,7 +89,7 @@ def main():
         resizable=True,
         text_select=True,
     )
-    webview.start(debug=False, window=window)
+    webview.start(debug=False)
 
 
 if __name__ == "__main__":
