@@ -25,10 +25,15 @@ a = Analysis(
         (str(root_dir / "client" / "reference"), "reference"),
     ],
     hiddenimports=[
+        # 核心 — uvicorn.run("main:app") 是字符串引用，必须显式声明
+        'main',
+        'config',
+        'db',
+        'ai_client',
+        # 数据库
         'aiosqlite',
         'sqlalchemy.ext.asyncio',
-        'anthropic',
-        'openai',
+        # AI SDK
         'yaml',
         'httpx',
         'passlib',
