@@ -72,6 +72,11 @@ async def health():
 
 
 # 挂载前端静态文件 — 放在最后避免拦截 API 路由
-frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
-if os.path.isdir(frontend_dist):
+# 开发态: client/backend/../frontend/dist
+# 打包态: 通过 FRONTEND_DIST 环境变量指定（由 pywebview_app.py 设置）
+frontend_dist = (
+    os.environ.get("FRONTEND_DIST")
+    or os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+)
+if frontend_dist and os.path.isdir(frontend_dist):
     app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")

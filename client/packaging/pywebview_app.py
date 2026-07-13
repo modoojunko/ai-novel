@@ -1,36 +1,59 @@
-# packaging/pywebview_app.py
-"""AI Novel 桌面应用入口 — pywebview 壳"""
+# client/packaging/pywebview_app.py
+"""AI Novel 桌面应用入口 — pywebview 壳
+
+PyInstaller 打包后运行在 sys._MEIPASS 临时目录中。
+开发态运行时从 client/packaging/ 按相对路径查找模块。
+"""
 
 import os
 import sys
 import json
 import threading
 import random
-import subprocess
 from pathlib import Path
 
 
-# 确保能找到后端模块
-backend_dir = Path(__file__).parent.parent / "backend"
-if backend_dir.exists():
-    sys.path.insert(0, str(backend_dir))
+def get_base_dir() -> Path:
+    """获取应用基础目录
+
+    PyInstaller 打包后: sys._MEIPASS (exe 的解压临时目录)
+    开发态: client/packaging/pywebview_app.py 的父目录
+    """
+    if getattr(sys, 'frozen', False):
+        return Path(sys._MEIPASS)
+    return Path(__file__).parent
 
 
 def start_server():
     """启动 FastAPI 后端"""
+    # 设置 Python 模块路径
+    base_dir = get_base_dir()
+    backend_dir = base_dir / "backend"
+    if backend_dir.exists():
+        sys.path.insert(0, str(backend_dir))
+
     import uvicorn
+
     # 使用随机端口避免冲突
     port = random.randint(18000, 18999)
-    # 保存端口号供前端调用
-    config_dir = Path(os.environ.get("APPDATA", ".")) / "AI Novel"
-    config_dir.mkdir(parents=True, exist_ok=True)
-    port_file = config_dir / "port.json"
-    with open(port_file, "w") as f:
+
+    # 用户数据目录: %APPDATA%/AI Novel/
+    appdata = Path(os.environ.get("APPDATA", ".")) / "AI Novel"
+    appdata.mkdir(parents=True, exist_ok=True)
+
+    # 保存端口号供后续使用
+    with open(appdata / "port.json", "w") as f:
         json.dump({"port": port}, f)
 
-    # 设置环境变量
-    os.environ.setdefault("DATA_ROOT", str(config_dir / "data"))
-    os.environ.setdefault("SERVER_API_BASE", "https://your-cloudbase-app.com/api")
+    # 环境变量
+    os.environ.setdefault("DATA_ROOT", str(appdata / "data"))
+    os.environ.setdefault("SERVER_API_BASE",
+        os.environ.get("AI_NOVEL_SERVER_API", "https://your-cloudbase-app.com/api"))
+
+    # PyInstaller 打包后，设置前端 dist 路径供 main.py 挂载
+    frontend_dist = base_dir / "frontend"
+    if frontend_dist.exists():
+        os.environ.setdefault("FRONTEND_DIST", str(frontend_dist))
 
     uvicorn.run(
         "main:app",
@@ -42,7 +65,7 @@ def start_server():
 
 def main():
     """主入口"""
-    # 在后台线程启动后端服务
+    # 在后台线程启动后端
     server_thread = threading.Thread(target=start_server, daemon=True)
     server_thread.start()
 
@@ -51,9 +74,8 @@ def main():
     time.sleep(2)
 
     # 读取端口
-    config_dir = Path(os.environ.get("APPDATA", ".")) / "AI Novel"
-    port_file = config_dir / "port.json"
-    with open(port_file) as f:
+    appdata = Path(os.environ.get("APPDATA", ".")) / "AI Novel"
+    with open(appdata / "port.json") as f:
         port = json.load(f)["port"]
 
     # 启动 pywebview 窗口
