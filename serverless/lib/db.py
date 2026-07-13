@@ -1,9 +1,6 @@
 # serverless/lib/db.py
 """CloudBase 数据库操作封装"""
 
-import os
-from typing import Optional, Dict, List, Any
-
 # CloudBase 云函数环境中通过环境变量获取数据库引用
 # 使用全局单例避免每次调用都初始化
 _db = None

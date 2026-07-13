@@ -2,7 +2,6 @@
 """JWT token 签发验证 + bcrypt 密码哈希"""
 
 import os
-import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 
