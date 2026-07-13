@@ -24,6 +24,9 @@ JWT_ALGORITHM = "HS256"
 # 模板路径
 REFERENCE_DIR = os.environ.get("REFERENCE_DIR", "./reference")
 
+# 存储后端（C/S 模式下固定为 local）
+STORAGE_BACKEND = "local"
+
 # S 端 CloudBase API 地址
 SERVER_API_BASE = os.environ.get(
     "SERVER_API_BASE",

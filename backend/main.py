@@ -66,12 +66,12 @@ app.include_router(novel_router)
 app.include_router(chapters_versions_router)
 app.include_router(story_router)
 
-# 挂载前端静态文件
-frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
-if os.path.isdir(frontend_dist):
-    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
-
-
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "mode": "local"}
+
+
+# 挂载前端静态文件 — 放在最后避免拦截 API 路由
+frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+if os.path.isdir(frontend_dist):
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
