@@ -21,8 +21,9 @@ DEFAULT_AI_MODEL = "deepseek-v4-flash"
 JWT_SECRET = os.environ.get("JWT_SECRET", "local-license-secret")
 JWT_ALGORITHM = "HS256"
 
-# 模板路径
-REFERENCE_DIR = os.environ.get("REFERENCE_DIR", "./reference")
+# 模板路径 — 相对于 config.py 的位置 (client/backend/config.py → ../reference/)
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+REFERENCE_DIR = os.environ.get("REFERENCE_DIR", os.path.join(_THIS_DIR, "..", "reference"))
 
 # 存储后端（C/S 模式下固定为 local）
 STORAGE_BACKEND = "local"

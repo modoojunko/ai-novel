@@ -20,7 +20,7 @@ a = Analysis(
         (str(frontend_dist / "index.html"), "frontend"),
         (str(frontend_dist / "assets"), "frontend/assets"),
         # 参考模板 — 运行时在 _MEIPASS/reference/
-        (str(root_dir / "reference"), "reference"),
+        (str(root_dir / "client" / "reference"), "reference"),
     ],
     hiddenimports=[
         'aiosqlite',
