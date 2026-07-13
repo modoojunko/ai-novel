@@ -4,34 +4,16 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import LandingPage from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
-import RegisterPage from "@/pages/RegisterPage";
+import ActivatePage from "@/pages/ActivatePage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
+import ApiKeyConfigPage from "@/pages/ApiKeyConfigPage";
+import DeviceManagePage from "@/pages/DeviceManagePage";
 import DashboardPage from "@/pages/DashboardPage";
 import ProjectLayout from "@/pages/ProjectLayout";
 import NovelPage from "@/pages/NovelPage";
-import AdminLayout from "@/pages/admin/AdminLayout";
-import AdminDashboardPage from "@/pages/admin/AdminDashboardPage";
-import AdminUsersPage from "@/pages/admin/AdminUsersPage";
-import AdminUserDetailPage from "@/pages/admin/AdminUserDetailPage";
-import AdminProjectsPage from "@/pages/admin/AdminProjectsPage";
-import AdminTokenLogsPage from "@/pages/admin/AdminTokenLogsPage";
 
 export default function App() {
   const location = useLocation();
-
-  // Admin routes — standalone layout, no ClientShell/Navbar/Footer
-  if (location.pathname.startsWith("/admin")) {
-    return (
-      <Routes>
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminDashboardPage />} />
-          <Route path="users" element={<AdminUsersPage />} />
-          <Route path="users/:userId" element={<AdminUserDetailPage />} />
-          <Route path="projects" element={<AdminProjectsPage />} />
-          <Route path="tokens" element={<AdminTokenLogsPage />} />
-        </Route>
-      </Routes>
-    );
-  }
 
   return (
     <ClientShell>
@@ -40,7 +22,11 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/register" element={<ActivatePage />} />
+          <Route path="/activate" element={<ActivatePage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/config" element={<ApiKeyConfigPage />} />
+          <Route path="/devices" element={<DeviceManagePage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/project/:slug" element={<ProjectLayout />}>
             <Route index element={<NovelPage />} />

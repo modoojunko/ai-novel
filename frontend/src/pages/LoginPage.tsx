@@ -1,70 +1,63 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { login } from "@/lib/auth";
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { request } from '../lib/api';
+import { setToken } from '../lib/auth';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState("");
   const navigate = useNavigate();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    try {
-      await login(email, password, rememberMe);
-      navigate("/dashboard");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Login failed");
+  const handleLogin = async () => {
+    if (!username.trim() || !password) { setError('请输入用户名和密码'); return; }
+    setLoading(true);
+    setError('');
+    const res = await request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: username.trim(), password }),
+    });
+    setLoading(false);
+    if (res.code === 0) {
+      setToken(res.data.token, username.trim());
+      navigate('/dashboard');
+    } else {
+      setError(res.msg || '登录失败');
     }
-  }
+  };
 
   return (
-    <main className="min-h-screen flex items-center justify-center">
-      <div className="card bg-base-200 border border-base-300 sm:max-w-md w-full mx-4 shadow-lg">
-        <div className="card-body">
-          <h2 className="card-title font-display">登录</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <input
-              type="email"
-              placeholder="邮箱"
-              className="input input-bordered w-full"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <input
-              type="password"
-              placeholder="密码"
-              className="input input-bordered w-full"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-            />
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="checkbox checkbox-sm checkbox-primary"
-              />
-              <span className="text-xs text-base-content/50">记住我（保持登录 30 天）</span>
-            </label>
+    <div className="hero min-h-screen bg-base-200">
+      <div className="hero-content flex-col">
+        <div className="text-center mb-4">
+          <h1 className="text-3xl font-bold">AI Novel</h1>
+          <p className="text-base-content/60">登录你的账号</p>
+        </div>
+        <div className="card w-full max-w-sm bg-base-100 shadow-xl">
+          <div className="card-body">
+            <div className="form-control">
+              <label className="label"><span className="label-text">用户名</span></label>
+              <input type="text" className="input input-bordered"
+                value={username} onChange={e => setUsername(e.target.value)} />
+            </div>
+            <div className="form-control">
+              <label className="label"><span className="label-text">密码</span></label>
+              <input type="password" className="input input-bordered"
+                value={password} onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleLogin()} />
+            </div>
             {error && <p className="text-error text-sm">{error}</p>}
-            <button type="submit" className="btn btn-primary w-full">
-              登录
+            <button className="btn btn-primary mt-4" onClick={handleLogin} disabled={loading}>
+              {loading ? <span className="loading loading-spinner" /> : '登录'}
             </button>
-            <p className="text-sm text-center text-base-content/60">
-              没有账号？{" "}
-              <Link to="/register" className="link link-primary">
-                注册
-              </Link>
-            </p>
-          </form>
+            <div className="flex justify-between mt-2 text-sm">
+              <a href="/#/activate" className="link link-hover">激活新 License</a>
+              <a href="/#/reset-password" className="link link-hover">忘记密码？</a>
+            </div>
+          </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

@@ -1,27 +1,28 @@
-import { getToken, clearToken } from "./auth";
+import { getToken } from "./auth";
 
 import { getApiBaseUrl } from "./env";
 
 const BASE = `${getApiBaseUrl()}/api`;
 
-async function request(method: string, path: string, body?: unknown): Promise<any> {
-  const headers: Record<string, string> = {};
+export async function request(path: string, options?: { method?: string; body?: string; headers?: Record<string, string> }): Promise<any> {
+  const method = options?.method || 'GET';
+  const headers: Record<string, string> = { ...(options?.headers || {}) };
+
   const token = getToken();
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  if (body !== undefined) {
+  if (options?.body) {
     headers["Content-Type"] = "application/json";
   }
 
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: options?.body,
   });
 
   if (res.status === 401) {
-    clearToken();
     window.location.hash = "#/login";
     throw new Error("Unauthorized");
   }
@@ -35,8 +36,8 @@ async function request(method: string, path: string, body?: unknown): Promise<an
 }
 
 export const api = {
-  get: (path: string) => request("GET", path),
-  post: (path: string, body?: unknown) => request("POST", path, body),
-  put: (path: string, body?: unknown) => request("PUT", path, body),
-  delete: (path: string) => request("DELETE", path),
+  get: (path: string) => request(path),
+  post: (path: string, body?: unknown) => request(path, { method: 'POST', body: body !== undefined ? JSON.stringify(body) : undefined }),
+  put: (path: string, body?: unknown) => request(path, { method: 'PUT', body: body !== undefined ? JSON.stringify(body) : undefined }),
+  delete: (path: string) => request(path, { method: 'DELETE' }),
 };

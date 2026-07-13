@@ -1,49 +1,25 @@
-import { getApiBaseUrl } from "./env";
+const TOKEN_KEY = 'auth_token';
+const USERNAME_KEY = 'auth_username';
 
 export function getToken(): string | null {
-  return localStorage.getItem("token");
+  return localStorage.getItem(TOKEN_KEY);
 }
 
-export function setToken(token: string): void {
-  localStorage.setItem("token", token);
+export function setToken(token: string, username: string) {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(USERNAME_KEY, username);
 }
 
-export function clearToken(): void {
-  localStorage.removeItem("token");
+export function getUsername(): string | null {
+  return localStorage.getItem(USERNAME_KEY);
 }
 
 export function isLoggedIn(): boolean {
   return !!getToken();
 }
 
-export async function login(email: string, password: string, rememberMe = false) {
-  const base = getApiBaseUrl();
-  const res = await fetch(`${base}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, remember_me: rememberMe }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || "Login failed");
-  }
-  const data = await res.json();
-  setToken(data.access_token);
-  return data.user;
-}
-
-export async function register(email: string, password: string, displayName: string) {
-  const base = getApiBaseUrl();
-  const res = await fetch(`${base}/api/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, display_name: displayName }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || "Registration failed");
-  }
-  const data = await res.json();
-  setToken(data.access_token);
-  return data.user;
+export function logout() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USERNAME_KEY);
+  window.location.href = '/#/login';
 }
