@@ -30,3 +30,8 @@ frontend/out/
 # Data
 backend/data/
 ai_config.yaml
+
+# Build output
+client/packaging/build/
+client/packaging/dist/
+
