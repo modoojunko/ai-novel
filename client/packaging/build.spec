@@ -7,9 +7,9 @@ from pathlib import Path
 
 block_cipher = None
 
-root_dir = Path(__file__).parent.parent
-frontend_dist = root_dir / "frontend" / "dist"
-backend_dir = root_dir / "backend"
+root_dir = Path(__file__).parent.parent.parent  # project root (contains client/, server/)
+frontend_dist = root_dir / "client" / "frontend" / "dist"
+backend_dir = root_dir / "client" / "backend"
 
 a = Analysis(
     ['pywebview_app.py'],

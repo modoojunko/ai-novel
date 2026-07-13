@@ -63,6 +63,14 @@ def load_or_create_config() -> dict:
         cfg["pc_hash"] = generate_pc_hash()
         cfg["pc_name"] = platform.node() or "My PC"
         changed = True
+    # DEV_MODE: 自动创建用户，跳过验证
+    if os.environ.get("DEV_MODE") and not cfg.get("username"):
+        cfg["username"] = "devuser"
+        cfg["tier"] = "dev"
+        cfg["expires_at"] = (date.today() + timedelta(days=3650)).isoformat()  # 10年
+        cfg["last_verify_at"] = datetime.now().isoformat()
+        cfg["locked"] = False
+        changed = True
     if changed:
         save_local_config(cfg)
     return cfg
@@ -149,6 +157,18 @@ async def activate(activation_code: str, username: str, password: str,
 
 async def login(username: str, password: str) -> dict:
     """登录验证"""
+    # DEV_MODE: 跳过验证，直接返回成功
+    if os.environ.get("DEV_MODE"):
+        cfg = load_or_create_config()
+        return {
+            "code": 0,
+            "data": {
+                "token": "dev-token",
+                "expires_at": cfg.get("expires_at", ""),
+                "tier": "dev",
+                "devices": [],
+            }
+        }
     cfg = load_or_create_config()
     payload = {
         "username": username,
@@ -172,6 +192,11 @@ async def login(username: str, password: str) -> dict:
 async def verify_license() -> dict:
     """启动时验证 License，支持离线缓存"""
     cfg = load_or_create_config()
+
+    # DEV_MODE: 跳过所有验证
+    if os.environ.get("DEV_MODE"):
+        return {"valid": True, "expires_at": cfg.get("expires_at", ""), "dev_mode": True}
+
     if not cfg.get("username") or not cfg.get("token"):
         return {"valid": False, "msg": "未激活"}
 

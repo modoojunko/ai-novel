@@ -33,6 +33,9 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     返回格式: {"id": username}
     C/S 模式下不检查 JWT，直接从本地配置读取用户名。
     """
+    # DEV_MODE: 自动返回 dev 用户
+    if os.environ.get("DEV_MODE"):
+        return {"id": "devuser"}
     username = get_local_username()
     if not username:
         raise HTTPException(status_code=401, detail="未登录")

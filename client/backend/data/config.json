@@ -1,0 +1,12 @@
+{
+  "username": "devuser",
+  "pc_hash": "d8156bae0c4243d3742fc4e9774d8ace",
+  "pc_name": "ZK-PC",
+  "api_key": "",
+  "api_base_url": "https://api.deepseek.com/anthropic",
+  "api_model": "deepseek-v4-flash",
+  "tier": "dev",
+  "expires_at": "2036-07-10",
+  "last_verify_at": "2026-07-13T15:09:07.661727",
+  "locked": false
+}
