@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth.middleware import get_current_user
+from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
 from projects.service import get_project
@@ -32,8 +32,8 @@ async def run_perspective_conversion(
     pov = chapter.get("pov_character", "主角")
 
     from ai_client import create_ai_client, resolve_model
-    from billing.service import log_token_usage
 
+    # C/S: Token tracking removed — user brings own API key
     client = create_ai_client()
     message = await client.messages.create(
         model=resolve_model("haiku"),
