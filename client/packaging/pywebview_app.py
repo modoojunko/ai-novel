@@ -117,46 +117,98 @@ def wait_for_server(appdata: Path, timeout: int = 15) -> int:
     return None
 
 
+LOADING_HTML = """<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    display: flex; justify-content: center; align-items: center;
+    height: 100vh; font-family: -apple-system, sans-serif;
+    flex-direction: column; color: #e0e0e0;
+  }
+  .spinner {
+    width: 64px; height: 64px; border: 4px solid rgba(255,255,255,0.1);
+    border-top-color: #64b5f6; border-radius: 50%;
+    animation: spin 1s linear infinite; margin-bottom: 24px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .title { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+  .subtitle { font-size: 14px; color: #888; animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.4; } }
+</style>
+</head>
+<body>
+  <div class="spinner"></div>
+  <div class="title">AI Novel</div>
+  <div class="subtitle">正在启动…</div>
+</body>
+</html>"""
+
+
+def check_backend_and_navigate(window, appdata):
+    """后台轮询，等后端就绪后跳转到应用页面"""
+    port = wait_for_server(appdata, timeout=60)
+    if port:
+        with open(appdata / "startup.log", "a") as f:
+            f.write(f"[{time.strftime('%H:%M:%S')}] Backend ready, navigating...\n")
+        window.load_url(f"http://127.0.0.1:{port}")
+    else:
+        # 超时，弹错误
+        import ctypes
+        try:
+            with open(appdata / "startup.log") as f:
+                logs = f.read()
+        except Exception:
+            logs = "无日志"
+        ctypes.windll.user32.MessageBoxW(0,
+            f"后端启动超时，请检查日志:\n{appdata / 'startup.log'}\n\n{logs[-500:]}",
+            "AI Novel 错误", 0x10)
+
+
 def main():
     """主入口"""
     appdata = Path(os.environ.get("APPDATA", ".")) / "AI Novel"
-    log_file = appdata / "startup.log"
+    appdata.mkdir(parents=True, exist_ok=True)
 
     # 在后台线程启动后端
     server_thread = threading.Thread(target=start_server, daemon=True)
     server_thread.start()
 
-    with open(log_file, "a") as f:
+    with open(appdata / "startup.log", "a") as f:
         f.write(f"[{time.strftime('%H:%M:%S')}] Started server thread\n")
 
-    # 等待后端启动（最多 15 秒）
-    port = wait_for_server(appdata)
-    if port is None:
-        # 超时，试试读日志
-        with open(log_file) as f:
-            logs = f.read()
-        # 弹错误消息再退出
-        import ctypes
-        ctypes.windll.user32.MessageBoxW(0,
-            f"后端启动失败，请检查日志:\n{log_file}\n\n{logs[-500:]}",
-            "AI Novel 错误", 0x10)
-        return
-
-    with open(log_file, "a") as f:
-        f.write(f"[{time.strftime('%H:%M:%S')}] Backend ready on port {port}\n")
-
-    # 启动 pywebview 窗口
+    # 先弹出 pywebview 窗口显示加载动画，再等后端就绪
+    # 自适应屏幕分辨率
     import webview
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        sw = user32.GetSystemMetrics(0)  # 屏幕宽度
+        sh = user32.GetSystemMetrics(1)  # 屏幕高度
+        win_w = sw - 80  # 留边距
+        win_h = sh - 60
+    except Exception:
+        win_w, win_h = 1400, 900
     window = webview.create_window(
         title="AI Novel",
-        url=f"http://127.0.0.1:{port}",
-        width=1400,
-        height=900,
+        html=LOADING_HTML,
+        width=win_w,
+        height=win_h,
         min_size=(1024, 680),
         resizable=True,
         text_select=True,
-        fullscreen=True,
     )
+
+    # 启动轮询线程（窗口显示后后端才可能就绪）
+    threading.Thread(
+        target=check_backend_and_navigate,
+        args=(window, appdata),
+        daemon=True,
+    ).start()
+
     webview.start(debug=False)
 
 
