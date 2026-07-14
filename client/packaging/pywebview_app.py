@@ -31,6 +31,11 @@ def start_server():
     log_file = appdata / "startup.log"
     try:
         import uvicorn
+        # GUI 模式下 sys.stdout/stderr 为 None，uvicorn 会崩溃
+        if sys.stdout is None:
+            sys.stdout = open(os.devnull, "w")
+        if sys.stderr is None:
+            sys.stderr = open(os.devnull, "w")
 
         # 设置环境变量
         os.environ.setdefault("DATA_ROOT", str(appdata / "data"))
@@ -52,11 +57,36 @@ def start_server():
         with open(log_file, "a") as f:
             f.write(f"[{time.strftime('%H:%M:%S')}] Starting uvicorn on port {port}\n")
 
+        # GUI 模式下 sys.stdout 为 None，uvicorn 的日志格式化会崩溃
+        # 方案: 将日志输出重定向到文件
+        log_config = {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                "default": {
+                    "()": "uvicorn.logging.DefaultFormatter",
+                    "fmt": "%(levelprefix)s %(message)s",
+                    "use_colors": False,
+                },
+            },
+            "handlers": {
+                "default": {
+                    "formatter": "default",
+                    "class": "logging.FileHandler",
+                    "filename": str(appdata / "uvicorn.log"),
+                    "mode": "a",
+                },
+            },
+            "loggers": {
+                "uvicorn": {"handlers": ["default"], "level": "WARNING", "propagate": False},
+                "uvicorn.error": {"handlers": ["default"], "level": "WARNING", "propagate": False},
+            },
+        }
         uvicorn.run(
             "main:app",
             host="127.0.0.1",
             port=port,
-            log_level="info",
+            log_config=log_config,
         )
     except Exception as e:
         with open(log_file, "a") as f:
@@ -125,6 +155,7 @@ def main():
         min_size=(1024, 680),
         resizable=True,
         text_select=True,
+        fullscreen=True,
     )
     webview.start(debug=False)
 
