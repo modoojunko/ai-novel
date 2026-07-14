@@ -168,33 +168,37 @@ def check_backend_and_navigate(window, appdata):
             "AI Novel 错误", 0x10)
 
 
+def ensure_loading_page(appdata: Path) -> str:
+    """把加载 HTML 写入本地文件，返回 file:// URL"""
+    loading_path = appdata / "loading.html"
+    loading_path.write_text(LOADING_HTML, encoding="utf-8")
+    return loading_path.as_uri()
+
+
 def main():
     """主入口"""
     appdata = Path(os.environ.get("APPDATA", ".")) / "AI Novel"
     appdata.mkdir(parents=True, exist_ok=True)
 
-    # 在后台线程启动后端
-    server_thread = threading.Thread(target=start_server, daemon=True)
-    server_thread.start()
+    # 把加载页写入临时文件
+    loading_url = ensure_loading_page(appdata)
 
-    with open(appdata / "startup.log", "a") as f:
-        f.write(f"[{time.strftime('%H:%M:%S')}] Started server thread\n")
-
-    # 先弹出 pywebview 窗口显示加载动画，再等后端就绪
     # 自适应屏幕分辨率
-    import webview
     try:
         import ctypes
         user32 = ctypes.windll.user32
-        sw = user32.GetSystemMetrics(0)  # 屏幕宽度
-        sh = user32.GetSystemMetrics(1)  # 屏幕高度
-        win_w = sw - 80  # 留边距
+        sw = user32.GetSystemMetrics(0)
+        sh = user32.GetSystemMetrics(1)
+        win_w = sw - 80
         win_h = sh - 60
     except Exception:
         win_w, win_h = 1400, 900
+
+    # 先弹出 pywebview 窗口显示加载动画
+    import webview
     window = webview.create_window(
         title="AI Novel",
-        html=LOADING_HTML,
+        url=loading_url,
         width=win_w,
         height=win_h,
         min_size=(1024, 680),
@@ -202,7 +206,14 @@ def main():
         text_select=True,
     )
 
-    # 启动轮询线程（窗口显示后后端才可能就绪）
+    # 后台启动后端
+    server_thread = threading.Thread(target=start_server, daemon=True)
+    server_thread.start()
+
+    with open(appdata / "startup.log", "a") as f:
+        f.write(f"[{time.strftime('%H:%M:%S')}] Started server thread\n")
+
+    # 后台轮询，等后端就绪后跳转
     threading.Thread(
         target=check_backend_and_navigate,
         args=(window, appdata),
