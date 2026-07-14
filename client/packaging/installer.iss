@@ -1,0 +1,63 @@
+; client/packaging/installer.iss
+; AI Novel — Inno Setup 安装脚本
+; 需要先安装 Inno Setup: https://jrsoftware.org/isdl.php
+;
+; 构建安装包:
+;   1. 先运行 build.bat（生成 onedir 输出到 dist/AI Novel/）
+;   2. 用 Inno Setup 打开本文件，点 Build → Compile
+;   3. 或者命令行: iscc installer.iss
+
+#define MyAppName "AI Novel"
+#define MyAppVersion "4.0.0"
+#define MyAppPublisher "AI Novel"
+#define MyAppURL "https://github.com/mooodjunko/ai-novel"
+#define MyAppExeName "AI Novel.exe"
+
+[Setup]
+; 基础设置
+AppId={{B8F1A2D3-4E5F-6A7B-8C9D-0E1F2A3B4C5D}
+AppName={#MyAppName}
+AppVersion={#MyAppVersion}
+AppPublisher={#MyAppPublisher}
+AppPublisherURL={#MyAppURL}
+DefaultDirName={autopf}\{#MyAppName}
+DefaultGroupName={#MyAppName}
+DisableProgramGroupPage=yes
+; 输出
+OutputDir=.\dist_installer
+OutputBaseFilename=AI_Novel_Setup_v{#MyAppVersion}
+; 图标
+SetupIconFile=icon.ico
+; 压缩
+Compression=lzma2/ultra
+SolidCompression=yes
+; Windows 版本要求
+MinVersion=10.0.0
+; 管理员权限（写入 Program Files）
+PrivilegesRequired=admin
+; 卸载
+Uninstallable=yes
+UninstallDisplayIcon={app}\{#MyAppExeName}
+
+[Languages]
+Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Tasks]
+Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "快捷方式："; Flags: checkedonce
+
+[Files]
+; PyInstaller onedir 输出的所有文件
+Source: "dist\AI Novel\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[Icons]
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+
+[Run]
+; 安装完成后是否立即运行
+Filename: "{app}\{#MyAppExeName}"; Description: "运行 {#MyAppName}"; Flags: postinstall nowait skipifsilent
+
+[UninstallRun]
+; 卸载时清理用户数据
+Filename: "{cmd}"; Parameters: "/C rmdir /S /Q ""{userappdata}\AI Novel"""; Flags: runhidden
