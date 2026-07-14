@@ -248,6 +248,36 @@ async def api_activate(req: ActivateRequest):
         return {"code": -1, "msg": str(e)}
 
 
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    security_question: str = ""
+    security_answer: str = ""
+    pc_hash: str = ""
+    pc_name: str = ""
+
+
+@app.post("/api/register")
+async def api_register(req: RegisterRequest):
+    """注册（无激活码）"""
+    try:
+        conn = get_db()
+        username = req.username.strip()
+        existing = conn.execute("SELECT 1 FROM users WHERE username=?", (username,)).fetchone()
+        if existing:
+            conn.close()
+            return {"code": 1, "msg": "用户名已存在"}
+        conn.execute(
+            "INSERT INTO users (username, password_hash, security_question, security_answer_hash, status, created_at) VALUES (?, ?, ?, ?, 'active', datetime('now'))",
+            (username, hash_password(req.password), req.security_question, hash_password(req.security_answer))
+        )
+        conn.commit()
+        conn.close()
+        return {"code": 0, "data": {"token": f"local-token-{username}", "message": "注册成功"}}
+    except Exception as e:
+        return {"code": -1, "msg": str(e)}
+
+
 @app.post("/api/login")
 async def api_login(req: LoginRequest):
     try:

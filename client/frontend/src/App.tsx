@@ -4,10 +4,8 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import LandingPage from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
-import ActivatePage from "@/pages/ActivatePage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import ApiKeyConfigPage from "@/pages/ApiKeyConfigPage";
-import DeviceManagePage from "@/pages/DeviceManagePage";
 import DashboardPage from "@/pages/DashboardPage";
 import ProjectLayout from "@/pages/ProjectLayout";
 import NovelPage from "@/pages/NovelPage";
@@ -22,11 +20,9 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<ActivatePage />} />
-          <Route path="/activate" element={<ActivatePage />} />
+          <Route path="/register" element={<LoginPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/config" element={<ApiKeyConfigPage />} />
-          <Route path="/devices" element={<DeviceManagePage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/project/:slug" element={<ProjectLayout />}>
             <Route index element={<NovelPage />} />
