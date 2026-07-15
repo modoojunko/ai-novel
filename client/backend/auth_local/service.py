@@ -10,7 +10,6 @@ import webbrowser
 import time
 import asyncio
 from datetime import datetime, timedelta, date
-from pathlib import Path
 
 import httpx
 

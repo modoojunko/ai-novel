@@ -43,17 +43,7 @@ async def run_perspective_conversion(
     )
     guidance = message.content[0].text
 
-    await log_token_usage(
-        db,
-        user["id"],
-        str(project.id),
-        chapter_ref,
-        "perspective_conversion",
-        "haiku",
-        message.usage.input_tokens,
-        message.usage.output_tokens,
-    )
-
+    # C/S: Token tracking removed — user brings own API key
     chapter["outline"]["perspective_guidance"] = guidance
     await get_storage().write_yaml(
         project.root_path, f"chapters/{chapter_ref}.yaml", chapter

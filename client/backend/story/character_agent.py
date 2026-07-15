@@ -93,7 +93,7 @@ def _repair_json(text: str) -> str | None:
 
 def _extract_fallback_text(text: str) -> dict | None:
     """Last resort: extract whatever useful info we can from plain text."""
-    lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
+    lines = [line.strip() for line in text.strip().split("\n") if line.strip()]
     for line in lines[:5]:
         if any(kw in line for kw in ["分析", "评估", "考虑", "因为", "所以", "决定"]):
             continue
@@ -240,7 +240,7 @@ async def run_character_decision(
 
     logger.error("All LLM attempts failed for %s round %d — using fallback", character.character_id, round_num)
     return Decision(
-        character_id=character_id, sensory_input=sensory,
+        character_id=character.character_id, sensory_input=sensory,
         log=_FALLBACK, round=round_num, timestamp=int(time.time()),
     )
 

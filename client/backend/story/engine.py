@@ -31,7 +31,7 @@ class DeductionEngine:
     async def load_from_project(self, chapter_ref: str | None = None):
         """Load stage and character data from project files."""
         # Load story premise and world setting
-        story = await get_storage().read_yaml(self.root_path, "story.yaml") or {}
+        await get_storage().read_yaml(self.root_path, "story.yaml")
         world = await get_storage().read_yaml(self.root_path, "settings/world-setting.yaml") or {}
 
         self.stage.terrain = self._get_nested(world, "geography.scenes", "")
@@ -129,7 +129,6 @@ class DeductionEngine:
         for cid, char in self.characters.items():
             see_parts = []
             hear_parts = []
-            smell_parts = []
             feel_parts = []
 
             # Environment

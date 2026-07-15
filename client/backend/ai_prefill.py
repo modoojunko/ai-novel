@@ -2,11 +2,9 @@
 
 from ai_client import get_ai_client
 from filesystem.storage import get_storage
-
+from prompts import load as load_prompt
 
 WORLD_FIELDS = ["geography", "politics", "culture", "rules", "history"]
-
-from prompts import load as load_prompt
 
 
 async def prefill_world_setting(root_path: str) -> dict:

@@ -1,6 +1,4 @@
 from filesystem.storage import get_storage
-from projects.service import get_project
-from db import get_db
 
 
 async def build_project_tree(project_id: str, root_path: str) -> dict:
