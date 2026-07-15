@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { request } from '../lib/api';
+import { toast } from '../lib/toast';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ export default function LoginPage() {
       body: JSON.stringify({ username: username.trim(), password }),
     });
     setLoading(false);
-    if (res.code === 0) { navigate('/dashboard'); }
+    if (res.code === 0) { toast.success('登录成功'); navigate('/dashboard'); }
     else { setError(res.msg || '登录失败'); }
   };
 

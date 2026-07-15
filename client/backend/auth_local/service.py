@@ -66,34 +66,45 @@ def load_or_create_config() -> dict:
 
 
 def generate_pc_hash() -> str:
+    """生成本机唯一标识
+
+    优先使用 wmic 获取硬件序列号（Windows），
+    失败时 fallback 到 hostname + 机器 SID。
+    """
     info = []
     try:
-        result = subprocess.run(
-            ["wmic", "cpu", "get", "ProcessorId"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            lines = result.stdout.strip().split("\n")
-            if len(lines) > 1:
-                info.append(lines[1].strip())
-        result = subprocess.run(
-            ["wmic", "baseboard", "get", "SerialNumber"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            lines = result.stdout.strip().split("\n")
-            if len(lines) > 1:
-                info.append(lines[1].strip())
-        result = subprocess.run(
-            ["wmic", "diskdrive", "get", "SerialNumber"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            lines = result.stdout.strip().split("\n")
-            if len(lines) > 1:
-                info.append(lines[1].strip())
+        for wmic_query in ["cpu get ProcessorId", "baseboard get SerialNumber", "diskdrive get SerialNumber"]:
+            try:
+                result = subprocess.run(
+                    ["wmic"] + wmic_query.split(),
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0:
+                    lines = result.stdout.strip().split("\n")
+                    if len(lines) > 1:
+                        val = lines[1].strip()
+                        if val:
+                            info.append(val)
+            except Exception:
+                continue
     except Exception:
         pass
+
+    if not info:
+        # Fallback: hostname + machine SID
+        try:
+            info.append(platform.node() or "")
+            result = subprocess.run(
+                ["wmic", "os", "get", "SerialNumber"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                lines = result.stdout.strip().split("\n")
+                if len(lines) > 1:
+                    info.append(lines[1].strip())
+        except Exception:
+            pass
+
     raw = "-".join(info) or platform.node() or "unknown"
     return hashlib.sha256(raw.encode()).hexdigest()[:32]
 

@@ -1,3 +1,5 @@
+# DEPRECATED (C/S): Token tracking removed — user brings own API key.
+# Model retained for schema compatibility; table will be empty.
 import uuid
 from datetime import datetime
 
