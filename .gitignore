@@ -32,6 +32,7 @@ backend/data/
 ai_config.yaml
 
 # Build output
-client/packaging/build/
+client/packaging/build/dist/
+client/packaging/build/build/
 client/packaging/dist/
 

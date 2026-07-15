@@ -56,6 +56,8 @@ Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
+; 重命名卸载程序为 uninstall.exe
+Filename: "{cmd}"; Parameters: "/C rename ""{app}\unins000.exe"" ""uninstall.exe"" 2>nul"; Flags: runhidden
 ; 安装完成后是否立即运行
 Filename: "{app}\{#MyAppExeName}"; Description: "运行 {#MyAppName}"; Flags: postinstall nowait skipifsilent
 
