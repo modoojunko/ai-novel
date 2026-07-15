@@ -65,29 +65,30 @@ These guidelines are working if: fewer unnecessary changes in diffs, fewer rewri
 ## Commands
 
 ```bash
-# Start all services (Docker Compose)
-docker compose up -d
+# Start C端 backend (dev mode, no License needed)
+cd client/backend && mkdir -p data
+DEV_MODE=1 DATA_ROOT=./data uvicorn main:app --reload --host 127.0.0.1 --port 8000
 
-# Backend only (for API dev)
-docker compose up -d postgres && cd backend && uvicorn main:app --reload --port 8000
+# Start S端 local simulator (for License testing)
+python server/local_server.py
 
 # Frontend only (for UI dev)
-cd frontend && npm run dev
+cd client/frontend && npm run dev
 
 # Build frontend for production
-cd frontend && npm run build
+cd client/frontend && npm run build
 
 # Preview production build
-cd frontend && npm run preview
+cd client/frontend && npm run preview
 
 # Type-check frontend
-cd frontend && npx tsc --noEmit
+cd client/frontend && npx tsc --noEmit
 
 # Run a single backend test
-cd backend && python -m pytest tests/ -k "test_name"
+cd client/backend && python -m pytest tests/ -k "test_name"
 
 # Run all backend API tests
-cd backend && python -m pytest tests/ -v
+cd client/backend && python -m pytest tests/ -v
 
 # Run all frontend E2E tests (requires Docker running on :80)
 cd frontend && npx playwright test
@@ -100,69 +101,60 @@ bash scripts/test-all.sh
 
 ```mermaid
 flowchart LR
-    Nginx["Nginx (:80)"] -->|/api/*| FastAPI["FastAPI / uvicorn (:8000)"]
-    Nginx -->|/*| SPA["Vite SPA (:80 nginx / :5173 dev)"]
-    FastAPI --> PostgreSQL[("PostgreSQL 16")]
-    FastAPI --> FS[("Filesystem / novel_files table")]
+    subgraph client ["C端 — 用户本地 (client/)"]
+        FastAPI["FastAPI / uvicorn"]
+        SPA["React SPA"]
+        pywebview["pywebview 窗口"]
+        SQLite[("SQLite")]
+        FS[("本地文件 / data/")]
+    end
+    subgraph server ["S端 — CloudBase (server/)"]
+        CF["云函数 (Python)"]
+        CDB[("云数据库")]
+        SH["静态托管"]
+    end
+    
+    pywebview -->|Edge WebView2| SPA
+    SPA -->|localhost:8000| FastAPI
+    FastAPI --> SQLite
+    FastAPI --> FS
+    FastAPI -->|仅激活/登录/验证| CF
+    CF --> CDB
 ```
 
-Single Docker Compose host. SSE for streaming prose generation. No Redis, no task queue.
+Single user desktop app. C端 runs everything locally (FastAPI + SQLite + React SPA in pywebview). S端 only handles License auth via CloudBase cloud functions. SSE for streaming prose generation.
 
-Frontend is a React 19 SPA built with Vite, served by nginx in production. During development, Vite dev server runs on :5173 with `/api` proxied to :8000.
-
-## Backend structure
+## Directory Structure
 
 ```
-backend/
-  main.py              — FastAPI app, lifespan (auto-create tables), router wiring
-  config.py            — env vars: DATABASE_URL, JWT_SECRET, ANTHROPIC_API_KEY, DATA_ROOT, STORAGE_BACKEND
-  db.py                — async SQLAlchemy engine + session factory + Base
-  models/              — SQLAlchemy ORM: User, Project, TokenLog, NovelFile
-  auth/                — JWT register/login/me + Bearer middleware
-  projects/            — project CRUD + filesystem skeleton init
-  settings/            — read/write YAML settings (world/style/anti-ai/hooks/characters)
-  chapters/            — volume + chapter CRUD with gate confirmation
-  workflow/            — phase state machine + gate validation functions
-  prompt/              — assembler (perspective conversion, context injection, prompt generation)
-  write/               — SSE streaming per segment + 6 quality checks
-  archive/             — finalize prose to archives/, update threads + characters + hooks
-  billing/             — token usage logging + usage summary API
-  filesystem/          — YAML/MD reader/writer, project skeleton init, storage abstraction
+ai-novel/
+├── client/                    # C端 — 用户本地桌面应用
+│   ├── backend/              FastAPI 后端
+│   │   ├── main.py           FastAPI app, lifespan (auto-create tables), router wiring
+│   │   ├── config.py         本地配置 (DATA_ROOT, JWT_SECRET, SERVER_API_BASE)
+│   │   ├── db.py             SQLAlchemy + SQLite
+│   │   ├── ai_client.py      动态 API Key 的 AI 客户端
+│   │   ├── models/           SQLAlchemy ORM: User, Project, TokenLog, NovelFile
+│   │   ├── auth_local/       License 验证模块 (S端通信 + 离线缓存)
+│   │   ├── projects/         项目 CRUD
+│   │   ├── settings/         设定管理 + AI 生成
+│   │   ├── chapters/         卷章 CRUD
+│   │   ├── workflow/         阶段机 + gate 验证
+│   │   ├── prompt/           提示词组装
+│   │   ├── write/            SSE 流式写作
+│   │   ├── archive/          归档
+│   │   ├── filesystem/       本地文件存储
+│   │   └── story/            剧情推演
+│   ├── frontend/             React 19 SPA (Vite + daisyUI)
+│   └── packaging/            PyInstaller + pywebview 打包
+├── server/                    # S端 — 腾讯云 CloudBase
+│   ├── cloudfunctions/       云函数 (activate/login/verify/renew/devices/reset_password/generate_code/query_codes)
+│   ├── lib/                  云函数共享库 (db/auth_utils/code_utils)
+│   ├── static/               静态页面 (landing + 发码管理)
+│   └── local_server.py       本地 S 端模拟器 (测试用)
+├── docs/                     文档 (specs + plans)
+└── reference/                项目模板 (YAML/MD templates)
 ```
-
-### Storage abstraction (`backend/filesystem/storage.py`)
-
-Novel content can be stored either on the local filesystem (`LocalFileBackend`) or in the database (`DatabaseFileBackend` via the `novel_files` table). Selected by `STORAGE_BACKEND` env var (`"local"` or `"database"`). All filesystem access goes through a `StorageBackend` protocol so callers don't depend on the backend directly.
-
-All routers follow the same pattern: `router = APIRouter(prefix=...)`, endpoints use `Depends(get_current_user)` + `Depends(get_db)`, and cross-check project ownership.
-
-## Frontend structure
-
-```
-frontend/src/
-  App.tsx               — root component, react-router-dom v7 Routes
-  main.tsx              — entry point, renders App
-  pages/                — flat page components (one per route):
-    LandingPage, LoginPage, RegisterPage, DashboardPage,
-    ProjectLayout (<Outlet> wrapper), NovelPage (dual-panel main layout)
-  components/
-    auth/AuthGuard.tsx  — redirect to /login if no token
-    novel/              — new layout components:
-      StructureTree, EmptyState, VolumeEditor, ChapterEditor,
-      VersionHistory, SettingsFormField, ThemeToggle
-    ClientShell.tsx     — top-level layout wrapper
-    Navbar.tsx, Footer.tsx
-  lib/
-    api.ts              — fetch wrapper with JWT injection + 401 redirect
-    auth.ts             — login/register/logout helpers, localStorage token
-    env.ts              — runtime env var loader (from /env.js or VITE_ fallbacks)
-    toast.tsx           — toast notification utility
-    utils.ts            — clsx + tailwind-merge helper
-```
-
-UI framework: **daisyUI** (Tailwind CSS component library). React 19, react-router-dom v7 for routing. No global state management — each page manages its own state with useState/useEffect.
-
-Runtime environment config: `frontend/public/env.js` is loaded at runtime (not build-time) so the same build can be deployed to different backends. Falls back to `VITE_*` build-time env vars.
 
 ## Key design decisions
 
