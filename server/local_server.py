@@ -95,11 +95,13 @@ def generate_activation_code() -> str:
 
 
 def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+    """pbkdf2_hmac 用于本地测试（非生产）"""
+    salt = "ainovel_local_test"
+    return hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100000).hex()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return hashlib.sha256(plain.encode()).hexdigest() == hashed
+    return hash_password(plain) == hashed
 
 
 def calc_expires_at(tier: str, from_date: date = None) -> date:
@@ -244,8 +246,8 @@ async def api_activate(req: ActivateRequest):
                 "devices": devices,
             }
         }
-    except Exception as e:
-        return {"code": -1, "msg": str(e)}
+    except Exception:
+        return {"code": -1, "msg": "内部错误，请查看服务器日志"}
 
 
 class RegisterRequest(BaseModel):
@@ -274,8 +276,8 @@ async def api_register(req: RegisterRequest):
         conn.commit()
         conn.close()
         return {"code": 0, "data": {"token": f"local-token-{username}", "message": "注册成功"}}
-    except Exception as e:
-        return {"code": -1, "msg": str(e)}
+    except Exception:
+        return {"code": -1, "msg": "内部错误，请查看服务器日志"}
 
 
 @app.post("/api/login")
@@ -322,8 +324,8 @@ async def api_login(req: LoginRequest):
                 "devices": devices,
             }
         }
-    except Exception as e:
-        return {"code": -1, "msg": str(e)}
+    except Exception:
+        return {"code": -1, "msg": "内部错误，请查看服务器日志"}
 
 
 @app.post("/api/verify")
@@ -362,8 +364,8 @@ async def api_verify(req: VerifyRequest):
                 "max_devices": 3,
             }
         }
-    except Exception as e:
-        return {"code": -1, "msg": str(e)}
+    except Exception:
+        return {"code": -1, "msg": "内部错误，请查看服务器日志"}
 
 
 @app.post("/api/renew")
@@ -392,8 +394,8 @@ async def api_renew(req: RenewRequest):
         conn.commit()
         conn.close()
         return {"code": 0, "data": {"new_expires_at": new_expires.isoformat()}}
-    except Exception as e:
-        return {"code": -1, "msg": str(e)}
+    except Exception:
+        return {"code": -1, "msg": "内部错误，请查看服务器日志"}
 
 
 @app.post("/api/devices/list")
