@@ -24,6 +24,7 @@ from pathlib import Path
 from functools import wraps
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -75,6 +76,14 @@ def init_db():
         CREATE TABLE IF NOT EXISTS global_config (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS auth_tokens (
+            pc_hash TEXT PRIMARY KEY,
+            username TEXT NOT NULL,
+            token TEXT NOT NULL,
+            tier TEXT DEFAULT 'none',
+            expires_at TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now'))
         );
     """)
     # 默认配置
@@ -165,6 +174,12 @@ class GenerateCodeRequest(BaseModel):
 class QueryCodesRequest(BaseModel):
     admin_token: str
     username: str = ""
+
+class AuthorizeRequest(BaseModel):
+    username: str
+    password: str
+    pc_hash: str
+
 
 ADMIN_TOKEN = "admin123"  # 本地测试用
 
@@ -276,6 +291,67 @@ async def api_register(req: RegisterRequest):
         conn.commit()
         conn.close()
         return {"code": 0, "data": {"token": f"local-token-{username}", "message": "注册成功"}}
+    except Exception:
+        return {"code": -1, "msg": "内部错误，请查看服务器日志"}
+
+
+@app.get("/api/auth-page")
+async def api_auth_page(pc_hash: str = ""):
+    """返回 S端 登录页面（浏览器 OAuth）"""
+    html_path = Path(__file__).parent / "static" / "auth" / "login.html"
+    if html_path.exists():
+        content = html_path.read_text(encoding="utf-8")
+        return HTMLResponse(content)
+    return HTMLResponse("登录页面不可用，请重新安装", status_code=503)
+
+
+@app.post("/api/authorize")
+async def api_authorize(req: AuthorizeRequest):
+    """用户名密码验证 + 绑定 pc_hash + 返回套餐信息"""
+    try:
+        conn = get_db()
+        user = conn.execute("SELECT * FROM users WHERE username=?", (req.username.strip(),)).fetchone()
+        if not user or not verify_password(req.password, user["password_hash"]):
+            conn.close()
+            return {"code": 1, "msg": "用户名或密码错误"}
+
+        # 查用户套餐
+        codes_row = conn.execute(
+            "SELECT tier, expires_at FROM codes WHERE bound_username=? AND status='active' ORDER BY expires_at DESC LIMIT 1",
+            (user["username"],)
+        ).fetchone()
+        tier = codes_row["tier"] if codes_row else "none"
+        expires_at = codes_row["expires_at"] if codes_row else ""
+
+        # 记录授权
+        conn.execute(
+            "INSERT OR REPLACE INTO auth_tokens (pc_hash, username, token, tier, expires_at, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
+            (req.pc_hash, user["username"], f"oauth-{req.pc_hash[:8]}", tier, expires_at)
+        )
+        conn.commit()
+        conn.close()
+        return {"code": 0, "data": {"message": "授权成功", "tier": tier, "expires_at": expires_at}}
+    except Exception:
+        return {"code": -1, "msg": "内部错误，请查看服务器日志"}
+
+
+@app.get("/api/check-auth")
+async def api_check_auth(pc_hash: str = ""):
+    """C端 轮询：该 pc_hash 是否已授权"""
+    if not pc_hash:
+        return {"code": 1, "msg": "缺少 pc_hash"}
+    try:
+        conn = get_db()
+        row = conn.execute("SELECT token, username, tier, expires_at FROM auth_tokens WHERE pc_hash=?", (pc_hash,)).fetchone()
+        conn.close()
+        if row:
+            return {"code": 0, "data": {
+                "token": row["token"],
+                "username": row["username"],
+                "tier": row["tier"],
+                "expires_at": row["expires_at"],
+            }}
+        return {"code": 1, "msg": "等待授权"}
     except Exception:
         return {"code": -1, "msg": "内部错误，请查看服务器日志"}
 

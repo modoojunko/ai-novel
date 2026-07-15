@@ -1,27 +1,15 @@
 # backend/auth_local/router.py
-"""登录 + 30 天会话验证 API"""
+"""浏览器 OAuth 登录 API"""
 
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 from .service import (
-    login, register, verify_session, refresh_session,
+    browser_auth, verify_session, check_permission,
     reset_password, load_or_create_config, get_local_config,
 )
 
 router = APIRouter(tags=["auth"])
-
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-
-class RegisterRequest(BaseModel):
-    username: str
-    password: str
-    security_question: str = ""
-    security_answer: str = ""
 
 
 class ResetPasswordRequest(BaseModel):
@@ -36,31 +24,29 @@ class ApiKeySaveRequest(BaseModel):
     api_model: str
 
 
-@router.post("/login")
-async def api_login(req: LoginRequest):
-    """登录"""
-    return await login(req.username.strip(), req.password)
-
-
-@router.post("/register")
-async def api_register(req: RegisterRequest):
-    """首次注册"""
-    return await register(
-        req.username.strip(), req.password,
-        req.security_question.strip(), req.security_answer.strip(),
-    )
+@router.post("/browser-auth")
+async def api_browser_auth():
+    """打开浏览器 OAuth 登录"""
+    return await browser_auth()
 
 
 @router.post("/verify")
 async def api_verify():
-    """启动时验证 30 天会话"""
+    """验证 30 天会话"""
     return await verify_session()
+
+
+@router.get("/permission")
+async def api_permission():
+    """检查套餐权限"""
+    return check_permission()
 
 
 @router.post("/refresh")
 async def api_refresh():
-    """后台静默刷新会话"""
-    return await refresh_session()
+    """刷新会话（启动时静默调用）"""
+    result = await verify_session()
+    return result
 
 
 @router.post("/reset-password")
@@ -75,6 +61,8 @@ async def api_get_config():
     cfg = get_local_config()
     return {
         "username": cfg.get("username", ""),
+        "tier": cfg.get("tier", "none"),
+        "expires_at": cfg.get("expires_at", ""),
         "has_api_key": bool(cfg.get("api_key")),
         "api_base_url": cfg.get("api_base_url", ""),
         "api_model": cfg.get("api_model", ""),
