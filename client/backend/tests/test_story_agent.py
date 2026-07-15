@@ -2,9 +2,8 @@
 
 from story.character_agent import (
     _extract_json, _repair_json, _extract_fallback_text,
-    _validate_decision_data, _build_decision_prompt,
+    _validate_decision_data,
 )
-from story.models import SensoryInput, CharacterState, StageState
 
 
 class TestExtractJson:

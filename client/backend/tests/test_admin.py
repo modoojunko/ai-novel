@@ -1,7 +1,6 @@
 """Tests for admin RBAC system."""
 
 import httpx
-import pytest
 
 BASE_URL = "http://localhost/api"
 
