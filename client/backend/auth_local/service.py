@@ -43,7 +43,6 @@ def load_or_create_config() -> dict:
     cfg = get_local_config()
     changed = False
     defaults = {
-        "username": "",
         "pc_hash": "",
         "pc_name": "",
         "api_key": "",
@@ -62,8 +61,7 @@ def load_or_create_config() -> dict:
         cfg["pc_hash"] = generate_pc_hash()
         cfg["pc_name"] = platform.node() or "My PC"
         changed = True
-    if os.environ.get("DEV_MODE") and not cfg.get("username"):
-        cfg["username"] = "devuser"
+    if os.environ.get("DEV_MODE") and not cfg.get("token"):
         cfg["token"] = "dev-token"
         cfg["tier"] = "lifetime"
         cfg["last_login_at"] = datetime.now().isoformat()
@@ -130,7 +128,6 @@ async def browser_auth() -> dict:
     pc_hash = cfg["pc_hash"]
 
     if os.environ.get("DEV_MODE"):
-        cfg["username"] = "devuser"
         cfg["token"] = "dev-token"
         cfg["tier"] = "lifetime"
         cfg["last_login_at"] = datetime.now().isoformat()
@@ -147,7 +144,6 @@ async def browser_auth() -> dict:
         result = await call_server_api("check-auth", params={"pc_hash": pc_hash})
         if result.get("code") == 0:
             data = result["data"]
-            cfg["username"] = data["username"]
             cfg["token"] = data["token"]
             cfg["tier"] = data.get("tier", "none")
             cfg["expires_at"] = data.get("expires_at", "")
@@ -162,13 +158,13 @@ async def browser_auth() -> dict:
 async def verify_session() -> dict:
     """验证 30 天会话"""
     cfg = load_or_create_config()
-    username = cfg.get("username", "")
+    token = cfg.get("token", "")
     last_login = cfg.get("last_login_at", "")
 
     if os.environ.get("DEV_MODE"):
-        return {"valid": True, "username": username, "tier": cfg.get("tier", "lifetime")}
+        return {"valid": True, "tier": cfg.get("tier", "lifetime")}
 
-    if not username or not cfg.get("token"):
+    if not token:
         return {"valid": False, "msg": "未登录"}
 
     try:
@@ -181,7 +177,7 @@ async def verify_session() -> dict:
     if login_time and datetime.now() < login_time:
         return {"valid": False, "msg": "系统时间异常"}
 
-    return {"valid": True, "username": username, "tier": cfg.get("tier", "none")}
+    return {"valid": True, "tier": cfg.get("tier", "none")}
 
 
 def check_permission() -> dict:

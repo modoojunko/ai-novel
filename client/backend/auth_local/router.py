@@ -60,7 +60,7 @@ async def api_get_config():
     """获取本地配置"""
     cfg = get_local_config()
     return {
-        "username": cfg.get("username", ""),
+        "has_token": bool(cfg.get("token", "")),
         "tier": cfg.get("tier", "none"),
         "expires_at": cfg.get("expires_at", ""),
         "has_api_key": bool(cfg.get("api_key")),
