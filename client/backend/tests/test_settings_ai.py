@@ -25,12 +25,15 @@ def clean_json(text):
     if "```" in cleaned:
         for part in cleaned.split("```"):
             part = part.strip()
-            if not part: continue
-            if part.startswith("json"): part = part[4:].strip()
+            if not part:
+                continue
+            if part.startswith("json"):
+                part = part[4:].strip()
             try:
                 __import__("json").loads(part)
                 return part
-            except Exception: continue
+            except Exception:
+                continue
     for left, right in [("{", "}"), ("[", "]")]:
         start = cleaned.find(left)
         if start >= 0:
@@ -70,7 +73,8 @@ class TestSettingsAIValidation:
 
     def test_field_generate_invalid_type(self):
         token, _ = register_user()
-        import random; n = random.randint(10000, 99999)
+        import random
+        n = random.randint(10000, 99999)
         r2 = httpx.post(f"{BASE_URL}/projects", json={"name": f"AIProject_{n}"},
             headers={"Authorization": f"Bearer {token}"})
         assert r2.status_code in (200, 201)
