@@ -164,7 +164,12 @@ async def create_chapter(
         project.root_path, f"volumes/{vol_filename}"
     )
     if vol_data is None:
-        vol_data = {"volume": vol, "title": f"Volume {vol}", "summary": "", "chapters": []}
+        vol_data = {
+            "volume": vol,
+            "title": f"Volume {vol}",
+            "summary": "",
+            "chapters": [],
+        }
     if "chapters" not in vol_data or vol_data["chapters"] is None:
         vol_data["chapters"] = []
     vol_data["chapters"].append(
@@ -190,9 +195,7 @@ async def delete_chapter(
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
-    await get_storage().delete_file(
-        project.root_path, f"chapters/{chapter_ref}.yaml"
-    )
+    await get_storage().delete_file(project.root_path, f"chapters/{chapter_ref}.yaml")
     # Remove from volume chapter list
     parts = chapter_ref.split("-")
     vol = int(parts[1])

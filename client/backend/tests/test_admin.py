@@ -7,6 +7,7 @@ BASE_URL = "http://localhost/api"
 
 def _random_user():
     import random
+
     n = random.randint(10000, 99999)
     return {
         "email": f"admin_test_{n}@example.com",
@@ -30,7 +31,9 @@ class TestAdminAccess:
         assert r.status_code in (200, 201)
         token = r.json().get("access_token") or r.json()["token"]
 
-        resp = httpx.get(f"{BASE_URL}/admin/stats", headers={"Authorization": f"Bearer {token}"})
+        resp = httpx.get(
+            f"{BASE_URL}/admin/stats", headers={"Authorization": f"Bearer {token}"}
+        )
         # Regular user should get 403, not 200
         assert resp.status_code == 403
         data = resp.json()
@@ -43,7 +46,9 @@ class TestAdminAccess:
         assert r.status_code in (200, 201)
         token = r.json().get("access_token") or r.json()["token"]
 
-        resp = httpx.get(f"{BASE_URL}/admin/users", headers={"Authorization": f"Bearer {token}"})
+        resp = httpx.get(
+            f"{BASE_URL}/admin/users", headers={"Authorization": f"Bearer {token}"}
+        )
         assert resp.status_code == 403
 
     def test_admin_plan_change(self):
@@ -83,5 +88,7 @@ class TestAdminAccess:
         assert r.status_code in (200, 201)
         token = r.json().get("access_token") or r.json()["token"]
 
-        resp = httpx.get(f"{BASE_URL}/admin/projects", headers={"Authorization": f"Bearer {token}"})
+        resp = httpx.get(
+            f"{BASE_URL}/admin/projects", headers={"Authorization": f"Bearer {token}"}
+        )
         assert resp.status_code == 403

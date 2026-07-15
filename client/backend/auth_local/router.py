@@ -5,8 +5,12 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from .service import (
-    browser_auth, verify_session, check_permission,
-    reset_password, load_or_create_config, get_local_config,
+    browser_auth,
+    verify_session,
+    check_permission,
+    reset_password,
+    load_or_create_config,
+    get_local_config,
 )
 
 router = APIRouter(tags=["auth"])
@@ -77,5 +81,6 @@ async def api_save_api_key(req: ApiKeySaveRequest):
     cfg["api_base_url"] = req.api_base_url
     cfg["api_model"] = req.api_model
     from .service import save_local_config
+
     save_local_config(cfg)
     return {"code": 0, "msg": "保存成功"}

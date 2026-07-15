@@ -6,8 +6,10 @@ BASE_URL = "http://localhost/api"
 # Helper: unique test user
 # ---------------------------------------------------------------------------
 
+
 def random_user():
     import random
+
     n = random.randint(10000, 99999)
     return {
         "email": f"testuser_{n}@example.com",
@@ -30,6 +32,7 @@ def register_user():
 # Health
 # =========================================================================
 
+
 class TestHealth:
     def test_health_returns_ok(self):
         resp = httpx.get(f"{BASE_URL}/health")
@@ -40,6 +43,7 @@ class TestHealth:
 # =========================================================================
 # Auth
 # =========================================================================
+
 
 class TestAuth:
     def test_register_and_login(self):
@@ -53,10 +57,13 @@ class TestAuth:
         assert token is not None
 
         # Login with same credentials
-        r2 = httpx.post(f"{BASE_URL}/auth/login", json={
-            "email": user["email"],
-            "password": user["password"],
-        })
+        r2 = httpx.post(
+            f"{BASE_URL}/auth/login",
+            json={
+                "email": user["email"],
+                "password": user["password"],
+            },
+        )
         assert r2.status_code == 200, f"Login failed: {r2.text}"
         token2 = r2.json().get("access_token") or r2.json()["token"]
 
@@ -71,10 +78,13 @@ class TestAuth:
     def test_login_wrong_password(self):
         user = random_user()
         httpx.post(f"{BASE_URL}/auth/register", json=user)
-        r = httpx.post(f"{BASE_URL}/auth/login", json={
-            "email": user["email"],
-            "password": "wrong-pass",
-        })
+        r = httpx.post(
+            f"{BASE_URL}/auth/login",
+            json={
+                "email": user["email"],
+                "password": "wrong-pass",
+            },
+        )
         assert r.status_code == 401
 
     def test_me_without_token(self):
@@ -87,6 +97,7 @@ class TestAuth:
 # Projects
 # =========================================================================
 
+
 class TestProjects:
     def test_create_and_list(self):
         token, user = register_user()
@@ -94,7 +105,8 @@ class TestProjects:
 
         # Create project
         import random
-        name = f"测试项目_{random.randint(1000,9999)}"
+
+        name = f"测试项目_{random.randint(1000, 9999)}"
         r2 = httpx.post(f"{BASE_URL}/projects", json={"name": name}, headers=headers)
         assert r2.status_code in (200, 201), f"Create project failed: {r2.text}"
         project = r2.json()
@@ -112,7 +124,8 @@ class TestProjects:
         headers = {"Authorization": f"Bearer {token}"}
 
         import random
-        name = f"slug-test_{random.randint(1000,9999)}"
+
+        name = f"slug-test_{random.randint(1000, 9999)}"
         r2 = httpx.post(f"{BASE_URL}/projects", json={"name": name}, headers=headers)
         assert r2.status_code in (200, 201)
         slug = r2.json()["slug"]
@@ -125,7 +138,9 @@ class TestProjects:
         token, user = register_user()
         headers = {"Authorization": f"Bearer {token}"}
 
-        r2 = httpx.post(f"{BASE_URL}/projects", json={"name": "delete-me"}, headers=headers)
+        r2 = httpx.post(
+            f"{BASE_URL}/projects", json={"name": "delete-me"}, headers=headers
+        )
         assert r2.status_code in (200, 201)
         pid = r2.json()["id"]
 

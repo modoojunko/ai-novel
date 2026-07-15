@@ -26,7 +26,12 @@ async def archive_chapter(root_path: str, chapter_ref: str, full_text: str) -> d
     summary_text = await client.chat(
         model="haiku",
         system="",
-        messages=[{"role": "user", "content": f"用200字以内总结本章核心事件，只陈述事实不评论：\n\n{full_text[:3000]}"}],
+        messages=[
+            {
+                "role": "user",
+                "content": f"用200字以内总结本章核心事件，只陈述事实不评论：\n\n{full_text[:3000]}",
+            }
+        ],
         max_tokens=200,
     )
     summary = summary_text[:200]

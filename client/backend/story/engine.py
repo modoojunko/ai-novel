@@ -7,7 +7,11 @@ import uuid
 from ai_client import get_ai_client
 from filesystem.storage import get_storage
 from story.models import (
-    StageState, SensoryInput, Decision, CharacterState, RoundResult,
+    StageState,
+    SensoryInput,
+    Decision,
+    CharacterState,
+    RoundResult,
 )
 from story.character_agent import run_all_decisions
 from prompts import load as load_prompt
@@ -32,24 +36,37 @@ class DeductionEngine:
         """Load stage and character data from project files."""
         # Load story premise and world setting
         await get_storage().read_yaml(self.root_path, "story.yaml")
-        world = await get_storage().read_yaml(self.root_path, "settings/world-setting.yaml") or {}
+        world = (
+            await get_storage().read_yaml(self.root_path, "settings/world-setting.yaml")
+            or {}
+        )
 
         self.stage.terrain = self._get_nested(world, "geography.scenes", "")
 
         # Load chapter outline if specified
         if chapter_ref:
-            chapter = await get_storage().read_yaml(self.root_path, f"chapters/{chapter_ref}.yaml") or {}
+            chapter = (
+                await get_storage().read_yaml(
+                    self.root_path, f"chapters/{chapter_ref}.yaml"
+                )
+                or {}
+            )
             outline = chapter.get("outline", {})
             if isinstance(outline, dict):
                 self.stage.terrain = self.stage.terrain or outline.get("location", "")
 
         # Load characters
-        char_names = await get_storage().list_dir(self.root_path, "settings/character-setting")
+        char_names = await get_storage().list_dir(
+            self.root_path, "settings/character-setting"
+        )
         for name in char_names:
             name_clean = name.replace(".yaml", "")
-            data = await get_storage().read_yaml(
-                self.root_path, f"settings/character-setting/{name_clean}.yaml"
-            ) or {}
+            data = (
+                await get_storage().read_yaml(
+                    self.root_path, f"settings/character-setting/{name_clean}.yaml"
+                )
+                or {}
+            )
             char = CharacterState(
                 character_id=name_clean,
                 position="",
@@ -82,13 +99,15 @@ class DeductionEngine:
     def set_seed(self, seed_text: str):
         """Set the trigger seed for this deduction."""
         self.seed = seed_text
-        self.stage.events.append({
-            "round": 0,
-            "actor": "系统",
-            "action": "触发",
-            "description": seed_text,
-            "visibility": "公开",
-        })
+        self.stage.events.append(
+            {
+                "round": 0,
+                "actor": "系统",
+                "action": "触发",
+                "description": seed_text,
+                "visibility": "公开",
+            }
+        )
 
     # ── Round execution ───────────────────────────────────────────
 
@@ -124,7 +143,9 @@ class DeductionEngine:
     def _build_sensory_inputs(self) -> dict[str, SensoryInput]:
         """Step 1: Build what each character perceives this round."""
         result = {}
-        latest_events = [e for e in self.stage.events if e.get("round", 0) >= self.round - 1]
+        latest_events = [
+            e for e in self.stage.events if e.get("round", 0) >= self.round - 1
+        ]
 
         for cid, char in self.characters.items():
             see_parts = []
@@ -200,8 +221,14 @@ class DeductionEngine:
 
         # Fallback: create basic events from decisions
         return [
-            {"actor": d.character_id, "action": d.log.action_description or d.log.action_type,
-             "target": d.log.action_target, "result": "", "visibility": "公开", "round": self.round}
+            {
+                "actor": d.character_id,
+                "action": d.log.action_description or d.log.action_type,
+                "target": d.log.action_target,
+                "result": "",
+                "visibility": "公开",
+                "round": self.round,
+            }
             for d in decisions
         ]
 
@@ -230,7 +257,7 @@ class DeductionEngine:
         target = self.history[round_number]
         self.stage = self._clone_stage(target.stage)
         self.characters = {k: self._clone_char(v) for k, v in target.characters.items()}
-        self.history = self.history[:round_number + 1]
+        self.history = self.history[: round_number + 1]
         return self.history
 
     # ── Helpers ───────────────────────────────────────────────────
@@ -241,17 +268,24 @@ class DeductionEngine:
     def _clone_stage(self, stage: StageState | None = None) -> StageState:
         s = stage or self.stage
         return StageState(
-            terrain=s.terrain, time=s.time, weather=s.weather,
-            lighting=s.lighting, noise=s.noise,
+            terrain=s.terrain,
+            time=s.time,
+            weather=s.weather,
+            lighting=s.lighting,
+            noise=s.noise,
             visibility_modifiers=s.visibility_modifiers,
             terrain_effects=s.terrain_effects,
-            events=list(s.events), round=s.round,
+            events=list(s.events),
+            round=s.round,
         )
 
     def _clone_char(self, c: CharacterState) -> CharacterState:
         return CharacterState(
-            character_id=c.character_id, position=c.position,
-            stamina=c.stamina, emotion=c.emotion, urgency=c.urgency,
+            character_id=c.character_id,
+            position=c.position,
+            stamina=c.stamina,
+            emotion=c.emotion,
+            urgency=c.urgency,
             knowledge=list(c.knowledge),
             relationships=dict(c.relationships),
             cognition_6=dict(c.cognition_6),

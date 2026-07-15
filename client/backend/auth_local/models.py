@@ -7,6 +7,7 @@ from db import Base
 
 class LicenseCache(Base):
     """License 本地缓存表"""
+
     __tablename__ = "license_cache"
 
     username = Column(String(64), primary_key=True)

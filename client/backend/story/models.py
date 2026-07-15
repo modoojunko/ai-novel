@@ -7,6 +7,7 @@ from typing import Any
 @dataclass
 class StageState:
     """Current state of the stage/environment."""
+
     terrain: str = ""
     time: str = ""
     weather: str = ""
@@ -21,6 +22,7 @@ class StageState:
 @dataclass
 class SensoryInput:
     """What a character perceives in a round."""
+
     see: str = ""
     hear: str = ""
     smell: str = ""
@@ -31,6 +33,7 @@ class SensoryInput:
 @dataclass
 class DecisionLog:
     """Full decision chain of a character in one round."""
+
     see: str = ""
     hear: str = ""
     sense: str = ""
@@ -50,6 +53,7 @@ class DecisionLog:
 @dataclass
 class Decision:
     """One character's decision in one round."""
+
     character_id: str
     sensory_input: SensoryInput
     log: DecisionLog
@@ -60,6 +64,7 @@ class Decision:
 @dataclass
 class CharacterState:
     """State of a character in the deduction."""
+
     character_id: str
     position: str = ""
     stamina: int = 100
@@ -74,6 +79,7 @@ class CharacterState:
 @dataclass
 class RoundResult:
     """Result of one deduction round."""
+
     round_number: int
     decisions: list[Decision]
     stage: StageState

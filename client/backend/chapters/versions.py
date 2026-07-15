@@ -9,7 +9,9 @@ from filesystem.storage import get_storage
 from projects.service import get_project
 from workflow.engine import _validate_ref, save_chapter
 
-router = APIRouter(prefix="/api/projects/{project_id}/chapters/{chapter_ref}", tags=["versions"])
+router = APIRouter(
+    prefix="/api/projects/{project_id}/chapters/{chapter_ref}", tags=["versions"]
+)
 
 
 @router.get("/versions")
@@ -29,14 +31,18 @@ async def list_versions(
     for f in sorted(files, reverse=True):
         if not f.endswith(".yaml"):
             continue
-        data = await get_storage().read_yaml(project.root_path, f"versions/{chapter_ref}/{f}")
+        data = await get_storage().read_yaml(
+            project.root_path, f"versions/{chapter_ref}/{f}"
+        )
         if data:
-            versions.append({
-                "version": data.get("version", f.replace(".yaml", "")),
-                "time": data.get("created_at", 0),
-                "comment": data.get("comment", ""),
-                "isCurrent": False,
-            })
+            versions.append(
+                {
+                    "version": data.get("version", f.replace(".yaml", "")),
+                    "time": data.get("created_at", 0),
+                    "comment": data.get("comment", ""),
+                    "isCurrent": False,
+                }
+            )
 
     if versions:
         versions[0]["isCurrent"] = True
@@ -66,7 +72,10 @@ async def restore_version(
     if not snapshot:
         raise HTTPException(400, "Version has no snapshot data")
 
-    chapter = await get_storage().read_yaml(project.root_path, f"chapters/{chapter_ref}.yaml") or {}
+    chapter = (
+        await get_storage().read_yaml(project.root_path, f"chapters/{chapter_ref}.yaml")
+        or {}
+    )
     chapter["prose"] = snapshot.get("prose", chapter.get("prose", ""))
     if "outline" in snapshot:
         chapter["outline"] = snapshot["outline"]

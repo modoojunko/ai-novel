@@ -54,6 +54,7 @@ async def assemble_segment_prompt(
     novel_title: str = "",
 ) -> str:
     from prompts import load as load_prompt
+
     _validate_ref(chapter_ref)
     chapter = await get_storage().read_yaml(root_path, f"chapters/{chapter_ref}.yaml")
     style = await get_storage().read_yaml(root_path, "settings/writing-style.yaml")
@@ -75,16 +76,24 @@ async def assemble_segment_prompt(
         fatigue_words=", ".join(_flatten_fatigue_words(anti_ai)),
         tic_patterns=", ".join(_extract_tic_patterns(anti_ai)),
         novel_title=novel_title,
-        vol=vol, ch_num=ch_num, seg_num=seg_num,
-        story_context=await inject_story_context(root_path, chapter, threads.get("threads", {})),
-        character_snapshots=await inject_character_snapshots(root_path, seg.get("characters", [])),
+        vol=vol,
+        ch_num=ch_num,
+        seg_num=seg_num,
+        story_context=await inject_story_context(
+            root_path, chapter, threads.get("threads", {})
+        ),
+        character_snapshots=await inject_character_snapshots(
+            root_path, seg.get("characters", [])
+        ),
         active_hooks=await inject_active_hooks(root_path, chapter_ref),
         what_to_write=seg.get("what_to_write", ""),
         goal=seg.get("goal", ""),
         emotional_tone=seg.get("emotional_tone", ""),
         characters=", ".join(seg.get("characters", [])),
         function=seg.get("function", ""),
-        prohibitions=_format_prohibitions(chapter.get("memo", {}).get("prohibitions", [])),
+        prohibitions=_format_prohibitions(
+            chapter.get("memo", {}).get("prohibitions", [])
+        ),
         depiction_techniques=depiction_techniques_str(style),
         word_target=seg.get("word_target", 500),
     )

@@ -13,21 +13,25 @@ async def build_project_tree(project_id: str, root_path: str) -> dict:
             data = await storage.read_yaml(root_path, f"volumes/{f}")
             chapters = []
             for ch in data.get("chapters") or []:
-                chapters.append({
-                    "ref": f"vol-{ch['volume']}-ch-{ch['chapter']}",
-                    "volume": ch.get("volume"),
-                    "chapter": ch.get("chapter"),
-                    "title": ch.get("title", ""),
-                    "status": ch.get("status", "outline"),
-                    "word_count": len(ch.get("prose", "")),
-                })
-            volumes.append({
-                "ref": f.replace(".yaml", ""),
-                "title": data.get("title", f),
-                "summary": data.get("summary", ""),
-                "chapter_count": len(chapters),
-                "chapters": chapters,
-            })
+                chapters.append(
+                    {
+                        "ref": f"vol-{ch['volume']}-ch-{ch['chapter']}",
+                        "volume": ch.get("volume"),
+                        "chapter": ch.get("chapter"),
+                        "title": ch.get("title", ""),
+                        "status": ch.get("status", "outline"),
+                        "word_count": len(ch.get("prose", "")),
+                    }
+                )
+            volumes.append(
+                {
+                    "ref": f.replace(".yaml", ""),
+                    "title": data.get("title", f),
+                    "summary": data.get("summary", ""),
+                    "chapter_count": len(chapters),
+                    "chapters": chapters,
+                }
+            )
 
     return {
         "project_id": project_id,

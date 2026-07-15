@@ -14,6 +14,7 @@ CONFIG_FILE = os.environ.get("DATA_ROOT", "./data") + "/config.json"
 def get_local_config() -> dict:
     try:
         import json
+
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, "r") as f:
                 return json.load(f)
@@ -22,7 +23,9 @@ def get_local_config() -> dict:
     return {}
 
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict:
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> Dict:
     """验证本地 token，返回用户标识"""
     if os.environ.get("DEV_MODE"):
         return {"id": "devuser"}

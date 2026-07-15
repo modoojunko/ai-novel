@@ -73,11 +73,17 @@ def load_or_create_config() -> dict:
 def generate_pc_hash() -> str:
     info = []
     try:
-        for wmic_query in ["cpu get ProcessorId", "baseboard get SerialNumber", "diskdrive get SerialNumber"]:
+        for wmic_query in [
+            "cpu get ProcessorId",
+            "baseboard get SerialNumber",
+            "diskdrive get SerialNumber",
+        ]:
             try:
                 result = subprocess.run(
                     ["wmic"] + wmic_query.split(),
-                    capture_output=True, text=True, timeout=5
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                 )
                 if result.returncode == 0:
                     lines = result.stdout.strip().split("\n")
@@ -94,7 +100,9 @@ def generate_pc_hash() -> str:
             info.append(platform.node() or "")
             result = subprocess.run(
                 ["wmic", "os", "get", "SerialNumber"],
-                capture_output=True, text=True, timeout=5
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0:
                 lines = result.stdout.strip().split("\n")
@@ -106,7 +114,9 @@ def generate_pc_hash() -> str:
     return hashlib.sha256(raw.encode()).hexdigest()[:32]
 
 
-async def call_server_api(endpoint: str, method: str = "GET", params: dict = None, json_body: dict = None) -> dict:
+async def call_server_api(
+    endpoint: str, method: str = "GET", params: dict = None, json_body: dict = None
+) -> dict:
     url = f"{SERVER_API_BASE}/{endpoint}"
     try:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -193,7 +203,11 @@ def check_permission() -> dict:
     if tier in ("monthly", "quarterly", "yearly"):
         try:
             if expires_at and date.fromisoformat(expires_at) < date.today():
-                return {"allowed": False, "reason": "expired", "msg": "套餐已过期，请续费"}
+                return {
+                    "allowed": False,
+                    "reason": "expired",
+                    "msg": "套餐已过期，请续费",
+                }
         except ValueError:
             return {"allowed": False, "reason": "invalid", "msg": "套餐信息异常"}
     return {"allowed": True, "tier": tier}
@@ -201,8 +215,12 @@ def check_permission() -> dict:
 
 async def reset_password(security_answer: str, new_password: str) -> dict:
     cfg = load_or_create_config()
-    return await call_server_api("reset_password", method="POST", json_body={
-        "username": cfg["username"],
-        "security_answer": security_answer,
-        "new_password": new_password,
-    })
+    return await call_server_api(
+        "reset_password",
+        method="POST",
+        json_body={
+            "username": cfg["username"],
+            "security_answer": security_answer,
+            "new_password": new_password,
+        },
+    )

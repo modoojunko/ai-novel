@@ -40,7 +40,10 @@ async def generate_all_settings(
     story = await get_storage().read_yaml(project.root_path, "story.yaml") or {}
     premise = story.get("synopsis", "")
     if not premise:
-        raise HTTPException(400, "No story premise found. Create the project with a story description first.")
+        raise HTTPException(
+            400,
+            "No story premise found. Create the project with a story description first.",
+        )
 
     client = get_ai_client()
     results = {}
@@ -51,7 +54,12 @@ async def generate_all_settings(
             text = await client.chat(
                 model="haiku",
                 system="你是小说设定专家。只输出 JSON，不要任何其他文字。",
-                messages=[{"role": "user", "content": prompt.format(premise=premise, context="{}")}],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt.format(premise=premise, context="{}"),
+                    }
+                ],
                 max_tokens=2048,
             )
             # Parse JSON from response (handle markdown-wrapped JSON)
@@ -90,7 +98,9 @@ async def generate_field(
 
     prompt_template = load_prompt(f"settings_{stype}")
     context = body.get("context", {})
-    formatted_prompt = prompt_template.format(premise=premise, context=json.dumps(context, ensure_ascii=False))
+    formatted_prompt = prompt_template.format(
+        premise=premise, context=json.dumps(context, ensure_ascii=False)
+    )
     client = get_ai_client()
 
     try:

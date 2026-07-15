@@ -15,8 +15,11 @@ def slugify(name: str) -> str:
 
 
 async def create_project(
-    db: AsyncSession, user_id: str, name: str,
-    synopsis: str = "", genre_profile: str = "",
+    db: AsyncSession,
+    user_id: str,
+    name: str,
+    synopsis: str = "",
+    genre_profile: str = "",
 ) -> Project:
     slug = slugify(name)
     existing = await db.execute(
@@ -44,6 +47,7 @@ async def create_project(
     if synopsis:
         try:
             from ai_prefill import prefill_world_setting
+
             await prefill_world_setting(root_path)
         except Exception:
             pass  # Non-blocking — create_project succeeds even if AI prefill fails

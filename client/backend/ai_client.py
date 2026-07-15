@@ -35,6 +35,7 @@ class AIClient:
     def _reload(self):
         """从本地配置重新加载 API 设置"""
         from auth_local.service import get_local_config
+
         cfg = get_local_config()
         api_key = cfg.get("api_key", "")
         base_url = cfg.get("api_base_url", "")

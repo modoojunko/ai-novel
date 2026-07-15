@@ -36,8 +36,12 @@ async def test_rewind_to_round():
     engine = DeductionEngine("proj-1", "/tmp/fake")
     engine.set_seed("start")
     # Simulate adding history
-    r0 = RoundResult(round_number=0, decisions=[], stage=StageState(), characters={}, events=[])
-    r1 = RoundResult(round_number=1, decisions=[], stage=StageState(), characters={}, events=[])
+    r0 = RoundResult(
+        round_number=0, decisions=[], stage=StageState(), characters={}, events=[]
+    )
+    r1 = RoundResult(
+        round_number=1, decisions=[], stage=StageState(), characters={}, events=[]
+    )
     engine.history = [r0, r1]
     engine.round = 1
 
@@ -68,9 +72,18 @@ class TestSensoryInputs:
 
     def test_build_sensory_with_events(self):
         engine = DeductionEngine("proj-1", "/tmp/fake")
-        engine.add_character(CharacterState(character_id="A", position="峡谷中段", stamina=30))
-        engine.stage.events.append({"round": 0, "actor": "B", "action": "射箭",
-                                     "description": "一支箭飞过来", "visibility": "公开"})
+        engine.add_character(
+            CharacterState(character_id="A", position="峡谷中段", stamina=30)
+        )
+        engine.stage.events.append(
+            {
+                "round": 0,
+                "actor": "B",
+                "action": "射箭",
+                "description": "一支箭飞过来",
+                "visibility": "公开",
+            }
+        )
         engine.round = 1
         result = engine._build_sensory_inputs()
         assert "A" in result

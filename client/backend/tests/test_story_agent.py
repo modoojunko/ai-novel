@@ -1,7 +1,9 @@
 """Tests for character agent -- JSON parsing, validation, fallback logic."""
 
 from story.character_agent import (
-    _extract_json, _repair_json, _extract_fallback_text,
+    _extract_json,
+    _repair_json,
+    _extract_fallback_text,
     _validate_decision_data,
 )
 
@@ -62,6 +64,7 @@ class TestRepairJson:
         repaired = _repair_json('{"see"："箭"}')
         assert repaired is not None
         import json
+
         data = json.loads(repaired)
         assert data["see"] == "箭"
 
@@ -69,6 +72,7 @@ class TestRepairJson:
         repaired = _repair_json('{"active": True}')
         assert repaired is not None
         import json
+
         data = json.loads(repaired)
         assert data["active"] is True
 
@@ -76,6 +80,7 @@ class TestRepairJson:
         repaired = _repair_json('{"val": None}')
         assert repaired is not None
         import json
+
         data = json.loads(repaired)
         assert data["val"] is None
 

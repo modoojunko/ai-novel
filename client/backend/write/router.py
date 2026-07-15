@@ -81,8 +81,16 @@ async def _stream_chapter(root_path: str, chapter_ref: str, ctx, prompt: str):
     from workflow.engine import load_chapter
 
     client = get_ai_client()
-    model = ctx.style_setting.get("writing_model", "haiku") if hasattr(ctx, 'style_setting') else "haiku"
-    role = ctx.style_setting.get("role", "一位小说家") if hasattr(ctx, 'style_setting') else "一位小说家"
+    model = (
+        ctx.style_setting.get("writing_model", "haiku")
+        if hasattr(ctx, "style_setting")
+        else "haiku"
+    )
+    role = (
+        ctx.style_setting.get("role", "一位小说家")
+        if hasattr(ctx, "style_setting")
+        else "一位小说家"
+    )
     full_text = ""
 
     async for event in client.chat_stream(

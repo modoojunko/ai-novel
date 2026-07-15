@@ -115,7 +115,9 @@ class ChapterContext:
         return words
 
 
-async def build_chapter_context(root_path: str, chapter_ref: str, novel_title: str = "") -> ChapterContext:
+async def build_chapter_context(
+    root_path: str, chapter_ref: str, novel_title: str = ""
+) -> ChapterContext:
     """Read all data sources and build a ChapterContext."""
     ctx = ChapterContext()
     ctx.novel_title = novel_title
@@ -125,26 +127,38 @@ async def build_chapter_context(root_path: str, chapter_ref: str, novel_title: s
     ctx.premise = story.get("synopsis", "")
 
     # Settings
-    ctx.world_setting = await get_storage().read_yaml(root_path, "settings/world-setting.yaml") or {}
-    ctx.style_setting = await get_storage().read_yaml(root_path, "settings/writing-style.yaml") or {}
-    ctx.anti_ai = await get_storage().read_yaml(root_path, "settings/anti-ai.yaml") or {}
+    ctx.world_setting = (
+        await get_storage().read_yaml(root_path, "settings/world-setting.yaml") or {}
+    )
+    ctx.style_setting = (
+        await get_storage().read_yaml(root_path, "settings/writing-style.yaml") or {}
+    )
+    ctx.anti_ai = (
+        await get_storage().read_yaml(root_path, "settings/anti-ai.yaml") or {}
+    )
 
     # Hooks
     hooks_data = await get_storage().read_yaml(root_path, "settings/hooks.yaml") or {}
     ctx.hooks = hooks_data.get("active", [])
 
     # Chapter
-    chapter = await get_storage().read_yaml(root_path, f"chapters/{chapter_ref}.yaml") or {}
+    chapter = (
+        await get_storage().read_yaml(root_path, f"chapters/{chapter_ref}.yaml") or {}
+    )
     ctx.chapter_outline = chapter.get("outline", {})
     if not isinstance(ctx.chapter_outline, dict):
         ctx.chapter_outline = {}
 
     # Volume info
     import re
+
     vol_match = re.match(r"vol-(\d+)", chapter_ref)
     if vol_match:
         vol_num = vol_match.group(1)
-        vol_data = await get_storage().read_yaml(root_path, f"volumes/vol-{vol_num}.yaml") or {}
+        vol_data = (
+            await get_storage().read_yaml(root_path, f"volumes/vol-{vol_num}.yaml")
+            or {}
+        )
         ctx.volume_summary = vol_data.get("summary", "")
 
     # Characters in this chapter
@@ -152,7 +166,12 @@ async def build_chapter_context(root_path: str, chapter_ref: str, novel_title: s
     if isinstance(char_names, list):
         for name in char_names[:5]:
             if isinstance(name, str):
-                ch_data = await get_storage().read_yaml(root_path, f"settings/character-setting/{name}.yaml") or {}
+                ch_data = (
+                    await get_storage().read_yaml(
+                        root_path, f"settings/character-setting/{name}.yaml"
+                    )
+                    or {}
+                )
                 state = ""
                 state_history = ch_data.get("state_history", [])
                 if isinstance(state_history, list) and state_history:
@@ -166,7 +185,9 @@ async def build_chapter_context(root_path: str, chapter_ref: str, novel_title: s
     vol_num_match = re.match(r"vol-(\d+)", chapter_ref)
     if vol_num_match and ch_num > 1:
         prev_ref = f"vol-{vol_num_match.group(1)}-ch-{ch_num - 1}"
-        prev = await get_storage().read_yaml(root_path, f"chapters/{prev_ref}.yaml") or {}
+        prev = (
+            await get_storage().read_yaml(root_path, f"chapters/{prev_ref}.yaml") or {}
+        )
         prev_prose = prev.get("prose", "")
         if prev_prose:
             ctx.previous_chapter_recap = prev_prose[-500:]

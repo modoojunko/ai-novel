@@ -50,7 +50,9 @@ async def create(
     db: AsyncSession = Depends(get_db),
 ):
     project = await create_project(
-        db, user["id"], body.name,
+        db,
+        user["id"],
+        body.name,
         synopsis=body.synopsis,
         genre_profile=body.genre_profile,
     )
@@ -66,7 +68,9 @@ async def suggest_meta(
     """Given a story premise, suggest titles, synopsis, genre, and pen name."""
     cfg = get_local_config()
     if not cfg.get("api_key"):
-        raise HTTPException(503, "AI service not configured — go to Settings to set your API Key")
+        raise HTTPException(
+            503, "AI service not configured — go to Settings to set your API Key"
+        )
 
     from prompts import load as load_prompt
 

@@ -27,9 +27,12 @@ async def get_character(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    return await get_storage().read_yaml(
-        project.root_path, f"settings/character-setting/{name}.yaml"
-    ) or {}
+    return (
+        await get_storage().read_yaml(
+            project.root_path, f"settings/character-setting/{name}.yaml"
+        )
+        or {}
+    )
 
 
 @router.put("/character/{name}")

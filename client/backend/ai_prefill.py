@@ -19,7 +19,9 @@ async def prefill_world_setting(root_path: str) -> dict:
     if not synopsis:
         return {}
 
-    prompt = load_prompt("prefill_world").format(synopsis=synopsis, genre_label=genre_label)
+    prompt = load_prompt("prefill_world").format(
+        synopsis=synopsis, genre_label=genre_label
+    )
 
     client = get_ai_client()
     text = await client.chat(
@@ -31,6 +33,7 @@ async def prefill_world_setting(root_path: str) -> dict:
 
     # Extract JSON
     import json
+
     if "```" in text:
         text = text.split("```")[1]
         if text.startswith("json"):

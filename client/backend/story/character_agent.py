@@ -61,8 +61,12 @@ def _build_decision_prompt(
         see=sensory.see or "（无特殊视觉信息）",
         hear=sensory.hear or "（无特殊听觉信息）",
         sense=sensory.smell or sensory.feel or "（无特殊感觉）",
-        knowledge="; ".join(character.knowledge) if character.knowledge else "（无特殊信息）",
-        relationships=json.dumps(character.relationships, ensure_ascii=False) if character.relationships else "（无特殊关系认知）",
+        knowledge="; ".join(character.knowledge)
+        if character.knowledge
+        else "（无特殊信息）",
+        relationships=json.dumps(character.relationships, ensure_ascii=False)
+        if character.relationships
+        else "（无特殊关系认知）",
     )
 
 
@@ -99,12 +103,20 @@ def _extract_fallback_text(text: str) -> dict | None:
             continue
         if len(line) > 8:
             return {
-                "see": "", "hear": "", "sense": "", "understanding": "",
-                "values_checked": "", "ability_assessment": "",
-                "emotion": "", "urgency": "", "decision_process": "",
-                "action_type": "动作", "action_target": "",
+                "see": "",
+                "hear": "",
+                "sense": "",
+                "understanding": "",
+                "values_checked": "",
+                "ability_assessment": "",
+                "emotion": "",
+                "urgency": "",
+                "decision_process": "",
+                "action_type": "动作",
+                "action_target": "",
                 "action_description": line[:200],
-                "inner_monologue": "", "action_impact": "",
+                "inner_monologue": "",
+                "action_impact": "",
             }
     return None
 
@@ -144,7 +156,7 @@ def _extract_json(text: str) -> dict | None:
         if start >= 0:
             end = cleaned.rfind(right)
             if end > start:
-                block = cleaned[start:end + 1]
+                block = cleaned[start : end + 1]
                 for src in [block, _repair_json(block)]:
                     if not src:
                         continue
@@ -161,10 +173,20 @@ def _extract_json(text: str) -> dict | None:
 # Ensure critical fields have valid types, not None or wrong type
 
 _STRING_FIELDS = {
-    "see", "hear", "sense", "understanding", "values_checked",
-    "ability_assessment", "emotion", "urgency", "decision_process",
-    "action_type", "action_target", "action_description",
-    "inner_monologue", "action_impact",
+    "see",
+    "hear",
+    "sense",
+    "understanding",
+    "values_checked",
+    "ability_assessment",
+    "emotion",
+    "urgency",
+    "decision_process",
+    "action_type",
+    "action_target",
+    "action_description",
+    "inner_monologue",
+    "action_impact",
 }
 
 
@@ -179,21 +201,30 @@ def _validate_decision_data(data: dict) -> dict:
     return validated
 
 
-def _parse_decision(text: str, character_id: str, sensory: SensoryInput, round_num: int) -> Decision:
+def _parse_decision(
+    text: str, character_id: str, sensory: SensoryInput, round_num: int
+) -> Decision:
     """Parse LLM response into Decision. Never crashes — uses fallback on failure."""
     data = _extract_json(text)
     if data is None:
-        logger.warning("Non-JSON from %s round %d: %.150s", character_id, round_num, text)
+        logger.warning(
+            "Non-JSON from %s round %d: %.150s", character_id, round_num, text
+        )
         return Decision(
-            character_id=character_id, sensory_input=sensory,
-            log=_FALLBACK, round=round_num, timestamp=int(time.time()),
+            character_id=character_id,
+            sensory_input=sensory,
+            log=_FALLBACK,
+            round=round_num,
+            timestamp=int(time.time()),
         )
 
     data = _validate_decision_data(data)
     return Decision(
-        character_id=character_id, sensory_input=sensory,
+        character_id=character_id,
+        sensory_input=sensory,
         log=DecisionLog(**data),
-        round=round_num, timestamp=int(time.time()),
+        round=round_num,
+        timestamp=int(time.time()),
     )
 
 
@@ -223,8 +254,9 @@ async def run_character_decision(
             text = await asyncio.wait_for(
                 client.chat(
                     model="haiku",
-                    system=_STRICT_SYSTEM if attempt == 1
-                           else "你是一位小说角色扮演者。只输出 JSON，不要任何其他文字。",
+                    system=_STRICT_SYSTEM
+                    if attempt == 1
+                    else "你是一位小说角色扮演者。只输出 JSON，不要任何其他文字。",
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=1024,
                 ),
@@ -232,16 +264,27 @@ async def run_character_decision(
             )
             if _extract_json(text) is not None:
                 return _parse_decision(text, character.character_id, sensory, round_num)
-            logger.warning("Bad JSON from %s (attempt %d)", character.character_id, attempt)
+            logger.warning(
+                "Bad JSON from %s (attempt %d)", character.character_id, attempt
+            )
         except asyncio.TimeoutError:
             logger.warning("Timeout %s (attempt %d)", character.character_id, attempt)
         except Exception as e:
-            logger.warning("LLM fail %s (attempt %d): %s", character.character_id, attempt, e)
+            logger.warning(
+                "LLM fail %s (attempt %d): %s", character.character_id, attempt, e
+            )
 
-    logger.error("All LLM attempts failed for %s round %d — using fallback", character.character_id, round_num)
+    logger.error(
+        "All LLM attempts failed for %s round %d — using fallback",
+        character.character_id,
+        round_num,
+    )
     return Decision(
-        character_id=character.character_id, sensory_input=sensory,
-        log=_FALLBACK, round=round_num, timestamp=int(time.time()),
+        character_id=character.character_id,
+        sensory_input=sensory,
+        log=_FALLBACK,
+        round=round_num,
+        timestamp=int(time.time()),
     )
 
 
@@ -253,7 +296,9 @@ async def run_all_decisions(
 ) -> list[Decision]:
     """Run decisions for all characters in parallel. Never crashes."""
     tasks = [
-        run_character_decision(char, sensory_inputs.get(cid, SensoryInput()), stage, round_num)
+        run_character_decision(
+            char, sensory_inputs.get(cid, SensoryInput()), stage, round_num
+        )
         for cid, char in characters.items()
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
