@@ -24,7 +24,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 ; 输出
-OutputDir=..\dist_installer
+OutputDir=..\dist
 OutputBaseFilename=AI_Novel_Setup_v{#MyAppVersion}
 ; 图标
 SetupIconFile=icon.ico
