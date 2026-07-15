@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "backend/**"
+      - "client/backend/**"
       - ".github/workflows/deploy-backend.yml"
   workflow_dispatch:
 
@@ -24,4 +24,4 @@ jobs:
       - name: Deploy to CloudBase CloudRun
         run: |
           tcb login --apiKeyId ${{ secrets.TCB_SECRET_ID }} --apiKey ${{ secrets.TCB_SECRET_KEY }}
-          tcb cloudrun deploy novel-saas-backend ./backend -e ${{ secrets.TCB_ENV_ID }}
+          tcb cloudrun deploy novel-saas-backend ./client/backend -e ${{ secrets.TCB_ENV_ID }}

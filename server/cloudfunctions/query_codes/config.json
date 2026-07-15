@@ -1,0 +1,9 @@
+{
+  "runtime": "Python3.12",
+  "handler": "main.main",
+  "timeout": 10,
+  "envVariables": {
+    "JWT_SECRET": "{{JWT_SECRET}}",
+    "ADMIN_TOKEN": "{{ADMIN_TOKEN}}"
+  }
+}
