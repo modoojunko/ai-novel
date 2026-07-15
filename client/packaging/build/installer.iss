@@ -1,4 +1,4 @@
-; client/packaging/installer.iss
+; client/packaging/build/installer.iss
 ; AI Novel — Inno Setup 安装脚本
 ; 需要先安装 Inno Setup: https://jrsoftware.org/isdl.php
 ;
@@ -24,10 +24,11 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 ; 输出
-OutputDir=.\dist_installer
+OutputDir=..\dist_installer
 OutputBaseFilename=AI_Novel_Setup_v{#MyAppVersion}
 ; 图标
 SetupIconFile=icon.ico
+
 ; 压缩
 Compression=lzma2/ultra
 SolidCompression=yes

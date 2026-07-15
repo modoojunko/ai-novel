@@ -13,7 +13,8 @@ from pathlib import Path
 def get_base_dir() -> Path:
     if getattr(sys, 'frozen', False):
         return Path(sys._MEIPASS)
-    return Path(__file__).parent
+    # Dev 模式: pywebview_app.py 在 client/packaging/build/ → 项目根目录
+    return Path(__file__).parent.parent.parent
 
 
 def start_server():

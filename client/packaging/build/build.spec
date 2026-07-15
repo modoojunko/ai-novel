@@ -20,7 +20,7 @@ block_cipher = None
 
 # ── 路径 ──
 spec_dir = Path(SPEC).parent if 'SPEC' in dir() else Path.cwd()
-root_dir = spec_dir.parent.parent   # project root
+root_dir = spec_dir.parent.parent.parent   # build/ -> packaging/ -> client/ -> project root
 frontend_dist = root_dir / "client" / "frontend" / "dist"
 backend_dir = root_dir / "client" / "backend"
 
@@ -31,7 +31,7 @@ print(f"Building in {mode_name} mode")
 
 # ── Analysis ──
 a = Analysis(
-    ['pywebview_app.py'],
+    ['pywebview_app.py'],  # 与 build.spec 同目录
     pathex=[str(root_dir), str(backend_dir)],
     binaries=[],
     datas=[
