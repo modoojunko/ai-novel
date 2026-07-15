@@ -26,9 +26,12 @@ Thumbs.db
 frontend/.next/
 frontend/node_modules/
 frontend/out/
+client/frontend/node_modules/
+client/frontend/dist/
 
 # Data
 backend/data/
+client/backend/data/
 ai_config.yaml
 
 # Build output
