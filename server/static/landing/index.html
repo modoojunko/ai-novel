@@ -16,12 +16,14 @@
     .download-btn { display: inline-block; padding: 14px 36px; background: #1a73e8; color: #fff; text-decoration: none; border-radius: 8px; font-size: 1.1em; margin-top: 20px; }
     .download-btn:hover { background: #1557b0; }
     .footer { margin-top: 40px; font-size: 0.9em; color: #999; }
+    .nav-user { display:flex; align-items:center; gap:12px; }
+    .nav-user a { color:#1a73e8; font-weight:500; }
   </style>
 </head>
 <body>
   <div class="nav">
     <b style="font-size:18px">📝 AI Novel</b>
-    <div><a href="/login.html">登录</a><a href="/register.html">注册</a></div>
+    <div id="navLinks"><a href="/login.html">登录</a><a href="/register.html">注册</a></div>
   </div>
   <h1>📝 AI Novel</h1>
   <div class="subtitle">AI 辅助长篇小说创作工具 — 本地运行，数据完全由你掌控</div>
@@ -40,5 +42,10 @@
     <p>购买激活码请访问淘宝店铺</p>
     <p>本软件不收集任何用户数据，所有创作内容存储在本地。</p>
   </div>
+  <script>
+    if (localStorage.getItem('token')) {
+      document.getElementById('navLinks').innerHTML = '<span style="color:#555;font-size:14px">已登录</span> <a href="/dashboard.html" style="color:#1a73e8;font-size:14px;font-weight:500">我的账号</a>';
+    }
+  </script>
 </body>
 </html>

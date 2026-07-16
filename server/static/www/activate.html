@@ -7,11 +7,23 @@
 </div>
 <script>
 async function activateCode() {
+  const btn = document.querySelector('button'); btn.disabled=true;
   const msg = document.getElementById('msg'); msg.className='msg';
   const code = document.getElementById('code').value.trim().toUpperCase();
-  if (!code) { msg.className='msg error'; msg.textContent='请输入激活码'; return; }
-  const res = await request('/license/activate', { method:'POST', body:JSON.stringify({ code }) });
-  if (res.code === 0) { msg.className='msg success'; msg.textContent='✅ 激活成功！到期日已叠加'; document.getElementById('code').value=''; setTimeout(() => window.location.hash='#license', 1500); }
-  else { msg.className='msg error'; msg.textContent=res.msg||'激活失败'; }
+  if (!code) { msg.className='msg error'; msg.textContent='请输入激活码'; btn.disabled=false; return; }
+  try {
+    const res = await request('/license/activate', { method:'POST', body:JSON.stringify({ code }) });
+    if (res.code === 0) {
+      msg.className='msg success'; msg.textContent='✅ 激活成功！到期日已叠加';
+      document.getElementById('code').value='';
+      setTimeout(() => window.location.hash='#license', 1500);
+    } else {
+      msg.className='msg error'; msg.textContent=res.msg||'激活失败';
+      btn.disabled=false;
+    }
+  } catch(e) {
+    msg.className='msg error'; msg.textContent='请求失败：'+e.message;
+    btn.disabled=false;
+  }
 }
 </script>
