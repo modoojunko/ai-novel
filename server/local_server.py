@@ -23,7 +23,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from functools import wraps
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -130,6 +130,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 from jinja2 import Environment, FileSystemLoader
 import uuid as _uuid
+import datetime as _dt
 
 _tpl_dir = Path(__file__).parent / "templates"
 _tpl_env = Environment(loader=FileSystemLoader(str(_tpl_dir)), autoescape=True)
@@ -182,10 +183,11 @@ async def page_register():
 
 
 @app.get("/dashboard")
-async def page_dashboard(token: str = ""):
+async def page_dashboard(request: Request, token: str = ""):
+    if not token or token == "":
+        token = request.cookies.get("token", "") or ""
     if not token:
-        # 尝试从 cookie 或 header 读取
-        token = token or ""
+        return RedirectResponse(url="/login")
     username = _user_from_token(token)
     if not username:
         return RedirectResponse(url="/login")
@@ -630,7 +632,10 @@ def _gen_token() -> str:
 def _user_from_token(token: str):
     if not token: return None
     conn = get_db()
+    # 清理过期 token（排除空字符串，空表示永不过期）
+    conn.execute("DELETE FROM auth_tokens WHERE expires_at != '' AND expires_at IS NOT NULL AND expires_at < datetime('now')")
     row = conn.execute("SELECT username FROM auth_tokens WHERE token=?", (token,)).fetchone()
+    conn.commit()
     conn.close()
     return row["username"] if row else None
 
@@ -653,7 +658,7 @@ async def api_web_login(req: WebLoginRequest):
     if not user or not verify_password(req.password, user["password_hash"]):
         conn.close(); return {"code": 1, "msg": "用户名或密码错误"}
     token = _gen_token()
-    conn.execute("INSERT OR REPLACE INTO auth_tokens (pc_hash, username, token, tier, created_at) VALUES (?, ?, ?, '', datetime('now'))",
+    conn.execute("INSERT OR REPLACE INTO auth_tokens (pc_hash, username, token, tier, expires_at, created_at) VALUES (?, ?, ?, '', datetime('now', '+7 days'), datetime('now'))",
                  (f"web_{token[:8]}", user["username"], token))
     conn.commit(); conn.close()
     return {"code": 0, "data": {"token": token}}
@@ -667,7 +672,7 @@ async def api_web_register(req: WebRegisterRequest):
     conn.execute("INSERT INTO users (username, password_hash, security_question, security_answer_hash, status, created_at) VALUES (?,?,?,?,'active',datetime('now'))",
                  (req.username.strip(), hash_password(req.password), req.security_question, hash_password(req.security_answer)))
     token = _gen_token()
-    conn.execute("INSERT OR REPLACE INTO auth_tokens (pc_hash, username, token, tier, created_at) VALUES (?,?,?,?,datetime('now'))",
+    conn.execute("INSERT OR REPLACE INTO auth_tokens (pc_hash, username, token, tier, expires_at, created_at) VALUES (?,?,?,?,datetime('now', '+7 days'),datetime('now'))",
                  (f"web_{token[:8]}", req.username.strip(), token, ""))
     conn.commit(); conn.close()
     return {"code": 0, "data": {"token": token}}

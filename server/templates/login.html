@@ -22,7 +22,11 @@ document.getElementById('form').onsubmit = async (e) => {
   const res = await fetch('/api/web/login', { method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ username: document.getElementById('username').value, password: document.getElementById('password').value }) });
   const data = await res.json();
-  if (data.code === 0) { localStorage.setItem('token', data.data.token); window.location.href = '/dashboard?token=' + data.data.token; }
+  if (data.code === 0) {
+    localStorage.setItem('token', data.data.token);
+    document.cookie = 'token=' + data.data.token + '; path=/; max-age=604800';
+    window.location.href = '/dashboard';
+  }
   else { msg.className='msg error'; msg.textContent=data.msg||'登录失败'; btn.disabled=false; }
 };
 </script>
