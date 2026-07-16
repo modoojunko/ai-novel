@@ -708,11 +708,13 @@ async def api_device_remove(body: dict, authorization: str = Header(None)):
 
 # ── 静态文件挂载（放在最后，避免拦截 API 路由） ──
 
-@app.on_event("startup")
-def _mount_www():
-    www_path = Path(__file__).parent / "static" / "www"
-    if www_path.exists():
-        app.mount("/", StaticFiles(directory=str(www_path), html=True), name="www")
+www_path = Path(__file__).parent / "static" / "www"
+if www_path.exists():
+    app.mount("/", StaticFiles(directory=str(www_path), html=True), name="www")
+
+landing_path = Path(__file__).parent / "static" / "landing"
+if landing_path.exists():
+    app.mount("/landing", StaticFiles(directory=str(landing_path), html=True), name="landing")
 
 
 if __name__ == "__main__":
