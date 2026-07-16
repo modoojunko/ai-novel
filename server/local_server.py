@@ -24,7 +24,7 @@ from pathlib import Path
 from functools import wraps
 
 from fastapi import FastAPI, HTTPException, Header
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -125,6 +125,75 @@ def calc_expires_at(tier: str, from_date: date = None) -> date:
 
 app = FastAPI(title="AI Novel - Local S Server", version="1.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+# ── Jinja2 模板 ──
+
+from jinja2 import Environment, FileSystemLoader
+import uuid as _uuid
+
+_tpl_dir = Path(__file__).parent / "templates"
+_tpl_env = Environment(loader=FileSystemLoader(str(_tpl_dir)), autoescape=True)
+
+def _render(name: str, **kw):
+    """渲染 Jinja2 模板"""
+    return HTMLResponse(_tpl_env.get_template(name).render(**kw))
+
+_TIER_NAMES = {"monthly": "月付", "quarterly": "季付", "yearly": "年付", "lifetime": "永久", "none": "无套餐"}
+
+def _user_data(username: str) -> dict:
+    """获取用户数据供模板使用"""
+    conn = get_db()
+    user = conn.execute("SELECT username, security_question, created_at FROM users WHERE username=?", (username,)).fetchone()
+    codes = conn.execute("SELECT code_id, tier, expires_at, activated_at FROM codes WHERE bound_username=? ORDER BY activated_at DESC", (username,)).fetchall()
+    conn.close()
+    if not user:
+        return None
+    max_expires = None
+    for c in codes:
+        if c["expires_at"]:
+            try: e = date.fromisoformat(c["expires_at"])
+            except: continue
+            if max_expires is None or e > max_expires: max_expires = e
+    tier = codes[0]["tier"] if codes else "none"
+    return {
+        "username": user["username"],
+        "tier": tier,
+        "tier_display": _TIER_NAMES.get(tier, tier),
+        "expires_at": str(max_expires) if max_expires else "",
+        "security_question": user["security_question"],
+        "codes": [dict(c) for c in codes],
+    }
+
+
+# ── 页面路由 ──
+
+@app.get("/login")
+async def page_login(token: str = ""):
+    if token:
+        username = _user_from_token(token)
+        if username:
+            return RedirectResponse(url=f"/dashboard?token={token}")
+    return _render("login.html")
+
+
+@app.get("/register")
+async def page_register():
+    return RedirectResponse(url="/register.html")
+
+
+@app.get("/dashboard")
+async def page_dashboard(token: str = ""):
+    if not token:
+        # 尝试从 cookie 或 header 读取
+        token = token or ""
+    username = _user_from_token(token)
+    if not username:
+        return RedirectResponse(url="/login")
+    data = _user_data(username)
+    if not data:
+        return RedirectResponse(url="/login")
+    return _render("dashboard.html", user=data)
+
 
 # 请求模型
 class ActivateRequest(BaseModel):

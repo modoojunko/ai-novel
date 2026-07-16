@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>我的账号 - AI Novel</title>
+<link rel="stylesheet" href="/style.css">
+</head><body>
+<div class="dashboard">
+  <div class="sidebar">
+    <div class="logo">AI Novel</div>
+    <nav>
+      <a href="#license" class="active">📋 我的套餐</a>
+      <a href="#activate">🔑 激活新码</a>
+      <a href="#devices">💻 我的设备</a>
+      <a href="#account">👤 账号信息</a>
+    </nav>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column">
+    <div class="topbar">
+      <span class="username">{{ user.username }}</span>
+      <a href="#" class="link" onclick="logout()">退出</a>
+    </div>
+    <div class="main">
+      <!-- 我的套餐 -->
+      <div id="pageLicense">
+        <h2>📋 我的套餐</h2>
+        <div class="plan-card">
+          <p class="label">当前套餐</p>
+          <p class="value" id="tierDisplay">{{ tier_display }}</p>
+          <p class="sub">到期日：<span id="expiresDisplay">{{ user.expires_at or '-' }}</span></p>
+        </div>
+        <h3>历史激活码</h3>
+        <div id="codeList">
+          {% if user.codes %}
+            {% for c in user.codes %}
+            <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:14px;margin-bottom:8px;font-size:14px">
+              <code>{{ c.code_id }}</code>
+              <span style="margin-left:12px;color:#666">{{ c.tier }}</span>
+              <span style="margin-left:12px;color:#999">激活 {{ c.activated_at[:10] if c.activated_at else '-' }}</span>
+              <span style="margin-left:12px;color:#999">到期 {{ c.expires_at[:10] if c.expires_at else '-' }}</span>
+            </div>
+            {% endfor %}
+          {% else %}
+            <p style="color:#888">暂无激活记录</p>
+          {% endif %}
+        </div>
+      </div>
+      <!-- 激活新码 -->
+      <div id="pageActivate" style="display:none;max-width:480px">
+        <h2>🔑 激活新码</h2>
+        <p style="color:#888;margin-bottom:20px">在淘宝购买的激活码，在这里输入绑定到你的账号。到期日会自动叠加。</p>
+        <div id="activateMsg" class="msg"></div>
+        <input type="text" id="codeInput" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;font-family:monospace" placeholder="AC-XXXX-YYYY-ZZZZ-WWWW">
+        <button class="btn" style="margin-top:16px" onclick="activateCode()">激活</button>
+      </div>
+      <!-- 我的设备 -->
+      <div id="pageDevices" style="display:none">
+        <h2>💻 我的设备</h2>
+        <p style="color:#888;margin-bottom:20px">最多绑定 <strong>3</strong> 台设备</p>
+        <div id="deviceList"></div>
+      </div>
+      <!-- 账号信息 -->
+      <div id="pageAccount" style="display:none;max-width:480px">
+        <h2>👤 账号信息</h2>
+        <p class="mb-2">用户名：<strong>{{ user.username }}</strong></p>
+        <p style="color:#888;font-size:13px" class="mb-3">用户名不可修改</p>
+        <div id="accountMsg" class="msg"></div>
+        <h3>修改密码</h3>
+        <input type="password" id="oldPwd" placeholder="旧密码">
+        <input type="password" id="newPwd" placeholder="新密码（至少6位）">
+        <input type="password" id="confirmPwd" placeholder="确认新密码">
+        <button class="btn btn-sm" style="width:auto" onclick="changePassword()">保存密码</button>
+        <h3 style="margin-top:24px">密保问题</h3>
+        <p style="font-size:14px;color:#666" class="mb-2">当前问题：<span id="currentQuestion">{{ user.security_question or '未设置' }}</span></p>
+        <input type="text" id="newQuestion" placeholder="新密保问题">
+        <input type="password" id="newAnswer" placeholder="新密保答案">
+        <button class="btn btn-sm" style="width:auto" onclick="changeSecurity()">保存密保</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/api.js"></script>
+<script>
+const TOKEN = localStorage.getItem('token');
+if (!TOKEN) { window.location.href = '/login'; }
+
+const PAGES = { license:'pageLicense', activate:'pageActivate', devices:'pageDevices', account:'pageAccount' };
+
+function switchPage() {
+  const page = window.location.hash.slice(1) || 'license';
+  document.querySelectorAll('.sidebar nav a').forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + page));
+  Object.values(PAGES).forEach(id => document.getElementById(id).style.display = 'none');
+  document.getElementById(PAGES[page] || PAGES.license).style.display = 'block';
+  if (page === 'devices') loadDevices();
+}
+
+async function loadDevices() {
+  const res = await request('/device/my');
+  const list = document.getElementById('deviceList');
+  if (!res.data || res.data.length === 0) { list.innerHTML = '<p style="color:#888">暂无已绑定设备</p>'; return; }
+  list.innerHTML = res.data.map(d =>
+    `<div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+      <div><span style="font-size:16px">${d.pc_name||'未知设备'}</span><br><span style="font-size:13px;color:#999">最后活跃：${d.last_active_at?new Date(d.last_active_at).toLocaleDateString('zh-CN'):'-'}</span></div>
+      <button class="btn btn-danger btn-sm" onclick="removeDevice('${d.pc_hash}')">解绑</button>
+    </div>`
+  ).join('');
+}
+
+async function removeDevice(hash) {
+  if (!confirm('确定解绑此设备？')) return;
+  const r = await request('/device/remove', { method:'POST', body:JSON.stringify({ pc_hash: hash }) });
+  if (r.code === 0) loadDevices();
+}
+
+async function activateCode() {
+  const msg = document.getElementById('activateMsg'); msg.className='msg';
+  const code = document.getElementById('codeInput').value.trim().toUpperCase();
+  if (!code) { msg.className='msg error'; msg.textContent='请输入激活码'; return; }
+  const r = await request('/license/activate', { method:'POST', body:JSON.stringify({ code }) });
+  if (r.code === 0) { msg.className='msg success'; msg.textContent='✅ 激活成功！'; document.getElementById('codeInput').value=''; window.location.hash='#license'; }
+  else { msg.className='msg error'; msg.textContent=r.msg||'激活失败'; }
+}
+
+async function changePassword() {
+  const msg = document.getElementById('accountMsg'); msg.className='msg';
+  const o = document.getElementById('oldPwd').value, n = document.getElementById('newPwd').value, c = document.getElementById('confirmPwd').value;
+  if (!o||!n) { msg.className='msg error'; msg.textContent='请填写完整'; return; }
+  if (n!==c) { msg.className='msg error'; msg.textContent='两次密码不一致'; return; }
+  if (n.length<6) { msg.className='msg error'; msg.textContent='密码至少6位'; return; }
+  const r = await request('/user/password', { method:'PUT', body:JSON.stringify({ old_password: o, new_password: n }) });
+  if (r.code===0) { msg.className='msg success'; msg.textContent='✅ 密码已修改'; document.getElementById('oldPwd').value=''; document.getElementById('newPwd').value=''; document.getElementById('confirmPwd').value=''; }
+  else { msg.className='msg error'; msg.textContent=r.msg||'修改失败'; }
+}
+
+async function changeSecurity() {
+  const msg = document.getElementById('accountMsg'); msg.className='msg';
+  const q = document.getElementById('newQuestion').value, a = document.getElementById('newAnswer').value;
+  if (!q||!a) { msg.className='msg error'; msg.textContent='请填写完整'; return; }
+  const r = await request('/user/security', { method:'PUT', body:JSON.stringify({ security_question: q, security_answer: a }) });
+  if (r.code===0) { msg.className='msg success'; msg.textContent='✅ 密保已更新'; document.getElementById('newQuestion').value=''; document.getElementById('newAnswer').value=''; document.getElementById('currentQuestion').textContent=q; }
+  else { msg.className='msg error'; msg.textContent=r.msg||'修改失败'; }
+}
+
+window.addEventListener('hashchange', switchPage);
+switchPage();
+</script></body></html>

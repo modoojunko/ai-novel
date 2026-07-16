@@ -370,3 +370,32 @@ class TestEdgeCases:
         r2 = client.post("/api/license/activate", json={"code": c}, headers={"Authorization": f"Bearer {token}"})
         assert r2.json()["code"] == 0
         assert client.get("/api/user/me", headers={"Authorization": f"Bearer {token}"}).json()["data"]["tier"] == "lifetime"
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 13. Jinja2 页面路由 (4 tests)
+# ═══════════════════════════════════════════════════════════════════
+
+class TestJinja2Pages:
+    def test_login_page(self, client):
+        r = client.get("/login")
+        assert r.status_code == 200
+        assert "登录" in r.text
+        assert "AI Novel" in r.text
+
+    def test_dashboard_no_auth(self, client):
+        r = client.get("/dashboard", follow_redirects=False)
+        assert r.status_code in (302, 307)
+        assert "/login" in r.headers.get("location", "")
+
+    def test_dashboard_with_auth(self, client, user):
+        r = client.get(f"/dashboard?token={user['token']}")
+        assert r.status_code == 200
+        assert user["username"] in r.text
+        assert "我的套餐" in r.text
+
+    def test_register_redirect(self, client):
+        r = client.get("/register")
+        # 302 重定向到 /register.html
+        assert r.status_code in (200, 302, 307)
+        assert r.status_code != 404
