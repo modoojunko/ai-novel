@@ -34,8 +34,16 @@ async function loadPage() {
   document.getElementById('usernameDisplay').textContent = user.data.username;
   const page = window.location.hash.slice(1) || 'license';
   document.querySelectorAll('.sidebar nav a').forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + page));
+  // innerHTML 不执行 script，手动创建 script 节点
   const resp = await fetch(PAGES[page] || PAGES.license);
-  document.getElementById('content').innerHTML = await resp.text();
+  const html = await resp.text();
+  const el = document.getElementById('content');
+  el.innerHTML = html;
+  el.querySelectorAll('script').forEach(s => {
+    const ns = document.createElement('script');
+    ns.textContent = s.textContent;
+    s.replaceWith(ns);
+  });
   if (window.pageInit) window.pageInit(user.data);
 }
 window.addEventListener('hashchange', loadPage);
