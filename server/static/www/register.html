@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>注册 - AI Novel</title>
+<link rel="stylesheet" href="/style.css">
+</head><body>
+<div class="page-center">
+<div class="card">
+  <h1>AI Novel</h1>
+  <p class="subtitle">创建你的账号</p>
+  <div id="msg" class="msg"></div>
+  <form id="form">
+    <label>用户名</label><input type="text" id="username" required>
+    <label>密码</label><input type="password" id="password" placeholder="至少 6 位" required>
+    <label>确认密码</label><input type="password" id="confirmPwd" required>
+    <label>密保问题</label><input type="text" id="question" placeholder="例如：我最喜欢的城市是？" required>
+    <label>密保答案</label><input type="text" id="answer" required>
+    <button type="submit" class="btn" id="btn">创建并登录</button>
+  </form>
+  <p class="text-center mt-3"><a href="/login.html" class="link">已有账号？登录</a></p>
+</div></div>
+<script src="/api.js"></script>
+<script>
+document.getElementById('form').onsubmit = async (e) => {
+  e.preventDefault(); const btn=document.getElementById('btn'); btn.disabled=true;
+  const msg=document.getElementById('msg');
+  const pwd = document.getElementById('password').value;
+  if (pwd !== document.getElementById('confirmPwd').value) { msg.className='msg error'; msg.textContent='两次密码不一致'; btn.disabled=false; return; }
+  if (pwd.length < 6) { msg.className='msg error'; msg.textContent='密码至少6位'; btn.disabled=false; return; }
+  try {
+    const res = await fetch('/api/web/register', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        username: document.getElementById('username').value,
+        password: pwd,
+        security_question: document.getElementById('question').value,
+        security_answer: document.getElementById('answer').value
+      })
+    });
+    const data = await res.json();
+    if (data.code === 0) { localStorage.setItem('token', data.data.token); window.location.href = '/dashboard.html'; }
+    else { msg.className='msg error'; msg.textContent=data.msg||'注册失败'; btn.disabled=false; }
+  } catch(e) { msg.className='msg error'; msg.textContent='网络错误'; btn.disabled=false; }
+};
+</script></body></html>

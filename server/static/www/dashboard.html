@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>我的账号 - AI Novel</title>
+<link rel="stylesheet" href="/style.css">
+</head><body>
+<div class="dashboard">
+  <div class="sidebar">
+    <div class="logo">AI Novel</div>
+    <nav>
+      <a href="#license" class="active">📋 我的套餐</a>
+      <a href="#activate">🔑 激活新码</a>
+      <a href="#devices">💻 我的设备</a>
+      <a href="#account">👤 账号信息</a>
+    </nav>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column">
+    <div class="topbar">
+      <span class="username" id="usernameDisplay"></span>
+      <a href="#" class="link" onclick="logout()">退出</a>
+    </div>
+    <div class="main" id="content">
+      <p style="color:#888">加载中...</p>
+    </div>
+  </div>
+</div>
+<script src="/api.js"></script>
+<script>
+const PAGES = { license:'/license.html', activate:'/activate.html', devices:'/devices.html', account:'/account.html' };
+
+async function loadPage() {
+  const token = localStorage.getItem('token');
+  if (!token) { window.location.href = '/login.html'; return; }
+  const user = await request('/user/me');
+  if (user.code !== 0) { logout(); return; }
+  document.getElementById('usernameDisplay').textContent = user.data.username;
+  const page = window.location.hash.slice(1) || 'license';
+  document.querySelectorAll('.sidebar nav a').forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + page));
+  const resp = await fetch(PAGES[page] || PAGES.license);
+  document.getElementById('content').innerHTML = await resp.text();
+  if (window.pageInit) window.pageInit(user.data);
+}
+window.addEventListener('hashchange', loadPage);
+loadPage();
+</script></body></html>

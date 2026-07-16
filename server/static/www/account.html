@@ -1,0 +1,43 @@
+<div style="max-width:480px">
+  <h2>👤 账号信息</h2>
+  <p class="mb-2">用户名：<strong id="usernameDisplay"></strong></p>
+  <p style="color:#888;font-size:13px" class="mb-3">用户名不可修改</p>
+  <div id="msg" class="msg"></div>
+  <h3>修改密码</h3>
+  <input type="password" id="oldPwd" placeholder="旧密码">
+  <input type="password" id="newPwd" placeholder="新密码（至少6位）">
+  <input type="password" id="confirmPwd" placeholder="确认新密码">
+  <button class="btn btn-sm" style="width:auto" onclick="changePassword()">保存密码</button>
+  <h3 style="margin-top:24px">密保问题</h3>
+  <p style="font-size:14px;color:#666" class="mb-2">当前问题：<span id="currentQuestion">-</span></p>
+  <input type="text" id="newQuestion" placeholder="新密保问题">
+  <input type="password" id="newAnswer" placeholder="新密保答案">
+  <button class="btn btn-sm" style="width:auto" onclick="changeSecurity()">保存密保</button>
+</div>
+<script>
+window.pageInit = function(user) {
+  document.getElementById('usernameDisplay').textContent = user.username;
+  document.getElementById('currentQuestion').textContent = user.security_question || '未设置';
+};
+async function changePassword() {
+  const msg = document.getElementById('msg'); msg.className='msg';
+  const oldPwd = document.getElementById('oldPwd').value;
+  const newPwd = document.getElementById('newPwd').value;
+  const confirmPwd = document.getElementById('confirmPwd').value;
+  if (!oldPwd || !newPwd) { msg.className='msg error'; msg.textContent='请填写完整'; return; }
+  if (newPwd !== confirmPwd) { msg.className='msg error'; msg.textContent='两次密码不一致'; return; }
+  if (newPwd.length < 6) { msg.className='msg error'; msg.textContent='密码至少6位'; return; }
+  const res = await request('/user/password', { method:'PUT', body:JSON.stringify({ old_password: oldPwd, new_password: newPwd }) });
+  if (res.code === 0) { msg.className='msg success'; msg.textContent='✅ 密码已修改'; document.getElementById('oldPwd').value=''; document.getElementById('newPwd').value=''; document.getElementById('confirmPwd').value=''; }
+  else { msg.className='msg error'; msg.textContent=res.msg||'修改失败'; }
+}
+async function changeSecurity() {
+  const msg = document.getElementById('msg'); msg.className='msg';
+  const question = document.getElementById('newQuestion').value;
+  const answer = document.getElementById('newAnswer').value;
+  if (!question || !answer) { msg.className='msg error'; msg.textContent='请填写完整'; return; }
+  const res = await request('/user/security', { method:'PUT', body:JSON.stringify({ security_question: question, security_answer: answer }) });
+  if (res.code === 0) { msg.className='msg success'; msg.textContent='✅ 密保已更新'; document.getElementById('newQuestion').value=''; document.getElementById('newAnswer').value=''; document.getElementById('currentQuestion').textContent = question; }
+  else { msg.className='msg error'; msg.textContent=res.msg||'修改失败'; }
+}
+</script>

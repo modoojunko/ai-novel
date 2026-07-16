@@ -23,9 +23,10 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from functools import wraps
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import uvicorn
 
@@ -548,6 +549,170 @@ async def api_query_codes(req: QueryCodesRequest):
         "created_at": r["created_at"],
     } for r in rows]
     return {"code": 0, "data": {"codes": code_list}}
+
+
+# ── Web 页面 API（区别于 OAuth 的 /api/login） ──────────────────────────
+
+import uuid
+
+def _gen_token() -> str:
+    return str(uuid.uuid4()).replace("-", "")[:32]
+
+def _user_from_token(token: str):
+    if not token: return None
+    conn = get_db()
+    row = conn.execute("SELECT username FROM auth_tokens WHERE token=?", (token,)).fetchone()
+    conn.close()
+    return row["username"] if row else None
+
+
+class WebLoginRequest(BaseModel):
+    username: str
+    password: str
+
+class WebRegisterRequest(BaseModel):
+    username: str
+    password: str
+    security_question: str = ""
+    security_answer: str = ""
+
+
+@app.post("/api/web/login")
+async def api_web_login(req: WebLoginRequest):
+    conn = get_db()
+    user = conn.execute("SELECT * FROM users WHERE username=?", (req.username.strip(),)).fetchone()
+    if not user or not verify_password(req.password, user["password_hash"]):
+        conn.close(); return {"code": 1, "msg": "用户名或密码错误"}
+    token = _gen_token()
+    conn.execute("INSERT OR REPLACE INTO auth_tokens (pc_hash, username, token, tier, created_at) VALUES (?, ?, ?, '', datetime('now'))",
+                 (f"web_{token[:8]}", user["username"], token))
+    conn.commit(); conn.close()
+    return {"code": 0, "data": {"token": token}}
+
+
+@app.post("/api/web/register")
+async def api_web_register(req: WebRegisterRequest):
+    conn = get_db()
+    if conn.execute("SELECT 1 FROM users WHERE username=?", (req.username.strip(),)).fetchone():
+        conn.close(); return {"code": 1, "msg": "用户名已存在"}
+    conn.execute("INSERT INTO users (username, password_hash, security_question, security_answer_hash, status, created_at) VALUES (?,?,?,?,'active',datetime('now'))",
+                 (req.username.strip(), hash_password(req.password), req.security_question, hash_password(req.security_answer)))
+    token = _gen_token()
+    conn.execute("INSERT OR REPLACE INTO auth_tokens (pc_hash, username, token, tier, created_at) VALUES (?,?,?,?,datetime('now'))",
+                 (f"web_{token[:8]}", req.username.strip(), token, ""))
+    conn.commit(); conn.close()
+    return {"code": 0, "data": {"token": token}}
+
+
+def _get_user_data(username: str) -> dict:
+    conn = get_db()
+    user = conn.execute("SELECT username, security_question, created_at FROM users WHERE username=?", (username,)).fetchone()
+    codes = conn.execute("SELECT code_id, tier, expires_at, activated_at FROM codes WHERE bound_username=? ORDER BY activated_at DESC", (username,)).fetchall()
+    conn.close()
+    max_expires = None
+    for c in codes:
+        if c["expires_at"]:
+            try: e = date.fromisoformat(c["expires_at"])
+            except: continue
+            if max_expires is None or e > max_expires: max_expires = e
+    tier = codes[0]["tier"] if codes else "none"
+    return {
+        "username": user["username"],
+        "tier": tier,
+        "expires_at": str(max_expires) if max_expires else "",
+        "security_question": user["security_question"],
+        "codes": [dict(c) for c in codes],
+    }
+
+
+@app.get("/api/user/me")
+async def api_user_me(authorization: str = Header(None)):
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    username = _user_from_token(token)
+    if not username: return {"code": 1, "msg": "未登录"}
+    return {"code": 0, "data": _get_user_data(username)}
+
+
+@app.put("/api/user/password")
+async def api_user_password(body: dict, authorization: str = Header(None)):
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    username = _user_from_token(token)
+    if not username: return {"code": 1, "msg": "未登录"}
+    conn = get_db()
+    user = conn.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+    if not verify_password(body.get("old_password",""), user["password_hash"]):
+        conn.close(); return {"code": 1, "msg": "旧密码错误"}
+    if len(body.get("new_password","")) < 6:
+        conn.close(); return {"code": 1, "msg": "密码至少6位"}
+    conn.execute("UPDATE users SET password_hash=? WHERE username=?", (hash_password(body["new_password"]), username))
+    conn.commit(); conn.close()
+    return {"code": 0, "data": {"success": True}}
+
+
+@app.put("/api/user/security")
+async def api_user_security(body: dict, authorization: str = Header(None)):
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    username = _user_from_token(token)
+    if not username: return {"code": 1, "msg": "未登录"}
+    conn = get_db()
+    conn.execute("UPDATE users SET security_question=?, security_answer_hash=? WHERE username=?",
+                 (body.get("security_question",""), hash_password(body.get("security_answer","")), username))
+    conn.commit(); conn.close()
+    return {"code": 0, "data": {"success": True}}
+
+
+@app.post("/api/license/activate")
+async def api_license_activate(body: dict, authorization: str = Header(None)):
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    username = _user_from_token(token)
+    if not username: return {"code": 1, "msg": "未登录"}
+    code_id = body.get("code", "").strip().upper()
+    conn = get_db()
+    code = conn.execute("SELECT * FROM codes WHERE code_id=?", (code_id,)).fetchone()
+    if not code: conn.close(); return {"code": 1, "msg": "无效的激活码"}
+    if code["status"] != "unused": conn.close(); return {"code": 1, "msg": "激活码已被使用"}
+    cur = conn.execute("SELECT MAX(expires_at) as mx FROM codes WHERE bound_username=? AND status='active'", (username,)).fetchone()
+    try:
+        base = date.fromisoformat(cur["mx"]) if cur and cur["mx"] else date.today()
+    except: base = date.today()
+    duration = {"monthly": 30, "quarterly": 90, "yearly": 365, "lifetime": 36500}
+    days = duration.get(code["tier"], 30)
+    new_expires = base + timedelta(days=days)
+    conn.execute("UPDATE codes SET status='active', bound_username=?, activated_at=date('now'), expires_at=? WHERE code_id=?",
+                 (username, new_expires.isoformat(), code_id))
+    conn.commit(); conn.close()
+    return {"code": 0, "data": {"new_expires_at": new_expires.isoformat()}}
+
+
+@app.get("/api/device/my")
+async def api_device_my(authorization: str = Header(None)):
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    username = _user_from_token(token)
+    if not username: return {"code": 1, "msg": "未登录"}
+    conn = get_db()
+    devices = conn.execute("SELECT pc_hash, pc_name, last_active_at FROM devices WHERE username=?", (username,)).fetchall()
+    conn.close()
+    return {"code": 0, "data": [dict(d) for d in devices]}
+
+
+@app.post("/api/device/remove")
+async def api_device_remove(body: dict, authorization: str = Header(None)):
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    username = _user_from_token(token)
+    if not username: return {"code": 1, "msg": "未登录"}
+    conn = get_db()
+    conn.execute("DELETE FROM devices WHERE username=? AND pc_hash=?", (username, body.get("pc_hash","")))
+    conn.commit(); conn.close()
+    return {"code": 0, "data": {"success": True}}
+
+
+# ── 静态文件挂载（放在最后，避免拦截 API 路由） ──
+
+@app.on_event("startup")
+def _mount_www():
+    www_path = Path(__file__).parent / "static" / "www"
+    if www_path.exists():
+        app.mount("/", StaticFiles(directory=str(www_path), html=True), name="www")
 
 
 if __name__ == "__main__":

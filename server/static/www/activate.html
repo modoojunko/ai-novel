@@ -1,0 +1,17 @@
+<div style="max-width:480px">
+  <h2>🔑 激活新码</h2>
+  <p style="color:#888;margin-bottom:20px">在淘宝购买的激活码，在这里输入绑定到你的账号。到期日会自动叠加。</p>
+  <div id="msg" class="msg"></div>
+  <input type="text" id="code" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;font-family:monospace" placeholder="AC-XXXX-YYYY-ZZZZ-WWWW">
+  <button class="btn" style="margin-top:16px" onclick="activateCode()">激活</button>
+</div>
+<script>
+async function activateCode() {
+  const msg = document.getElementById('msg'); msg.className='msg';
+  const code = document.getElementById('code').value.trim().toUpperCase();
+  if (!code) { msg.className='msg error'; msg.textContent='请输入激活码'; return; }
+  const res = await request('/license/activate', { method:'POST', body:JSON.stringify({ code }) });
+  if (res.code === 0) { msg.className='msg success'; msg.textContent='✅ 激活成功！到期日已叠加'; document.getElementById('code').value=''; setTimeout(() => window.location.hash='#license', 1500); }
+  else { msg.className='msg error'; msg.textContent=res.msg||'激活失败'; }
+}
+</script>
