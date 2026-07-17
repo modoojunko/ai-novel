@@ -46,10 +46,10 @@
       <!-- 激活新码 -->
       <div id="pageActivate" style="display:none;max-width:480px">
         <h2>🔑 激活新码</h2>
-        <p style="color:#888;margin-bottom:20px">在淘宝购买的激活码，在这里输入绑定到你的账号。到期日会自动叠加。</p>
+        <p style="color:var(--muted);margin-bottom:20px;font-size:14px">在淘宝购买的激活码，在这里输入绑定到你的账号。到期日会自动叠加。</p>
         <div id="activateMsg" class="msg"></div>
-        <input type="text" id="codeInput" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;font-family:monospace" placeholder="AC-XXXX-YYYY-ZZZZ-WWWW">
-        <button class="btn" style="margin-top:16px" onclick="activateCode()">激活</button>
+        <input type="text" id="codeInput" placeholder="AC-XXXX-YYYY-ZZZZ-WWWW">
+        <button class="btn-sm" style="margin-top:4px" onclick="activateCode()">激活</button>
       </div>
       <!-- 我的设备 -->
       <div id="pageDevices" style="display:none">
@@ -60,19 +60,21 @@
       <!-- 账号信息 -->
       <div id="pageAccount" style="display:none;max-width:480px">
         <h2>👤 账号信息</h2>
-        <p class="mb-2">用户名：<strong>{{ user.username }}</strong></p>
-        <p style="color:#888;font-size:13px" class="mb-3">用户名不可修改</p>
+        <p style="font-size:14px;color:var(--muted);margin-bottom:16px">
+          用户名：<strong style="color:var(--ink)">{{ user.username }}</strong>
+          <span style="margin-left:8px;font-size:13px">（不可修改）</span>
+        </p>
         <div id="accountMsg" class="msg"></div>
-        <h3>修改密码</h3>
+        <h3 style="margin-top:0">修改密码</h3>
         <input type="password" id="oldPwd" placeholder="旧密码">
         <input type="password" id="newPwd" placeholder="新密码（至少6位）">
         <input type="password" id="confirmPwd" placeholder="确认新密码">
-        <button class="btn btn-sm" style="width:auto" onclick="changePassword()">保存密码</button>
-        <h3 style="margin-top:24px">密保问题</h3>
-        <p style="font-size:14px;color:#666" class="mb-2">当前问题：<span id="currentQuestion">{{ user.security_question or '未设置' }}</span></p>
+        <button class="btn-sm" onclick="changePassword()">保存密码</button>
+        <h3>密保问题</h3>
+        <p style="font-size:14px;color:var(--muted);margin-bottom:12px">当前问题：<span id="currentQuestion">{{ user.security_question or '未设置' }}</span></p>
         <input type="text" id="newQuestion" placeholder="新密保问题">
         <input type="password" id="newAnswer" placeholder="新密保答案">
-        <button class="btn btn-sm" style="width:auto" onclick="changeSecurity()">保存密保</button>
+        <button class="btn-sm" onclick="changeSecurity()">保存密保</button>
       </div>
     </div>
   </div>
