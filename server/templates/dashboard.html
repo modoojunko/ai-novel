@@ -139,7 +139,7 @@ async function activateCode() {
   const code = document.getElementById('codeInput').value.trim().toUpperCase();
   if (!code) { msg.className='msg error'; msg.textContent='请输入激活码'; return; }
   const r = await request('/license/activate', { method:'POST', body:JSON.stringify({ code }) });
-  if (r.code === 0) { msg.className='msg success'; msg.textContent='✅ 激活成功！'; document.getElementById('codeInput').value=''; window.location.hash='#license'; }
+  if (r.code === 0) { msg.className='msg success'; msg.textContent='✅ 激活成功！'; setTimeout(() => location.reload(), 800); }
   else { msg.className='msg error'; msg.textContent=r.msg||'激活失败'; }
 }
 
