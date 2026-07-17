@@ -58,23 +58,35 @@
         <div id="deviceList"></div>
       </div>
       <!-- 账号信息 -->
-      <div id="pageAccount" style="display:none;max-width:480px">
+      <div id="pageAccount" style="display:none">
         <h2>👤 账号信息</h2>
-        <p style="font-size:14px;color:var(--muted);margin-bottom:16px">
-          用户名：<strong style="color:var(--ink)">{{ user.username }}</strong>
-          <span style="margin-left:8px;font-size:13px">（不可修改）</span>
-        </p>
         <div id="accountMsg" class="msg"></div>
-        <h3 style="margin-top:0">修改密码</h3>
-        <input type="password" id="oldPwd" placeholder="旧密码">
-        <input type="password" id="newPwd" placeholder="新密码（至少6位）">
-        <input type="password" id="confirmPwd" placeholder="确认新密码">
-        <button class="btn-sm" onclick="changePassword()">保存密码</button>
-        <h3>密保问题</h3>
-        <p style="font-size:14px;color:var(--muted);margin-bottom:12px">当前问题：<span id="currentQuestion">{{ user.security_question or '未设置' }}</span></p>
-        <input type="text" id="newQuestion" placeholder="新密保问题">
-        <input type="password" id="newAnswer" placeholder="新密保答案">
-        <button class="btn-sm" onclick="changeSecurity()">保存密保</button>
+
+        <!-- 用户标识 -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:24px">
+          <div style="font-size:14px;color:var(--muted)">用户名</div>
+          <div style="font-size:18px;font-weight:600;color:var(--ink);margin-top:2px">{{ user.username }}</div>
+        </div>
+
+        <!-- 修改密码 -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px">
+          <h3 style="margin:0 0 16px;font-size:14px;font-weight:600;color:var(--ink);letter-spacing:0.03em">修改密码</h3>
+          <input type="password" id="oldPwd" placeholder="当前密码" style="margin-bottom:12px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <input type="password" id="newPwd" placeholder="新密码" style="margin:0">
+            <input type="password" id="confirmPwd" placeholder="确认新密码" style="margin:0">
+          </div>
+          <button class="btn-sm" style="margin-top:16px" onclick="changePassword()">保存密码</button>
+        </div>
+
+        <!-- 密保问题 -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px">
+          <h3 style="margin:0 0 6px;font-size:14px;font-weight:600;color:var(--ink);letter-spacing:0.03em">密保问题</h3>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px">当前问题：<span id="currentQuestion">{{ user.security_question or '未设置' }}</span></p>
+          <input type="text" id="newQuestion" placeholder="新密保问题" style="margin-bottom:12px">
+          <input type="password" id="newAnswer" placeholder="新密保答案" style="margin-bottom:0">
+          <button class="btn-sm" style="margin-top:16px" onclick="changeSecurity()">保存密保</button>
+        </div>
       </div>
     </div>
   </div>
