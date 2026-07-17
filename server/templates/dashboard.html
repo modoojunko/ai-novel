@@ -11,11 +11,12 @@
       <a href="#devices">💻 我的设备</a>
       <a href="#account">👤 账号信息</a>
     </nav>
+    <div class="sidebar-footer">AI Novel v4.0</div>
   </div>
   <div style="flex:1;display:flex;flex-direction:column">
     <div class="topbar">
       <span class="username">{{ user.username }}</span>
-      <a href="#" class="link" onclick="logout()">退出</a>
+      <a href="#" class="exit-link" onclick="logout()">退出</a>
     </div>
     <div class="main">
       <!-- 我的套餐 -->
@@ -30,15 +31,15 @@
         <div id="codeList">
           {% if user.codes %}
             {% for c in user.codes %}
-            <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:14px;margin-bottom:8px;font-size:14px">
+            <div class="item">
               <code>{{ c.code_id }}</code>
-              <span style="margin-left:12px;color:#666">{{ c.tier }}</span>
-              <span style="margin-left:12px;color:#999">激活 {{ c.activated_at[:10] if c.activated_at else '-' }}</span>
-              <span style="margin-left:12px;color:#999">到期 {{ c.expires_at[:10] if c.expires_at else '-' }}</span>
+              <span class="meta">{{ c.tier }}</span>
+              <span class="meta">激活 {{ (c.activated_at or '')[:10] }}</span>
+              <span class="meta">到期 {{ (c.expires_at or '')[:10] }}</span>
             </div>
             {% endfor %}
           {% else %}
-            <p style="color:#888">暂无激活记录</p>
+            <p class="empty">暂无激活记录</p>
           {% endif %}
         </div>
       </div>
@@ -96,9 +97,9 @@ async function loadDevices() {
   const list = document.getElementById('deviceList');
   if (!res.data || res.data.length === 0) { list.innerHTML = '<p style="color:#888">暂无已绑定设备</p>'; return; }
   list.innerHTML = res.data.map(d =>
-    `<div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
-      <div><span style="font-size:16px">${d.pc_name||'未知设备'}</span><br><span style="font-size:13px;color:#999">最后活跃：${d.last_active_at?new Date(d.last_active_at).toLocaleDateString('zh-CN'):'-'}</span></div>
-      <button class="btn btn-danger btn-sm" onclick="removeDevice('${d.pc_hash}')">解绑</button>
+    `<div class="device-item">
+      <div><span class="name">${d.pc_name||'未知设备'}</span><div class="meta">最后活跃：${d.last_active_at?new Date(d.last_active_at).toLocaleDateString('zh-CN'):'-'}</div></div>
+      <button class="btn-sm btn-danger" onclick="removeDevice('${d.pc_hash}')">解绑</button>
     </div>`
   ).join('');
 }
