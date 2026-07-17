@@ -4,7 +4,7 @@
 
 ## 分支
 
-`feat/cs-architecture-rebuild` — C/S 架构主分支
+`feat/cs-architecture-rebuild` — C/S 架构主分支（已合并到 main）
 `feat/tauri-desktop` — Tauri 实验分支（已暂停）
 
 ## 已完成
@@ -21,24 +21,28 @@
 
 ### S 端（本地测试服务器）
 - [x] FastAPI + Jinja2 模板渲染
+- [x] 蓝白清爽主题设计
 - [x] Landing page / 登录 / 注册 / 我的账号
 - [x] 套餐管理 / 激活码 / 设备管理 / 账号信息
+- [x] 账号信息页折叠式设计（点击修改才展开）
+- [x] 空状态引导提示（设备/套餐）
+- [x] Cookie 认证 + Token 7 天过期
+- [x] 激活成功后自动刷新显示最新套餐
 - [x] 浏览器 OAuth 授权流程
 - [x] 9 个云函数代码（待部署 CloudBase）
-- [x] Cookie 认证 + Token 7 天过期
 - [x] 55 个 E2E 测试全部通过（21/21 API 全覆盖）
 
 ### 代码质量
-- [x] Ruff lint 零错误
-- [x] Ruff format 通过
+- [x] Ruff lint 零错误 + format 通过
 - [x] CI: Backend CI / Frontend CI / CodeQL 全部通过
 - [x] PR #6 已合并到 main
+- [x] S端 密码安全：pbkdf2 哈希
+- [x] Token 安全：Cookie 存储 + 7 天过期 + 自动清理
 
 ## 待完成
 
 ### S 端（云部署）
 - [ ] 部署到腾讯云 CloudBase
-- [ ] Landing page 上线
 - [ ] HTTPS + 域名
 
 ### C 端（上线前）
