@@ -63,29 +63,39 @@
         <div id="accountMsg" class="msg"></div>
 
         <!-- 用户标识 -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:24px">
-          <div style="font-size:14px;color:var(--muted)">用户名</div>
-          <div style="font-size:18px;font-weight:600;color:var(--ink);margin-top:2px">{{ user.username }}</div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:20px">
+          <div style="font-size:13px;color:var(--muted)">用户名</div>
+          <div style="font-size:17px;font-weight:600">{{ user.username }}</div>
         </div>
 
-        <!-- 修改密码 -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px">
-          <h3 style="margin:0 0 16px;font-size:14px;font-weight:600;color:var(--ink);letter-spacing:0.03em">修改密码</h3>
-          <input type="password" id="oldPwd" placeholder="当前密码" style="margin-bottom:12px">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <input type="password" id="newPwd" placeholder="新密码" style="margin:0">
-            <input type="password" id="confirmPwd" placeholder="确认新密码" style="margin:0">
+        <!-- 修改密码（折叠） -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:12px">
+          <div onclick="togglePwd()" style="padding:16px 20px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
+            <span style="font-weight:600;font-size:14px">🔒 密码</span>
+            <span id="pwdToggle" style="font-size:13px;color:var(--accent)">修改</span>
           </div>
-          <button class="btn-sm" style="margin-top:16px" onclick="changePassword()">保存密码</button>
+          <div id="pwdSection" style="display:none;padding:0 20px 20px;border-top:1px solid var(--border);padding-top:16px">
+            <input type="password" id="oldPwd" placeholder="当前密码">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <input type="password" id="newPwd" placeholder="新密码" style="margin:0">
+              <input type="password" id="confirmPwd" placeholder="确认新密码" style="margin:0">
+            </div>
+            <button class="btn-sm" onclick="changePassword()">保存</button>
+          </div>
         </div>
 
-        <!-- 密保问题 -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px">
-          <h3 style="margin:0 0 6px;font-size:14px;font-weight:600;color:var(--ink);letter-spacing:0.03em">密保问题</h3>
-          <p style="font-size:13px;color:var(--muted);margin-bottom:16px">当前问题：<span id="currentQuestion">{{ user.security_question or '未设置' }}</span></p>
-          <input type="text" id="newQuestion" placeholder="新密保问题" style="margin-bottom:12px">
-          <input type="password" id="newAnswer" placeholder="新密保答案" style="margin-bottom:0">
-          <button class="btn-sm" style="margin-top:16px" onclick="changeSecurity()">保存密保</button>
+        <!-- 密保问题（折叠） -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px">
+          <div onclick="toggleSec()" style="padding:16px 20px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
+            <span style="font-weight:600;font-size:14px">🔐 密保问题</span>
+            <span id="secToggle" style="font-size:13px;color:var(--accent)">修改</span>
+          </div>
+          <div id="secSection" style="display:none;padding:0 20px 20px;border-top:1px solid var(--border);padding-top:16px">
+            <p style="font-size:13px;color:var(--muted);margin-bottom:14px">当前：<span id="currentQuestion">{{ user.security_question or '未设置' }}</span></p>
+            <input type="text" id="newQuestion" placeholder="新密保问题" style="margin-bottom:10px">
+            <input type="password" id="newAnswer" placeholder="新密保答案" style="margin-bottom:10px">
+            <button class="btn-sm" onclick="changeSecurity()">保存</button>
+          </div>
         </div>
       </div>
     </div>
@@ -151,6 +161,19 @@ async function changeSecurity() {
   const r = await request('/user/security', { method:'PUT', body:JSON.stringify({ security_question: q, security_answer: a }) });
   if (r.code===0) { msg.className='msg success'; msg.textContent='✅ 密保已更新'; document.getElementById('newQuestion').value=''; document.getElementById('newAnswer').value=''; document.getElementById('currentQuestion').textContent=q; }
   else { msg.className='msg error'; msg.textContent=r.msg||'修改失败'; }
+}
+
+function togglePwd() {
+  const el = document.getElementById('pwdSection');
+  const t = document.getElementById('pwdToggle');
+  if (el.style.display === 'none') { el.style.display = 'block'; t.textContent = '收起'; }
+  else { el.style.display = 'none'; t.textContent = '修改'; }
+}
+function toggleSec() {
+  const el = document.getElementById('secSection');
+  const t = document.getElementById('secToggle');
+  if (el.style.display === 'none') { el.style.display = 'block'; t.textContent = '收起'; }
+  else { el.style.display = 'none'; t.textContent = '修改'; }
 }
 
 window.addEventListener('hashchange', switchPage);
