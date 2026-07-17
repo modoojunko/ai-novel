@@ -119,7 +119,14 @@ function switchPage() {
 async function loadDevices() {
   const res = await request('/device/my');
   const list = document.getElementById('deviceList');
-  if (!res.data || res.data.length === 0) { list.innerHTML = '<p style="color:#888">暂无已绑定设备</p>'; return; }
+  if (!res.data || res.data.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:48px 0;color:var(--muted)">'
+      + '<div style="font-size:40px;margin-bottom:12px">💻</div>'
+      + '<div style="font-size:15px;font-weight:600;margin-bottom:6px;color:var(--ink)">暂无绑定设备</div>'
+      + '<div style="font-size:13px;line-height:1.8">打开 C端 客户端，通过浏览器登录授权后<br>当前设备会自动显示在此处</div>'
+      + '</div>';
+    return;
+  }
   list.innerHTML = res.data.map(d =>
     `<div class="device-item">
       <div><span class="name">${d.pc_name||'未知设备'}</span><div class="meta">最后活跃：${d.last_active_at?new Date(d.last_active_at).toLocaleDateString('zh-CN'):'-'}</div></div>
