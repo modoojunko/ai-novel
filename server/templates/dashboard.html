@@ -63,18 +63,18 @@
         <div id="accountMsg" class="msg"></div>
 
         <!-- 用户标识 -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:20px">
+        <div class="section-card" style="padding:20px 22px">
           <div style="font-size:13px;color:var(--muted)">用户名</div>
           <div style="font-size:17px;font-weight:600">{{ user.username }}</div>
         </div>
 
         <!-- 修改密码（折叠） -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:12px">
-          <div onclick="togglePwd()" style="padding:16px 20px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
+        <div class="section-card">
+          <div class="section-card-header" onclick="togglePwd()">
             <span style="font-weight:600;font-size:14px">🔒 密码</span>
             <span id="pwdToggle" style="font-size:13px;color:var(--accent)">修改</span>
           </div>
-          <div id="pwdSection" style="display:none;padding:0 20px 20px;border-top:1px solid var(--border);padding-top:16px">
+          <div id="pwdSection" class="section-card-body" style="display:none">
             <input type="password" id="oldPwd" placeholder="当前密码">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
               <input type="password" id="newPwd" placeholder="新密码" style="margin:0">
@@ -85,12 +85,12 @@
         </div>
 
         <!-- 密保问题（折叠） -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px">
-          <div onclick="toggleSec()" style="padding:16px 20px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
+        <div class="section-card">
+          <div class="section-card-header" onclick="toggleSec()">
             <span style="font-weight:600;font-size:14px">🔐 密保问题</span>
             <span id="secToggle" style="font-size:13px;color:var(--accent)">修改</span>
           </div>
-          <div id="secSection" style="display:none;padding:0 20px 20px;border-top:1px solid var(--border);padding-top:16px">
+          <div id="secSection" class="section-card-body" style="display:none">
             <p style="font-size:13px;color:var(--muted);margin-bottom:14px">当前：<span id="currentQuestion">{{ user.security_question or '未设置' }}</span></p>
             <input type="text" id="newQuestion" placeholder="新密保问题" style="margin-bottom:10px">
             <input type="password" id="newAnswer" placeholder="新密保答案" style="margin-bottom:10px">
@@ -120,11 +120,7 @@ async function loadDevices() {
   const res = await request('/device/my');
   const list = document.getElementById('deviceList');
   if (!res.data || res.data.length === 0) {
-    list.innerHTML = '<div style="text-align:center;padding:48px 0;color:var(--muted)">'
-      + '<div style="font-size:40px;margin-bottom:12px">💻</div>'
-      + '<div style="font-size:15px;font-weight:600;margin-bottom:6px;color:var(--ink)">暂无绑定设备</div>'
-      + '<div style="font-size:13px;line-height:1.8">打开 C端 客户端，通过浏览器登录授权后<br>当前设备会自动显示在此处</div>'
-      + '</div>';
+    list.innerHTML = '<div class="empty-state"><div class="icon">💻</div><div class="title">暂无绑定设备</div><div class="desc">打开 C端 客户端，通过浏览器登录授权后<br>当前设备会自动显示在此处</div></div>';
     return;
   }
   list.innerHTML = res.data.map(d =>
