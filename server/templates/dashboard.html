@@ -125,7 +125,10 @@ async function loadDevices() {
   }
   list.innerHTML = res.data.map(d =>
     `<div class="device-item">
-      <div><span class="name">${d.pc_name||'未知设备'}</span><div class="meta">最后活跃：${d.last_active_at?new Date(d.last_active_at).toLocaleDateString('zh-CN'):'-'}</div></div>
+      <div>
+        <span class="name">${d.pc_name||'未知设备'}</span>
+        <div class="meta">编号 ${(d.pc_hash||'').slice(0,12)}… · 最后活跃：${d.last_active_at?new Date(d.last_active_at).toLocaleDateString('zh-CN'):'-'}</div>
+      </div>
       <button class="btn-sm btn-danger" onclick="removeDevice('${d.pc_hash}')">解绑</button>
     </div>`
   ).join('');
