@@ -64,9 +64,9 @@ body { font-family:var(--font-sans); background:var(--bg); color:var(--ink); lin
 
 .auth-card {
   position:relative;
-  background:var(--surface); padding:44px 40px 40px;
+  background:var(--surface); padding:36px 32px 32px;
   border-radius:var(--radius-lg); box-shadow:var(--shadow-lg);
-  width:400px; max-width:100%;
+  width:380px; max-width:100%;
   animation: fadeUp 0.4s ease;
 }
 
