@@ -27,6 +27,7 @@ from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
 import uvicorn
 
@@ -125,6 +126,16 @@ def calc_expires_at(tier: str, from_date: date = None) -> date:
 
 app = FastAPI(title="AI Novel - Local S Server", version="1.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+@app.middleware("http")
+async def _cache_control(request, call_next):
+    """静态资源不缓存，开发期每次强制检查更新"""
+    resp = await call_next(request)
+    path = request.url.path
+    if path.endswith((".css", ".js", ".ico", ".png", ".jpg", ".svg")):
+        resp.headers["Cache-Control"] = "no-cache, max-age=0"
+    return resp
 
 # ── Jinja2 模板 ──
 
