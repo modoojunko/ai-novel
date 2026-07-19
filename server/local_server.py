@@ -190,7 +190,7 @@ async def page_login(token: str = ""):
 
 @app.get("/register")
 async def page_register():
-    return RedirectResponse(url="/register.html")
+    return _render("register.html")
 
 
 @app.get("/dashboard")

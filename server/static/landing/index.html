@@ -23,7 +23,7 @@
 <body>
   <div class="nav">
     <b style="font-size:18px">📝 AI Novel</b>
-    <div id="navLinks"><a href="/login.html">登录</a><a href="/register.html">注册</a></div>
+    <div id="navLinks"><a href="/login">登录</a><a href="/register">注册</a></div>
   </div>
   <h1>📝 AI Novel</h1>
   <div class="subtitle">AI 辅助长篇小说创作工具 — 本地运行，数据完全由你掌控</div>
@@ -44,7 +44,7 @@
   </div>
   <script>
     if (localStorage.getItem('token')) {
-      document.getElementById('navLinks').innerHTML = '<span style="color:#555;font-size:14px">已登录</span> <a href="/dashboard.html" style="color:#1a73e8;font-size:14px;font-weight:500">我的账号</a>';
+      document.getElementById('navLinks').innerHTML = '<span style="color:#555;font-size:14px">已登录</span> <a href="/dashboard" style="color:#1a73e8;font-size:14px;font-weight:500">我的账号</a>';
     }
   </script>
 </body>
