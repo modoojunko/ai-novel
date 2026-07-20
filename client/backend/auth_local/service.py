@@ -158,7 +158,7 @@ async def browser_auth() -> dict:
             cfg["expires_at"] = data.get("expires_at", "")
             cfg["last_login_at"] = datetime.now().isoformat()
             save_local_config(cfg)
-            return {"code": 0, "data": {"message": "授权成功", "tier": cfg["tier"]}}
+            return {"code": 0, "data": {"message": "授权成功", "tier": cfg["tier"], "token": cfg["token"]}}
         await asyncio.sleep(POLL_INTERVAL)
 
     return {"code": -1, "msg": "授权超时，请在浏览器中完成登录"}

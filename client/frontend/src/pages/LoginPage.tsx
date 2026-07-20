@@ -14,6 +14,7 @@ export default function LoginPage() {
     const res = await request('/auth/browser-auth', { method: 'POST' });
     setLoading(false);
     if (res.code === 0) {
+      if (res.data?.token) localStorage.setItem('auth_token', res.data.token);
       toast.success('登录成功');
       navigate('/dashboard');
     } else {
