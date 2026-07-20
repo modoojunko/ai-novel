@@ -72,7 +72,7 @@ DEV_MODE=1 DATA_ROOT=./data uvicorn main:app --reload --host 127.0.0.1 --port 80
 # Start S端 local simulator (for License testing)
 python server/local_server.py
 
-# Frontend only (for UI dev)
+# Frontend only (for UI dev, hot reload at localhost:5173)
 cd client/frontend && npm run dev
 
 # Build frontend for production
