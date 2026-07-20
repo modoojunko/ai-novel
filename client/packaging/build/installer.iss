@@ -8,7 +8,9 @@
 ;   3. 或者命令行: iscc installer.iss
 
 #define MyAppName "AI Novel"
-#define MyAppVersion "4.0.0"
+#ifndef MyAppVersion
+  #define MyAppVersion "0.0.0"
+#endif
 #define MyAppPublisher "AI Novel"
 #define MyAppURL "https://github.com/mooodjunko/ai-novel"
 #define MyAppExeName "AI Novel.exe"
