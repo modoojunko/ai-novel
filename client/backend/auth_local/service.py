@@ -13,7 +13,10 @@ from datetime import datetime, timedelta, date
 
 import httpx
 
-from config import SERVER_API_BASE
+# 从 config.json 读取 S端 API 地址，避免环境变量传递问题
+def _get_server_api() -> str:
+    cfg = get_local_config()
+    return cfg.get("server_api", "") or os.environ.get("SERVER_API_BASE") or "https://your-cloudbase-app.com/api"
 
 CONFIG_DIR = os.environ.get("DATA_ROOT", "./data")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
@@ -51,6 +54,7 @@ def load_or_create_config() -> dict:
         "tier": "none",
         "expires_at": "",
         "last_login_at": "",
+        "server_api": "",
     }
     for k, v in defaults.items():
         if k not in cfg:
@@ -117,7 +121,7 @@ def generate_pc_hash() -> str:
 async def call_server_api(
     endpoint: str, method: str = "GET", params: dict = None, json_body: dict = None
 ) -> dict:
-    url = f"{SERVER_API_BASE}/{endpoint}"
+    url = f"{_get_server_api()}/{endpoint}"
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             if method == "GET":
@@ -141,10 +145,10 @@ async def browser_auth() -> dict:
         cfg["tier"] = "lifetime"
         cfg["last_login_at"] = datetime.now().isoformat()
         save_local_config(cfg)
-        return {"code": 0, "data": {"message": "开发模式"}}
+        return {"code": 0, "data": {"message": "开发模式", "token": "dev-token"}}
 
     # 打开浏览器到 S端 授权页面
-    auth_url = f"{SERVER_API_BASE}/auth-page?pc_hash={pc_hash}"
+    auth_url = f"{_get_server_api()}/auth-page?pc_hash={pc_hash}"
     webbrowser.open(auth_url)
 
     # 轮询等待用户授权
