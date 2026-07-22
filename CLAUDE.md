@@ -177,3 +177,50 @@ ai-novel/
 ## Current state
 
 Backend is complete (all router modules wired, token tracking active across all 3 AI call sites, dual storage backend). Frontend is fully built with React 19 + Vite + daisyUI including Writing Studio with SSE streaming, archives reader, threads timeline, and settings forms. Rate limiting middleware active. No tests written yet.
+
+## Agent Dispatch Protocol
+
+Claude acts as the **intelligent dispatcher** — the user describes what they want, and Claude automatically selects the right installed agent(s) to produce the output. No manual "Activate X" needed.
+
+### Installed Agents
+
+All agents are in `.claude/agents/`. Each is a specialized persona with its own methodology and deliverables format.
+
+| Agent | Role | When to Use |
+|-------|------|-------------|
+| 🧭 **Product Manager** | Full product lifecycle: discovery, PRD, roadmap, stakeholder alignment | New feature requests, requirement analysis, defining MVP scope |
+| 📐 **UX Architect** | Interface architecture, layout design, component structure | Splitting pages into components, designing UI layout, CSS system |
+| 🔬 **UX Researcher** | User behavior analysis, usability testing, data-driven insights | Understanding user needs, evaluating UX, suggesting improvements |
+| 🐑 **Project Shepherd** | Cross-functional coordination, task breakdown, timeline, risk management | Breaking features into dev tasks, estimating effort, tracking progress |
+| 🎯 **Sprint Prioritizer** | Sprint planning, feature prioritization, resource allocation | Prioritizing backlog, planning iterations, balancing effort vs impact |
+| 🏗️ **Backend Architect** | Scalable system design, API development, FastAPI architecture | API endpoints, backend architecture, C/S communication design |
+| 🖥️ **Frontend Developer** | React 19 + TypeScript + daisyUI + Tailwind CSS | UI component implementation, frontend features, performance |
+| 🗄️ **Database Optimizer** | Schema design, query optimization, indexing, SQLite/PostgreSQL | Slow queries, schema migration, indexing strategy, N+1 fixes |
+| ⚙️ **DevOps Automator** | CI/CD, Docker, SSL, CloudBase deployment | Deployment config, GitHub Actions, SSL certs, backup strategy |
+| 🧬 **Prompt Engineer** | LLM prompt design, testing, systematic optimization | Prompt assembly debugging, SSE streaming prompt tuning, model behavior |
+| 👁️ **Code Reviewer** | Code correctness, security, maintainability, performance | PR review, refactoring advice, bug investigation |
+| 🎭 **Test Automation Engineer** | Playwright E2E tests, flake elimination, CI parallelization | Writing/improving tests, debugging flaky tests, test strategy |
+
+### Dispatch Rules
+
+1. **Single agent tasks** — Claude identifies the primary agent, adopts its methodology, and produces output in that agent's standard format (e.g., Product Manager outputs PRD sections, DevOps Automator outputs deployment scripts).
+
+2. **Multi-agent tasks** — For complex work, Claude orchestrates sequentially:
+   ```
+   Feature request → 🧭 Product Manager (PRD) → 📐 UX Architect (UI design)
+   → 🏗️ Backend Architect (API) + 🖥️ Frontend Developer (components)
+   → 🎭 Test Automation Engineer (tests) → 👁️ Code Reviewer (review)
+   ```
+
+3. **Agent output format** — Each agent's deliverables template (from its `.md` file) is followed exactly. Terse or incomplete output means the wrong agent was selected.
+
+4. **User can still override** — If the user names a specific agent, use that one. If they say "as a PM", treat it as agent selection.
+
+### Dispatch Examples
+
+| User says | Claude does |
+|-----------|-------------|
+| "我想加个一键生成大纲的功能" | 🧭 PRD → 📐 界面拆分 → 🏗️ API + 🖥️ 前端 → 🎭 测试 |
+| "帮我看看为什么这个页面加载慢" | 🗄️ 查SQL → 👁️ review前端代码 → ⚙️ 检查部署 |
+| "帮我排下这周做什么" | 🎯 优先级评估 → 🐑 任务拆分 → 输出排期表 |
+| "settings的AI生成不太稳定" | 🧬 调试prompt → 🏗️ 检查API错误处理 → 🎭 补充测试 |

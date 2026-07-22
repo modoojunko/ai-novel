@@ -64,6 +64,10 @@ def load_or_create_config() -> dict:
         cfg["pc_hash"] = generate_pc_hash()
         cfg["pc_name"] = platform.node() or "My PC"
         changed = True
+    # 环境变量中的 SERVER_API_BASE 同步到 config.json（持久化）
+    if os.environ.get("SERVER_API_BASE") and not cfg.get("server_api"):
+        cfg["server_api"] = os.environ["SERVER_API_BASE"]
+        changed = True
     if os.environ.get("DEV_MODE") and not cfg.get("token"):
         cfg["token"] = "dev-token"
         cfg["tier"] = "lifetime"
