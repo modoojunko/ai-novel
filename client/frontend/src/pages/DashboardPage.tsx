@@ -37,6 +37,8 @@ export default function DashboardPage() {
 function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tier, setTier] = useState<string>('');
+  const [trialDays, setTrialDays] = useState<number>(0);
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [premise, setPremise] = useState("");
@@ -62,10 +64,11 @@ function Dashboard() {
   }
 
   useEffect(() => {
-    api.get("/projects")
-      .then(setProjects)
-      .catch(() => toast.error("加载失败"))
-      .finally(() => setLoading(false));
+    api.get("/projects").then(setProjects).catch(() => toast.error("加载失败")).finally(() => setLoading(false));
+    api.post("/auth/verify").then((r: any) => {
+      if (r.tier) setTier(r.tier);
+      if (r.trial_remaining_days !== undefined) setTrialDays(r.trial_remaining_days);
+    }).catch(() => {});
   }, []);
 
   async function doSuggest() {
@@ -112,12 +115,32 @@ function Dashboard() {
 
   return (
     <main className="max-w-4xl mx-auto py-12 px-4">
+      {/* 免费层 Banner */}
+      {tier === 'none' && (
+        <div className="alert alert-info mb-6 shadow-sm">
+          <div className="flex-1">
+            <span className="font-bold">
+              {trialDays > 0 ? `🔥 AI 试用还剩 ${trialDays} 天` : '⏰ AI 试用已到期'}
+            </span>
+            <span className="text-sm ml-2">
+              {trialDays > 0
+                ? '到期后可免费手工创作 1 本小说'
+                : '购买套餐后可继续使用 AI 功能，免费用户可手工创作 1 本小说'
+              }
+            </span>
+          </div>
+          <a href="https://taobao.com" target="_blank" className="btn btn-primary btn-sm">了解套餐</a>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold font-display text-base-content">我的小说</h1>
-        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-          <Plus className="w-4 h-4" />
-          开始新小说
-        </button>
+        {!(tier === 'none' && projects.length >= 1) && (
+          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+            <Plus className="w-4 h-4" />
+            开始新小说
+          </button>
+        )}
       </div>
 
       {loading ? (
