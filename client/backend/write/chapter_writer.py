@@ -139,7 +139,7 @@ async def build_chapter_context(
 
     # Hooks
     hooks_data = await get_storage().read_yaml(root_path, "settings/hooks.yaml") or {}
-    ctx.hooks = hooks_data.get("active", [])
+    ctx.hooks = hooks_data.get("active", [])  # 对应 settings_hooks.prompt 输出
 
     # Chapter
     chapter = (

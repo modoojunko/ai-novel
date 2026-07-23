@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ai_client import get_ai_client
 from auth_local.middleware import get_current_user
+from auth_local.deps import require_ai_access
 from db import get_db
 from filesystem.storage import get_storage
 from projects.service import get_project
@@ -24,6 +25,7 @@ async def generate_all_settings(
     project_id: str,
     body: dict,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
     """Generate all setting types from premise in one call."""

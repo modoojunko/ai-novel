@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_local.middleware import get_current_user
+from auth_local.deps import require_ai_access
 from db import get_db
 from projects.service import get_project
 from story.engine import DeductionEngine
@@ -25,6 +26,7 @@ def _get_engine(deduction_id: str) -> DeductionEngine:
 async def init_deduction(
     body: dict,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
     """Initialize a deduction session from project data."""
@@ -66,6 +68,7 @@ async def set_seed(
     deduction_id: str,
     body: dict,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
 ):
     """Set the trigger seed for the deduction."""
     engine = _get_engine(deduction_id)
@@ -80,6 +83,7 @@ async def set_seed(
 async def run_round(
     deduction_id: str,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
 ):
     """Execute one deduction round."""
     engine = _get_engine(deduction_id)
@@ -92,6 +96,7 @@ async def rewind(
     deduction_id: str,
     round_num: int,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
 ):
     """Rewind to a previous round checkpoint."""
     engine = _get_engine(deduction_id)
@@ -107,6 +112,7 @@ async def adjust(
     deduction_id: str,
     body: dict,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
 ):
     """Author adjusts character or stage state."""
     engine = _get_engine(deduction_id)
@@ -125,6 +131,7 @@ async def adjust(
 async def stop_deduction(
     deduction_id: str,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
 ):
     """Stop deduction and return summary."""
     engine = _get_engine(deduction_id)
@@ -144,6 +151,7 @@ async def stop_deduction(
 async def get_deduction(
     deduction_id: str,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
 ):
     """Get current deduction state."""
     engine = _get_engine(deduction_id)

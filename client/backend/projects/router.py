@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ai_client import get_ai_client
 from auth_local.middleware import get_current_user
+from auth_local.deps import require_ai_access, require_project_limit
 from auth_local.service import get_local_config
 from db import get_db
 from projects.service import (
@@ -47,7 +48,9 @@ GENRE_CORPUS_NAMES = {
 async def create(
     body: CreateProjectBody,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
+    _limit: bool = Depends(require_project_limit),
 ):
     project = await create_project(
         db,
@@ -63,7 +66,9 @@ async def create(
 async def suggest_meta(
     body: SuggestMetaBody,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
+    _limit: bool = Depends(require_project_limit),
 ):
     """Given a story premise, suggest titles, synopsis, genre, and pen name."""
     cfg = get_local_config()
@@ -98,7 +103,9 @@ async def suggest_meta(
 @router.get("")
 async def list_all(
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
+    _limit: bool = Depends(require_project_limit),
 ):
     projects = await list_projects(db, user["id"])
     return [_project_dict(p) for p in projects]
@@ -108,7 +115,9 @@ async def list_all(
 async def get_one_by_slug(
     slug: str,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
+    _limit: bool = Depends(require_project_limit),
 ):
     project = await get_project_by_slug(db, user["id"], slug)
     if not project:
@@ -120,7 +129,9 @@ async def get_one_by_slug(
 async def get_one(
     project_id: str,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
+    _limit: bool = Depends(require_project_limit),
 ):
     project = await get_project(db, project_id, user["id"])
     if not project:
@@ -132,7 +143,9 @@ async def get_one(
 async def delete(
     project_id: str,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
+    _limit: bool = Depends(require_project_limit),
 ):
     project = await get_project(db, project_id, user["id"])
     if not project:

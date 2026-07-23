@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from archive.service import archive_chapter
 from auth_local.middleware import get_current_user
+from auth_local.deps import require_ai_access
 from db import get_db
 from filesystem.storage import get_storage
 from projects.service import get_project
@@ -25,6 +26,7 @@ async def archive(
     chapter_ref: str,
     body: dict,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
     project = await get_project(db, project_id, user["id"])
@@ -50,6 +52,7 @@ async def archive(
 async def list_archives(
     project_id: str,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
     project = await get_project(db, project_id, user["id"])
@@ -67,6 +70,7 @@ async def get_archive(
     project_id: str,
     filename: str,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
     project = await get_project(db, project_id, user["id"])

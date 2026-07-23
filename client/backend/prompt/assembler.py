@@ -72,7 +72,7 @@ async def assemble_segment_prompt(
     prompt = template.format(
         role=style.get("role", "一位小说家"),
         core_principles=style.get("core_principles", ""),
-        common_mistakes=style.get("possible_mistakes", ""),
+        common_mistakes=style.get("common_mistakes", ""),
         fatigue_words=", ".join(_flatten_fatigue_words(anti_ai)),
         tic_patterns=", ".join(_extract_tic_patterns(anti_ai)),
         novel_title=novel_title,

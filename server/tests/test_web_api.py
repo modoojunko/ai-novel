@@ -53,7 +53,7 @@ def code(client, uid) -> str:
 
 class TestStaticPages:
     @pytest.mark.parametrize("path", [
-        "/", "/login.html", "/register.html", "/dashboard.html",
+        "/", "/login", "/register",
         "/license.html", "/activate.html", "/devices.html", "/account.html",
         "/style.css", "/api.js", "/landing/index.html",
     ])

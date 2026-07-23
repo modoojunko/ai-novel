@@ -189,6 +189,9 @@ All agents are in `.claude/agents/`. Each is a specialized persona with its own 
 | Agent | Role | When to Use |
 |-------|------|-------------|
 | 🧭 **Product Manager** | Full product lifecycle: discovery, PRD, roadmap, stakeholder alignment | New feature requests, requirement analysis, defining MVP scope |
+| 🎨 **UI Designer** | Visual design systems, pixel-perfect interfaces, component styling, brand identity | UI polish, color palette, typography, dark/light theme, visual consistency |
+| 🎭 **Persona Walkthrough** | CRO conversion optimization, user psychology simulation, LIFT/Cialdini/Fogg frameworks | Landing page optimization, registration funnel, conversion bottlenecks |
+| 🛡️ **Brand Guardian** | Brand identity system, visual consistency, brand guidelines | Brand positioning, visual identity, S端 brand consistency |
 | 📐 **UX Architect** | Interface architecture, layout design, component structure | Splitting pages into components, designing UI layout, CSS system |
 | 🔬 **UX Researcher** | User behavior analysis, usability testing, data-driven insights | Understanding user needs, evaluating UX, suggesting improvements |
 | 🐑 **Project Shepherd** | Cross-functional coordination, task breakdown, timeline, risk management | Breaking features into dev tasks, estimating effort, tracking progress |

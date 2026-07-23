@@ -173,13 +173,14 @@ async def browser_auth() -> dict:
 
 
 async def verify_session() -> dict:
-    """验证 30 天会话"""
+    """验证 30 天会话，返回套餐和剩余试用天数"""
     cfg = load_or_create_config()
     token = cfg.get("token", "")
     last_login = cfg.get("last_login_at", "")
+    expires_at = cfg.get("expires_at", "")
 
     if os.environ.get("DEV_MODE"):
-        return {"valid": True, "tier": cfg.get("tier", "lifetime")}
+        return {"valid": True, "tier": cfg.get("tier", "lifetime"), "trial_remaining_days": 365}
 
     if not token:
         return {"valid": False, "msg": "未登录"}
@@ -194,30 +195,56 @@ async def verify_session() -> dict:
     if login_time and datetime.now() < login_time:
         return {"valid": False, "msg": "系统时间异常"}
 
-    return {"valid": True, "tier": cfg.get("tier", "none")}
+    # 计算剩余天数
+    trial_days = 7
+    if expires_at:
+        try:
+            expiry = date.fromisoformat(expires_at)
+            trial_days = max(0, (expiry - date.today()).days)
+        except ValueError:
+            pass
+
+    return {"valid": True, "tier": cfg.get("tier", "none"), "trial_remaining_days": trial_days}
 
 
-def check_permission() -> dict:
-    """检查当前用户套餐权限"""
+def check_permission(now: date | None = None) -> dict:
+    """检查当前用户套餐权限
+
+    免费用户 allowed=True，带 project_limit=1。
+    新用户默认 7 天 AI 试用（expires_at 为空时）。
+    """
     cfg = get_local_config()
     tier = cfg.get("tier", "none")
     expires_at = cfg.get("expires_at", "")
+    now = now or date.today()
 
     if os.environ.get("DEV_MODE"):
         return {"allowed": True, "tier": "lifetime"}
 
+    # 免费层
     if tier == "none":
-        return {"allowed": False, "reason": "no_tier", "msg": "请购买套餐后使用"}
+        trial_days = 7
+        if expires_at:
+            try:
+                expiry = date.fromisoformat(expires_at)
+                trial_days = max(0, (expiry - now).days)
+            except ValueError:
+                pass
+        return {
+            "allowed": True,
+            "tier": "none",
+            "project_limit": 1,
+            "trial_remaining_days": trial_days,
+        }
+
+    # 付费套餐
     if tier in ("monthly", "quarterly", "yearly"):
         try:
-            if expires_at and date.fromisoformat(expires_at) < date.today():
-                return {
-                    "allowed": False,
-                    "reason": "expired",
-                    "msg": "套餐已过期，请续费",
-                }
+            if expires_at and date.fromisoformat(expires_at) < now:
+                return {"allowed": False, "reason": "expired", "msg": "套餐已过期，请续费"}
         except ValueError:
             return {"allowed": False, "reason": "invalid", "msg": "套餐信息异常"}
+
     return {"allowed": True, "tier": tier}
 
 
