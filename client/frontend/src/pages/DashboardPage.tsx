@@ -63,11 +63,17 @@ function Dashboard() {
     }
   }
 
+  const navigate = useNavigate();
+
   useEffect(() => {
     api.get("/projects").then(setProjects).catch(() => toast.error("加载失败")).finally(() => setLoading(false));
     api.post("/auth/verify").then((r: any) => {
       if (r.tier) setTier(r.tier);
       if (r.trial_remaining_days !== undefined) setTrialDays(r.trial_remaining_days);
+    }).catch(() => {});
+    // 未配置 API Key 时跳转到配置页
+    api.get("/auth/config").then((cfg: any) => {
+      if (!cfg.has_api_key) navigate('/config');
     }).catch(() => {});
   }, []);
 
