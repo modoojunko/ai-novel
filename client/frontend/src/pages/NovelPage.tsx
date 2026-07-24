@@ -14,7 +14,7 @@ import { useOnboarding } from "@/hooks/useOnboarding";
 import RightToolbar from "@/components/novel/RightToolbar";
 import PromptManagementPage from "@/components/novel/PromptManagementPage";
 import ArchivePage from "@/components/novel/ArchivePage";
-import { Globe, Feather, Shield, Anchor, Users, Brain, Book, FileText, Trash2, ClipboardList, ScrollText } from "lucide-react";
+import { Globe, Feather, Shield, Anchor, Users, Brain, Book, FileText, Trash2, ClipboardList } from "lucide-react";
 import { useOutline } from "@/hooks/useOutline";
 import OutlineOverview from "@/components/novel/outline/OutlineOverview";
 import OutlineEditor from "@/components/novel/outline/OutlineEditor";
@@ -691,7 +691,7 @@ export default function NovelPage() {
           {project.name}
         </h1>
 
-        {/* Tabs: 设定 / 正文 */}
+        {/* Tabs: 设定 / 正文 / 细纲 / 提示词 / 归档 */}
         <div className="flex items-center gap-1">
           {TABS.map((t) => (
             <button

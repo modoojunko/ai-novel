@@ -276,7 +276,7 @@ export function useOutline(projectId: string): UseOutlineReturn {
 
   const transitionToPrompt = useCallback(async () => {
     await api.post(`/projects/${projectId}/workflow/transition`, {
-      target_phase: "prompt",
+      target: "prompt",
     });
   }, [projectId]);
 
