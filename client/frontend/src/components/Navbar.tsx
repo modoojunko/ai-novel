@@ -22,16 +22,17 @@ export default function Navbar() {
         <ThemeToggle />
         {loggedIn ? (
           <>
-            <Link to="/dashboard" className="btn btn-ghost btn-sm">
-              我的小说
+            <Link to="/books" className="btn btn-ghost btn-sm">
+              我的作品
             </Link>
-            <Link to="/admin" className="btn btn-ghost btn-sm text-primary/70 hover:text-primary">
-              管理后台
+            <Link to="/config" className="btn btn-ghost btn-sm">
+              大模型
             </Link>
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => {
-                localStorage.removeItem("token");
+                localStorage.removeItem("auth_token");
+                localStorage.removeItem("auth_username");
                 window.location.hash = "#/";
               }}
             >

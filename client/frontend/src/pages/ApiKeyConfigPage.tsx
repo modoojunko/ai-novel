@@ -51,7 +51,7 @@ export default function ApiKeyConfigPage() {
           body: JSON.stringify({ api_key: apiKey.trim(), api_base_url: baseUrl, api_model: model }),
         });
         toast.success('配置成功！');
-        navigate('/dashboard');
+        navigate('/books');
       } else {
         toast.error(res.error || 'Key 验证失败，请检查后重试');
       }
@@ -68,9 +68,9 @@ export default function ApiKeyConfigPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-2">✨ AI 模型配置</h1>
+      <h1 className="text-2xl font-bold mb-2">✨ AI 写作设置</h1>
       <p className="text-base-content/60 mb-6">
-        AI Novel 需要连接一个 AI 模型来辅助写作。选择服务商，填入 API Key 即可。
+        爱小说需要接入 AI 才能帮你写作。选择下方的服务商，填入你的密钥即可开始。
       </p>
 
       {step === 'select' && (
@@ -98,8 +98,8 @@ export default function ApiKeyConfigPage() {
             </div>
           ))}
           <p className="text-sm text-center mt-4">
-            <button className="link link-hover" onClick={() => navigate('/dashboard')}>
-              跳过配置，稍后再说
+            <button className="link link-hover" onClick={() => navigate('/books')}>
+              稍后再说
             </button>
           </p>
         </div>
@@ -124,7 +124,7 @@ export default function ApiKeyConfigPage() {
             </div>
             <div className="flex gap-3 mt-4">
               <button className="btn btn-primary flex-1" onClick={handleVerifyAndSave} disabled={verifying}>
-                {verifying ? <span className="loading loading-spinner" /> : '验证并保存'}
+                {verifying ? <span className="loading loading-spinner" /> : '保存并测试连接'}
               </button>
               <button className="btn btn-ghost" onClick={() => { setStep('select'); setSelected(null); }}>
                 返回

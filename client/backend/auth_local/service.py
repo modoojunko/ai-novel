@@ -139,8 +139,11 @@ async def call_server_api(
         return {"code": -1, "msg": f"网络错误: {str(e)}"}
 
 
-async def browser_auth() -> dict:
-    """打开系统浏览器让用户在 S端 登录，后台轮询授权结果"""
+async def browser_auth(silent: bool = False) -> dict:
+    """打开系统浏览器让用户在 S端 登录，后台轮询授权结果
+
+    silent=True 时只静默检测是否已授权，不打开浏览器、不轮询
+    """
     cfg = load_or_create_config()
     pc_hash = cfg["pc_hash"]
 
@@ -150,6 +153,19 @@ async def browser_auth() -> dict:
         cfg["last_login_at"] = datetime.now().isoformat()
         save_local_config(cfg)
         return {"code": 0, "data": {"message": "开发模式", "token": "dev-token"}}
+
+    # 静默模式：只查一次，不打开浏览器
+    if silent:
+        result = await call_server_api("check-auth", params={"pc_hash": pc_hash})
+        if result.get("code") == 0:
+            data = result["data"]
+            cfg["token"] = data["token"]
+            cfg["tier"] = data.get("tier", "none")
+            cfg["expires_at"] = data.get("expires_at", "")
+            cfg["last_login_at"] = datetime.now().isoformat()
+            save_local_config(cfg)
+            return {"code": 0, "data": {"message": "已登录", "tier": cfg["tier"], "token": cfg["token"]}}
+        return {"code": 1, "data": {"message": "未登录"}}
 
     # 打开浏览器到 S端 授权页面
     auth_url = f"{_get_server_api()}/auth-page?pc_hash={pc_hash}"
@@ -219,7 +235,7 @@ def check_permission(now: date | None = None) -> dict:
     now = now or date.today()
 
     if os.environ.get("DEV_MODE"):
-        return {"allowed": True, "tier": "lifetime"}
+        return {"allowed": True, "tier": "none", "project_limit": 1, "trial_remaining_days": 7}
 
     # 免费层
     if tier == "none":

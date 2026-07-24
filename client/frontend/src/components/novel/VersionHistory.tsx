@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import { ClipboardList, RotateCcw } from "lucide-react";
+import VersionDiff from "./VersionDiff";
 
 interface Version {
   version: string;
@@ -50,8 +51,6 @@ export default function VersionHistory({
     if (!ts) return "—";
     return new Date(ts * 1000).toLocaleString("zh-CN");
   }
-
-  const currentVersion = versions.find((v) => v.isCurrent);
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -128,27 +127,9 @@ export default function VersionHistory({
           </table>
 
           {/* Diff section */}
-          <div className="mt-10">
-            <h3 className="text-base font-medium text-base-content mb-3 flex items-center gap-1.5">
-              <ClipboardList className="w-4 h-4" />
-              差异对比
-            </h3>
-            {versions.length >= 2 ? (
-              <div className="rounded-lg border border-base-300 bg-base-200/30 p-4 text-sm font-mono leading-relaxed whitespace-pre-wrap text-base-content/70">
-                {/* Diff rendering placeholder - version viewer could be added here */}
-                <p className="text-base-content/40 text-center py-4">
-                  选择两个版本后显示差异
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-lg border border-dashed border-base-300 bg-base-200/20 p-6 text-center text-sm text-base-content/40">
-                <p className="mb-1">暂无版本对比数据</p>
-                <p className="text-xs">
-                  保存新版本后，此处将显示与{currentVersion ? ` ${currentVersion.version}` : ""} 的差异
-                </p>
-              </div>
-            )}
-          </div>
+          {versions.length >= 2 && (
+            <VersionDiff projectId={projectId} chapterRef={chapterRef} versions={versions} />
+          )}
         </>
       )}
     </div>

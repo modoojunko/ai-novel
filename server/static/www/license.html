@@ -1,11 +1,16 @@
 <div id="licenseContent">
-  <h2>📋 我的套餐</h2>
-  <div class="plan-card">
-    <p class="label">当前套餐</p>
-    <p class="value" id="tierDisplay">-</p>
-    <p class="sub">到期日：<span id="expiresDisplay">-</span></p>
+  <div class="sd-plan-card" style="margin-bottom:var(--space-5);">
+    <p class="plan-label">当前套餐</p>
+    <p class="plan-value" id="tierDisplay">-</p>
+    <p class="plan-meta">
+      <span style="display:inline-flex;align-items:center;gap:var(--space-1);font-size:0.85rem;opacity:0.75;">
+        到期日：<span id="expiresDisplay">-</span>
+      </span>
+    </p>
   </div>
-  <h3>历史激活码</h3>
+  <h4 style="font-family:var(--font-serif);font-size:0.95rem;font-weight:600;color:var(--co-ink);margin-bottom:var(--space-3);">
+    历史激活码
+  </h4>
   <div id="codeList"></div>
 </div>
 <script>
@@ -14,16 +19,23 @@ window.pageInit = function(user) {
   document.getElementById('tierDisplay').textContent = tierMap[user.tier] || user.tier;
   document.getElementById('expiresDisplay').textContent = user.expires_at ? new Date(user.expires_at).toLocaleDateString('zh-CN') : '-';
   const list = document.getElementById('codeList');
-  if (!user.codes || user.codes.length === 0) { list.innerHTML = '<p style="color:#888">暂无激活记录</p>'; return; }
-  list.innerHTML = user.codes.map(c => {
+  if (!user.codes || user.codes.length === 0) {
+    list.innerHTML = '<div class="sd-empty-state"><div class="empty-icon" style="font-size:2.5rem;margin-bottom:var(--space-3);opacity:0.4;">🔑</div><div class="empty-title">暂无激活记录</div><div class="empty-desc">在淘宝购买激活码后绑定到你的账号</div></div>';
+    return;
+  }
+  list.innerHTML = user.codes.map(function(c) {
     const exp = c.expires_at ? new Date(c.expires_at).toLocaleDateString('zh-CN') : '-';
     const act = c.activated_at ? new Date(c.activated_at).toLocaleDateString('zh-CN') : '-';
-    return `<div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:14px;margin-bottom:8px;font-size:14px">
-      <code>${c.code_id}</code>
-      <span style="margin-left:12px;color:#666">${c.tier}</span>
-      <span style="margin-left:12px;color:#999">激活 ${act}</span>
-      <span style="margin-left:12px;color:#999">到期 ${exp}</span>
-    </div>`;
+    const isYearly = c.tier === 'yearly';
+    const isLifetime = c.tier === 'lifetime';
+    const tierClass = isLifetime ? 'tier-tag-lifetime' : (isYearly ? 'tier-tag-yearly' : 'tier-tag-monthly');
+    const tierName = tierMap[c.tier] || c.tier;
+    return '<div class="item">' +
+      '<code>' + c.code_id + '</code>' +
+      '<span class="meta"><span class="tier-tag ' + tierClass + '">' + tierName + '</span></span>' +
+      '<span class="meta">激活 ' + act + '</span>' +
+      '<span class="meta">到期 ' + exp + '</span>' +
+    '</div>';
   }).join('');
 };
 </script>

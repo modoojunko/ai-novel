@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_local.middleware import get_current_user
@@ -9,6 +10,10 @@ from filesystem.storage import get_storage
 from projects.service import get_project
 from prompt.assembler import assemble_all_segments
 from workflow.engine import _validate_ref, load_chapter, update_phase
+
+class UpdatePromptRequest(BaseModel):
+    content: str
+
 
 router = APIRouter(
     prefix="/api/projects/{project_id}/chapters/{chapter_ref}",
@@ -106,3 +111,23 @@ async def get_prompt_content(
         project.root_path, f"prompts/{chapter_ref}-{seg}-prompt.md"
     )
     return PlainTextResponse(content)
+
+
+@router.put("/prompts/{seg}")
+async def update_prompt_content(
+    project_id: str,
+    chapter_ref: str,
+    seg: str,
+    body: UpdatePromptRequest,
+    user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await get_project(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
+    await get_storage().write_md(
+        project.root_path, f"prompts/{chapter_ref}-{seg}-prompt.md", body.content
+    )
+    return {"status": "ok"}

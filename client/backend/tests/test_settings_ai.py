@@ -3,7 +3,7 @@
 import httpx
 import re
 
-BASE_URL = "http://localhost/api"
+BASE_URL = "http://localhost:8000/api"
 
 
 def random_user():

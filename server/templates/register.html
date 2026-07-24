@@ -1,22 +1,61 @@
 {% extends "base.html" %}
-{% block title %}注册 - AI Novel{% endblock %}
+{% block title %}注册 - 爱小说{% endblock %}
+{% block head %}
+<script src="https://unpkg.com/lucide@latest"></script>
+{% endblock %}
 {% block content %}
 <div class="auth-page">
 <div class="auth-card">
-  <h1>AI Novel</h1>
-  <p class="subtitle">创建你的账号</p>
+  <a class="auth-brand" href="/">
+    <span class="brand-icon" data-lucide="book-open"></span>
+    爱小说
+  </a>
+  <p class="auth-subtitle">创建你的账号<br>开始管理 License 和设备</p>
   <div id="msg" class="msg"></div>
   <form id="form">
-    <label>用户名</label><input type="text" id="username" required>
-    <label>密码</label><input type="password" id="password" placeholder="至少 6 位" required>
-    <label>确认密码</label><input type="password" id="confirmPwd" required>
-    <label>密保问题</label><input type="text" id="question" placeholder="例如：我最喜欢的城市是？" required>
-    <label>密保答案</label><input type="text" id="answer" required>
-    <button type="submit" class="btn" id="btn">创建账号</button>
+    <div class="form-group">
+      <label class="form-label">用户名</label>
+      <div class="form-input-wrap">
+        <span class="input-icon" data-lucide="user" style="width:16px;height:16px;"></span>
+        <input type="text" id="username" placeholder="请输入用户名" required>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">密码 <span class="label-hint">至少 6 位</span></label>
+      <div class="form-input-wrap">
+        <span class="input-icon" data-lucide="lock" style="width:16px;height:16px;"></span>
+        <input type="password" id="password" placeholder="至少 6 位" required>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">确认密码</label>
+      <div class="form-input-wrap">
+        <span class="input-icon" data-lucide="lock" style="width:16px;height:16px;"></span>
+        <input type="password" id="confirmPwd" placeholder="再次输入密码" required>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">密保问题</label>
+      <div class="form-input-wrap">
+        <span class="input-icon" data-lucide="shield-question" style="width:16px;height:16px;"></span>
+        <input type="text" id="question" placeholder="例如：我最喜欢的城市是？" required>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">密保答案</label>
+      <div class="form-input-wrap">
+        <span class="input-icon" data-lucide="shield" style="width:16px;height:16px;"></span>
+        <input type="text" id="answer" placeholder="输入答案" required>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-full" id="btn">
+      <span data-lucide="user-plus" style="width:16px;height:16px;"></span> 创建账号
+    </button>
   </form>
-  <div class="text-center" style="margin-top:18px">
-    <a href="/login" class="link">已有账号？登录</a>
-  </div>
+  <div class="auth-divider">已有账号？</div>
+  <a href="/login" class="btn btn-secondary btn-full">
+    <span data-lucide="log-in" style="width:16px;height:16px;"></span> 返回登录
+  </a>
 </div></div>
 {% endblock %}
 {% block scripts %}
@@ -35,5 +74,6 @@ document.getElementById('form').onsubmit = async (e) => {
     else { msg.className='msg error'; msg.textContent=d.msg||'注册失败'; btn.disabled=false; }
   } catch(e) { msg.className='msg error'; msg.textContent='网络错误'; btn.disabled=false; }
 };
+lucide.createIcons({ attrs: { 'stroke-width': 1.5, 'width': 18, 'height': 18 } });
 </script>
 {% endblock %}

@@ -1,8 +1,19 @@
 # backend/auth_local/router.py
 """浏览器 OAuth 登录 API"""
 
-from fastapi import APIRouter
+import os
+from hashlib import sha256
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException
+from jose import jwt
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from config import JWT_SECRET, JWT_ALGORITHM
+from db import get_db
+from models.user import User
 
 from .service import (
     browser_auth,
@@ -14,6 +25,18 @@ from .service import (
 )
 
 router = APIRouter(tags=["auth"])
+
+
+def require_dev_mode():
+    """DEV_MODE 门控 — 非开发模式返回 403"""
+    if os.environ.get("DEV_MODE") != "1":
+        raise HTTPException(403, "仅在开发模式下可用")
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    display_name: str = ""
 
 
 class ResetPasswordRequest(BaseModel):
@@ -32,6 +55,50 @@ class ApiKeyVerifyRequest(BaseModel):
     api_key: str
     api_base_url: str
 
+
+@router.post("/register")
+async def api_register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    """DEV_MODE only: 注册用户并返回 JWT"""
+    require_dev_mode()
+
+    # 检查邮箱是否已注册
+    result = await db.execute(select(User).where(User.email == req.email))
+    if result.scalar_one_or_none():
+        raise HTTPException(409, "邮箱已注册")
+
+    # 创建用户
+    user = User(
+        email=req.email,
+        password_hash=sha256(req.password.encode()).hexdigest(),
+        display_name=req.display_name or req.email.split("@")[0],
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    # 生成 JWT
+    payload = {
+        "sub": user.id,
+        "email": user.email,
+        "exp": int(datetime.now(timezone.utc).timestamp()) + 30 * 86400,
+    }
+    access_token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+    return {
+        "access_token": access_token,
+        "token": access_token,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "display_name": user.display_name,
+        },
+    }
+
+
+@router.get("/check-auth")
+async def api_check_auth():
+    """检查当前浏览器在 S端 是否已登录（静默）"""
+    return await browser_auth(silent=True)
 
 @router.post("/browser-auth")
 async def api_browser_auth():

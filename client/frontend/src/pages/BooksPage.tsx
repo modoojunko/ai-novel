@@ -63,8 +63,6 @@ function Dashboard() {
     }
   }
 
-  const navigate = useNavigate();
-
   useEffect(() => {
     api.get("/projects").then(setProjects).catch(() => toast.error("加载失败")).finally(() => setLoading(false));
     api.post("/auth/verify").then((r: any) => {
@@ -140,7 +138,7 @@ function Dashboard() {
       )}
 
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold font-display text-base-content">我的小说</h1>
+        <h1 className="text-3xl font-bold font-display text-base-content">我的作品</h1>
         {!(tier === 'none' && projects.length >= 1) && (
           <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
             <Plus className="w-4 h-4" />

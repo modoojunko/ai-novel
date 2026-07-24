@@ -49,8 +49,9 @@ test.describe("Landing page", () => {
     });
 
     test("has login and register links", async ({ page }) => {
-      await page.goto(url("/"));
-      await page.waitForLoadState("networkidle");
+      await page.goto(url("/"), { waitUntil: "domcontentloaded" });
+      // Wait for nav to be fully rendered
+      await expect(page.locator("nav.sticky")).toBeVisible({ timeout: 10000 });
       const nav = page.locator("nav.sticky");
       await expect(nav.locator('a[href*="login"]')).toBeVisible();
       await expect(nav.locator('a[href*="register"]')).toBeVisible();
@@ -165,11 +166,43 @@ test.describe("Landing page", () => {
       const toggle = page.locator("nav.sticky button[title*='主题']");
       await toggle.click();
       await expect(page.locator("html")).toHaveAttribute("data-theme", "parchment");
+      // Verify theme persists by reloading
+      await page.reload();
+      await expect(page.locator("html")).toHaveAttribute("data-theme", "parchment");
+    });
+  });
 
-      const theme = await page.evaluate(() =>
-        localStorage.getItem("ai-novel-theme")
-      );
-      expect(theme).toBe("parchment");
+  // ── GitHub Star link ─────────────────────────────────────────────
+  test.describe("GitHub Star link", () => {
+    test("Star link visible in nav with correct href", async ({ page }) => {
+      await page.goto(url("/"));
+      // Use the specific nav Star link (not footer or feedback links)
+      const starLink = page.getByRole("link", { name: "⭐ Star" });
+      await expect(starLink).toBeVisible();
+      await expect(starLink).toHaveAttribute("href", /github\.com/);
+    });
+  });
+
+  // ── Nav scroll behavior ──────────────────────────────────────────
+  test.describe("Nav scroll behavior", () => {
+    test("nav is sticky and visible while scrolling", async ({ page }) => {
+      await page.goto(url("/"));
+      const nav = page.locator("nav.sticky");
+      await expect(nav).toBeVisible();
+      // Scroll down
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await expect(nav).toBeVisible();
+    });
+
+    test("scrolls back to top when logo is clicked", async ({ page }) => {
+      await page.goto(url("/"));
+      await page.evaluate(() => window.scrollTo(0, 1000));
+      await page.waitForTimeout(300);
+      // Click the logo/title
+      await page.locator("nav.sticky button").first().click();
+      await page.waitForTimeout(500);
+      const scrollY = await page.evaluate(() => window.scrollY);
+      expect(scrollY).toBeLessThan(100);
     });
   });
 });

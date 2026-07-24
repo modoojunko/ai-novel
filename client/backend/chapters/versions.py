@@ -50,6 +50,37 @@ async def list_versions(
     return versions
 
 
+@router.get("/versions/{version_id}/content")
+async def get_version_content(
+    project_id: str,
+    chapter_ref: str,
+    version_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await get_project(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
+
+    version_file = f"versions/{chapter_ref}/{version_id}.yaml"
+    version_data = await get_storage().read_yaml(project.root_path, version_file)
+    if not version_data:
+        raise HTTPException(404, "Version not found")
+
+    snapshot = version_data.get("snapshot", {})
+    prose = snapshot.get("prose")
+    if not prose:
+        raise HTTPException(404, "Version not found")
+
+    return {
+        "version": version_data.get("version", version_id),
+        "time": version_data.get("created_at", 0),
+        "comment": version_data.get("comment", ""),
+        "prose": prose,
+    }
+
+
 @router.post("/versions/{version_id}/restore")
 async def restore_version(
     project_id: str,

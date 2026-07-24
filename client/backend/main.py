@@ -22,6 +22,7 @@ from archive.router import archives_router, router as archive_router
 from threads.router import router as threads_router
 from novel.router import router as novel_router
 from story.router import router as story_router
+from workflow.router import router as workflow_router
 
 # License 本地验证
 from auth_local.router import router as auth_local_router
@@ -39,7 +40,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="AI Novel (Local)", version="4.0.0", lifespan=lifespan)
+app = FastAPI(title="AI Novel (Local)", version="0.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -66,6 +67,7 @@ app.include_router(threads_router)
 app.include_router(novel_router)
 app.include_router(chapters_versions_router)
 app.include_router(story_router)
+app.include_router(workflow_router)
 
 
 @app.get("/api/health")

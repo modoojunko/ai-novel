@@ -33,9 +33,32 @@ client/frontend/dist/
 backend/data/
 client/backend/data/
 ai_config.yaml
+config.json
+
+# Logs
+*.log
+server.log
+client/backend/server.log
 
 # Build output
 client/packaging/build/dist/
 client/packaging/build/build/
 client/packaging/dist/
+client/frontend/dist/
+
+# Temp docs / generated files
+docs/*.ps1
+docs/*.cmd
+docs/*.txt
+docs/gh-check.txt
+docs/prd-body.txt
+docs/create-issue.py
+docs/design-mockups.html
+docs/send-*
+docs/prd-c端-ux-redesign.md
+docs/prd/
+
+# Session / goal tracking
+.claude/goal-tasks.md
+.claude/skills/
 

@@ -1,10 +1,20 @@
 <div style="max-width:480px">
-  <h2>🔑 激活新码</h2>
-  <p style="color:#888;margin-bottom:20px">在淘宝购买的激活码，在这里输入绑定到你的账号。到期日会自动叠加。</p>
-  <div id="msg" class="msg"></div>
-  <input type="text" id="code" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;font-family:monospace" placeholder="AC-XXXX-YYYY-ZZZZ-WWWW">
-  <button class="btn" style="margin-top:16px" onclick="activateCode()">激活</button>
+  <div class="sd-activate-area" style="border:none;padding:0;background:transparent;">
+    <p class="activate-title">激活新码</p>
+    <p class="activate-desc">在淘宝购买的激活码，在这里输入绑定到你的账号。到期日会自动叠加。</p>
+    <div id="msg" class="msg"></div>
+    <div class="activate-input-row">
+      <div class="form-input-wrap">
+        <span class="input-icon" data-lucide="key" style="width:16px;height:16px;"></span>
+        <input type="text" id="code" placeholder="AC-XXXX-YYYY-ZZZZ-WWWW">
+      </div>
+      <button class="btn btn-primary" onclick="activateCode()">
+        <span data-lucide="check-circle" style="width:16px;height:16px;"></span> 激活
+      </button>
+    </div>
+  </div>
 </div>
+<script src="https://unpkg.com/lucide@latest"></script>
 <script>
 async function activateCode() {
   const btn = document.querySelector('button'); btn.disabled=true;
@@ -14,7 +24,7 @@ async function activateCode() {
   try {
     const res = await request('/license/activate', { method:'POST', body:JSON.stringify({ code }) });
     if (res.code === 0) {
-      msg.className='msg success'; msg.textContent='✅ 激活成功！到期日已叠加';
+      msg.className='msg success'; msg.textContent='激活成功！到期日已叠加';
       document.getElementById('code').value='';
       setTimeout(() => window.location.hash='#license', 1500);
     } else {
@@ -26,4 +36,5 @@ async function activateCode() {
     btn.disabled=false;
   }
 }
+lucide.createIcons({ attrs: { 'stroke-width': 1.5, 'width': 18, 'height': 18 } });
 </script>

@@ -198,14 +198,26 @@ async def page_dashboard(request: Request, token: str = ""):
     if not token or token == "":
         token = request.cookies.get("token", "") or ""
     if not token:
-        return RedirectResponse(url="/login")
+        # 返回一个页面，尝试从 localStorage 读取 token（兼容从首页直接点击）
+        return HTMLResponse("""
+        <!DOCTYPE html><html><body><script>
+        var t = localStorage.getItem('token');
+        if (t) { window.location.href = '/dashboard?token=' + encodeURIComponent(t); }
+        else { window.location.href = '/login'; }
+        </script></body></html>
+        """)
     username = _user_from_token(token)
     if not username:
-        return RedirectResponse(url="/login")
+        return HTMLResponse("""
+        <!DOCTYPE html><html><body><script>
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+        </script></body></html>
+        """)
     data = _user_data(username)
     if not data:
         return RedirectResponse(url="/login")
-    return _render("dashboard.html", user=data)
+    return _render("dashboard.html", user=data, now=date.today().isoformat())
 
 
 # 请求模型
@@ -451,13 +463,7 @@ async def api_login(req: LoginRequest):
             conn.close()
             return {"code": 1, "msg": "账户已被锁定"}
 
-        # 检查到期日
-        max_expires, tiers = get_license_expiry(user["username"])
-        if not max_expires or max_expires < date.today():
-            conn.close()
-            return {"code": 1, "msg": "License 已过期"}
-
-        # 检查设备
+        # 检查设备（不校验 License 过期 — 过期用户也需要能登录以续费）
         existing = conn.execute("SELECT * FROM devices WHERE username=? AND pc_hash=?", (user["username"], req.pc_hash)).fetchone()
         if existing:
             conn.execute("UPDATE devices SET last_active_at=datetime('now') WHERE username=? AND pc_hash=?", (user["username"], req.pc_hash))
@@ -682,11 +688,22 @@ async def api_web_register(req: WebRegisterRequest):
         conn.close(); return {"code": 1, "msg": "用户名已存在"}
     conn.execute("INSERT INTO users (username, password_hash, security_question, security_answer_hash, status, created_at) VALUES (?,?,?,?,'active',datetime('now'))",
                  (req.username.strip(), hash_password(req.password), req.security_question, hash_password(req.security_answer)))
+
+    # 注册即送 7 天试用
+    import uuid
+    trial_code = f"TRIAL-{uuid.uuid4().hex[:8].upper()}"
+    today = date.today()
+    expires = today + timedelta(days=7)
+    conn.execute(
+        "INSERT INTO codes (code_id, tier, duration_days, status, bound_username, activated_at, expires_at, created_at, created_by) VALUES (?,?,?,?,?,?,?,datetime('now'),'system')",
+        (trial_code, "trial", 7, "active", req.username.strip(), str(today), str(expires))
+    )
+
     token = _gen_token()
     conn.execute("INSERT OR REPLACE INTO auth_tokens (pc_hash, username, token, tier, expires_at, created_at) VALUES (?,?,?,?,datetime('now', '+7 days'),datetime('now'))",
-                 (f"web_{token[:8]}", req.username.strip(), token, ""))
+                 (f"web_{token[:8]}", req.username.strip(), token, "trial"))
     conn.commit(); conn.close()
-    return {"code": 0, "data": {"token": token}}
+    return {"code": 0, "data": {"token": token, "tier": "trial", "expires_at": str(expires)}}
 
 
 def _get_user_data(username: str) -> dict:

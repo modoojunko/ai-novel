@@ -262,6 +262,17 @@ async def confirm_chapter(
     ok, missing = gate_chapter_ready(chapter)
     if not ok:
         raise HTTPException(400, f"Chapter not ready: {missing}")
-    update_phase(project, "prompt")
-    await db.commit()
-    return {"ok": True, "phase": project.current_phase}
+    chapter["status"] = "confirmed"
+    await get_storage().write_yaml(project.root_path, f"chapters/{chapter_ref}.yaml", chapter)
+    # Also update volume chapter list status
+    parts = chapter_ref.split("-")
+    vol = int(parts[1])
+    ch = int(parts[3])
+    vol_filename = f"vol-{vol}.yaml"
+    vol_data = await get_storage().read_yaml(project.root_path, f"volumes/{vol_filename}")
+    if vol_data and "chapters" in vol_data:
+        for c in vol_data["chapters"]:
+            if c.get("chapter") == ch:
+                c["status"] = "confirmed"
+        await get_storage().write_yaml(project.root_path, f"volumes/{vol_filename}", vol_data)
+    return {"ok": True, "status": "confirmed"}
