@@ -38,17 +38,16 @@ async def run_perspective_conversion(
     summary = chapter.get("outline", {}).get("summary", "")
     pov = chapter.get("pov_character", "主角")
 
-    from ai_client import create_ai_client, resolve_model
+    from ai_client import get_ai_client
 
     # C/S: Token tracking removed — user brings own API key
-    client = create_ai_client()
-    message = await client.messages.create(
-        model=resolve_model("haiku"),
+    client = get_ai_client()
+    guidance = await client.chat(
+        model="haiku",
         max_tokens=500,
         system="将以下上帝视角章纲转换为沉浸式写作指引。用第二人称'你'。保留所有关键事件，但用感官细节替换概括性描述。200-300字。",
         messages=[{"role": "user", "content": f"视角：{pov}\n章纲：{summary}"}],
     )
-    guidance = message.content[0].text
 
     # C/S: Token tracking removed — user brings own API key
     chapter["outline"]["perspective_guidance"] = guidance
@@ -58,7 +57,6 @@ async def run_perspective_conversion(
 
     return {
         "guidance": guidance,
-        "tokens_used": message.usage.input_tokens + message.usage.output_tokens,
     }
 
 

@@ -632,7 +632,7 @@ export default function NovelPage() {
       default:
         return <EmptyState settingsComplete={allConfirmed} />;
     }
-  }, [viewState, getCurrentChapterRef, outline]);
+  }, [viewState, outline, project, settingsStatus, confirmSetting, allConfirmed, handleCreateVolume, handleCreateChapter, handleGoSettings, setViewState, loadVolumes, handleAIStateChange, aiState, handleContinue, handlePolish, handleExpand, captureNow, setTab]);
 
   // -----------------------------------------------------------------------
   // Loading state

@@ -35,7 +35,8 @@ class DeductionEngine:
     async def load_from_project(self, chapter_ref: str | None = None):
         """Load stage and character data from project files."""
         # Load story premise and world setting
-        await get_storage().read_yaml(self.root_path, "story.yaml")
+        story = await get_storage().read_yaml(self.root_path, "story.yaml") or {}
+        self.stage.background = story.get("synopsis", "")
         world = (
             await get_storage().read_yaml(self.root_path, "settings/world-setting.yaml")
             or {}

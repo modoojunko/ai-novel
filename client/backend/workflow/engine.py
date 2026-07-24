@@ -53,7 +53,7 @@ async def save_chapter(root_path: str, chapter_ref: str, data: dict):
         if old_prose != new_prose or old_outline != new_outline:
             import time
 
-            timestamp = int(time.time())
+            timestamp = int(time.time() * 1000)
             version_data = {
                 "version": f"v{timestamp}",
                 "chapter_ref": chapter_ref,

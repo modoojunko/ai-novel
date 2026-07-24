@@ -8,6 +8,7 @@ from typing import Any
 class StageState:
     """Current state of the stage/environment."""
 
+    background: str = ""
     terrain: str = ""
     time: str = ""
     weather: str = ""

@@ -45,7 +45,7 @@ class AIClient:
             raise ValueError("未配置 API Key，请在设置页面填写")
 
         # 根据 base_url 推断 API 格式
-        if "anthropic" in base_url:
+        if "anthropic" in base_url.lower():
             self._provider = "anthropic"
             kwargs = {"api_key": api_key}
             if base_url:
