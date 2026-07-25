@@ -28,7 +28,7 @@ async def create_project(
     if existing.scalar_one_or_none():
         slug = f"{slug}-{uuid.uuid4().hex[:6]}"
 
-    root_path = f"{DATA_ROOT}/{user_id}/{slug}"
+    root_path = f"{DATA_ROOT}/{slug}"
     await get_storage().init_skeleton(root_path)
 
     # Write AI-suggested metadata into project files
