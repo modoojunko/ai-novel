@@ -42,6 +42,9 @@ SKELETON_FILES = [
 
 def _init_project_skeleton_local(root_path: str):
     """Create novel project directory skeleton from templates."""
+    # Normalise path to prevent traversal outside the intended directory
+    root_path = os.path.normpath(os.path.abspath(root_path))
+
     os.makedirs(root_path, exist_ok=True)
     for d in SKELETON_DIRS:
         os.makedirs(os.path.join(root_path, d), exist_ok=True)
