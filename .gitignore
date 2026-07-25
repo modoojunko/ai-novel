@@ -46,17 +46,11 @@ client/packaging/build/build/
 client/packaging/dist/
 client/frontend/dist/
 
-# Temp docs / generated files
-docs/*.ps1
-docs/*.cmd
-docs/*.txt
-docs/gh-check.txt
-docs/prd-body.txt
-docs/create-issue.py
-docs/design-mockups.html
-docs/send-*
-docs/prd-c端-ux-redesign.md
-docs/prd/
+# Development docs — not tracked in git
+docs/
+
+# Temp files
+tmp_find.txt
 
 # Session / goal tracking
 .claude/goal-tasks.md
