@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>发码管理</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+    h1 { font-size: 1.8em; }
+    .card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    label { display: block; margin: 10px 0 5px; font-weight: bold; }
+    select, input[type=number], input[type=password] { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+    button { background: #1a73e8; color: #fff; border: none; padding: 10px 24px; border-radius: 4px; cursor: pointer; margin-top: 10px; }
+    button:hover { background: #1557b0; }
+    .code-list { margin-top: 10px; }
+    .code-item { padding: 6px 10px; background: #f0f8ff; border: 1px solid #b3d4fc; border-radius: 4px; margin: 4px 0; font-family: monospace; cursor: pointer; word-break: break-all; }
+    .code-item:hover { background: #d0e8ff; }
+    .msg { margin-top: 10px; padding: 8px; border-radius: 4px; }
+    .msg.ok { background: #d4edda; color: #155724; }
+    .msg.err { background: #f8d7da; color: #721c24; }
+    .tab { margin-bottom: 15px; }
+    .tab button { background: #e0e0e0; color: #333; margin-right: 5px; }
+    .tab button.active { background: #1a73e8; color: #fff; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    #codesTable { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    #codesTable th, #codesTable td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 0.9em; }
+    #codesTable th { background: #f0f0f0; }
+    .search-box { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px; box-sizing: border-box; }
+  </style>
+</head>
+<body>
+  <h1>🔑 AI Novel 发码管理</h1>
+
+  <div class="tab">
+    <button class="active" onclick="switchTab('generate')">生成激活码</button>
+    <button onclick="switchTab('query')">查询激活码</button>
+  </div>
+
+  <div id="tab-generate" class="tab-content active">
+    <div class="card">
+      <label>管理员 Token</label>
+      <input type="password" id="adminToken" placeholder="输入管理员 Token">
+      <label>套餐类型</label>
+      <select id="tier">
+        <option value="monthly">月付（30天）</option>
+        <option value="quarterly">季度（90天）</option>
+        <option value="yearly" selected>年付（365天）</option>
+        <option value="lifetime">永久</option>
+      </select>
+      <label>生成数量</label>
+      <input type="number" id="count" value="1" min="1" max="100">
+      <button onclick="generateCodes()">生成激活码</button>
+      <div id="generateMsg"></div>
+      <div class="code-list" id="codeList"></div>
+    </div>
+  </div>
+
+  <div id="tab-query" class="tab-content">
+    <div class="card">
+      <label>管理员 Token</label>
+      <input type="password" id="queryAdminToken" placeholder="输入管理员 Token" class="search-box">
+      <label>按用户名查询</label>
+      <input type="text" id="queryUsername" placeholder="输入用户名（留空查全部）" class="search-box">
+      <button onclick="queryCodes()">查询</button>
+      <div id="queryMsg"></div>
+      <table id="codesTable">
+        <thead><tr><th>激活码</th><th>套餐</th><th>状态</th><th>绑定用户</th><th>到期日</th><th>创建时间</th></tr></thead>
+        <tbody id="codesBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api';
+    function switchTab(name) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab button').forEach(el => el.classList.remove('active'));
+      document.getElementById(`tab-${name}`).classList.add('active');
+      event.target.classList.add('active');
+    }
+
+    async function generateCodes() {
+      const token = document.getElementById('adminToken').value;
+      const tier = document.getElementById('tier').value;
+      const count = parseInt(document.getElementById('count').value);
+      const msg = document.getElementById('generateMsg');
+      const list = document.getElementById('codeList');
+
+      try {
+        const res = await fetch(`${API_BASE}/generate_code`, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ admin_token: token, tier, count })
+        });
+        const data = await res.json();
+        if (data.code === 0) {
+          msg.className = 'msg ok';
+          msg.textContent = `成功生成 ${data.data.count} 个激活码（点击复制）`;
+          list.innerHTML = data.data.codes.map(c => `<div class="code-item" onclick="copyCode('${c}')">${c}</div>`).join('');
+        } else {
+          msg.className = 'msg err';
+          msg.textContent = data.msg;
+        }
+      } catch(e) {
+        msg.className = 'msg err';
+        msg.textContent = '请求失败: ' + e.message;
+      }
+    }
+
+    function copyCode(code) {
+      navigator.clipboard.writeText(code).then(() => {
+        alert(`已复制: ${code}`);
+      });
+    }
+
+    async function queryCodes() {
+      const token = document.getElementById('queryAdminToken').value;
+      const username = document.getElementById('queryUsername').value.trim();
+      const msg = document.getElementById('queryMsg');
+      const body = document.getElementById('codesBody');
+
+      try {
+        const res = await fetch(`${API_BASE}/query_codes`, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ admin_token: token, username: username || undefined })
+        });
+        const data = await res.json();
+        if (data.code === 0) {
+          msg.className = 'msg ok';
+          msg.textContent = `查询到 ${data.data.codes.length} 条记录`;
+          body.innerHTML = data.data.codes.map(c => `
+            <tr>
+              <td style="font-family:monospace">${c.code_id}</td>
+              <td>${c.tier}</td>
+              <td>${c.status}</td>
+              <td>${c.bound_username || '-'}</td>
+              <td>${c.expires_at || '-'}</td>
+              <td>${c.created_at ? c.created_at.slice(0,10) : '-'}</td>
+            </tr>
+          `).join('');
+        } else {
+          msg.className = 'msg err';
+          msg.textContent = data.msg;
+        }
+      } catch(e) {
+        msg.className = 'msg err';
+        msg.textContent = '请求失败: ' + e.message;
+      }
+    }
+  </script>
+</body>
+</html>

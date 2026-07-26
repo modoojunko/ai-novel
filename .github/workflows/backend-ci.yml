@@ -3,11 +3,11 @@ name: Backend CI
 on:
   push:
     paths:
-      - "backend/**"
+      - "client/backend/**"
       - ".github/workflows/backend-ci.yml"
   pull_request:
     paths:
-      - "backend/**"
+      - "client/backend/**"
   workflow_dispatch:
 
 permissions:
@@ -25,15 +25,15 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        working-directory: backend
+        working-directory: client/backend
         run: |
           pip install -r requirements.txt
           pip install ruff
 
       - name: Ruff check
-        working-directory: backend
+        working-directory: client/backend
         run: ruff check .
 
       - name: Ruff format check
-        working-directory: backend
+        working-directory: client/backend
         run: ruff format --check .
