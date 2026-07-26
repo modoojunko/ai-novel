@@ -41,9 +41,7 @@ async def get_current_user(
         from config import JWT_SECRET, JWT_ALGORITHM
 
         try:
-            payload = jose_jwt.decode(
-                token, JWT_SECRET, algorithms=[JWT_ALGORITHM]
-            )
+            payload = jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
             return {"id": payload.get("sub", "devuser")}
         except Exception:
             raise HTTPException(status_code=401, detail="无效的令牌")

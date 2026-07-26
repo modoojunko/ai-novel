@@ -49,10 +49,14 @@ async def require_project_limit(
         return True
 
     result = await db.execute(
-        select(Project).where(Project.user_id == user["id"], Project.status != "deleted")
+        select(Project).where(
+            Project.user_id == user["id"], Project.status != "deleted"
+        )
     )
     count = len(result.scalars().all())
     if count >= limit:
-        raise HTTPException(403, f"免费用户最多创建 {limit} 个项目 — 购买套餐后可创建更多")
+        raise HTTPException(
+            403, f"免费用户最多创建 {limit} 个项目 — 购买套餐后可创建更多"
+        )
 
     return True

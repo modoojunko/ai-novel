@@ -60,7 +60,10 @@ async def build_auxiliary_context(
     if style_settings:
         style = style_settings
     else:
-        style = await get_storage().read_yaml(root_path, "settings/writing-style.yaml") or {}
+        style = (
+            await get_storage().read_yaml(root_path, "settings/writing-style.yaml")
+            or {}
+        )
     ctx["writing_style"] = _format_style(style)
 
     # Anti-ai rules
@@ -95,16 +98,16 @@ async def build_auxiliary_context(
                 if not state:
                     state = personality
                 snap_lines.append(f"- {name}：{state}")
-    ctx["character_snapshots"] = "\n".join(snap_lines) if snap_lines else "（暂无角色信息）"
+    ctx["character_snapshots"] = (
+        "\n".join(snap_lines) if snap_lines else "（暂无角色信息）"
+    )
 
     # Active hooks
     hooks_data = await get_storage().read_yaml(root_path, "settings/hooks.yaml") or {}
     hooks = hooks_data.get("active", [])
     if hooks and isinstance(hooks, list):
         hook_lines = [
-            f"- {h.get('description', '?')}"
-            for h in hooks[:8]
-            if isinstance(h, dict)
+            f"- {h.get('description', '?')}" for h in hooks[:8] if isinstance(h, dict)
         ]
         ctx["active_hooks"] = "\n".join(hook_lines)
     else:

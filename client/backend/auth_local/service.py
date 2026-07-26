@@ -13,10 +13,16 @@ from datetime import datetime, timedelta, date
 
 import httpx
 
+
 # 从 config.json 读取 S端 API 地址，避免环境变量传递问题
 def _get_server_api() -> str:
     cfg = get_local_config()
-    return cfg.get("server_api", "") or os.environ.get("SERVER_API_BASE") or "https://your-cloudbase-app.com/api"
+    return (
+        cfg.get("server_api", "")
+        or os.environ.get("SERVER_API_BASE")
+        or "https://your-cloudbase-app.com/api"
+    )
+
 
 CONFIG_DIR = os.environ.get("DATA_ROOT", "./data")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
@@ -164,7 +170,14 @@ async def browser_auth(silent: bool = False) -> dict:
             cfg["expires_at"] = data.get("expires_at", "")
             cfg["last_login_at"] = datetime.now().isoformat()
             save_local_config(cfg)
-            return {"code": 0, "data": {"message": "已登录", "tier": cfg["tier"], "token": cfg["token"]}}
+            return {
+                "code": 0,
+                "data": {
+                    "message": "已登录",
+                    "tier": cfg["tier"],
+                    "token": cfg["token"],
+                },
+            }
         return {"code": 1, "data": {"message": "未登录"}}
 
     # 打开浏览器到 S端 授权页面
@@ -182,7 +195,14 @@ async def browser_auth(silent: bool = False) -> dict:
             cfg["expires_at"] = data.get("expires_at", "")
             cfg["last_login_at"] = datetime.now().isoformat()
             save_local_config(cfg)
-            return {"code": 0, "data": {"message": "授权成功", "tier": cfg["tier"], "token": cfg["token"]}}
+            return {
+                "code": 0,
+                "data": {
+                    "message": "授权成功",
+                    "tier": cfg["tier"],
+                    "token": cfg["token"],
+                },
+            }
         await asyncio.sleep(POLL_INTERVAL)
 
     return {"code": -1, "msg": "授权超时，请在浏览器中完成登录"}
@@ -196,7 +216,11 @@ async def verify_session() -> dict:
     expires_at = cfg.get("expires_at", "")
 
     if os.environ.get("DEV_MODE"):
-        return {"valid": True, "tier": cfg.get("tier", "lifetime"), "trial_remaining_days": 365}
+        return {
+            "valid": True,
+            "tier": cfg.get("tier", "lifetime"),
+            "trial_remaining_days": 365,
+        }
 
     if not token:
         return {"valid": False, "msg": "未登录"}
@@ -220,7 +244,11 @@ async def verify_session() -> dict:
         except ValueError:
             pass
 
-    return {"valid": True, "tier": cfg.get("tier", "none"), "trial_remaining_days": trial_days}
+    return {
+        "valid": True,
+        "tier": cfg.get("tier", "none"),
+        "trial_remaining_days": trial_days,
+    }
 
 
 def check_permission(now: date | None = None) -> dict:
@@ -235,7 +263,12 @@ def check_permission(now: date | None = None) -> dict:
     now = now or date.today()
 
     if os.environ.get("DEV_MODE"):
-        return {"allowed": True, "tier": "none", "project_limit": 1, "trial_remaining_days": 7}
+        return {
+            "allowed": True,
+            "tier": "none",
+            "project_limit": 1,
+            "trial_remaining_days": 7,
+        }
 
     # 免费层
     if tier == "none":
@@ -257,7 +290,11 @@ def check_permission(now: date | None = None) -> dict:
     if tier in ("monthly", "quarterly", "yearly"):
         try:
             if expires_at and date.fromisoformat(expires_at) < now:
-                return {"allowed": False, "reason": "expired", "msg": "套餐已过期，请续费"}
+                return {
+                    "allowed": False,
+                    "reason": "expired",
+                    "msg": "套餐已过期，请续费",
+                }
         except ValueError:
             return {"allowed": False, "reason": "invalid", "msg": "套餐信息异常"}
 

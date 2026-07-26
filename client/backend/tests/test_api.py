@@ -78,11 +78,10 @@ class TestAuth:
 
     def test_unauthenticated_access_returns_401(self):
         """Protected endpoint without token returns 401."""
-        r = httpx.get(f"{BASE_URL}/auth/check-auth")
-        # The endpoint returns 200 with a JSON body even without auth
+        # /auth/check-auth returns 200 with JSON even without auth
         # Use a project endpoint instead
-        r2 = httpx.get(f"{BASE_URL}/projects")
-        assert r2.status_code in (401, 403)
+        resp = httpx.get(f"{BASE_URL}/projects")
+        assert resp.status_code in (401, 403)
 
 
 # =========================================================================
@@ -134,7 +133,7 @@ class TestProjects:
             f"{BASE_URL}/projects", json={"name": "delete-me"}, headers=headers
         )
         assert r2.status_code in (200, 201)
-        pid = r2.json()["id"]
+
 
 # =========================================================================
 # Workflow — Confirm Chapter + Phase Transition

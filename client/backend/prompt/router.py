@@ -11,6 +11,7 @@ from projects.service import get_project
 from prompt.assembler import assemble_all_segments
 from workflow.engine import _validate_ref, load_chapter, update_phase
 
+
 class UpdatePromptRequest(BaseModel):
     content: str
 

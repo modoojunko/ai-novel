@@ -49,7 +49,9 @@ class LocalFileBackend:
         fullpath = self._safe(root_path, relative_path)
         os.makedirs(os.path.dirname(fullpath), exist_ok=True)
         with open(fullpath, "w", encoding="utf-8") as f:
-            yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+            yaml.dump(
+                data, f, allow_unicode=True, default_flow_style=False, sort_keys=False
+            )
 
     async def read_md(self, root_path: str, relative_path: str) -> str:
         fullpath = self._safe(root_path, relative_path)

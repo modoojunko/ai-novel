@@ -100,6 +100,7 @@ async def api_check_auth():
     """检查当前浏览器在 S端 是否已登录（静默）"""
     return await browser_auth(silent=True)
 
+
 @router.post("/browser-auth")
 async def api_browser_auth():
     """打开浏览器 OAuth 登录"""
@@ -149,6 +150,7 @@ async def api_get_config():
 async def api_verify_key(req: ApiKeyVerifyRequest):
     """验证 API Key 是否可用"""
     from .key_verifier import get_verifier
+
     verifier = get_verifier(req.api_base_url)
     result = await verifier.verify(req.api_key, req.api_base_url)
     return result

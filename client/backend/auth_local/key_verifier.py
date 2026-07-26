@@ -7,12 +7,13 @@ from typing import Protocol, runtime_checkable
 @runtime_checkable
 class Verifier(Protocol):
     """Key 验证器接口"""
-    async def verify(self, api_key: str, base_url: str) -> dict:
-        ...
+
+    async def verify(self, api_key: str, base_url: str) -> dict: ...
 
 
 class AnthropicVerifier:
     """Anthropic 原生格式验证（DeepSeek Anthropic兼容端点也走此路）"""
+
     async def verify(self, api_key: str, base_url: str) -> dict:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(
@@ -40,6 +41,7 @@ class AnthropicVerifier:
 
 class OpenAICompatibleVerifier:
     """OpenAI 兼容格式验证（OpenAI / 兼容端点）"""
+
     async def verify(self, api_key: str, base_url: str) -> dict:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(
@@ -53,6 +55,7 @@ class OpenAICompatibleVerifier:
 
 class MockVerifier:
     """测试用 Mock — 始终返回有效"""
+
     async def verify(self, api_key: str, base_url: str) -> dict:
         return {"valid": True, "provider": "mock", "model": "mock-model"}
 

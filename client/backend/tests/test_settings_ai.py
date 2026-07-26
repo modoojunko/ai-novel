@@ -6,7 +6,6 @@ import re
 BASE_URL = "http://localhost:8000/api"
 
 
-
 def random_user():
     import random
 
