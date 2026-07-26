@@ -1,7 +1,8 @@
 # backend/auth_local/models.py
 """本地 License 缓存模型 — SQLite 表"""
 
-from sqlalchemy import Column, String, Boolean
+from sqlalchemy import Boolean, Column, String
+
 from db import Base
 
 

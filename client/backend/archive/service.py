@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from ai_client import get_ai_client
 from filesystem.storage import get_storage
@@ -91,7 +91,7 @@ async def update_character_states(root_path: str, chapter: dict, full_text: str)
             {
                 "chapter": f"vol-{chapter.get('volume')}-ch-{chapter.get('chapter')}",
                 "change": state_change,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         )
         await get_storage().write_yaml(

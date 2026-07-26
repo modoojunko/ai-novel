@@ -1,9 +1,9 @@
 """Tests for character agent -- JSON parsing, validation, fallback logic."""
 
 from story.character_agent import (
+    _extract_fallback_text,
     _extract_json,
     _repair_json,
-    _extract_fallback_text,
     _validate_decision_data,
 )
 

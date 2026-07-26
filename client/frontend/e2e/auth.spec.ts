@@ -2,76 +2,69 @@ import { test, expect } from "@playwright/test";
 import { url } from "./helpers";
 
 // =========================================================================
-// Auth pages — login, register, navbar, theme
+// Auth pages — login, register entry points, navbar, theme, redirects
 // =========================================================================
+// NOTE: LoginPage uses browser-based auth (OAuth-like single button),
+// not a traditional email/password form. There is no `/register` route
+// in the app yet; register tests cover the CTA entry points.
 
 test.describe("Login page", () => {
-  test("form renders with all fields and submit button", async ({ page }) => {
+  test("renders with heading and browser auth button", async ({ page }) => {
     await page.goto(url("/login"));
-    await expect(page.getByPlaceholder("邮箱")).toBeVisible();
-    await expect(page.getByPlaceholder("密码")).toBeVisible();
-    await expect(page.getByRole("button", { name: "登录" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "AI Novel" })).toBeVisible();
+    await expect(page.getByText("登录以授权此设备")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "打开浏览器登录" })
+    ).toBeVisible();
+    await expect(
+      page.getByText("将在系统浏览器中打开登录页面")
+    ).toBeVisible();
   });
 
-  test("form fields accept input", async ({ page }) => {
+  test("OAuth button triggers loading state on click", async ({ page }) => {
+    // Delay the auth response so loading state is visible
+    await page.route("**/auth/browser-auth", async (route) => {
+      await new Promise(r => setTimeout(r, 2000));
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ code: 0 }) });
+    });
+
     await page.goto(url("/login"));
-    const emailInput = page.getByPlaceholder("邮箱");
-    const passwordInput = page.getByPlaceholder("密码");
-
-    await emailInput.fill("user@example.com");
-    await passwordInput.fill("mypassword");
-
-    await expect(emailInput).toHaveValue("user@example.com");
-    await expect(passwordInput).toHaveValue("mypassword");
+    const btn = page.getByRole("button", { name: "打开浏览器登录" });
+    await expect(btn).toBeEnabled();
+    // Click triggers POST /auth/browser-auth — button enters loading state
+    await btn.click();
+    // Loading spinner should be visible while request is pending
+    await expect(page.locator(".loading-spinner")).toBeVisible({ timeout: 3000 });
   });
 
-  test("links to register page", async ({ page }) => {
+  test("error message not visible initially", async ({ page }) => {
     await page.goto(url("/login"));
-    await page.locator(".card-body").getByText("注册").click();
-    await expect(page).toHaveURL(/#\/register/);
-  });
-
-  test("requires email and password (form validation)", async ({ page }) => {
-    await page.goto(url("/login"));
-    const emailInput = page.getByPlaceholder("邮箱");
-    const passwordInput = page.getByPlaceholder("密码");
-    // HTML5 validation: email type + required
-    await expect(emailInput).toHaveAttribute("required", "");
-    await expect(passwordInput).toHaveAttribute("required", "");
-    await expect(passwordInput).toHaveAttribute("minlength");
+    await expect(page.getByText(/登录失败/)).toHaveCount(0);
   });
 });
 
 test.describe("Register page", () => {
-  test("form renders with all fields and submit button", async ({ page }) => {
-    await page.goto(url("/register"));
-    await expect(page.getByPlaceholder("昵称")).toBeVisible();
-    await expect(page.getByPlaceholder("邮箱")).toBeVisible();
-    await expect(page.getByPlaceholder(/密码/)).toBeVisible();
-    await expect(page.getByRole("button", { name: "创建账号" })).toBeVisible();
+  test("landing page has register CTA buttons", async ({ page }) => {
+    await page.goto(url("/"));
+    await expect(
+      page.getByRole("link", { name: "免费开始写作" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "开始使用" })
+    ).toBeVisible();
   });
 
-  test("form fields accept input", async ({ page }) => {
-    await page.goto(url("/register"));
-    await page.getByPlaceholder("昵称").fill("新作家");
-    await page.getByPlaceholder("邮箱").fill("writer@test.com");
-    await page.getByPlaceholder(/密码/).fill("SecurePass1!");
-
-    await expect(page.getByPlaceholder("昵称")).toHaveValue("新作家");
-    await expect(page.getByPlaceholder("邮箱")).toHaveValue("writer@test.com");
-    await expect(page.getByPlaceholder(/密码/)).toHaveValue("SecurePass1!");
+  test("register CTA navigates to /register route", async ({ page }) => {
+    await page.goto(url("/"));
+    await page.getByRole("link", { name: "免费开始写作" }).click();
+    await expect(page).toHaveURL(/#\/register/);
   });
 
-  test("links back to login", async ({ page }) => {
-    await page.goto(url("/register"));
-    await page.locator(".card-body").getByText("登录").click();
-    await expect(page).toHaveURL(/#\/login/);
-  });
-
-  test("password has minimum length requirement", async ({ page }) => {
-    await page.goto(url("/register"));
-    const pw = page.getByPlaceholder(/密码/);
-    await expect(pw).toHaveAttribute("minlength");
+  test("navbar has register link when logged out", async ({ page }) => {
+    await page.goto(url("/login"));
+    const registerLink = page.getByRole("link", { name: "注册" });
+    await expect(registerLink).toBeVisible();
+    await expect(registerLink).toHaveAttribute("href", /register/);
   });
 });
 
@@ -90,22 +83,37 @@ test.describe("Navbar on auth pages", () => {
     await expect(toggle.locator("svg")).toBeVisible();
   });
 
-  test("theme toggle works on login page", async ({ page }) => {
+  test("theme toggle switches data-theme attribute on html", async ({ page }) => {
     await page.goto(url("/login"));
+    // Default theme is "novelforge"
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-theme",
+      "novelforge"
+    );
+    // Click toggle switches to "parchment"
     await page.locator('.navbar button[title*="主题"]').click();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "parchment");
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-theme",
+      "parchment"
+    );
   });
 
-  test("theme persists navigating from login to register", async ({ page }) => {
+  test("theme persists when navigating between pages", async ({ page }) => {
     await page.goto(url("/login"));
     // Switch to parchment
     await page.locator('.navbar button[title*="主题"]').click();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "parchment");
-    // Navigate to register
-    await page.locator(".card-body").getByText("注册").click();
-    await expect(page).toHaveURL(/#\/register/);
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-theme",
+      "parchment"
+    );
+    // Navigate to landing page
+    await page.locator(".navbar").getByText("爱小说").click();
+    await expect(page).toHaveURL(url("/"));
     // Theme should still be parchment
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "parchment");
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-theme",
+      "parchment"
+    );
   });
 
   test("logo links to landing page", async ({ page }) => {
@@ -116,12 +124,10 @@ test.describe("Navbar on auth pages", () => {
 });
 
 test.describe("Page transitions", () => {
-  test("page-enter class present on all pages", async ({ page }) => {
+  test("page-enter class present on rendered pages", async ({ page }) => {
     await page.goto(url("/"));
     await expect(page.locator(".page-enter")).toHaveCount(1);
     await page.goto(url("/login"));
-    await expect(page.locator(".page-enter")).toBeVisible();
-    await page.goto(url("/register"));
     await expect(page.locator(".page-enter")).toBeVisible();
   });
 });
@@ -129,13 +135,38 @@ test.describe("Page transitions", () => {
 test.describe("Lucide icons", () => {
   test("navbar logo uses BookOpen SVG", async ({ page }) => {
     await page.goto(url("/login"));
-    await expect(page.locator('.navbar a[href*="#/"] svg')).toBeVisible();
+    await expect(
+      page.locator('.navbar a[href*="#/"] svg')
+    ).toBeVisible();
   });
 
   test("navbar theme toggle uses Sun/Moon SVG", async ({ page }) => {
     await page.goto(url("/login"));
     await expect(
       page.locator('.navbar button[title*="主题"] svg')
+    ).toBeVisible();
+  });
+});
+
+test.describe("Auth redirect", () => {
+  test("no-token redirects from dashboard to login", async ({ page }) => {
+    // Visiting a protected route without an auth token
+    // AuthGuard detects missing token and redirects to /login
+    await page.goto(url("/books"), { waitUntil: "commit" });
+    // Wait for the redirect to complete
+    await expect(page).toHaveURL(/#\/login/, { timeout: 10000 });
+  });
+
+  test("login page shows on direct navigation after redirect", async ({ page }) => {
+    // After being redirected from a protected page,
+    // the login page should render its content
+    await page.goto(url("/books"), { waitUntil: "commit" });
+    await expect(page).toHaveURL(/#\/login/, { timeout: 10000 });
+    await expect(
+      page.getByRole("heading", { name: "AI Novel" })
+    ).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByRole("button", { name: "打开浏览器登录" })
     ).toBeVisible();
   });
 });

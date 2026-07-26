@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import CharacterCreateModal from "./CharacterCreateModal";
 import ConfirmToggle from "./ConfirmToggle";
+import DeleteConfirmModal from "../DeleteConfirmModal";
 import { Field, TabBar } from "./FormField";
 
 interface Props { projectId: string; confirmed?: boolean; onConfirm?: () => void }
@@ -35,6 +36,7 @@ export default function CharacterManager({ projectId, confirmed, onConfirm }: Pr
   const [saving, setSaving] = useState(false);
   const [charTab, setCharTab] = useState("basic");
   const [showCreate, setShowCreate] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [charError, setCharError] = useState("");
 
   const loadNames = () => {
@@ -97,11 +99,11 @@ export default function CharacterManager({ projectId, confirmed, onConfirm }: Pr
   }
 
   async function deleteCharacter(name: string) {
-    if (!window.confirm(`确定删除角色「${name}」吗？`)) return;
     try {
       await api.delete(`/projects/${projectId}/settings/character/${name}`);
       loadNames();
       if (selected === name) { setSelected(null); setChar(emptyChar()); }
+      setDeleteTarget(null);
       setCharError("");
     } catch (e: any) { setCharError(e.message || "删除失败"); }
   }
@@ -139,7 +141,7 @@ export default function CharacterManager({ projectId, confirmed, onConfirm }: Pr
                 <span className="text-sm">👤</span>
                 <span className={`flex-1 text-sm truncate ${selected === n ? "text-primary font-medium" : "text-base-content/60"}`}>{n}</span>
                 <button
-                  onClick={(e) => { e.stopPropagation(); deleteCharacter(n); }}
+                  onClick={(e) => { e.stopPropagation(); setDeleteTarget(n); }}
                   className="opacity-0 group-hover:opacity-100 text-base-content/20 hover:text-error transition-all text-xs px-1"
                 >✕</button>
               </div>
@@ -218,6 +220,15 @@ export default function CharacterManager({ projectId, confirmed, onConfirm }: Pr
         <CharacterCreateModal
           onConfirm={(name, role) => addCharacter(name, role)}
           onCancel={() => setShowCreate(false)}
+        />
+      )}
+
+      {deleteTarget && (
+        <DeleteConfirmModal
+          title="角色"
+          confirmText={String(deleteTarget)}
+          onConfirm={() => deleteCharacter(deleteTarget)}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { TreeNode } from "@/components/novel/StructureTree";
@@ -6,28 +6,26 @@ import StructureTree from "@/components/novel/StructureTree";
 import EmptyState from "@/components/novel/EmptyState";
 import VolumeEditor from "@/components/novel/VolumeEditor";
 import ChapterEditor from "@/components/novel/ChapterEditor";
+import type { ChapterEditorHandle, AIWritingState } from "@/components/novel/ChapterEditor";
 import VersionHistory from "@/components/novel/VersionHistory";
 import SettingsFormField from "@/components/novel/SettingsFormField";
 import DeleteConfirmModal from "@/components/novel/DeleteConfirmModal";
 import { useOnboarding } from "@/hooks/useOnboarding";
-import DeductionPanel from "@/components/novel/story/DeductionPanel";
-import {
-  Globe,
-  Feather,
-  Shield,
-  Anchor,
-  Users,
-  Book,
-  FileText,
-  Trash2,
-  ClipboardList,
-} from "lucide-react";
+import RightToolbar from "@/components/novel/RightToolbar";
+import PromptManagementPage from "@/components/novel/PromptManagementPage";
+import ArchivePage from "@/components/novel/ArchivePage";
+import { Globe, Feather, Shield, Anchor, Users, Brain, Book, FileText, Trash2, ClipboardList } from "lucide-react";
+import { useOutline } from "@/hooks/useOutline";
+import OutlineOverview from "@/components/novel/outline/OutlineOverview";
+import OutlineEditor from "@/components/novel/outline/OutlineEditor";
+import PerspectiveModal from "@/components/novel/outline/PerspectiveModal";
+import type { SelectionCapture } from "@/lib/selection";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type TabId = "settings" | "writing" | "deduction";
+type TabId = "settings" | "writing" | "outline" | "prompts" | "archives";
 
 type ViewState =
   | { tab: "settings"; panel: string }
@@ -35,7 +33,11 @@ type ViewState =
   | { tab: "writing"; panel: "volume"; volumeId: string }
   | { tab: "writing"; panel: "chapter"; chapterRef: string }
   | { tab: "writing"; panel: "versions"; chapterRef: string }
-  | { tab: "deduction"; panel: "main" };
+  | { tab: "prompts" }
+  | { tab: "archives"; panel: "browser" }
+  | { tab: "archives"; panel: "reader"; filename: string }
+  | { tab: "outline"; panel: "overview" }
+  | { tab: "outline"; panel: "editor"; chapterRef: string };
 
 // ---------------------------------------------------------------------------
 // Tab labels
@@ -44,15 +46,18 @@ type ViewState =
 const TABS: { id: TabId; label: string }[] = [
   { id: "settings", label: "设定" },
   { id: "writing", label: "正文" },
-  { id: "deduction", label: "🔮 推演" },
+  { id: "outline", label: "细纲" },
+  { id: "prompts", label: "提示词" },
+  { id: "archives", label: "归档" },
 ];
 
 const SETTINGS_TREE_ITEMS: { id: string; icon: React.ReactNode; label: string }[] = [
   { id: "world", icon: <Globe className="w-3.5 h-3.5" />, label: "世界设定" },
   { id: "style", icon: <Feather className="w-3.5 h-3.5" />, label: "写作风格" },
-  { id: "anti-ai", icon: <Shield className="w-3.5 h-3.5" />, label: "反AI规则" },
-  { id: "hooks", icon: <Anchor className="w-3.5 h-3.5" />, label: "伏笔面板" },
+  { id: "anti-ai", icon: <Shield className="w-3.5 h-3.5" />, label: "AI痕迹控制" },
+  { id: "hooks", icon: <Anchor className="w-3.5 h-3.5" />, label: "伏笔管理" },
   { id: "characters", icon: <Users className="w-3.5 h-3.5" />, label: "角色管理" },
+  { id: "ai-model", icon: <Brain className="w-3.5 h-3.5" />, label: "AI 模型" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -74,6 +79,48 @@ export default function NovelPage() {
 
   const { settingsStatus, allConfirmed, isNew, confirmSetting, loading: onboardingLoading } =
     useOnboarding(project?.id, volumes);
+
+  const outline = useOutline(project?.id ?? "");
+
+  const [perspectiveState, setPerspectiveState] = useState<{
+    open: boolean;
+    chapterRef: string;
+    chapterSummary: string;
+  }>({ open: false, chapterRef: "", chapterSummary: "" });
+
+  // -----------------------------------------------------------------------
+  // AI Writing: ref + mediated state for ChapterEditor <-> RightToolbar
+  // -----------------------------------------------------------------------
+
+  const editorRef = useRef<ChapterEditorHandle>(null);
+  const [aiState, setAIState] = useState<AIWritingState>({
+    hasSelection: false,
+    selectedText: "",
+    continueLoading: false,
+    polishLoading: false,
+    expandLoading: false,
+  });
+
+  const handleAIStateChange = useCallback((state: AIWritingState) => {
+    setAIState(state);
+  }, []);
+
+  // Stable callbacks that reference the latest editor handle at call time
+  const handleContinue = useCallback(() => {
+    editorRef.current?.handleContinueWriting();
+  }, []);
+
+  const handlePolish = useCallback((capture: SelectionCapture) => {
+    editorRef.current?.handlePolish(capture);
+  }, []);
+
+  const handleExpand = useCallback((capture: SelectionCapture) => {
+    editorRef.current?.handleExpand(capture);
+  }, []);
+
+  const captureNow = useCallback((): SelectionCapture | null => {
+    return editorRef.current?.captureNow() ?? null;
+  }, []);
 
   // Switch default tab based on onboarding state
   useEffect(() => {
@@ -181,6 +228,36 @@ export default function NovelPage() {
   }, [volumes]);
 
   // -----------------------------------------------------------------------
+  // Outline tree nodes
+  // -----------------------------------------------------------------------
+
+  const outlineTreeNodes: TreeNode[] = useMemo(() => {
+    return outline.volumes.map((v) => {
+      const chapterNodes: TreeNode[] = v.chapters.map((ch) => {
+        const status = outline.chapterStatuses.get(ch.ref);
+        const isDone = status === "confirmed";
+        return {
+          id: ch.ref,
+          icon: <FileText className="w-3.5 h-3.5" />,
+          label: ch.title || ch.ref,
+          badge: isDone ? "done" : status === "in_progress" ? "进行中" : undefined,
+          badgeColor: isDone ? "var(--su)" : status === "in_progress" ? "var(--wa)" : undefined,
+          data: { type: "outline-chapter", ref: ch.ref },
+        };
+      });
+
+      return {
+        id: v.ref,
+        icon: <Book className="w-3.5 h-3.5" />,
+        label: v.title,
+        badge: `${chapterNodes.length}章`,
+        children: chapterNodes,
+        data: { type: "outline-volume", ref: v.ref },
+      };
+    });
+  }, [outline.volumes, outline.chapterStatuses]);
+
+  // -----------------------------------------------------------------------
   // Settings tree nodes
   // -----------------------------------------------------------------------
 
@@ -197,17 +274,22 @@ export default function NovelPage() {
   // Tree callbacks
   // -----------------------------------------------------------------------
 
-  const activeNodes = tab === "settings" ? settingsTreeNodes : writingTreeNodes;
+  const activeNodes =
+    tab === "settings" ? settingsTreeNodes : tab === "outline" ? outlineTreeNodes : writingTreeNodes;
 
   const selectedId =
     tab === "settings"
       ? viewState.tab === "settings"
         ? viewState.panel
         : undefined
-      : viewState.tab === "writing" &&
-          (viewState.panel === "chapter" || viewState.panel === "versions")
-        ? viewState.chapterRef
-        : undefined;
+      : tab === "outline"
+        ? viewState.tab === "outline" && viewState.panel === "editor"
+          ? viewState.chapterRef
+          : undefined
+        : viewState.tab === "writing" &&
+            (viewState.panel === "chapter" || viewState.panel === "versions")
+          ? viewState.chapterRef
+          : undefined;
 
   const handleSelect = useCallback(
     (node: TreeNode) => {
@@ -216,6 +298,15 @@ export default function NovelPage() {
 
       if (tab === "settings") {
         setViewState({ tab: "settings", panel: data.key as string });
+      } else if (tab === "outline") {
+        if (data.type === "outline-chapter") {
+          outline.loadChapterData(data.ref as string);
+          setViewState({
+            tab: "outline",
+            panel: "editor",
+            chapterRef: data.ref as string,
+          });
+        }
       } else {
         // writing tab
         switch (data.type) {
@@ -236,7 +327,7 @@ export default function NovelPage() {
         }
       }
     },
-    [tab]
+    [tab, outline]
   );
 
   const handleToggle = useCallback((id: string) => {
@@ -338,8 +429,12 @@ export default function NovelPage() {
     setTab(newTab);
     if (newTab === "settings") {
       setViewState({ tab: "settings", panel: "world" });
-    } else if (newTab === "deduction") {
-      setViewState({ tab: "deduction", panel: "main" });
+    } else if (newTab === "outline") {
+      setViewState({ tab: "outline", panel: "overview" });
+    } else if (newTab === "prompts") {
+      setViewState({ tab: "prompts" });
+    } else if (newTab === "archives") {
+      setViewState({ tab: "archives", panel: "browser" });
     } else {
       setViewState({ tab: "writing", panel: "empty" });
     }
@@ -359,10 +454,6 @@ export default function NovelPage() {
             confirmed={settingsStatus?.[viewState.panel] ?? false}
             onConfirm={() => confirmSetting(viewState.panel)}
           />
-        );
-      case "deduction":
-        return (
-          <DeductionPanel projectId={project.id} chapterRef={getCurrentChapterRef()} />
         );
       case "writing":
         switch (viewState.panel) {
@@ -392,17 +483,36 @@ export default function NovelPage() {
             );
           case "chapter":
             return (
-              <ChapterEditor
-                projectId={project.id}
-                chapterRef={viewState.chapterRef}
-                onShowVersion={() =>
-                  setViewState({
-                    tab: "writing",
-                    panel: "versions",
-                    chapterRef: viewState.chapterRef,
-                  })
-                }
-              />
+              <div className="flex h-full gap-0">
+                <div className="flex-1 min-w-0 overflow-y-auto">
+                  <ChapterEditor
+                    ref={editorRef}
+                    projectId={project.id}
+                    chapterRef={viewState.chapterRef}
+                    onShowVersion={() =>
+                      setViewState({
+                        tab: "writing",
+                        panel: "versions",
+                        chapterRef: viewState.chapterRef,
+                      })
+                    }
+                    onAIStateChange={handleAIStateChange}
+                  />
+                </div>
+                <RightToolbar
+                  projectId={project.id}
+                  chapterRef={viewState.chapterRef}
+                  hasSelection={aiState.hasSelection}
+                  selectedText={aiState.selectedText}
+                  onContinue={handleContinue}
+                  onPolish={handlePolish}
+                  onExpand={handleExpand}
+                  captureNow={captureNow}
+                  continueLoading={aiState.continueLoading}
+                  polishLoading={aiState.polishLoading}
+                  expandLoading={aiState.expandLoading}
+                />
+              </div>
             );
           case "versions":
             return (
@@ -428,10 +538,101 @@ export default function NovelPage() {
               />
             );
         }
+      case "outline":
+        switch (viewState.panel) {
+          case "overview":
+            return (
+              <OutlineOverview
+                volumes={outline.volumes}
+                chapterStatuses={outline.chapterStatuses}
+                chaptersMap={outline.chaptersMap}
+                totalChapters={outline.totalChapters}
+                filledCount={outline.filledCount}
+                confirmedCount={outline.confirmedCount}
+                allConfirmed={outline.allConfirmed}
+                allHavePerspectiveGuidance={outline.allHavePerspectiveGuidance}
+                loading={outline.loading}
+                error={outline.error}
+                onEditChapter={(ref) => {
+                  outline.loadChapterData(ref);
+                  setViewState({ tab: "outline", panel: "editor", chapterRef: ref });
+                }}
+                onConfirmChapter={outline.confirmChapter}
+                onPerspectiveChapter={(ref) => {
+                  const chData = outline.chaptersMap.get(ref);
+                  setPerspectiveState({
+                    open: true,
+                    chapterRef: ref,
+                    chapterSummary: chData?.outline?.summary || "",
+                  });
+                }}
+                onGlobalConfirm={outline.transitionToPrompt}
+                onRetry={outline.refetchTree}
+              />
+            );
+          case "editor":
+            return (
+              <OutlineEditor
+                projectId={project.id}
+                chapterRef={viewState.chapterRef}
+                chapterData={outline.chaptersMap.get(viewState.chapterRef) as any}
+                onSave={outline.saveChapter}
+                onConfirm={outline.confirmChapter}
+                onBack={() => setViewState({ tab: "outline", panel: "overview" })}
+              />
+            );
+          default:
+            return (
+              <OutlineOverview
+                volumes={outline.volumes}
+                chapterStatuses={outline.chapterStatuses}
+                chaptersMap={outline.chaptersMap}
+                totalChapters={outline.totalChapters}
+                filledCount={outline.filledCount}
+                confirmedCount={outline.confirmedCount}
+                allConfirmed={outline.allConfirmed}
+                allHavePerspectiveGuidance={outline.allHavePerspectiveGuidance}
+                loading={outline.loading}
+                error={outline.error}
+                onEditChapter={(ref) => {
+                  outline.loadChapterData(ref);
+                  setViewState({ tab: "outline", panel: "editor", chapterRef: ref });
+                }}
+                onConfirmChapter={outline.confirmChapter}
+                onPerspectiveChapter={(ref) => {
+                  const chData = outline.chaptersMap.get(ref);
+                  setPerspectiveState({
+                    open: true,
+                    chapterRef: ref,
+                    chapterSummary: chData?.outline?.summary || "",
+                  });
+                }}
+                onGlobalConfirm={outline.transitionToPrompt}
+                onRetry={outline.refetchTree}
+              />
+            );
+        }
+      case "prompts":
+        return <PromptManagementPage projectId={project.id} />;
+      case "archives":
+        return (
+          <ArchivePage
+            projectId={project.id}
+            projectName={project.name}
+            onNavigateToEditor={(chapterRef) => {
+              setTab("writing");
+              setViewState({ tab: "writing", panel: "chapter", chapterRef });
+            }}
+            onBack={() => {
+              setTab("writing");
+              setViewState({ tab: "writing", panel: "empty" });
+            }}
+          />
+        );
       default:
         return <EmptyState settingsComplete={allConfirmed} />;
     }
-  }, [viewState, getCurrentChapterRef]);
+  }, [viewState, outline, project, settingsStatus, confirmSetting, allConfirmed, handleCreateVolume, handleCreateChapter, handleGoSettings, setViewState, loadVolumes, handleAIStateChange, aiState, handleContinue, handlePolish, handleExpand, captureNow, setTab]);
 
   // -----------------------------------------------------------------------
   // Loading state
@@ -490,7 +691,7 @@ export default function NovelPage() {
           {project.name}
         </h1>
 
-        {/* Tabs: 设定 / 正文 */}
+        {/* Tabs: 设定 / 正文 / 细纲 / 提示词 / 归档 */}
         <div className="flex items-center gap-1">
           {TABS.map((t) => (
             <button
@@ -503,6 +704,11 @@ export default function NovelPage() {
               }`}
             >
               {t.label}
+              {t.id === "archives" && (project?.total_archives ?? 0) > 0 && (
+                <span className="badge badge-accent badge-xs ml-1">
+                  {project.total_archives}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -521,8 +727,8 @@ export default function NovelPage() {
 
       {/* ── Dual panel ──────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left tree panel - hidden for deduction */}
-        {tab !== "deduction" && (
+        {/* Left tree panel — hidden on prompts & archives tabs */}
+        {tab !== "prompts" && tab !== "archives" && (
           <aside className="w-56 flex-shrink-0 overflow-y-auto border-r border-base-300 bg-base-200/30 p-2">
             <StructureTree
               nodes={activeNodes}
@@ -547,9 +753,28 @@ export default function NovelPage() {
           confirmText={project.name}
           onConfirm={async () => {
             await api.delete(`/projects/${project.id}`);
-            window.location.href = "/dashboard";
+            window.location.href = "/books";
           }}
           onCancel={() => setShowDelete(false)}
+        />
+      )}
+
+      {perspectiveState.open && (
+        <PerspectiveModal
+          open={perspectiveState.open}
+          onClose={() => setPerspectiveState((prev) => ({ ...prev, open: false }))}
+          projectId={project.id}
+          chapterRef={perspectiveState.chapterRef}
+          chapterSummary={perspectiveState.chapterSummary}
+          existingGuidance={outline.chaptersMap.get(perspectiveState.chapterRef)?.outline?.perspective_guidance}
+          onSaved={(guidance) => {
+            outline.saveChapter(perspectiveState.chapterRef, {
+              outline: {
+                ...(outline.chaptersMap.get(perspectiveState.chapterRef)?.outline || {}),
+                perspective_guidance: guidance,
+              },
+            });
+          }}
         />
       )}
     </>

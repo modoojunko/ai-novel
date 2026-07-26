@@ -8,7 +8,7 @@ from projects.service import get_project
 
 router = APIRouter(prefix="/api/projects/{project_id}/settings", tags=["settings"])
 
-VALID_TYPES = {"world", "style", "anti-ai", "hooks", "characters"}
+VALID_TYPES = {"world", "style", "anti-ai", "hooks", "characters", "ai-model"}
 STATUS_FILE = "settings/settings-status.yaml"
 
 

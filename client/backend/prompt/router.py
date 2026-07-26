@@ -1,13 +1,20 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from auth_local.deps import require_ai_access
 from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
 from projects.service import get_project
 from prompt.assembler import assemble_all_segments
 from workflow.engine import _validate_ref, load_chapter, update_phase
+
+
+class UpdatePromptRequest(BaseModel):
+    content: str
+
 
 router = APIRouter(
     prefix="/api/projects/{project_id}/chapters/{chapter_ref}",
@@ -20,6 +27,7 @@ async def run_perspective_conversion(
     project_id: str,
     chapter_ref: str,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
     project = await get_project(db, project_id, user["id"])
@@ -31,17 +39,16 @@ async def run_perspective_conversion(
     summary = chapter.get("outline", {}).get("summary", "")
     pov = chapter.get("pov_character", "主角")
 
-    from ai_client import create_ai_client, resolve_model
+    from ai_client import get_ai_client
 
     # C/S: Token tracking removed — user brings own API key
-    client = create_ai_client()
-    message = await client.messages.create(
-        model=resolve_model("haiku"),
+    client = get_ai_client()
+    guidance = await client.chat(
+        model="haiku",
         max_tokens=500,
         system="将以下上帝视角章纲转换为沉浸式写作指引。用第二人称'你'。保留所有关键事件，但用感官细节替换概括性描述。200-300字。",
         messages=[{"role": "user", "content": f"视角：{pov}\n章纲：{summary}"}],
     )
-    guidance = message.content[0].text
 
     # C/S: Token tracking removed — user brings own API key
     chapter["outline"]["perspective_guidance"] = guidance
@@ -51,7 +58,6 @@ async def run_perspective_conversion(
 
     return {
         "guidance": guidance,
-        "tokens_used": message.usage.input_tokens + message.usage.output_tokens,
     }
 
 
@@ -60,6 +66,7 @@ async def list_prompts(
     project_id: str,
     chapter_ref: str,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
     project = await get_project(db, project_id, user["id"])
@@ -74,6 +81,7 @@ async def generate_prompts(
     project_id: str,
     chapter_ref: str,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
     project = await get_project(db, project_id, user["id"])
@@ -91,6 +99,7 @@ async def get_prompt_content(
     chapter_ref: str,
     seg: str,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
     project = await get_project(db, project_id, user["id"])
@@ -101,3 +110,23 @@ async def get_prompt_content(
         project.root_path, f"prompts/{chapter_ref}-{seg}-prompt.md"
     )
     return PlainTextResponse(content)
+
+
+@router.put("/prompts/{seg}")
+async def update_prompt_content(
+    project_id: str,
+    chapter_ref: str,
+    seg: str,
+    body: UpdatePromptRequest,
+    user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await get_project(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
+    await get_storage().write_md(
+        project.root_path, f"prompts/{chapter_ref}-{seg}-prompt.md", body.content
+    )
+    return {"status": "ok"}

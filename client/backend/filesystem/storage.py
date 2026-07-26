@@ -7,7 +7,6 @@ from sqlalchemy import text
 
 from config import STORAGE_BACKEND
 
-
 # --- Protocol ---
 
 
@@ -29,19 +28,24 @@ class StorageBackend(Protocol):
 
 
 class LocalFileBackend:
-    async def read_yaml(self, root_path: str, relative_path: str) -> dict:
-        fullpath = os.path.normpath(os.path.join(root_path, relative_path))
-        if not fullpath.startswith(root_path):
+    @staticmethod
+    def _safe(resolve: str, relative: str) -> str:
+        """标准化路径并检查穿越"""
+        r = os.path.normpath(resolve)
+        f = os.path.normpath(os.path.join(resolve, relative))
+        if not f.startswith(r):
             raise ValueError("Path traversal detected")
+        return f
+
+    async def read_yaml(self, root_path: str, relative_path: str) -> dict:
+        fullpath = self._safe(root_path, relative_path)
         if not os.path.exists(fullpath):
             return {}
         with open(fullpath, encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
 
     async def write_yaml(self, root_path: str, relative_path: str, data: dict) -> None:
-        fullpath = os.path.normpath(os.path.join(root_path, relative_path))
-        if not fullpath.startswith(root_path):
-            raise ValueError("Path traversal detected")
+        fullpath = self._safe(root_path, relative_path)
         os.makedirs(os.path.dirname(fullpath), exist_ok=True)
         with open(fullpath, "w", encoding="utf-8") as f:
             yaml.dump(
@@ -49,24 +53,18 @@ class LocalFileBackend:
             )
 
     async def read_md(self, root_path: str, relative_path: str) -> str:
-        fullpath = os.path.normpath(os.path.join(root_path, relative_path))
-        if not fullpath.startswith(root_path):
-            raise ValueError("Path traversal detected")
+        fullpath = self._safe(root_path, relative_path)
         if not os.path.exists(fullpath):
             return ""
         return Path(fullpath).read_text(encoding="utf-8")
 
     async def write_md(self, root_path: str, relative_path: str, content: str) -> None:
-        fullpath = os.path.normpath(os.path.join(root_path, relative_path))
-        if not fullpath.startswith(root_path):
-            raise ValueError("Path traversal detected")
+        fullpath = self._safe(root_path, relative_path)
         os.makedirs(os.path.dirname(fullpath), exist_ok=True)
         Path(fullpath).write_text(content, encoding="utf-8")
 
     async def delete_file(self, root_path: str, relative_path: str) -> None:
-        fullpath = os.path.normpath(os.path.join(root_path, relative_path))
-        if not fullpath.startswith(root_path):
-            raise ValueError("Path traversal detected")
+        fullpath = self._safe(root_path, relative_path)
         if os.path.exists(fullpath):
             os.remove(fullpath)
 
@@ -74,10 +72,7 @@ class LocalFileBackend:
         if not relative_path:
             dirpath = root_path
         else:
-            fullpath = os.path.normpath(os.path.join(root_path, relative_path))
-            if not fullpath.startswith(root_path):
-                raise ValueError("Path traversal detected")
-            dirpath = fullpath
+            dirpath = self._safe(root_path, relative_path)
         if not os.path.exists(dirpath):
             return []
         return os.listdir(dirpath)

@@ -17,6 +17,14 @@ def get_base_dir() -> Path:
     return Path(__file__).parent.parent.parent
 
 
+def get_install_dir() -> Path:
+    """打包后安装目录（exe 所在目录），便携式便携的关键。"""
+    if getattr(sys, 'frozen', False):
+        return Path(sys.executable).parent
+    # Dev 模式: 项目根目录
+    return Path(__file__).parent.parent.parent
+
+
 def start_server():
     """启动 FastAPI 后端"""
     base_dir = get_base_dir()
@@ -24,7 +32,10 @@ def start_server():
     if backend_dir.exists():
         sys.path.insert(0, str(backend_dir))
 
-    # 用户数据目录: %APPDATA%/AI Novel/
+    # 安装目录: 数据就跟着 exe 走
+    install_dir = get_install_dir()
+    install_dir.mkdir(parents=True, exist_ok=True)
+    # 运行时目录（日志等临时文件）仍在 %APPDATA% 避免权限问题
     appdata = Path(os.environ.get("APPDATA", ".")) / "AI Novel"
     appdata.mkdir(parents=True, exist_ok=True)
 
@@ -38,8 +49,8 @@ def start_server():
         if sys.stderr is None:
             sys.stderr = open(os.devnull, "w")
 
-        # 设置环境变量
-        os.environ.setdefault("DATA_ROOT", str(appdata / "data"))
+        # 设置环境变量 — 数据目录在安装目录下（便携）
+        os.environ.setdefault("DATA_ROOT", str(install_dir / "data"))
         os.environ.setdefault("SERVER_API_BASE",
             os.environ.get("AI_NOVEL_SERVER_API", "https://your-cloudbase-app.com/api"))
 

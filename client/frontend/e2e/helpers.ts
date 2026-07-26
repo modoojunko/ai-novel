@@ -1,6 +1,6 @@
 import { Page } from "@playwright/test";
 
-export const BASE_URL = "http://localhost";
+export const BASE_URL = "http://localhost:8000";
 export const API_URL = `${BASE_URL}/api`;
 
 let _uidCounter = 0;
@@ -40,7 +40,10 @@ export async function createTestUser(page: Page) {
 // ---------------------------------------------------------------------------
 
 export async function setToken(page: Page, token: string) {
-  await page.evaluate((t) => localStorage.setItem("token", t), token);
+  await page.evaluate((t) => {
+    localStorage.setItem("auth_token", t);
+    localStorage.setItem("auth_username", "E2EUser");
+  }, token);
 }
 
 // ---------------------------------------------------------------------------
