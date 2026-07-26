@@ -44,7 +44,7 @@ test.describe("Story Deduction", () => {
       data: { active: [{ x: "1" }, { x: "2" }, { x: "3" }] },
       headers: { Authorization: `Bearer ${token}` },
     });
-    await page.waitForTimeout(2000);
+		// Settings saved — proceed
     for (const st of ["world", "style", "anti-ai", "hooks", "characters"]) {
       await page.request.put(`${API_URL}/projects/${projectId}/settings/status/${st}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -60,7 +60,7 @@ test.describe("Story Deduction", () => {
     for (let i = 0; i < 3; i++) {
       const ok = await page.locator("h1").isVisible().catch(() => false);
       if (ok) break;
-      await page.waitForTimeout(2000);
+		await page.waitForLoadState("networkidle", { timeout: 15000 });
     }
   });
 

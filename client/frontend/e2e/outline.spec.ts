@@ -189,15 +189,18 @@ test.describe("Phase 3: Outline — volume and chapter outline", () => {
 
     const outline = page.getByPlaceholder("章纲（概述本章情节走向）");
     await outline.fill("主角在酒馆遇到神秘委托人");
-    // Wait for auto-save (3s debounce) or trigger manual save
-    await page.waitForTimeout(4000);
+    // Wait for auto-save (3s debounce) by listening for the PUT request
+    await page.waitForResponse(
+      (r) => r.url().includes("/chapters/") && r.request().method() === "PUT" && r.status() === 200,
+      { timeout: 15000 }
+    );
 
     // Reload and navigate back
     await page.reload();
     await expect(page.locator("h1")).toBeVisible({ timeout: 15000 });
     await page.getByRole("button", { name: "正文" }).click();
     await page.locator(".w-56").getByText("第1卷").click();
-    await page.waitForTimeout(500);
+    await expect(page.locator(".w-56").getByText("第1章")).toBeVisible({ timeout: 5000 });
     await page.locator(".w-56").getByText("第1章").click();
     await expect(page.locator("h2")).toContainText("第1章", { timeout: 15000 });
 
@@ -220,9 +223,12 @@ test.describe("Phase 3: Outline — volume and chapter outline", () => {
     await expect(page.locator("h2")).toContainText("第1章", { timeout: 15000 });
 
     // Change status to writing
-    await page.locator("select").first().selectOption("writing");
-    // Wait for auto-save
-    await page.waitForTimeout(4000);
+	    await page.locator("select").first().selectOption("writing");
+    // Wait for auto-save by listening for the PUT request
+    await page.waitForResponse(
+      (r) => r.url().includes("/chapters/") and r.request().method() == "PUT" and r.status() == 200,
+      { timeout: 15000 }
+    );
 
     // Reload and navigate back
     await page.reload();
@@ -255,7 +261,8 @@ test.describe("Phase 3: Outline — volume and chapter outline", () => {
 
     await page.getByPlaceholder("正文（在此撰写小说内容）").fill("12345");
     // Wait for React state update
-    await page.waitForTimeout(500);
+    // Wait for state update
+    await expect(page.locator("span.tabular-nums").first()).toBeVisible({ timeout: 5000 });
     // Word count display in tabular-nums span
     await expect(page.locator("span.tabular-nums").first()).toContainText("5");
   });
