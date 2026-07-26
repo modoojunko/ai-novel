@@ -1,9 +1,9 @@
 # backend/auth_local/router.py
 """浏览器 OAuth 登录 API"""
 
+import hashlib
 import os
 from datetime import UTC, datetime
-from hashlib import sha256
 
 from fastapi import APIRouter, Depends, HTTPException
 from jose import jwt
@@ -69,7 +69,9 @@ async def api_register(req: RegisterRequest, db: AsyncSession = Depends(get_db))
     # 创建用户
     user = User(
         email=req.email,
-        password_hash=sha256(req.password.encode()).hexdigest(),
+        password_hash=hashlib.pbkdf2_hmac(
+            "sha256", req.password.encode(), b"ai-novel-salt", 600000
+        ).hex(),
         display_name=req.display_name or req.email.split("@")[0],
     )
     db.add(user)
