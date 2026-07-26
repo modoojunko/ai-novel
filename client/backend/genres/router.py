@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 router = APIRouter(prefix="/api/genres", tags=["genres"])
 
 # Locate genre-corpus directory relative to this file
-_GENRE_DIR = Path(__file__).parent.parent / "reference" / "genre-corpus"
+_GENRE_DIR = Path(__file__).parent.parent.parent / "reference" / "genre-corpus"
 
 
 def _load_all_genres() -> dict:
