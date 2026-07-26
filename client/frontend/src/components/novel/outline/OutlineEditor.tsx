@@ -42,7 +42,6 @@ interface ChapterData {
     primary_mood?: string;
   };
   segments?: Array<{ summary: string; target_words: number }>;
-  [key: string]: any;
 }
 
 interface OutlineEditorProps {

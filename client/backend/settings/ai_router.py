@@ -112,7 +112,7 @@ async def generate_field(
             messages=[{"role": "user", "content": formatted_prompt}],
             max_tokens=1024,
         )
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         raise HTTPException(500, f"AI generation failed: {e!s}")
 
     cleaned = text.strip()

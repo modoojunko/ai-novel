@@ -269,7 +269,7 @@ async def run_character_decision(
             )
         except TimeoutError:
             logger.warning("Timeout %s (attempt %d)", character.character_id, attempt)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.warning(
                 "LLM fail %s (attempt %d): %s", character.character_id, attempt, e
             )

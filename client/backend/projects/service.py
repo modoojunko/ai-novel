@@ -49,7 +49,7 @@ async def create_project(
             from ai_prefill import prefill_world_setting
 
             await prefill_world_setting(root_path)
-        except Exception:  # noqa: BLE001, S110
+        except Exception:
             pass  # Non-blocking — create_project succeeds even if AI prefill fails — create_project succeeds even if AI prefill fails
 
     project = Project(user_id=user_id, name=name, slug=slug, root_path=root_path)

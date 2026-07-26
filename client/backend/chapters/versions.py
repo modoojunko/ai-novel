@@ -115,3 +115,25 @@ async def restore_version(
 
     await save_chapter(project.root_path, chapter_ref, chapter)
     return {"ok": True, "restored": version_id}
+
+
+@router.delete("/versions/{version_id}")
+async def delete_version(
+    project_id: str,
+    chapter_ref: str,
+    version_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await get_project(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
+
+    version_file = f"versions/{chapter_ref}/{version_id}.yaml"
+    version_data = await get_storage().read_yaml(project.root_path, version_file)
+    if not version_data:
+        raise HTTPException(404, "Version not found")
+
+    await get_storage().delete_file(project.root_path, version_file)
+    return {"ok": True, "deleted": version_id}

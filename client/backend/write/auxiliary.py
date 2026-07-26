@@ -52,19 +52,22 @@ async def build_auxiliary_context(
 
     Returns a dict with pre-formatted string values suitable for prompt templates:
         writing_style, anti_ai_rules, recent_context,
-        character_snapshots, active_hooks
+        character_snapshots, active_hooks, _role, _writing_model
     """
     ctx: dict[str, str] = {}
 
-    # Writing style
-    if style_settings:
-        style = style_settings
-    else:
-        style = (
+    # Writing style — resolve once and store metadata for caller
+    style = (
+        style_settings
+        if style_settings is not None
+        else (
             await get_storage().read_yaml(root_path, "settings/writing-style.yaml")
             or {}
         )
+    )
     ctx["writing_style"] = _format_style(style)
+    ctx["_role"] = style.get("role", "一位小说家")
+    ctx["_writing_model"] = style.get("writing_model", "haiku")
 
     # Anti-ai rules
     anti_ai = await get_storage().read_yaml(root_path, "settings/anti-ai.yaml") or {}
@@ -145,12 +148,9 @@ async def stream_continue(
     prompt_template = load_prompt("continue_writing")
     prompt = prompt_template.format(**ctx)
 
-    # Determine model and role
-    style_settings_actual = style_settings or (
-        await get_storage().read_yaml(root_path, "settings/writing-style.yaml") or {}
-    )
-    resolved_model = model or style_settings_actual.get("writing_model", "haiku")
-    role = style_settings_actual.get("role", "一位小说家")
+    # Model and role from resolved context
+    resolved_model = model or ctx.pop("_writing_model", "haiku")
+    role = ctx.pop("_role", "一位小说家")
 
     # Stream
     client = get_ai_client()
@@ -192,11 +192,8 @@ async def polish_text(
     prompt_template = load_prompt("polish_text")
     prompt = prompt_template.format(**ctx)
 
-    style_settings_actual = style_settings or (
-        await get_storage().read_yaml(root_path, "settings/writing-style.yaml") or {}
-    )
-    resolved_model = model or style_settings_actual.get("writing_model", "haiku")
-    role = style_settings_actual.get("role", "一位小说家")
+    resolved_model = model or ctx.pop("_writing_model", "haiku")
+    role = ctx.pop("_role", "一位小说家")
 
     client = get_ai_client()
     return await client.chat(
@@ -223,11 +220,8 @@ async def expand_text(
     prompt_template = load_prompt("expand_text")
     prompt = prompt_template.format(**ctx)
 
-    style_settings_actual = style_settings or (
-        await get_storage().read_yaml(root_path, "settings/writing-style.yaml") or {}
-    )
-    resolved_model = model or style_settings_actual.get("writing_model", "haiku")
-    role = style_settings_actual.get("role", "一位小说家")
+    resolved_model = model or ctx.pop("_writing_model", "haiku")
+    role = ctx.pop("_role", "一位小说家")
 
     client = get_ai_client()
     return await client.chat(
