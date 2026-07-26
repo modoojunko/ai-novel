@@ -8,9 +8,11 @@ import ConfirmToggle from "./settings/ConfirmToggle";
 import AIGenerateProgress from "./settings/AIGenerateProgress";
 import { api } from "@/lib/api";
 import ModelSettingForm from "./settings/ModelSettingForm";
+import GenreSettingForm from "./settings/GenreSettingForm";
 import { Sparkles, Brain } from "lucide-react";
 
 const TITLE_MAP: Record<string, string> = {
+  genre: "📖 题材设定",
   world: "🌍 世界设定",
   style: "✍️ 写作风格",
   "anti-ai": "🛡️ AI痕迹控制",
@@ -20,6 +22,7 @@ const TITLE_MAP: Record<string, string> = {
 };
 
 const ALL_TYPES = [
+  { type: "genre", label: "题材设定" },
   { type: "world", label: "世界设定" },
   { type: "style", label: "写作风格" },
   { type: "anti-ai", label: "AI痕迹控制" },
@@ -119,6 +122,7 @@ export default function SettingsFormField({ projectId, settingKey, confirmed, on
         {settingKey === "anti-ai" && <AntiAiSettingForm projectId={projectId} settingKey={settingKey} />}
         {settingKey === "hooks" && <HooksSettingForm projectId={projectId} settingKey={settingKey} />}
         {settingKey === "ai-model" && <ModelSettingForm projectId={projectId} settingKey={settingKey} />}
+        {settingKey === "genre" && <GenreSettingForm projectId={projectId} settingKey={settingKey} />}
       </div>
 
       <AIGenerateProgress

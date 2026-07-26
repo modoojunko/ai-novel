@@ -14,7 +14,7 @@ import { useOnboarding } from "@/hooks/useOnboarding";
 import RightToolbar from "@/components/novel/RightToolbar";
 import PromptManagementPage from "@/components/novel/PromptManagementPage";
 import ArchivePage from "@/components/novel/ArchivePage";
-import { Globe, Feather, Shield, Anchor, Users, Brain, Book, FileText, Trash2, ClipboardList } from "lucide-react";
+import { Globe, Feather, Shield, Anchor, Users, Brain, Book, FileText, Trash2, ClipboardList, BookOpen } from "lucide-react";
 import { useOutline } from "@/hooks/useOutline";
 import OutlineOverview from "@/components/novel/outline/OutlineOverview";
 import OutlineEditor from "@/components/novel/outline/OutlineEditor";
@@ -55,6 +55,7 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 const SETTINGS_TREE_ITEMS: { id: string; icon: React.ReactNode; label: string }[] = [
+  { id: "genre", icon: <BookOpen className="w-3.5 h-3.5" />, label: "题材设定" },
   { id: "world", icon: <Globe className="w-3.5 h-3.5" />, label: "世界设定" },
   { id: "style", icon: <Feather className="w-3.5 h-3.5" />, label: "写作风格" },
   { id: "anti-ai", icon: <Shield className="w-3.5 h-3.5" />, label: "AI痕迹控制" },

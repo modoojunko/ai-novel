@@ -16,6 +16,7 @@ from archive.router import router as archive_router
 # License 本地验证
 from auth_local.router import router as auth_local_router
 from chapters.router import router as chapters_router
+from genres.router import router as genres_router
 from chapters.versions import router as chapters_versions_router
 from db import Base, engine
 from novel.router import router as novel_router
@@ -71,6 +72,7 @@ app.include_router(novel_router)
 app.include_router(chapters_versions_router)
 app.include_router(story_router)
 app.include_router(workflow_router)
+app.include_router(genres_router)
 
 
 @app.get("/api/health")
