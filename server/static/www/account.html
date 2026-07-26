@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>账号设置 - 爱小说</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital@0;1&family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/style.css?v=3">
+</head>
+<body>
+<div class="dashboard">
+  <aside class="sidebar">
+    <div class="logo">
+      <span class="brand-icon" data-lucide="book-open"></span>
+      爱小说
+    </div>
+    <nav>
+      <a href="/dashboard">
+        <span class="nav-icon" data-lucide="layout-dashboard"></span>
+        控制台
+      </a>
+      <a href="/dashboard#license">
+        <span class="nav-icon" data-lucide="key"></span>
+        我的 License
+      </a>
+      <a href="/dashboard#devices">
+        <span class="nav-icon" data-lucide="monitor"></span>
+        设备管理
+      </a>
+      <a href="/dashboard#account" class="active">
+        <span class="nav-icon" data-lucide="settings"></span>
+        账号设置
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <span>v0.2</span>
+      <span data-lucide="book-open" style="width:14px;height:14px;opacity:0.3;"></span>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="topbar">
+      <span id="planBadge" class="sd-plan-badge">
+        <span data-lucide="crown" style="width:14px;height:14px;"></span>
+        -
+      </span>
+      <div class="sd-user-area">
+        <span class="sd-user-avatar" id="userAvatar">-</span>
+        <span class="sd-user-name" id="userName">-</span>
+      </div>
+      <a href="#" class="exit-link" onclick="logout()">退出</a>
+    </div>
+    <div class="sd-content">
+      <div class="sd-subpage">
+        <div class="subpage-header">
+          <div class="subpage-icon" data-lucide="settings" style="background:linear-gradient(135deg,var(--co-brown-light),var(--co-brown-mid));"></div>
+          <div class="subpage-info">
+            <h3>账号设置</h3>
+            <p>修改密码、管理密保问题</p>
+          </div>
+        </div>
+
+        <div id="msg" class="msg"></div>
+
+        <!-- Username display -->
+        <div class="sd-account-detail" style="background:var(--co-cream);border-radius:var(--radius-md);margin-bottom:var(--space-3);">
+          <div class="detail-label">用户名（不可修改）</div>
+          <div class="detail-value" id="usernameDisplay">-</div>
+        </div>
+
+        <!-- Password accordion -->
+        <div class="sd-account-section">
+          <div class="acc-header" onclick="togglePwd()">
+            <span class="acc-title">
+              <span data-lucide="lock" style="width:16px;height:16px;"></span>
+              密码
+            </span>
+            <span class="acc-toggle" id="pwdToggle">修改</span>
+          </div>
+          <div class="acc-body" id="pwdSection" style="display:none;">
+            <div class="form-group" style="margin-bottom:var(--space-3);">
+              <label class="form-label" style="font-size:0.82rem;">当前密码</label>
+              <div class="form-input-wrap">
+                <input type="password" id="oldPwd" placeholder="输入当前密码">
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);">
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.82rem;">新密码</label>
+                <div class="form-input-wrap">
+                  <input type="password" id="newPwd" placeholder="至少 6 位">
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.82rem;">确认新密码</label>
+                <div class="form-input-wrap">
+                  <input type="password" id="confirmPwd" placeholder="再次输入">
+                </div>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" style="margin-top:var(--space-3);" onclick="changePassword()">保存密码</button>
+          </div>
+        </div>
+
+        <!-- Security question accordion -->
+        <div class="sd-account-section">
+          <div class="acc-header" onclick="toggleSec()">
+            <span class="acc-title">
+              <span data-lucide="shield-question" style="width:16px;height:16px;"></span>
+              密保问题
+            </span>
+            <span class="acc-toggle" id="secToggle">修改</span>
+          </div>
+          <div class="acc-body" id="secSection" style="display:none;">
+            <p style="font-size:0.82rem;color:var(--co-brown-light);margin-bottom:var(--space-3);">
+              当前问题：<strong style="color:var(--co-ink);" id="currentQuestion">-</strong>
+            </p>
+            <div class="form-group" style="margin-bottom:var(--space-3);">
+              <label class="form-label" style="font-size:0.82rem;">新密保问题</label>
+              <div class="form-input-wrap">
+                <input type="text" id="newQuestion" placeholder="例如：我最喜欢的书是？">
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom:var(--space-3);">
+              <label class="form-label" style="font-size:0.82rem;">新密保答案</label>
+              <div class="form-input-wrap">
+                <input type="password" id="newAnswer" placeholder="输入答案">
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="changeSecurity()">保存密保</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+<script src="/api.js"></script>
+<script>
+const TOKEN = localStorage.getItem('token');
+if (!TOKEN) { window.location.href = '/login'; }
+
+// Load user info
+(async function init() {
+  try {
+    const r = await request('/user/me');
+    if (r.code === 0 && r.data) {
+      document.getElementById('userName').textContent = r.data.username || '-';
+      document.getElementById('userAvatar').textContent = (r.data.username || 'U').charAt(0);
+      document.getElementById('usernameDisplay').textContent = r.data.username || '-';
+      document.getElementById('currentQuestion').textContent = r.data.security_question || '未设置';
+      const tierNames = { monthly:'月付', yearly:'年付', lifetime:'永久', none:'无套餐' };
+      document.getElementById('planBadge').innerHTML = '<span data-lucide="crown" style="width:14px;height:14px;"></span> ' + (tierNames[r.data.tier] || r.data.tier || '-');
+      lucide.replaceElement(document.getElementById('planBadge').querySelector('[data-lucide]'), { 'stroke-width': 1.5, width: 14, height: 14 });
+    }
+  } catch(e) { /* silent */ }
+})();
+
+async function changePassword() {
+  const msg = document.getElementById('msg'); msg.className = 'msg';
+  const oldPwd = document.getElementById('oldPwd').value;
+  const newPwd = document.getElementById('newPwd').value;
+  const confirmPwd = document.getElementById('confirmPwd').value;
+  if (!oldPwd || !newPwd) { msg.className = 'msg error'; msg.textContent = '请填写完整'; return; }
+  if (newPwd !== confirmPwd) { msg.className = 'msg error'; msg.textContent = '两次密码不一致'; return; }
+  if (newPwd.length < 6) { msg.className = 'msg error'; msg.textContent = '密码至少6位'; return; }
+  const res = await request('/user/password', { method:'PUT', body:JSON.stringify({ old_password: oldPwd, new_password: newPwd }) });
+  if (res.code === 0) {
+    msg.className = 'msg success'; msg.textContent = '密码已修改';
+    document.getElementById('oldPwd').value=''; document.getElementById('newPwd').value=''; document.getElementById('confirmPwd').value='';
+  } else { msg.className = 'msg error'; msg.textContent = res.msg || '修改失败'; }
+}
+
+async function changeSecurity() {
+  const msg = document.getElementById('msg'); msg.className = 'msg';
+  const question = document.getElementById('newQuestion').value;
+  const answer = document.getElementById('newAnswer').value;
+  if (!question || !answer) { msg.className = 'msg error'; msg.textContent = '请填写完整'; return; }
+  const res = await request('/user/security', { method:'PUT', body:JSON.stringify({ security_question: question, security_answer: answer }) });
+  if (res.code === 0) {
+    msg.className = 'msg success'; msg.textContent = '密保已更新';
+    document.getElementById('newQuestion').value=''; document.getElementById('newAnswer').value='';
+    document.getElementById('currentQuestion').textContent = question;
+  } else { msg.className = 'msg error'; msg.textContent = res.msg || '修改失败'; }
+}
+
+function togglePwd() {
+  const el = document.getElementById('pwdSection');
+  const t = document.getElementById('pwdToggle');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  t.textContent = el.style.display === 'none' ? '修改' : '收起';
+}
+function toggleSec() {
+  const el = document.getElementById('secSection');
+  const t = document.getElementById('secToggle');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  t.textContent = el.style.display === 'none' ? '修改' : '收起';
+}
+
+lucide.createIcons({ attrs: { 'stroke-width': 1.5 } });
+</script>
+</body>
+</html>

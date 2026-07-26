@@ -65,29 +65,30 @@ These guidelines are working if: fewer unnecessary changes in diffs, fewer rewri
 ## Commands
 
 ```bash
-# Start all services (Docker Compose)
-docker compose up -d
+# Start C端 backend (dev mode, no License needed)
+cd client/backend && mkdir -p data
+DEV_MODE=1 DATA_ROOT=./data uvicorn main:app --reload --host 127.0.0.1 --port 8000
 
-# Backend only (for API dev)
-docker compose up -d postgres && cd backend && uvicorn main:app --reload --port 8000
+# Start S端 local simulator (for License testing)
+python server/local_server.py
 
-# Frontend only (for UI dev)
-cd frontend && npm run dev
+# Frontend only (for UI dev, hot reload at localhost:5173)
+cd client/frontend && npm run dev
 
 # Build frontend for production
-cd frontend && npm run build
+cd client/frontend && npm run build
 
 # Preview production build
-cd frontend && npm run preview
+cd client/frontend && npm run preview
 
 # Type-check frontend
-cd frontend && npx tsc --noEmit
+cd client/frontend && npx tsc --noEmit
 
 # Run a single backend test
-cd backend && python -m pytest tests/ -k "test_name"
+cd client/backend && python -m pytest tests/ -k "test_name"
 
 # Run all backend API tests
-cd backend && python -m pytest tests/ -v
+cd client/backend && python -m pytest tests/ -v
 
 # Run all frontend E2E tests (requires Docker running on :80)
 cd frontend && npx playwright test
@@ -100,69 +101,60 @@ bash scripts/test-all.sh
 
 ```mermaid
 flowchart LR
-    Nginx["Nginx (:80)"] -->|/api/*| FastAPI["FastAPI / uvicorn (:8000)"]
-    Nginx -->|/*| SPA["Vite SPA (:80 nginx / :5173 dev)"]
-    FastAPI --> PostgreSQL[("PostgreSQL 16")]
-    FastAPI --> FS[("Filesystem / novel_files table")]
+    subgraph client ["C端 — 用户本地 (client/)"]
+        FastAPI["FastAPI / uvicorn"]
+        SPA["React SPA"]
+        pywebview["pywebview 窗口"]
+        SQLite[("SQLite")]
+        FS[("本地文件 / data/")]
+    end
+    subgraph server ["S端 — CloudBase (server/)"]
+        CF["云函数 (Python)"]
+        CDB[("云数据库")]
+        SH["静态托管"]
+    end
+    
+    pywebview -->|Edge WebView2| SPA
+    SPA -->|localhost:8000| FastAPI
+    FastAPI --> SQLite
+    FastAPI --> FS
+    FastAPI -->|仅激活/登录/验证| CF
+    CF --> CDB
 ```
 
-Single Docker Compose host. SSE for streaming prose generation. No Redis, no task queue.
+Single user desktop app. C端 runs everything locally (FastAPI + SQLite + React SPA in pywebview). S端 only handles License auth via CloudBase cloud functions. SSE for streaming prose generation.
 
-Frontend is a React 19 SPA built with Vite, served by nginx in production. During development, Vite dev server runs on :5173 with `/api` proxied to :8000.
-
-## Backend structure
+## Directory Structure
 
 ```
-backend/
-  main.py              — FastAPI app, lifespan (auto-create tables), router wiring
-  config.py            — env vars: DATABASE_URL, JWT_SECRET, ANTHROPIC_API_KEY, DATA_ROOT, STORAGE_BACKEND
-  db.py                — async SQLAlchemy engine + session factory + Base
-  models/              — SQLAlchemy ORM: User, Project, TokenLog, NovelFile
-  auth/                — JWT register/login/me + Bearer middleware
-  projects/            — project CRUD + filesystem skeleton init
-  settings/            — read/write YAML settings (world/style/anti-ai/hooks/characters)
-  chapters/            — volume + chapter CRUD with gate confirmation
-  workflow/            — phase state machine + gate validation functions
-  prompt/              — assembler (perspective conversion, context injection, prompt generation)
-  write/               — SSE streaming per segment + 6 quality checks
-  archive/             — finalize prose to archives/, update threads + characters + hooks
-  billing/             — token usage logging + usage summary API
-  filesystem/          — YAML/MD reader/writer, project skeleton init, storage abstraction
+ai-novel/
+├── client/                    # C端 — 用户本地桌面应用
+│   ├── backend/              FastAPI 后端
+│   │   ├── main.py           FastAPI app, lifespan (auto-create tables), router wiring
+│   │   ├── config.py         本地配置 (DATA_ROOT, JWT_SECRET, SERVER_API_BASE)
+│   │   ├── db.py             SQLAlchemy + SQLite
+│   │   ├── ai_client.py      动态 API Key 的 AI 客户端
+│   │   ├── models/           SQLAlchemy ORM: User, Project, TokenLog, NovelFile
+│   │   ├── auth_local/       License 验证模块 (S端通信 + 离线缓存)
+│   │   ├── projects/         项目 CRUD
+│   │   ├── settings/         设定管理 + AI 生成
+│   │   ├── chapters/         卷章 CRUD
+│   │   ├── workflow/         阶段机 + gate 验证
+│   │   ├── prompt/           提示词组装
+│   │   ├── write/            SSE 流式写作
+│   │   ├── archive/          归档
+│   │   ├── filesystem/       本地文件存储
+│   │   └── story/            剧情推演
+│   ├── frontend/             React 19 SPA (Vite + daisyUI)
+│   └── packaging/            PyInstaller + pywebview 打包
+├── server/                    # S端 — 腾讯云 CloudBase
+│   ├── cloudfunctions/       云函数 (activate/login/verify/renew/devices/reset_password/generate_code/query_codes)
+│   ├── lib/                  云函数共享库 (db/auth_utils/code_utils)
+│   ├── static/               静态页面 (landing + 发码管理)
+│   └── local_server.py       本地 S 端模拟器 (测试用)
+├── docs/                     文档 (specs + plans)
+└── reference/                项目模板 (YAML/MD templates)
 ```
-
-### Storage abstraction (`backend/filesystem/storage.py`)
-
-Novel content can be stored either on the local filesystem (`LocalFileBackend`) or in the database (`DatabaseFileBackend` via the `novel_files` table). Selected by `STORAGE_BACKEND` env var (`"local"` or `"database"`). All filesystem access goes through a `StorageBackend` protocol so callers don't depend on the backend directly.
-
-All routers follow the same pattern: `router = APIRouter(prefix=...)`, endpoints use `Depends(get_current_user)` + `Depends(get_db)`, and cross-check project ownership.
-
-## Frontend structure
-
-```
-frontend/src/
-  App.tsx               — root component, react-router-dom v7 Routes
-  main.tsx              — entry point, renders App
-  pages/                — flat page components (one per route):
-    LandingPage, LoginPage, RegisterPage, DashboardPage,
-    ProjectLayout (<Outlet> wrapper), NovelPage (dual-panel main layout)
-  components/
-    auth/AuthGuard.tsx  — redirect to /login if no token
-    novel/              — new layout components:
-      StructureTree, EmptyState, VolumeEditor, ChapterEditor,
-      VersionHistory, SettingsFormField, ThemeToggle
-    ClientShell.tsx     — top-level layout wrapper
-    Navbar.tsx, Footer.tsx
-  lib/
-    api.ts              — fetch wrapper with JWT injection + 401 redirect
-    auth.ts             — login/register/logout helpers, localStorage token
-    env.ts              — runtime env var loader (from /env.js or VITE_ fallbacks)
-    toast.tsx           — toast notification utility
-    utils.ts            — clsx + tailwind-merge helper
-```
-
-UI framework: **daisyUI** (Tailwind CSS component library). React 19, react-router-dom v7 for routing. No global state management — each page manages its own state with useState/useEffect.
-
-Runtime environment config: `frontend/public/env.js` is loaded at runtime (not build-time) so the same build can be deployed to different backends. Falls back to `VITE_*` build-time env vars.
 
 ## Key design decisions
 
@@ -185,3 +177,53 @@ Runtime environment config: `frontend/public/env.js` is loaded at runtime (not b
 ## Current state
 
 Backend is complete (all router modules wired, token tracking active across all 3 AI call sites, dual storage backend). Frontend is fully built with React 19 + Vite + daisyUI including Writing Studio with SSE streaming, archives reader, threads timeline, and settings forms. Rate limiting middleware active. No tests written yet.
+
+## Agent Dispatch Protocol
+
+Claude acts as the **intelligent dispatcher** — the user describes what they want, and Claude automatically selects the right installed agent(s) to produce the output. No manual "Activate X" needed.
+
+### Installed Agents
+
+All agents are in `.claude/agents/`. Each is a specialized persona with its own methodology and deliverables format.
+
+| Agent | Role | When to Use |
+|-------|------|-------------|
+| 🧭 **Product Manager** | Full product lifecycle: discovery, PRD, roadmap, stakeholder alignment | New feature requests, requirement analysis, defining MVP scope |
+| 🎨 **UI Designer** | Visual design systems, pixel-perfect interfaces, component styling, brand identity | UI polish, color palette, typography, dark/light theme, visual consistency |
+| 🎭 **Persona Walkthrough** | CRO conversion optimization, user psychology simulation, LIFT/Cialdini/Fogg frameworks | Landing page optimization, registration funnel, conversion bottlenecks |
+| 🛡️ **Brand Guardian** | Brand identity system, visual consistency, brand guidelines | Brand positioning, visual identity, S端 brand consistency |
+| 📐 **UX Architect** | Interface architecture, layout design, component structure | Splitting pages into components, designing UI layout, CSS system |
+| 🔬 **UX Researcher** | User behavior analysis, usability testing, data-driven insights | Understanding user needs, evaluating UX, suggesting improvements |
+| 🐑 **Project Shepherd** | Cross-functional coordination, task breakdown, timeline, risk management | Breaking features into dev tasks, estimating effort, tracking progress |
+| 🎯 **Sprint Prioritizer** | Sprint planning, feature prioritization, resource allocation | Prioritizing backlog, planning iterations, balancing effort vs impact |
+| 🏗️ **Backend Architect** | Scalable system design, API development, FastAPI architecture | API endpoints, backend architecture, C/S communication design |
+| 🖥️ **Frontend Developer** | React 19 + TypeScript + daisyUI + Tailwind CSS | UI component implementation, frontend features, performance |
+| 🗄️ **Database Optimizer** | Schema design, query optimization, indexing, SQLite/PostgreSQL | Slow queries, schema migration, indexing strategy, N+1 fixes |
+| ⚙️ **DevOps Automator** | CI/CD, Docker, SSL, CloudBase deployment | Deployment config, GitHub Actions, SSL certs, backup strategy |
+| 🧬 **Prompt Engineer** | LLM prompt design, testing, systematic optimization | Prompt assembly debugging, SSE streaming prompt tuning, model behavior |
+| 👁️ **Code Reviewer** | Code correctness, security, maintainability, performance | PR review, refactoring advice, bug investigation |
+| 🎭 **Test Automation Engineer** | Playwright E2E tests, flake elimination, CI parallelization | Writing/improving tests, debugging flaky tests, test strategy |
+
+### Dispatch Rules
+
+1. **Single agent tasks** — Claude identifies the primary agent, adopts its methodology, and produces output in that agent's standard format (e.g., Product Manager outputs PRD sections, DevOps Automator outputs deployment scripts).
+
+2. **Multi-agent tasks** — For complex work, Claude orchestrates sequentially:
+   ```
+   Feature request → 🧭 Product Manager (PRD) → 📐 UX Architect (UI design)
+   → 🏗️ Backend Architect (API) + 🖥️ Frontend Developer (components)
+   → 🎭 Test Automation Engineer (tests) → 👁️ Code Reviewer (review)
+   ```
+
+3. **Agent output format** — Each agent's deliverables template (from its `.md` file) is followed exactly. Terse or incomplete output means the wrong agent was selected.
+
+4. **User can still override** — If the user names a specific agent, use that one. If they say "as a PM", treat it as agent selection.
+
+### Dispatch Examples
+
+| User says | Claude does |
+|-----------|-------------|
+| "我想加个一键生成大纲的功能" | 🧭 PRD → 📐 界面拆分 → 🏗️ API + 🖥️ 前端 → 🎭 测试 |
+| "帮我看看为什么这个页面加载慢" | 🗄️ 查SQL → 👁️ review前端代码 → ⚙️ 检查部署 |
+| "帮我排下这周做什么" | 🎯 优先级评估 → 🐑 任务拆分 → 输出排期表 |
+| "settings的AI生成不太稳定" | 🧬 调试prompt → 🏗️ 检查API错误处理 → 🎭 补充测试 |

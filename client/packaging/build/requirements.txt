@@ -1,0 +1,4 @@
+# client/packaging/build/requirements.txt
+# 打包工具依赖 — 构建 .exe 时用
+pywebview>=5.4.1
+pyinstaller>=6.11.1
