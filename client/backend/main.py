@@ -16,9 +16,9 @@ from archive.router import router as archive_router
 # License 本地验证
 from auth_local.router import router as auth_local_router
 from chapters.router import router as chapters_router
-from genres.router import router as genres_router
 from chapters.versions import router as chapters_versions_router
 from db import Base, engine
+from genres.router import router as genres_router
 from novel.router import router as novel_router
 from projects.router import ai_router
 from projects.router import router as projects_router

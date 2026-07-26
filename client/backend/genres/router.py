@@ -5,7 +5,6 @@ Provides two endpoints:
   GET /api/genres/{id}     — full genre data
 """
 
-import os
 from pathlib import Path
 
 import yaml
@@ -29,7 +28,7 @@ def _load_all_genres() -> dict:
                 data = yaml.safe_load(fh)
             if data and data.get("id"):
                 genres[data["id"]] = data
-        except Exception:
+        except (OSError, yaml.YAMLError):
             pass
     return genres
 
