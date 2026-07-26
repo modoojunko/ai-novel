@@ -11,7 +11,8 @@ API = "http://localhost:8000/api"
 # 1. Register modoojunko user
 # ══════════════════════════════════════════════
 print("=== 1. 注册用户 modoojunko ===")
-email = "modoojunko@test.local"
+import time
+email = f"demo_{int(time.time())}@test.local"
 r = requests.post(f"{API}/auth/register", json={
     "email": email, "password": "TestPass789!", "display_name": "modoojunko"
 })
