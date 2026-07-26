@@ -25,7 +25,7 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/config" element={<ApiKeyConfigPage />} />
           <Route path="/books" element={<BooksPage />} />
-          <Route path="/project/:slug" element={<ProjectLayout />}>
+          <Route path="/project/:id" element={<ProjectLayout />}>
             <Route index element={<NovelPage />} />
             <Route path="settings" element={<Navigate to=".." replace />} />
             <Route path="settings/world" element={<Navigate to=".." replace />} />

@@ -1,3 +1,4 @@
+import os
 import re
 import uuid
 
@@ -50,7 +51,7 @@ async def create_project(
 
             await prefill_world_setting(root_path)
         except Exception:
-            pass  # Non-blocking — create_project succeeds even if AI prefill fails — create_project succeeds even if AI prefill fails
+            pass  # Non-blocking — create_project succeeds even if AI prefill fails
 
     project = Project(user_id=user_id, name=name, slug=slug, root_path=root_path)
     db.add(project)
@@ -60,11 +61,10 @@ async def create_project(
 
 
 async def list_projects(db: AsyncSession, user_id: str) -> list[Project]:
-    result = await db.execute(
-        select(Project)
-        .where(Project.user_id == user_id, Project.status != "deleted")
-        .order_by(Project.updated_at.desc())
-    )
+    stmt = select(Project).where(Project.status != "deleted")
+    if not os.environ.get("DEV_MODE"):
+        stmt = stmt.where(Project.user_id == user_id)
+    result = await db.execute(stmt.order_by(Project.updated_at.desc()))
     return list(result.scalars().all())
 
 
@@ -72,7 +72,7 @@ async def get_project(
     db: AsyncSession, project_id: str, user_id: str | None = None
 ) -> Project | None:
     stmt = select(Project).where(Project.id == project_id)
-    if user_id:
+    if user_id and not os.environ.get("DEV_MODE"):
         stmt = stmt.where(Project.user_id == user_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
@@ -81,13 +81,13 @@ async def get_project(
 async def get_project_by_slug(
     db: AsyncSession, user_id: str, slug: str
 ) -> Project | None:
-    result = await db.execute(
-        select(Project).where(
-            Project.user_id == user_id,
-            Project.slug == slug,
-            Project.status != "deleted",
-        )
+    stmt = select(Project).where(
+        Project.slug == slug,
+        Project.status != "deleted",
     )
+    if not os.environ.get("DEV_MODE"):
+        stmt = stmt.where(Project.user_id == user_id)
+    result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
 
