@@ -25,7 +25,7 @@ import type { SelectionCapture } from "@/lib/selection";
 // Types
 // ---------------------------------------------------------------------------
 
-type TabId = "settings" | "writing" | "outline" | "prompts" | "archives";
+type TabId = "settings" | "volume" | "chapter" | "prompts" | "writing" | "archives";
 
 type ViewState =
   | { tab: "settings"; panel: string }
@@ -36,8 +36,9 @@ type ViewState =
   | { tab: "prompts" }
   | { tab: "archives"; panel: "browser" }
   | { tab: "archives"; panel: "reader"; filename: string }
-  | { tab: "outline"; panel: "overview" }
-  | { tab: "outline"; panel: "editor"; chapterRef: string };
+  | { tab: "volume"; panel: "overview" }
+  | { tab: "volume"; panel: string; volumeId: string }
+  | { tab: "chapter"; panel: "editor"; chapterRef: string };
 
 // ---------------------------------------------------------------------------
 // Tab labels
@@ -45,9 +46,10 @@ type ViewState =
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "settings", label: "设定" },
-  { id: "writing", label: "正文" },
-  { id: "outline", label: "细纲" },
+  { id: "volume", label: "卷纲" },
+  { id: "chapter", label: "章纲" },
   { id: "prompts", label: "提示词" },
+  { id: "writing", label: "正文" },
   { id: "archives", label: "归档" },
 ];
 
@@ -65,15 +67,15 @@ const SETTINGS_TREE_ITEMS: { id: string; icon: React.ReactNode; label: string }[
 // ---------------------------------------------------------------------------
 
 export default function NovelPage() {
-  const { slug } = useParams<{ slug: string }>();
+  const { id } = useParams<{ id: string }>();
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<any>(null);
   const [volumes, setVolumes] = useState<any[]>([]);
-  const [tab, setTab] = useState<TabId>("writing");
+  const [tab, setTab] = useState<TabId>("settings");
   const [showDelete, setShowDelete] = useState(false);
   const [viewState, setViewState] = useState<ViewState>({
-    tab: "writing",
-    panel: "empty",
+    tab: "settings",
+    panel: "world",
   });
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
@@ -132,14 +134,14 @@ export default function NovelPage() {
   }, [isNew, loading, onboardingLoading, project]);
 
   // -----------------------------------------------------------------------
-  // Fetch project by slug
+  // Fetch project by id
   // -----------------------------------------------------------------------
 
   useEffect(() => {
-    if (!slug) return;
+    if (!id) return;
     setLoading(true);
     api
-      .get(`/projects/by-slug/${slug}`)
+      .get(`/projects/${id}`)
       .then((p: any) => {
         setProject(p);
       })
@@ -147,7 +149,7 @@ export default function NovelPage() {
         setProject(null);
       })
       .finally(() => setLoading(false));
-  }, [slug]);
+  }, [id]);
 
   // -----------------------------------------------------------------------
   // Load volumes when project is available
@@ -275,7 +277,7 @@ export default function NovelPage() {
   // -----------------------------------------------------------------------
 
   const activeNodes =
-    tab === "settings" ? settingsTreeNodes : tab === "outline" ? outlineTreeNodes : writingTreeNodes;
+    tab === "settings" ? settingsTreeNodes : (tab === "volume" || tab === "chapter") ? outlineTreeNodes : writingTreeNodes;
 
   const selectedId =
     tab === "settings"
@@ -283,7 +285,7 @@ export default function NovelPage() {
         ? viewState.panel
         : undefined
       : tab === "outline"
-        ? viewState.tab === "outline" && viewState.panel === "editor"
+        ? viewState.tab === "chapter" && viewState.panel === "editor"
           ? viewState.chapterRef
           : undefined
         : viewState.tab === "writing" &&
@@ -298,11 +300,11 @@ export default function NovelPage() {
 
       if (tab === "settings") {
         setViewState({ tab: "settings", panel: data.key as string });
-      } else if (tab === "outline") {
+      } else if (tab === "volume" || tab === "chapter") {
         if (data.type === "outline-chapter") {
           outline.loadChapterData(data.ref as string);
           setViewState({
-            tab: "outline",
+            tab: "chapter",
             panel: "editor",
             chapterRef: data.ref as string,
           });
@@ -429,8 +431,10 @@ export default function NovelPage() {
     setTab(newTab);
     if (newTab === "settings") {
       setViewState({ tab: "settings", panel: "world" });
-    } else if (newTab === "outline") {
-      setViewState({ tab: "outline", panel: "overview" });
+    } else if (newTab === "volume") {
+      setViewState({ tab: "volume", panel: "overview" });
+    } else if (newTab === "chapter") {
+      setViewState({ tab: "volume", panel: "overview" });
     } else if (newTab === "prompts") {
       setViewState({ tab: "prompts" });
     } else if (newTab === "archives") {
@@ -538,81 +542,91 @@ export default function NovelPage() {
               />
             );
         }
-      case "outline":
-        switch (viewState.panel) {
-          case "overview":
-            return (
-              <OutlineOverview
-                volumes={outline.volumes}
-                chapterStatuses={outline.chapterStatuses}
-                chaptersMap={outline.chaptersMap}
-                totalChapters={outline.totalChapters}
-                filledCount={outline.filledCount}
-                confirmedCount={outline.confirmedCount}
-                allConfirmed={outline.allConfirmed}
-                allHavePerspectiveGuidance={outline.allHavePerspectiveGuidance}
-                loading={outline.loading}
-                error={outline.error}
-                onEditChapter={(ref) => {
-                  outline.loadChapterData(ref);
-                  setViewState({ tab: "outline", panel: "editor", chapterRef: ref });
-                }}
-                onConfirmChapter={outline.confirmChapter}
-                onPerspectiveChapter={(ref) => {
-                  const chData = outline.chaptersMap.get(ref);
-                  setPerspectiveState({
-                    open: true,
-                    chapterRef: ref,
-                    chapterSummary: chData?.outline?.summary || "",
-                  });
-                }}
-                onGlobalConfirm={outline.transitionToPrompt}
-                onRetry={outline.refetchTree}
-              />
-            );
-          case "editor":
-            return (
-              <OutlineEditor
-                projectId={project.id}
-                chapterRef={viewState.chapterRef}
-                chapterData={outline.chaptersMap.get(viewState.chapterRef) as any}
-                onSave={outline.saveChapter}
-                onConfirm={outline.confirmChapter}
-                onBack={() => setViewState({ tab: "outline", panel: "overview" })}
-              />
-            );
-          default:
-            return (
-              <OutlineOverview
-                volumes={outline.volumes}
-                chapterStatuses={outline.chapterStatuses}
-                chaptersMap={outline.chaptersMap}
-                totalChapters={outline.totalChapters}
-                filledCount={outline.filledCount}
-                confirmedCount={outline.confirmedCount}
-                allConfirmed={outline.allConfirmed}
-                allHavePerspectiveGuidance={outline.allHavePerspectiveGuidance}
-                loading={outline.loading}
-                error={outline.error}
-                onEditChapter={(ref) => {
-                  outline.loadChapterData(ref);
-                  setViewState({ tab: "outline", panel: "editor", chapterRef: ref });
-                }}
-                onConfirmChapter={outline.confirmChapter}
-                onPerspectiveChapter={(ref) => {
-                  const chData = outline.chaptersMap.get(ref);
-                  setPerspectiveState({
-                    open: true,
-                    chapterRef: ref,
-                    chapterSummary: chData?.outline?.summary || "",
-                  });
-                }}
-                onGlobalConfirm={outline.transitionToPrompt}
-                onRetry={outline.refetchTree}
-              />
-            );
+      case "volume":
+        if (viewState.panel !== "overview" && viewState.panel) {
+          return (
+            <VolumeEditor
+              projectId={project.id}
+              volumeRef={viewState.panel}
+              onChapterSelect={(chapterRef) =>
+                setViewState({ tab: "chapter", panel: "editor", chapterRef })
+              }
+              onVolumeChange={loadVolumes}
+            />
+          );
         }
-      case "prompts":
+        return (
+          <OutlineOverview
+                volumes={outline.volumes}
+                chapterStatuses={outline.chapterStatuses}
+                chaptersMap={outline.chaptersMap}
+                totalChapters={outline.totalChapters}
+                filledCount={outline.filledCount}
+                confirmedCount={outline.confirmedCount}
+                allConfirmed={outline.allConfirmed}
+                allHavePerspectiveGuidance={outline.allHavePerspectiveGuidance}
+                loading={outline.loading}
+                error={outline.error}
+                onEditChapter={(ref) => {
+                  outline.loadChapterData(ref);
+                  setViewState({ tab: "chapter", panel: "editor", chapterRef: ref });
+                }}
+                onConfirmChapter={outline.confirmChapter}
+                onPerspectiveChapter={(ref) => {
+                  const chData = outline.chaptersMap.get(ref);
+                  setPerspectiveState({
+                    open: true,
+                    chapterRef: ref,
+                    chapterSummary: chData?.outline?.summary || "",
+                  });
+                }}
+                onGlobalConfirm={outline.transitionToPrompt}
+                onRetry={outline.refetchTree}
+              />
+            );
+      case "chapter":
+        if (viewState.panel === "editor") {
+          return (
+            <OutlineEditor
+              projectId={project.id}
+              chapterRef={viewState.chapterRef}
+              chapterData={outline.chaptersMap.get(viewState.chapterRef) as any}
+              onSave={outline.saveChapter}
+              onConfirm={outline.confirmChapter}
+              onBack={() => setViewState({ tab: "volume", panel: "overview" })}
+            />
+          );
+        }
+        return (
+          <OutlineOverview
+            volumes={outline.volumes}
+            chapterStatuses={outline.chapterStatuses}
+            chaptersMap={outline.chaptersMap}
+            totalChapters={outline.totalChapters}
+            filledCount={outline.filledCount}
+            confirmedCount={outline.confirmedCount}
+            allConfirmed={outline.allConfirmed}
+            allHavePerspectiveGuidance={outline.allHavePerspectiveGuidance}
+            loading={outline.loading}
+            error={outline.error}
+            onEditChapter={(ref) => {
+              outline.loadChapterData(ref);
+              setViewState({ tab: "chapter", panel: "editor", chapterRef: ref });
+            }}
+            onConfirmChapter={outline.confirmChapter}
+            onPerspectiveChapter={(ref) => {
+              const chData = outline.chaptersMap.get(ref);
+              setPerspectiveState({
+                open: true,
+                chapterRef: ref,
+                chapterSummary: chData?.outline?.summary || "",
+              });
+            }}
+            onGlobalConfirm={outline.transitionToPrompt}
+            onRetry={outline.refetchTree}
+          />
+        );
+case "prompts":
         return <PromptManagementPage projectId={project.id} />;
       case "archives":
         return (
