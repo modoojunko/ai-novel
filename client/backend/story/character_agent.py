@@ -8,7 +8,7 @@ import time
 
 from ai_client import get_ai_client
 from prompts import load as load_prompt
-from story.models import SensoryInput, DecisionLog, Decision, CharacterState, StageState
+from story.models import CharacterState, Decision, DecisionLog, SensoryInput, StageState
 
 logger = logging.getLogger(__name__)
 
@@ -267,7 +267,7 @@ async def run_character_decision(
             logger.warning(
                 "Bad JSON from %s (attempt %d)", character.character_id, attempt
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Timeout %s (attempt %d)", character.character_id, attempt)
         except Exception as e:
             logger.warning(

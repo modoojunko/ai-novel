@@ -7,22 +7,25 @@ import CharacterManager from "./settings/CharacterManager";
 import ConfirmToggle from "./settings/ConfirmToggle";
 import AIGenerateProgress from "./settings/AIGenerateProgress";
 import { api } from "@/lib/api";
-import { Sparkles } from "lucide-react";
+import ModelSettingForm from "./settings/ModelSettingForm";
+import { Sparkles, Brain } from "lucide-react";
 
 const TITLE_MAP: Record<string, string> = {
   world: "🌍 世界设定",
   style: "✍️ 写作风格",
-  "anti-ai": "🛡️ 反AI规则",
-  hooks: "⚓ 伏笔面板",
+  "anti-ai": "🛡️ AI痕迹控制",
+  hooks: "⚓ 伏笔管理",
   characters: "👥 角色管理",
+  "ai-model": "🧠 AI 模型",
 };
 
 const ALL_TYPES = [
   { type: "world", label: "世界设定" },
   { type: "style", label: "写作风格" },
-  { type: "anti-ai", label: "反AI规则" },
-  { type: "hooks", label: "伏笔面板" },
+  { type: "anti-ai", label: "AI痕迹控制" },
+  { type: "hooks", label: "伏笔管理" },
   { type: "characters", label: "角色管理" },
+  { type: "ai-model", label: "AI 模型" },
 ] as const;
 
 type StepItem = (typeof ALL_TYPES)[number] & { status: "pending" | "loading" | "done" | "error" };
@@ -115,6 +118,7 @@ export default function SettingsFormField({ projectId, settingKey, confirmed, on
         {settingKey === "style" && <StyleSettingForm projectId={projectId} settingKey={settingKey} />}
         {settingKey === "anti-ai" && <AntiAiSettingForm projectId={projectId} settingKey={settingKey} />}
         {settingKey === "hooks" && <HooksSettingForm projectId={projectId} settingKey={settingKey} />}
+        {settingKey === "ai-model" && <ModelSettingForm projectId={projectId} settingKey={settingKey} />}
       </div>
 
       <AIGenerateProgress

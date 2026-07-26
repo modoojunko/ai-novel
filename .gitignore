@@ -33,9 +33,26 @@ client/frontend/dist/
 backend/data/
 client/backend/data/
 ai_config.yaml
+config.json
+
+# Logs
+*.log
+server.log
+client/backend/server.log
 
 # Build output
 client/packaging/build/dist/
 client/packaging/build/build/
 client/packaging/dist/
+client/frontend/dist/
+
+# Development docs — not tracked in git
+docs/
+
+# Temp files
+tmp_find.txt
+
+# Session / goal tracking
+.claude/goal-tasks.md
+.claude/skills/
 

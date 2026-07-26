@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 
-const SETTINGS_TYPES = ["world", "style", "anti-ai", "hooks", "characters"];
+const SETTINGS_TYPES = ["world", "style", "anti-ai", "hooks", "characters", "ai-model"];
 
 export function useOnboarding(projectId: string | undefined, volumes: any[]) {
   const [settingsStatus, setSettingsStatus] = useState<Record<string, boolean> | null>(null);

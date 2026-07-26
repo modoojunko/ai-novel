@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>首页 - 爱小说</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital@0;1&family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<link rel="stylesheet" href="/style.css?v=3">
+</head><body>
+
+<div class="dashboard">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">
+      <span class="brand-icon" data-lucide="book-open"></span>
+      爱小说
+    </div>
+
+    <nav>
+      <a href="#dashboard" class="active">
+        <span class="nav-icon" data-lucide="layout-dashboard"></span>
+        首页
+      </a>
+      <a href="#license">
+        <span class="nav-icon" data-lucide="key"></span>
+        我的 License
+      </a>
+      <a href="#devices">
+        <span class="nav-icon" data-lucide="monitor"></span>
+        设备管理
+      </a>
+      <a href="#account">
+        <span class="nav-icon" data-lucide="settings"></span>
+        账号设置
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span>v0.2</span>
+      <span data-lucide="book-open" style="width:14px;height:14px;opacity:0.3;"></span>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <!-- Top bar -->
+    <div class="topbar">
+      <span class="sd-plan-badge">
+        <span data-lucide="crown" style="width:14px;height:14px;"></span>
+        {{ user.tier_display }}
+      </span>
+      <div class="sd-user-area">
+        <span class="sd-user-avatar">{{ user.username[:1] }}</span>
+        <span class="sd-user-name">{{ user.username }}</span>
+      </div>
+      <a href="#" class="exit-link" onclick="logout()">退出</a>
+    </div>
+
+    <div class="sd-content" id="pageContainer">
+
+      <!-- ============================================================
+           PAGE: HOME (首页)
+           ============================================================ -->
+      <div id="pageDashboard">
+        <div class="sd-page-header">
+          <div>
+            <h2 class="sd-page-title">首页</h2>
+            <p class="sd-page-subtitle">欢迎回来，{{ user.username }} · 管理你的 License 和设备</p>
+          </div>
+          <div class="sd-header-actions">
+            <button class="btn btn-primary btn-sm" onclick="showActivateInDashboard()">
+              <span data-lucide="plus" style="width:14px;height:14px;"></span> 激活新码
+            </button>
+          </div>
+        </div>
+
+        <!-- Plan card -->
+        <div class="sd-plan-card">
+          <p class="plan-label">当前套餐</p>
+          <p class="plan-value">{{ user.tier_display }}</p>
+          <div class="plan-meta">
+            <span>
+              <span data-lucide="calendar" style="width:14px;height:14px;"></span>
+              到期日：{{ user.expires_at or '未激活' }}
+            </span>
+            <span>
+              <span data-lucide="monitor" style="width:14px;height:14px;"></span>
+              已绑定 <span id="deviceCountDash">-</span> 台设备
+            </span>
+          </div>
+          {% if user.expires_at and user.tier != 'lifetime' and user.tier != 'none' %}
+          <div class="plan-expiry-warning" id="expiryWarning">
+            <span data-lucide="clock" style="width:14px;height:14px;"></span>
+            <span id="expiryDaysText">距到期还有 <span id="daysUntilExpiry">-</span> 天</span>
+            <span style="opacity:0.6;margin-left:var(--space-1);">· 套餐到期后写作工具仍可本地使用，仅 License 验证功能受限</span>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Info cards grid -->
+        <div class="sd-cards-grid">
+          <div class="sd-info-card">
+            <div class="card-header">
+              <span class="card-title">
+                <span data-lucide="monitor" style="width:15px;height:15px;"></span>
+                已绑定设备
+              </span>
+              <span class="card-icon amber" data-lucide="monitor"></span>
+            </div>
+            <div class="card-body">
+              <div class="card-stat" id="deviceCountCard">-</div>
+              <div class="card-stat-sub" id="deviceStatusText">加载中...</div>
+            </div>
+          </div>
+
+          <div class="sd-info-card">
+            <div class="card-header">
+              <span class="card-title">
+                <span data-lucide="key" style="width:15px;height:15px;"></span>
+                激活记录
+              </span>
+              <span class="card-icon green" data-lucide="key"></span>
+            </div>
+            <div class="card-body">
+              <div class="card-stat">{{ user.codes|length }}</div>
+              <div class="card-stat-sub">
+                最近激活：{{ (user.codes[0].activated_at or '')[:10] if user.codes else '暂无' }}
+                {% if user.codes %}· {{ user.tier_display }}{% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="sd-info-card">
+            <div class="card-header">
+              <span class="card-title">
+                <span data-lucide="user" style="width:15px;height:15px;"></span>
+                账号状态
+              </span>
+              <span class="card-icon brown" data-lucide="user-check"></span>
+            </div>
+            <div class="card-body">
+              <div class="card-stat">正常</div>
+              <div class="card-stat-sub">无异常记录</div>
+            </div>
+          </div>
+
+          <div class="sd-info-card">
+            <div class="card-header">
+              <span class="card-title">
+                <span data-lucide="shield" style="width:15px;height:15px;"></span>
+                安全状态
+              </span>
+              <span class="card-icon green" data-lucide="shield-check"></span>
+            </div>
+            <div class="card-body">
+              <div class="card-stat">{% if user.security_question %}已设置{% else %}未设置{% endif %}</div>
+              <div class="card-stat-sub">
+                {% if user.security_question %}密保问题已配置{% else %}建议设置密保问题{% endif %}
+                · 密码强度：--</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Activation area (hidden by default, shown on button click) -->
+        <div class="sd-activate-area" id="activateSection" style="display:none;">
+          <p class="activate-title">激活新码</p>
+          <p class="activate-desc">在淘宝购买的激活码，输入后绑定到你的账号。到期日会自动叠加。</p>
+          <div id="activateMsgDash" class="msg"></div>
+          <div class="activate-input-row">
+            <div class="form-input-wrap">
+              <span class="input-icon" data-lucide="key" style="width:16px;height:16px;"></span>
+              <input type="text" id="codeInputDash" placeholder="AC-XXXX-YYYY-ZZZZ-WWWW">
+            </div>
+            <button class="btn btn-primary" onclick="activateCodeDash()">
+              <span data-lucide="check-circle" style="width:16px;height:16px;"></span> 激活
+            </button>
+          </div>
+        </div>
+
+        <!-- Recent activation history -->
+        <div class="sd-subpage">
+          <div class="subpage-header" style="margin-bottom:var(--space-3);padding-bottom:var(--space-3);">
+            <div class="subpage-icon" data-lucide="clock" style="background:linear-gradient(135deg,var(--co-brown-light),var(--co-brown-mid));"></div>
+            <div class="subpage-info">
+              <h3>激活历史</h3>
+              <p>最近 {{ user.codes[:5]|length }} 条激活记录</p>
+            </div>
+          </div>
+
+          {% if user.codes %}
+          <table class="sd-history-table">
+            <thead>
+              <tr>
+                <th>激活码</th>
+                <th>套餐</th>
+                <th>激活时间</th>
+                <th>到期时间</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in user.codes[:5] %}
+              <tr>
+                <td><span class="code-value">{{ c.code_id }}</span></td>
+                <td>
+                  {% if c.tier == 'yearly' %}
+                  <span class="tier-tag tier-tag-yearly">年付</span>
+                  {% elif c.tier == 'lifetime' %}
+                  <span class="tier-tag tier-tag-lifetime">永久</span>
+                  {% else %}
+                  <span class="tier-tag tier-tag-monthly">月付</span>
+                  {% endif %}
+                </td>
+                <td>{{ (c.activated_at or '')[:10] }}</td>
+                <td>{{ (c.expires_at or '')[:10] }}</td>
+                <td>
+                  {% if c.expires_at and c.expires_at > now %}
+                  <span class="cell-label"><span class="status-dot status-dot-active"></span> 生效中</span>
+                  {% else %}
+                  <span class="cell-label"><span class="status-dot status-dot-inactive"></span> 已过期</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="sd-empty-state">
+            <div class="empty-icon" data-lucide="key" style="width:40px;height:40px;margin:0 auto var(--space-3);opacity:0.3;"></div>
+            <div class="empty-title">暂无激活记录</div>
+            <div class="empty-desc">在淘宝购买激活码后，点击右上角"激活新码"完成绑定</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- ============================================================
+           PAGE: MY LICENSE
+           ============================================================ -->
+      <div id="pageLicense" style="display:none;">
+        <div class="sd-subpage">
+          <div class="subpage-header">
+            <div class="subpage-icon" data-lucide="key"></div>
+            <div class="subpage-info">
+              <h3>我的 License</h3>
+              <p>查看当前套餐、到期日和历史激活记录</p>
+            </div>
+          </div>
+
+          <!-- Plan card (compact) -->
+          <div class="sd-plan-card" style="margin-bottom:var(--space-5);">
+            <p class="plan-label">当前套餐</p>
+            <p class="plan-value">{{ user.tier_display }}</p>
+            <div class="plan-meta">
+              <span>
+                <span data-lucide="calendar" style="width:14px;height:14px;"></span>
+                到期日：{{ user.expires_at or '未激活' }}
+              </span>
+              <span>
+                <span data-lucide="hash" style="width:14px;height:14px;"></span>
+                已激活 {{ user.codes|length }} 枚激活码
+              </span>
+            </div>
+            {% if user.expires_at and user.tier != 'lifetime' and user.tier != 'none' %}
+            <div class="plan-expiry-warning">
+              <span data-lucide="clock" style="width:14px;height:14px;"></span>
+              <span id="expiryDaysLicense">距到期还有 <span id="daysUntilExpiryLicense">-</span> 天</span>
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- Full activation history -->
+          <h4 style="font-family:var(--font-serif);font-size:0.95rem;font-weight:600;color:var(--co-ink);margin-bottom:var(--space-3);">
+            完整激活历史
+          </h4>
+
+          {% if user.codes %}
+          <table class="sd-history-table">
+            <thead>
+              <tr>
+                <th>激活码</th>
+                <th>套餐</th>
+                <th>激活时间</th>
+                <th>到期时间</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in user.codes %}
+              <tr>
+                <td><span class="code-value">{{ c.code_id }}</span></td>
+                <td>
+                  {% if c.tier == 'yearly' %}
+                  <span class="tier-tag tier-tag-yearly">年付</span>
+                  {% elif c.tier == 'lifetime' %}
+                  <span class="tier-tag tier-tag-lifetime">永久</span>
+                  {% else %}
+                  <span class="tier-tag tier-tag-monthly">月付</span>
+                  {% endif %}
+                </td>
+                <td>{{ (c.activated_at or '')[:10] }}</td>
+                <td>{{ (c.expires_at or '')[:10] }}</td>
+                <td>
+                  {% if c.expires_at and c.expires_at > now %}
+                  <span class="cell-label"><span class="status-dot status-dot-active"></span> 生效中</span>
+                  {% else %}
+                  <span class="cell-label"><span class="status-dot status-dot-inactive"></span> 已过期</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="sd-empty-state">
+            <div class="empty-icon" data-lucide="key" style="width:40px;height:40px;margin:0 auto var(--space-3);opacity:0.3;"></div>
+            <div class="empty-title">暂无激活记录</div>
+            <div class="empty-desc">在淘宝购买激活码后，在此输入完成绑定</div>
+          </div>
+          {% endif %}
+
+          <div style="margin-top:var(--space-4);padding-top:var(--space-4);border-top:1px solid var(--co-border-light);display:flex;gap:var(--space-3);">
+            <button class="btn btn-primary btn-sm" onclick="showActivateInLicense()">
+              <span data-lucide="plus" style="width:14px;height:14px;"></span> 激活新码
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="location.reload()">
+              <span data-lucide="refresh-cw" style="width:14px;height:14px;"></span> 刷新状态
+            </button>
+          </div>
+
+          <!-- Activation area within License page -->
+          <div id="activateSectionLicense" style="display:none;margin-top:var(--space-4);padding-top:var(--space-4);border-top:1px solid var(--co-border-light);">
+            <p class="activate-title" style="font-size:0.95rem;">激活新码</p>
+            <p class="activate-desc">在淘宝购买的激活码，输入后绑定到你的账号。到期日会自动叠加。</p>
+            <div id="activateMsgLicense" class="msg"></div>
+            <div class="activate-input-row">
+              <div class="form-input-wrap">
+                <span class="input-icon" data-lucide="key" style="width:16px;height:16px;"></span>
+                <input type="text" id="codeInputLicense" placeholder="AC-XXXX-YYYY-ZZZZ-WWWW">
+              </div>
+              <button class="btn btn-primary" onclick="activateCodeLicense()">
+                <span data-lucide="check-circle" style="width:16px;height:16px;"></span> 激活
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           PAGE: DEVICES (设备管理)
+           ============================================================ -->
+      <div id="pageDevices" style="display:none;">
+        <div class="sd-subpage">
+          <div class="subpage-header">
+            <div class="subpage-icon" data-lucide="monitor" style="background:linear-gradient(135deg,var(--co-brown-light),var(--co-brown-mid));"></div>
+            <div class="subpage-info">
+              <h3>设备管理</h3>
+              <p>管理已授权的设备 · 最多绑定 3 台</p>
+            </div>
+          </div>
+          <div id="deviceList">
+            <div class="sd-empty-state">
+              <div class="empty-icon" data-lucide="monitor" style="width:40px;height:40px;margin:0 auto var(--space-3);opacity:0.3;"></div>
+              <div class="empty-title">暂无绑定设备</div>
+              <div class="empty-desc">打开 C端 客户端，通过浏览器登录授权后<br>当前设备会自动显示在此处</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           PAGE: ACCOUNT (账号设置)
+           ============================================================ -->
+      <div id="pageAccount" style="display:none;">
+        <div class="sd-subpage">
+          <div class="subpage-header">
+            <div class="subpage-icon" data-lucide="settings" style="background:linear-gradient(135deg,var(--co-brown-light),var(--co-brown-mid));"></div>
+            <div class="subpage-info">
+              <h3>账号设置</h3>
+              <p>修改密码、管理密保问题</p>
+            </div>
+          </div>
+
+          <div id="accountMsg" class="msg"></div>
+
+          <!-- Username display -->
+          <div class="sd-account-detail" style="background:var(--co-cream);border-radius:var(--radius-md);margin-bottom:var(--space-3);">
+            <div class="detail-label">用户名（不可修改）</div>
+            <div class="detail-value">{{ user.username }}</div>
+          </div>
+
+          <!-- Password accordion -->
+          <div class="sd-account-section">
+            <div class="acc-header" onclick="togglePwd()">
+              <span class="acc-title">
+                <span data-lucide="lock" style="width:16px;height:16px;"></span>
+                密码
+              </span>
+              <span class="acc-toggle" id="pwdToggle">修改</span>
+            </div>
+            <div class="acc-body" id="pwdSection" style="display:none;">
+              <div class="form-group" style="margin-bottom:var(--space-3);">
+                <label class="form-label" style="font-size:0.82rem;">当前密码</label>
+                <div class="form-input-wrap">
+                  <input type="password" id="oldPwd" placeholder="输入当前密码">
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);">
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label" style="font-size:0.82rem;">新密码</label>
+                  <div class="form-input-wrap">
+                    <input type="password" id="newPwd" placeholder="至少 6 位">
+                  </div>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label" style="font-size:0.82rem;">确认新密码</label>
+                  <div class="form-input-wrap">
+                    <input type="password" id="confirmPwd" placeholder="再次输入">
+                  </div>
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm" style="margin-top:var(--space-3);" onclick="changePassword()">
+                <span data-lucide="save" style="width:14px;height:14px;"></span> 保存密码
+              </button>
+            </div>
+          </div>
+
+          <!-- Security question accordion -->
+          <div class="sd-account-section">
+            <div class="acc-header" onclick="toggleSec()">
+              <span class="acc-title">
+                <span data-lucide="shield-question" style="width:16px;height:16px;"></span>
+                密保问题
+              </span>
+              <span class="acc-toggle" id="secToggle">修改</span>
+            </div>
+            <div class="acc-body" id="secSection" style="display:none;">
+              <p style="font-size:0.82rem;color:var(--co-brown-light);margin-bottom:var(--space-3);">
+                当前问题：<strong style="color:var(--co-ink);" id="currentQuestion">{{ user.security_question or '未设置' }}</strong>
+              </p>
+              <div class="form-group" style="margin-bottom:var(--space-3);">
+                <label class="form-label" style="font-size:0.82rem;">新密保问题</label>
+                <div class="form-input-wrap">
+                  <input type="text" id="newQuestion" placeholder="例如：我最喜欢的书是？">
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom:var(--space-3);">
+                <label class="form-label" style="font-size:0.82rem;">新密保答案</label>
+                <div class="form-input-wrap">
+                  <input type="password" id="newAnswer" placeholder="输入答案">
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="changeSecurity()">
+                <span data-lucide="save" style="width:14px;height:14px;"></span> 保存密保
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="/api.js"></script>
+<script>
+const TOKEN = localStorage.getItem('token');
+if (!TOKEN) { window.location.href = '/login'; }
+
+const PAGES = { dashboard:'pageDashboard', license:'pageLicense', devices:'pageDevices', account:'pageAccount' };
+
+// ── Page routing ──
+
+function switchPage() {
+  const page = window.location.hash.slice(1) || 'dashboard';
+  document.querySelectorAll('.sidebar nav a').forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + page));
+  Object.values(PAGES).forEach(id => document.getElementById(id).style.display = 'none');
+  document.getElementById(PAGES[page] || PAGES.dashboard).style.display = 'block';
+  if (page === 'devices') loadDevices();
+  if (page === 'dashboard') loadDeviceCount();
+}
+
+window.addEventListener('hashchange', switchPage);
+
+// ── Device management ──
+
+async function loadDevices() {
+  const res = await request('/device/my');
+  const list = document.getElementById('deviceList');
+  if (!res.data || res.data.length === 0) {
+    list.innerHTML =
+      '<div class="sd-empty-state">' +
+      '<div class="empty-icon" style="font-size:2.5rem;margin-bottom:var(--space-3);opacity:0.4;">💻</div>' +
+      '<div class="empty-title">暂无绑定设备</div>' +
+      '<div class="empty-desc">打开 C端 客户端，通过浏览器登录授权后<br>当前设备会自动显示在此处</div>' +
+      '</div>';
+    return;
+  }
+  list.innerHTML = res.data.map(d => {
+    const last = d.last_active_at ? new Date(d.last_active_at).toLocaleDateString('zh-CN') : '-';
+    const name = d.pc_name || '未知设备';
+    const isOnline = d.is_online || false;
+    return '<div class="sd-device-item">' +
+      '<div class="device-info">' +
+        '<div class="device-icon">💻</div>' +
+        '<div>' +
+          '<div class="device-name">' + name + '</div>' +
+          '<div class="device-meta">编号 ' + (d.pc_hash||'').slice(0,12) + '… · 最后活跃：' + last + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="device-status">' +
+        '<span class="status-dot ' + (isOnline ? 'status-dot-active' : 'status-dot-inactive') + '"></span>' +
+        '<span class="status-text" style="' + (isOnline ? '' : 'color:var(--co-brown-light);') + '">' + (isOnline ? '在线' : '离线') + '</span>' +
+        '<button class="btn btn-danger btn-sm" style="margin-left:var(--space-3);" onclick="removeDevice(\'' + d.pc_hash + '\')">解绑</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+async function loadDeviceCount() {
+  try {
+    const res = await request('/device/my');
+    const count = res.data ? res.data.length : 0;
+    const maxDevices = 3;
+    document.getElementById('deviceCountDash').textContent = count;
+    document.getElementById('deviceCountCard').textContent = count;
+    const lastActive = res.data && res.data.length > 0
+      ? (res.data[0].last_active_at
+        ? '上次活跃：' + new Date(res.data[0].last_active_at).toLocaleString('zh-CN')
+        : '-')
+      : '暂无设备';
+    document.getElementById('deviceStatusText').textContent = '共 ' + maxDevices + ' 台可用 · ' + lastActive;
+  } catch(e) {
+    document.getElementById('deviceCountDash').textContent = '-';
+    document.getElementById('deviceCountCard').textContent = '-';
+    document.getElementById('deviceStatusText').textContent = '加载失败';
+  }
+}
+
+async function removeDevice(hash) {
+  if (!confirm('确定解绑此设备？')) return;
+  const r = await request('/device/remove', { method:'POST', body:JSON.stringify({ pc_hash: hash }) });
+  if (r.code === 0) { loadDevices(); loadDeviceCount(); }
+}
+
+// ── Activation ──
+
+function showActivateInDashboard() {
+  toggleActivate('activateSection', 'activateMsgDash');
+  window.location.hash = '#dashboard';
+}
+
+function showActivateInLicense() {
+  toggleActivate('activateSectionLicense', 'activateMsgLicense');
+}
+
+function toggleActivate(sectionId, msgId) {
+  const el = document.getElementById(sectionId);
+  if (el.style.display === 'none') {
+    el.style.display = 'block';
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else {
+    el.style.display = 'none';
+  }
+  document.getElementById(msgId).className = 'msg';
+  document.getElementById(msgId).textContent = '';
+}
+
+async function activateCodeDash() {
+  const msg = document.getElementById('activateMsgDash');
+  await doActivate(document.getElementById('codeInputDash').value, msg);
+}
+
+async function activateCodeLicense() {
+  const msg = document.getElementById('activateMsgLicense');
+  await doActivate(document.getElementById('codeInputLicense').value, msg);
+}
+
+async function doActivate(code, msg) {
+  msg.className = 'msg';
+  const trimmed = code.trim().toUpperCase();
+  if (!trimmed) { msg.className = 'msg error'; msg.textContent = '请输入激活码'; return; }
+  const r = await request('/license/activate', { method:'POST', body:JSON.stringify({ code: trimmed }) });
+  if (r.code === 0) { msg.className = 'msg success'; msg.textContent = '激活成功！'; setTimeout(() => location.reload(), 800); }
+  else { msg.className = 'msg error'; msg.textContent = r.msg || '激活失败'; }
+}
+
+// ── Password ──
+
+async function changePassword() {
+  const msg = document.getElementById('accountMsg'); msg.className = 'msg';
+  const o = document.getElementById('oldPwd').value, n = document.getElementById('newPwd').value, c = document.getElementById('confirmPwd').value;
+  if (!o||!n) { msg.className = 'msg error'; msg.textContent = '请填写完整'; return; }
+  if (n !== c) { msg.className = 'msg error'; msg.textContent = '两次密码不一致'; return; }
+  if (n.length < 6) { msg.className = 'msg error'; msg.textContent = '密码至少6位'; return; }
+  const r = await request('/user/password', { method:'PUT', body:JSON.stringify({ old_password: o, new_password: n }) });
+  if (r.code === 0) {
+    msg.className = 'msg success'; msg.textContent = '密码已修改';
+    document.getElementById('oldPwd').value=''; document.getElementById('newPwd').value=''; document.getElementById('confirmPwd').value='';
+  } else { msg.className = 'msg error'; msg.textContent = r.msg || '修改失败'; }
+}
+
+// ── Security question ──
+
+async function changeSecurity() {
+  const msg = document.getElementById('accountMsg'); msg.className = 'msg';
+  const q = document.getElementById('newQuestion').value, a = document.getElementById('newAnswer').value;
+  if (!q||!a) { msg.className = 'msg error'; msg.textContent = '请填写完整'; return; }
+  const r = await request('/user/security', { method:'PUT', body:JSON.stringify({ security_question: q, security_answer: a }) });
+  if (r.code === 0) {
+    msg.className = 'msg success'; msg.textContent = '密保已更新';
+    document.getElementById('newQuestion').value=''; document.getElementById('newAnswer').value='';
+    document.getElementById('currentQuestion').textContent = q;
+  } else { msg.className = 'msg error'; msg.textContent = r.msg || '修改失败'; }
+}
+
+// ── Accordion toggles ──
+
+function togglePwd() {
+  const el = document.getElementById('pwdSection');
+  const t = document.getElementById('pwdToggle');
+  if (el.style.display === 'none') { el.style.display = 'block'; t.textContent = '收起'; }
+  else { el.style.display = 'none'; t.textContent = '修改'; }
+}
+function toggleSec() {
+  const el = document.getElementById('secSection');
+  const t = document.getElementById('secToggle');
+  if (el.style.display === 'none') { el.style.display = 'block'; t.textContent = '收起'; }
+  else { el.style.display = 'none'; t.textContent = '修改'; }
+}
+
+// ── Expiry days calculation ──
+
+function calcDaysUntil(targetDateStr) {
+  if (!targetDateStr) return null;
+  const parts = targetDateStr.split('-');
+  if (parts.length !== 3) return null;
+  const target = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const diff = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+  return diff;
+}
+
+(function initExpiryDays() {
+  const expiresAt = '{{ user.expires_at }}';
+  if (expiresAt) {
+    const days = calcDaysUntil(expiresAt);
+    if (days !== null && days >= 0) {
+      const els = ['daysUntilExpiry', 'daysUntilExpiryLicense'];
+      els.forEach(function(id) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = days;
+      });
+    }
+  }
+})();
+
+// ── Initialize ──
+
+switchPage();
+loadDeviceCount();
+lucide.createIcons({
+  attrs: { 'stroke-width': 1.5 },
+});
+</script>
+</body></html>

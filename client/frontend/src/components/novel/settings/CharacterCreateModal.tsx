@@ -64,6 +64,7 @@ export default function CharacterCreateModal({ onConfirm, onCancel }: CharacterC
               <button
                 key={r.id}
                 onClick={() => setRole(r.id)}
+                aria-label={`角色：${r.label}`}
                 className={`w-full text-left p-3 rounded-xl border transition-all duration-200 ${
                   role === r.id
                     ? `${r.border} ${r.gradient} shadow-sm`

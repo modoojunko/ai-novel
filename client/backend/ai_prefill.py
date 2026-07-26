@@ -36,8 +36,7 @@ async def prefill_world_setting(root_path: str) -> dict:
 
     if "```" in text:
         text = text.split("```")[1]
-        if text.startswith("json"):
-            text = text[4:]
+        text = text.removeprefix("json")
     try:
         world_data = json.loads(text.strip())
     except json.JSONDecodeError:
@@ -46,7 +45,7 @@ async def prefill_world_setting(root_path: str) -> dict:
     # Merge into existing world-setting
     world = await get_storage().read_yaml(root_path, "settings/world-setting.yaml")
     for field in WORLD_FIELDS:
-        if field in world_data and world_data[field]:
+        if world_data.get(field):
             world[field] = world_data[field]
     world["_ai_prefilled"] = True
     await get_storage().write_yaml(root_path, "settings/world-setting.yaml", world)

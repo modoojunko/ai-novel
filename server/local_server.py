@@ -23,9 +23,11 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from functools import wraps
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, Header, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
 import uvicorn
 
@@ -124,6 +126,99 @@ def calc_expires_at(tier: str, from_date: date = None) -> date:
 
 app = FastAPI(title="AI Novel - Local S Server", version="1.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+@app.middleware("http")
+async def _cache_control(request, call_next):
+    """静态资源不缓存，开发期每次强制检查更新"""
+    resp = await call_next(request)
+    path = request.url.path
+    if path.endswith((".css", ".js", ".ico", ".png", ".jpg", ".svg")):
+        resp.headers["Cache-Control"] = "no-cache, max-age=0"
+    return resp
+
+# ── Jinja2 模板 ──
+
+from jinja2 import Environment, FileSystemLoader
+import uuid as _uuid
+import datetime as _dt
+
+_tpl_dir = Path(__file__).parent / "templates"
+_tpl_env = Environment(loader=FileSystemLoader(str(_tpl_dir)), autoescape=True)
+
+def _render(name: str, **kw):
+    """渲染 Jinja2 模板"""
+    return HTMLResponse(_tpl_env.get_template(name).render(**kw))
+
+_TIER_NAMES = {"monthly": "月付", "quarterly": "季付", "yearly": "年付", "lifetime": "永久", "none": "无套餐"}
+
+def _user_data(username: str) -> dict:
+    """获取用户数据供模板使用"""
+    conn = get_db()
+    user = conn.execute("SELECT username, security_question, created_at FROM users WHERE username=?", (username,)).fetchone()
+    codes = conn.execute("SELECT code_id, tier, expires_at, activated_at FROM codes WHERE bound_username=? ORDER BY activated_at DESC", (username,)).fetchall()
+    conn.close()
+    if not user:
+        return None
+    max_expires = None
+    for c in codes:
+        if c["expires_at"]:
+            try: e = date.fromisoformat(c["expires_at"])
+            except: continue
+            if max_expires is None or e > max_expires: max_expires = e
+    tier = codes[0]["tier"] if codes else "none"
+    return {
+        "username": user["username"],
+        "tier": tier,
+        "tier_display": _TIER_NAMES.get(tier, tier),
+        "expires_at": str(max_expires) if max_expires else "",
+        "security_question": user["security_question"],
+        "codes": [dict(c) for c in codes],
+    }
+
+
+# ── 页面路由 ──
+
+@app.get("/login")
+async def page_login(token: str = ""):
+    if token:
+        username = _user_from_token(token)
+        if username:
+            return RedirectResponse(url=f"/dashboard?token={token}")
+    return _render("login.html")
+
+
+@app.get("/register")
+async def page_register():
+    return _render("register.html")
+
+
+@app.get("/dashboard")
+async def page_dashboard(request: Request, token: str = ""):
+    if not token or token == "":
+        token = request.cookies.get("token", "") or ""
+    if not token:
+        # 返回一个页面，尝试从 localStorage 读取 token（兼容从首页直接点击）
+        return HTMLResponse("""
+        <!DOCTYPE html><html><body><script>
+        var t = localStorage.getItem('token');
+        if (t) { window.location.href = '/dashboard?token=' + encodeURIComponent(t); }
+        else { window.location.href = '/login'; }
+        </script></body></html>
+        """)
+    username = _user_from_token(token)
+    if not username:
+        return HTMLResponse("""
+        <!DOCTYPE html><html><body><script>
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+        </script></body></html>
+        """)
+    data = _user_data(username)
+    if not data:
+        return RedirectResponse(url="/login")
+    return _render("dashboard.html", user=data, now=date.today().isoformat())
+
 
 # 请求模型
 class ActivateRequest(BaseModel):
@@ -368,13 +463,7 @@ async def api_login(req: LoginRequest):
             conn.close()
             return {"code": 1, "msg": "账户已被锁定"}
 
-        # 检查到期日
-        max_expires, tiers = get_license_expiry(user["username"])
-        if not max_expires or max_expires < date.today():
-            conn.close()
-            return {"code": 1, "msg": "License 已过期"}
-
-        # 检查设备
+        # 检查设备（不校验 License 过期 — 过期用户也需要能登录以续费）
         existing = conn.execute("SELECT * FROM devices WHERE username=? AND pc_hash=?", (user["username"], req.pc_hash)).fetchone()
         if existing:
             conn.execute("UPDATE devices SET last_active_at=datetime('now') WHERE username=? AND pc_hash=?", (user["username"], req.pc_hash))
@@ -548,6 +637,187 @@ async def api_query_codes(req: QueryCodesRequest):
         "created_at": r["created_at"],
     } for r in rows]
     return {"code": 0, "data": {"codes": code_list}}
+
+
+# ── Web 页面 API（区别于 OAuth 的 /api/login） ──────────────────────────
+
+import uuid
+
+def _gen_token() -> str:
+    return str(uuid.uuid4()).replace("-", "")[:32]
+
+def _user_from_token(token: str):
+    if not token: return None
+    conn = get_db()
+    # 清理过期 token（排除空字符串，空表示永不过期）
+    conn.execute("DELETE FROM auth_tokens WHERE expires_at != '' AND expires_at IS NOT NULL AND expires_at < datetime('now')")
+    row = conn.execute("SELECT username FROM auth_tokens WHERE token=?", (token,)).fetchone()
+    conn.commit()
+    conn.close()
+    return row["username"] if row else None
+
+
+class WebLoginRequest(BaseModel):
+    username: str
+    password: str
+
+class WebRegisterRequest(BaseModel):
+    username: str
+    password: str
+    security_question: str = ""
+    security_answer: str = ""
+
+
+@app.post("/api/web/login")
+async def api_web_login(req: WebLoginRequest):
+    conn = get_db()
+    user = conn.execute("SELECT * FROM users WHERE username=?", (req.username.strip(),)).fetchone()
+    if not user or not verify_password(req.password, user["password_hash"]):
+        conn.close(); return {"code": 1, "msg": "用户名或密码错误"}
+    token = _gen_token()
+    conn.execute("INSERT OR REPLACE INTO auth_tokens (pc_hash, username, token, tier, expires_at, created_at) VALUES (?, ?, ?, '', datetime('now', '+7 days'), datetime('now'))",
+                 (f"web_{token[:8]}", user["username"], token))
+    conn.commit(); conn.close()
+    return {"code": 0, "data": {"token": token}}
+
+
+@app.post("/api/web/register")
+async def api_web_register(req: WebRegisterRequest):
+    conn = get_db()
+    if conn.execute("SELECT 1 FROM users WHERE username=?", (req.username.strip(),)).fetchone():
+        conn.close(); return {"code": 1, "msg": "用户名已存在"}
+    conn.execute("INSERT INTO users (username, password_hash, security_question, security_answer_hash, status, created_at) VALUES (?,?,?,?,'active',datetime('now'))",
+                 (req.username.strip(), hash_password(req.password), req.security_question, hash_password(req.security_answer)))
+
+    # 注册即送 7 天试用
+    import uuid
+    trial_code = f"TRIAL-{uuid.uuid4().hex[:8].upper()}"
+    today = date.today()
+    expires = today + timedelta(days=7)
+    conn.execute(
+        "INSERT INTO codes (code_id, tier, duration_days, status, bound_username, activated_at, expires_at, created_at, created_by) VALUES (?,?,?,?,?,?,?,datetime('now'),'system')",
+        (trial_code, "trial", 7, "active", req.username.strip(), str(today), str(expires))
+    )
+
+    token = _gen_token()
+    conn.execute("INSERT OR REPLACE INTO auth_tokens (pc_hash, username, token, tier, expires_at, created_at) VALUES (?,?,?,?,datetime('now', '+7 days'),datetime('now'))",
+                 (f"web_{token[:8]}", req.username.strip(), token, "trial"))
+    conn.commit(); conn.close()
+    return {"code": 0, "data": {"token": token, "tier": "trial", "expires_at": str(expires)}}
+
+
+def _get_user_data(username: str) -> dict:
+    conn = get_db()
+    user = conn.execute("SELECT username, security_question, created_at FROM users WHERE username=?", (username,)).fetchone()
+    codes = conn.execute("SELECT code_id, tier, expires_at, activated_at FROM codes WHERE bound_username=? ORDER BY activated_at DESC", (username,)).fetchall()
+    conn.close()
+    max_expires = None
+    for c in codes:
+        if c["expires_at"]:
+            try: e = date.fromisoformat(c["expires_at"])
+            except: continue
+            if max_expires is None or e > max_expires: max_expires = e
+    tier = codes[0]["tier"] if codes else "none"
+    return {
+        "username": user["username"],
+        "tier": tier,
+        "expires_at": str(max_expires) if max_expires else "",
+        "security_question": user["security_question"],
+        "codes": [dict(c) for c in codes],
+    }
+
+
+@app.get("/api/user/me")
+async def api_user_me(authorization: str = Header(None)):
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    username = _user_from_token(token)
+    if not username: return {"code": 1, "msg": "未登录"}
+    return {"code": 0, "data": _get_user_data(username)}
+
+
+@app.put("/api/user/password")
+async def api_user_password(body: dict, authorization: str = Header(None)):
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    username = _user_from_token(token)
+    if not username: return {"code": 1, "msg": "未登录"}
+    conn = get_db()
+    user = conn.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+    if not verify_password(body.get("old_password",""), user["password_hash"]):
+        conn.close(); return {"code": 1, "msg": "旧密码错误"}
+    if len(body.get("new_password","")) < 6:
+        conn.close(); return {"code": 1, "msg": "密码至少6位"}
+    conn.execute("UPDATE users SET password_hash=? WHERE username=?", (hash_password(body["new_password"]), username))
+    conn.commit(); conn.close()
+    return {"code": 0, "data": {"success": True}}
+
+
+@app.put("/api/user/security")
+async def api_user_security(body: dict, authorization: str = Header(None)):
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    username = _user_from_token(token)
+    if not username: return {"code": 1, "msg": "未登录"}
+    conn = get_db()
+    conn.execute("UPDATE users SET security_question=?, security_answer_hash=? WHERE username=?",
+                 (body.get("security_question",""), hash_password(body.get("security_answer","")), username))
+    conn.commit(); conn.close()
+    return {"code": 0, "data": {"success": True}}
+
+
+@app.post("/api/license/activate")
+async def api_license_activate(body: dict, authorization: str = Header(None)):
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    username = _user_from_token(token)
+    if not username: return {"code": 1, "msg": "未登录"}
+    code_id = body.get("code", "").strip().upper()
+    conn = get_db()
+    code = conn.execute("SELECT * FROM codes WHERE code_id=?", (code_id,)).fetchone()
+    if not code: conn.close(); return {"code": 1, "msg": "无效的激活码"}
+    if code["status"] != "unused": conn.close(); return {"code": 1, "msg": "激活码已被使用"}
+    cur = conn.execute("SELECT MAX(expires_at) as mx FROM codes WHERE bound_username=? AND status='active'", (username,)).fetchone()
+    try:
+        base = date.fromisoformat(cur["mx"]) if cur and cur["mx"] else date.today()
+    except: base = date.today()
+    duration = {"monthly": 30, "quarterly": 90, "yearly": 365, "lifetime": 36500}
+    days = duration.get(code["tier"], 30)
+    new_expires = base + timedelta(days=days)
+    conn.execute("UPDATE codes SET status='active', bound_username=?, activated_at=date('now'), expires_at=? WHERE code_id=?",
+                 (username, new_expires.isoformat(), code_id))
+    conn.commit(); conn.close()
+    return {"code": 0, "data": {"new_expires_at": new_expires.isoformat()}}
+
+
+@app.get("/api/device/my")
+async def api_device_my(authorization: str = Header(None)):
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    username = _user_from_token(token)
+    if not username: return {"code": 1, "msg": "未登录"}
+    conn = get_db()
+    devices = conn.execute("SELECT pc_hash, pc_name, last_active_at FROM devices WHERE username=?", (username,)).fetchall()
+    conn.close()
+    return {"code": 0, "data": [dict(d) for d in devices]}
+
+
+@app.post("/api/device/remove")
+async def api_device_remove(body: dict, authorization: str = Header(None)):
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    username = _user_from_token(token)
+    if not username: return {"code": 1, "msg": "未登录"}
+    conn = get_db()
+    conn.execute("DELETE FROM devices WHERE username=? AND pc_hash=?", (username, body.get("pc_hash","")))
+    conn.commit(); conn.close()
+    return {"code": 0, "data": {"success": True}}
+
+
+# ── 静态文件挂载（放在最后，避免拦截 API 路由） ──
+
+# 先挂载具体路径，再挂载 /
+landing_path = Path(__file__).parent / "static" / "landing"
+if landing_path.exists():
+    app.mount("/landing", StaticFiles(directory=str(landing_path), html=True), name="landing")
+
+www_path = Path(__file__).parent / "static" / "www"
+if www_path.exists():
+    app.mount("/", StaticFiles(directory=str(www_path), html=True), name="www")
 
 
 if __name__ == "__main__":

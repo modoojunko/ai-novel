@@ -4,11 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from auth_local.deps import require_ai_access
 from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
 from projects.service import get_project
 from workflow.engine import _validate_ref, load_chapter, update_phase
+from write.auxiliary import expand_text, polish_text, stream_continue
 from write.quality import run_quality_checks
 from write.stream import stream_segment
 
@@ -24,6 +26,7 @@ async def write_stream(
     chapter_ref: str,
     seg: int,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
     project = await get_project(db, project_id, user["id"])
@@ -56,6 +59,7 @@ async def quality_check(
     chapter_ref: str,
     body: dict,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
     project = await get_project(db, project_id, user["id"])
@@ -118,6 +122,7 @@ async def write_chapter(
     project_id: str,
     chapter_ref: str,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
     """Stream an AI-written chapter based on all context data."""
@@ -147,3 +152,88 @@ async def write_chapter(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.post("/continue")
+async def continue_writing(
+    project_id: str,
+    chapter_ref: str,
+    body: dict,
+    user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stream continuation text from a cursor position."""
+    project = await get_project(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
+
+    cursor_position = body.get("cursor_position", -1)
+    if cursor_position < 0:
+        raise HTTPException(400, "cursor_position is required and must be >= 0")
+
+    return StreamingResponse(
+        stream_continue(project.root_path, chapter_ref, cursor_position),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/polish")
+async def polish_writing(
+    project_id: str,
+    chapter_ref: str,
+    body: dict,
+    user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
+    db: AsyncSession = Depends(get_db),
+):
+    """Polish selected text (non-streaming)."""
+    project = await get_project(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
+
+    selected_text = body.get("selected_text", "")
+    if not selected_text:
+        raise HTTPException(400, "selected_text is required")
+    context_before = body.get("context_before", "")
+    context_after = body.get("context_after", "")
+    surrounding_context = (context_before + "\n" + context_after).strip()
+
+    text = await polish_text(
+        project.root_path, chapter_ref, selected_text, surrounding_context
+    )
+    return {"polished_text": text}
+
+
+@router.post("/expand")
+async def expand_writing(
+    project_id: str,
+    chapter_ref: str,
+    body: dict,
+    user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
+    db: AsyncSession = Depends(get_db),
+):
+    """Expand selected text (non-streaming)."""
+    project = await get_project(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
+
+    selected_text = body.get("selected_text", "")
+    if not selected_text:
+        raise HTTPException(400, "selected_text is required")
+    context_before = body.get("context_before", "")
+    context_after = body.get("context_after", "")
+    surrounding_context = (context_before + "\n" + context_after).strip()
+
+    text = await expand_text(
+        project.root_path, chapter_ref, selected_text, surrounding_context
+    )
+    return {"expanded_text": text}

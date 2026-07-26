@@ -28,7 +28,7 @@ async def create_project(
     if existing.scalar_one_or_none():
         slug = f"{slug}-{uuid.uuid4().hex[:6]}"
 
-    root_path = f"{DATA_ROOT}/{user_id}/{slug}"
+    root_path = f"{DATA_ROOT}/{slug}"
     await get_storage().init_skeleton(root_path)
 
     # Write AI-suggested metadata into project files
@@ -50,7 +50,7 @@ async def create_project(
 
             await prefill_world_setting(root_path)
         except Exception:
-            pass  # Non-blocking — create_project succeeds even if AI prefill fails
+            pass  # Non-blocking — create_project succeeds even if AI prefill fails — create_project succeeds even if AI prefill fails
 
     project = Project(user_id=user_id, name=name, slug=slug, root_path=root_path)
     db.add(project)

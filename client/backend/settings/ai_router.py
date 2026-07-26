@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ai_client import get_ai_client
+from auth_local.deps import require_ai_access
 from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
@@ -24,6 +25,7 @@ async def generate_all_settings(
     project_id: str,
     body: dict,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
     """Generate all setting types from premise in one call."""
@@ -68,7 +70,7 @@ async def generate_all_settings(
                 cleaned = cleaned.split("\n", 1)[-1]
                 cleaned = cleaned.rsplit("```", 1)[0]
             results[t] = json.loads(cleaned.strip())
-        except Exception as e:
+        except ValueError as e:
             results[t] = {"_error": str(e)}
 
     return results
@@ -110,11 +112,15 @@ async def generate_field(
             messages=[{"role": "user", "content": formatted_prompt}],
             max_tokens=1024,
         )
-        cleaned = text.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[-1]
-            cleaned = cleaned.rsplit("```", 1)[0]
-        value = json.loads(cleaned.strip())
-        return {"value": value}
     except Exception as e:
-        raise HTTPException(500, f"AI generation failed: {str(e)}")
+        raise HTTPException(500, f"AI generation failed: {e!s}")
+
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("\n", 1)[-1]
+        cleaned = cleaned.rsplit("```", 1)[0]
+    try:
+        value = json.loads(cleaned.strip())
+    except ValueError as e:
+        raise HTTPException(500, f"AI returned invalid JSON: {e}")
+    return {"value": value}
