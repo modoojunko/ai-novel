@@ -1,0 +1,7 @@
+# ruff configuration for AI Novel backend
+target-version = "py312"
+
+[lint]
+# B008 — FastAPI Depends() in default argument is the standard framework pattern
+# ASYNC230 — blocking calls in async functions; we accept this in startup/shutdown
+ignore = ["B008", "ASYNC230"]

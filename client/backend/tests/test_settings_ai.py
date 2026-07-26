@@ -1,7 +1,8 @@
 """Tests for AI settings generation endpoints."""
 
-import httpx
 import re
+
+import httpx
 
 BASE_URL = "http://localhost:8000/api"
 
@@ -41,7 +42,7 @@ def clean_json(text):
             try:
                 __import__("json").loads(part)
                 return part
-            except Exception:
+            except (ValueError, TypeError):
                 continue
     for left, right in [("{", "}"), ("[", "]")]:
         start = cleaned.find(left)

@@ -4,13 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_local.middleware import get_current_user
 from auth_local.deps import require_ai_access
+from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
 from projects.service import get_project
 from workflow.engine import _validate_ref, load_chapter, update_phase
-from write.auxiliary import stream_continue, polish_text, expand_text
+from write.auxiliary import expand_text, polish_text, stream_continue
 from write.quality import run_quality_checks
 from write.stream import stream_segment
 

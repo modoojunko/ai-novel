@@ -2,8 +2,8 @@
 """浏览器 OAuth 登录 API"""
 
 import os
+from datetime import UTC, datetime
 from hashlib import sha256
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from jose import jwt
@@ -11,17 +11,17 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import JWT_SECRET, JWT_ALGORITHM
+from config import JWT_ALGORITHM, JWT_SECRET
 from db import get_db
 from models.user import User
 
 from .service import (
     browser_auth,
-    verify_session,
     check_permission,
-    reset_password,
-    load_or_create_config,
     get_local_config,
+    load_or_create_config,
+    reset_password,
+    verify_session,
 )
 
 router = APIRouter(tags=["auth"])
@@ -80,7 +80,7 @@ async def api_register(req: RegisterRequest, db: AsyncSession = Depends(get_db))
     payload = {
         "sub": user.id,
         "email": user.email,
-        "exp": int(datetime.now(timezone.utc).timestamp()) + 30 * 86400,
+        "exp": int(datetime.now(UTC).timestamp()) + 30 * 86400,
     }
     access_token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 

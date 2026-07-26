@@ -1,15 +1,15 @@
 # backend/auth_local/service.py
 """浏览器 OAuth 登录 + 30 天滚动验证"""
 
+import asyncio
+import hashlib
 import json
 import os
 import platform
-import hashlib
 import subprocess
-import webbrowser
 import time
-import asyncio
-from datetime import datetime, timedelta, date
+import webbrowser
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 
@@ -36,7 +36,7 @@ def get_local_config() -> dict:
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
-    except Exception:
+    except OSError:
         pass
     return {}
 
@@ -77,7 +77,7 @@ def load_or_create_config() -> dict:
     if os.environ.get("DEV_MODE") and not cfg.get("token"):
         cfg["token"] = "dev-token"
         cfg["tier"] = "lifetime"
-        cfg["last_login_at"] = datetime.now().isoformat()
+        cfg["last_login_at"] = datetime.now(UTC).isoformat()
         changed = True
     if changed:
         save_local_config(cfg)
@@ -98,6 +98,7 @@ def generate_pc_hash() -> str:
                     capture_output=True,
                     text=True,
                     timeout=5,
+                    check=False,
                 )
                 if result.returncode == 0:
                     lines = result.stdout.strip().split("\n")
@@ -105,9 +106,9 @@ def generate_pc_hash() -> str:
                         val = lines[1].strip()
                         if val:
                             info.append(val)
-            except Exception:
+            except OSError:
                 continue
-    except Exception:
+    except OSError:
         pass
     if not info:
         try:
@@ -117,19 +118,23 @@ def generate_pc_hash() -> str:
                 capture_output=True,
                 text=True,
                 timeout=5,
+                check=False,
             )
             if result.returncode == 0:
                 lines = result.stdout.strip().split("\n")
                 if len(lines) > 1:
                     info.append(lines[1].strip())
-        except Exception:
+        except OSError:
             pass
     raw = "-".join(info) or platform.node() or "unknown"
     return hashlib.sha256(raw.encode()).hexdigest()[:32]
 
 
 async def call_server_api(
-    endpoint: str, method: str = "GET", params: dict = None, json_body: dict = None
+    endpoint: str,
+    method: str = "GET",
+    params: dict | None = None,
+    json_body: dict | None = None,
 ) -> dict:
     url = f"{_get_server_api()}/{endpoint}"
     try:
@@ -141,8 +146,8 @@ async def call_server_api(
             return resp.json()
     except httpx.TimeoutException:
         return {"code": -1, "msg": "网络超时"}
-    except Exception as e:
-        return {"code": -1, "msg": f"网络错误: {str(e)}"}
+    except httpx.RequestError as e:
+        return {"code": -1, "msg": f"网络错误: {e!s}"}
 
 
 async def browser_auth(silent: bool = False) -> dict:
@@ -156,7 +161,7 @@ async def browser_auth(silent: bool = False) -> dict:
     if os.environ.get("DEV_MODE"):
         cfg["token"] = "dev-token"
         cfg["tier"] = "lifetime"
-        cfg["last_login_at"] = datetime.now().isoformat()
+        cfg["last_login_at"] = datetime.now(UTC).isoformat()
         save_local_config(cfg)
         return {"code": 0, "data": {"message": "开发模式", "token": "dev-token"}}
 
@@ -168,7 +173,7 @@ async def browser_auth(silent: bool = False) -> dict:
             cfg["token"] = data["token"]
             cfg["tier"] = data.get("tier", "none")
             cfg["expires_at"] = data.get("expires_at", "")
-            cfg["last_login_at"] = datetime.now().isoformat()
+            cfg["last_login_at"] = datetime.now(UTC).isoformat()
             save_local_config(cfg)
             return {
                 "code": 0,
@@ -193,7 +198,7 @@ async def browser_auth(silent: bool = False) -> dict:
             cfg["token"] = data["token"]
             cfg["tier"] = data.get("tier", "none")
             cfg["expires_at"] = data.get("expires_at", "")
-            cfg["last_login_at"] = datetime.now().isoformat()
+            cfg["last_login_at"] = datetime.now(UTC).isoformat()
             save_local_config(cfg)
             return {
                 "code": 0,
@@ -227,12 +232,12 @@ async def verify_session() -> dict:
 
     try:
         login_time = datetime.fromisoformat(last_login) if last_login else None
-        if login_time and datetime.now() - login_time > timedelta(days=SESSION_DAYS):
+        if login_time and datetime.now(UTC) - login_time > timedelta(days=SESSION_DAYS):
             return {"valid": False, "msg": f"登录已超过 {SESSION_DAYS} 天，请重新登录"}
     except ValueError:
         return {"valid": False, "msg": "登录信息异常"}
 
-    if login_time and datetime.now() < login_time:
+    if login_time and datetime.now(UTC) < login_time:
         return {"valid": False, "msg": "系统时间异常"}
 
     # 计算剩余天数
@@ -240,7 +245,7 @@ async def verify_session() -> dict:
     if expires_at:
         try:
             expiry = date.fromisoformat(expires_at)
-            trial_days = max(0, (expiry - date.today()).days)
+            trial_days = max(0, (expiry - datetime.now(UTC).date()).days)
         except ValueError:
             pass
 
@@ -260,7 +265,7 @@ def check_permission(now: date | None = None) -> dict:
     cfg = get_local_config()
     tier = cfg.get("tier", "none")
     expires_at = cfg.get("expires_at", "")
-    now = now or date.today()
+    now = now or datetime.now(UTC).date()
 
     if os.environ.get("DEV_MODE"):
         return {

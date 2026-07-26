@@ -5,8 +5,8 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ai_client import get_ai_client
-from auth_local.middleware import get_current_user
 from auth_local.deps import require_ai_access, require_project_limit
+from auth_local.middleware import get_current_user
 from auth_local.service import get_local_config
 from db import get_db
 from projects.service import (
@@ -93,11 +93,10 @@ async def suggest_meta(
         # Extract JSON from response (handle ```json fences)
         if "```" in text:
             text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
+            text = text.removeprefix("json")
         return json.loads(text.strip())
-    except Exception as e:
-        raise HTTPException(500, f"AI suggestion failed: {str(e)}")
+    except ValueError as e:
+        raise HTTPException(500, f"AI suggestion failed: {e!s}")
 
 
 @router.get("")

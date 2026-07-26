@@ -6,15 +6,15 @@ import uuid
 
 from ai_client import get_ai_client
 from filesystem.storage import get_storage
-from story.models import (
-    StageState,
-    SensoryInput,
-    Decision,
-    CharacterState,
-    RoundResult,
-)
-from story.character_agent import run_all_decisions
 from prompts import load as load_prompt
+from story.character_agent import run_all_decisions
+from story.models import (
+    CharacterState,
+    Decision,
+    RoundResult,
+    SensoryInput,
+    StageState,
+)
 
 
 class DeductionEngine:
@@ -217,7 +217,7 @@ class DeductionEngine:
                 for ev in events:
                     ev["round"] = self.round
                 return events
-        except Exception:
+        except (ValueError, TypeError, KeyError):
             pass
 
         # Fallback: create basic events from decisions

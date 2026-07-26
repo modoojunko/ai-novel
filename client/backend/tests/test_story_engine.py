@@ -1,8 +1,9 @@
 """Tests for DeductionEngine -- init, round, rewind, checkpoint."""
 
 import pytest
+
 from story.engine import DeductionEngine
-from story.models import StageState, CharacterState, RoundResult
+from story.models import CharacterState, RoundResult, StageState
 
 
 @pytest.mark.asyncio

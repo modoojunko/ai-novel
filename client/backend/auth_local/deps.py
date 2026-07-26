@@ -5,14 +5,16 @@ require_project_limit(): 检查免费用户是否超项目上限
 """
 
 import os
-from fastapi import Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from .service import get_local_config, check_permission
-from .middleware import get_current_user
+from fastapi import Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from db import get_db
 from models.project import Project
+
+from .middleware import get_current_user
+from .service import check_permission, get_local_config
 
 
 async def require_ai_access():

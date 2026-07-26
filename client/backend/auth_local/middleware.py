@@ -2,9 +2,9 @@
 """C/S 模式下从本地 config.json 读取登录状态"""
 
 import os
-from typing import Dict
-from fastapi import HTTPException, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 security = HTTPBearer(auto_error=False)
 
@@ -18,14 +18,14 @@ def get_local_config() -> dict:
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, "r") as f:
                 return json.load(f)
-    except Exception:
+    except OSError:
         pass
     return {}
 
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> Dict:
+) -> dict:
     """验证本地 token，返回用户标识"""
     if credentials is None:
         raise HTTPException(status_code=401, detail="未提供认证信息")
@@ -38,12 +38,13 @@ async def get_current_user(
             return {"id": "devuser"}
         # 尝试验证 JWT
         from jose import jwt as jose_jwt
-        from config import JWT_SECRET, JWT_ALGORITHM
+
+        from config import JWT_ALGORITHM, JWT_SECRET
 
         try:
             payload = jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
             return {"id": payload.get("sub", "devuser")}
-        except Exception:
+        except jose_jwt.JWTError:
             raise HTTPException(status_code=401, detail="无效的令牌")
 
     cfg = get_local_config()

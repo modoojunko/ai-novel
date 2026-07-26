@@ -91,7 +91,7 @@ class TestAuth:
 
 class TestProjects:
     def test_create_and_list(self):
-        token, user = register_user()
+        token, _user = register_user()
         headers = {"Authorization": f"Bearer {token}"}
 
         # Create project
@@ -111,7 +111,7 @@ class TestProjects:
         assert slug in slugs
 
     def test_get_by_slug(self):
-        token, user = register_user()
+        token, _user = register_user()
         headers = {"Authorization": f"Bearer {token}"}
 
         import random
@@ -126,7 +126,7 @@ class TestProjects:
         assert r3.json()["name"] == name
 
     def test_delete_project(self):
-        token, user = register_user()
+        token, _user = register_user()
         headers = {"Authorization": f"Bearer {token}"}
 
         r2 = httpx.post(
@@ -264,7 +264,7 @@ class TestWorkflowConfirm:
         assert r2.json()["current_phase"] == "outline"
 
     def test_confirm_incomplete_chapter_returns_400(self):
-        token, user = register_user()
+        token, _user = register_user()
         headers = {"Authorization": f"Bearer {token}"}
         import random
 

@@ -7,7 +7,6 @@ from sqlalchemy import text
 
 from config import STORAGE_BACKEND
 
-
 # --- Protocol ---
 
 

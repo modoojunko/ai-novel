@@ -1,7 +1,8 @@
 """API Key 验证器 — 支持 OpenAI 和 Anthropic 两种格式"""
 
-import httpx
 from typing import Protocol, runtime_checkable
+
+import httpx
 
 
 @runtime_checkable
@@ -34,7 +35,7 @@ class AnthropicVerifier:
             detail = ""
             try:
                 detail = resp.json().get("error", {}).get("message", resp.text[:200])
-            except Exception:
+            except (ValueError, KeyError, TypeError):
                 detail = resp.text[:200]
             return {"valid": False, "error": detail}
 

@@ -3,8 +3,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_local.middleware import get_current_user
 from auth_local.deps import require_ai_access
+from auth_local.middleware import get_current_user
 from db import get_db
 from projects.service import get_project
 from story.engine import DeductionEngine
@@ -121,9 +121,8 @@ async def adjust(
         target = adj.get("target", "")
         field = adj.get("field", "")
         value = adj.get("value", "")
-        if target in engine.characters:
-            if hasattr(engine.characters[target], field):
-                setattr(engine.characters[target], field, value)
+        if target in engine.characters and hasattr(engine.characters[target], field):
+            setattr(engine.characters[target], field, value)
     return {"ok": True}
 
 

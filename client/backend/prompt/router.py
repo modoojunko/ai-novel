@@ -3,8 +3,8 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_local.middleware import get_current_user
 from auth_local.deps import require_ai_access
+from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
 from projects.service import get_project
