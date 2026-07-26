@@ -69,7 +69,7 @@ export async function sActivateCode(token: string, code: string) {
 // ---------------------------------------------------------------------------
 
 export async function cRegister() {
-  const uid = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const uid = Date.now().toString(36) + crypto.randomUUID().slice(0, 4);
   const email = `fulljourney_${uid}@test.local`;
   const r = await fetch(`${C_API}/auth/register`, {
     method: "POST",
