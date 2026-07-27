@@ -103,6 +103,26 @@ async def lifespan(app: FastAPI):
 
         logging.getLogger("uvicorn.error").warning("Config migration failed: %s", e)
 
+    # ── Ensure devuser exists in DEV_MODE ───────────────────────────
+    if os.environ.get("DEV_MODE"):
+        try:
+            async with async_session() as session:
+                result = await session.execute(
+                    select(User).where(User.id == "devuser")
+                )
+                if not result.scalar_one_or_none():
+                    dev_user = User(
+                        id="devuser",
+                        email="dev@localhost",
+                        password_hash="*",
+                        display_name="Developer",
+                    )
+                    session.add(dev_user)
+                    await session.commit()
+        except Exception as e:  # noqa: BLE001
+            import logging
+            logging.getLogger("uvicorn.error").warning("Dev user creation failed: %s", e)
+
     # ── Migrate User old fields → ApiConfig ──────────────────────────
     try:
         from api_configs.service import migrate_user_configs
