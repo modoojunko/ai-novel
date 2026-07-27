@@ -47,7 +47,9 @@ def _genre_summary(data: dict) -> dict:
 async def list_genres():
     """Return all available genres (lightweight metadata)."""
     genres = _load_all_genres()
-    return [{"category": cat, "genres": items} for cat, items in _group_by_category(genres)]
+    return [
+        {"category": cat, "genres": items} for cat, items in _group_by_category(genres)
+    ]
 
 
 @router.get("/{genre_id}")
