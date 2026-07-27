@@ -37,6 +37,11 @@ export async function request(path: string, options?: { method?: string; body?: 
     throw new Error("Unauthorized");
   }
 
+  if (res.status === 503) {
+    window.location.href = '/config';
+    throw new Error('Service unavailable');
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || res.statusText);

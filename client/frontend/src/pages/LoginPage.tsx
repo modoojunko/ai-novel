@@ -18,7 +18,7 @@ export default function LoginPage() {
           localStorage.setItem('auth_token', res.data.token);
           if (res.data.username) localStorage.setItem('auth_username', res.data.username);
           toast.success('自动登录成功');
-          navigate('/books');
+          navigate('/books', { replace: true });
           return;
         }
       } catch {
@@ -36,7 +36,7 @@ export default function LoginPage() {
     if (res.code === 0) {
       if (res.data?.token) localStorage.setItem('auth_token', res.data.token);
       toast.success('登录成功');
-      navigate('/books');
+      navigate('/books', { replace: true });
     } else {
       setError(res.msg || '登录失败');
     }
