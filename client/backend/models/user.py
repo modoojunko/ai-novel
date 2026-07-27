@@ -28,4 +28,15 @@ class User(Base):
     )
     is_lifetime: Mapped[bool] = mapped_column(Boolean, default=False)
     activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    api_key: Mapped[str] = mapped_column(String(512), default="", server_default="")
+    api_base_url: Mapped[str] = mapped_column(
+        String(500), default="https://api.deepseek.com/anthropic"
+    )
+    api_model: Mapped[str] = mapped_column(
+        String(100), default="deepseek-v4-flash"
+    )
+    token: Mapped[str] = mapped_column(String(512), default="", server_default="")
+    pc_hash: Mapped[str] = mapped_column(String(64), default="", server_default="")
+    pc_name: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    server_api: Mapped[str] = mapped_column(String(500), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
