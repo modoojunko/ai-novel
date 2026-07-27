@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useApiConfigs } from "../hooks/useApiConfigs";
 import type { ApiConfig } from "../types/api-config";
 import { MigrationBanner } from "../components/api-config/MigrationBanner";
@@ -10,7 +10,7 @@ import { ApiConfigForm } from "../components/api-config/ApiConfigForm";
 import type { ApiConfigFormData } from "../components/api-config/ApiConfigForm";
 import { DeleteConfirmDialog } from "../components/api-config/DeleteConfirmDialog";
 import { UndoToast } from "../components/api-config/UndoToast";
-import { getToken } from "../lib/auth";
+import { getToken, isLoggedIn } from "../lib/auth";
 
 function authHeaders(): Record<string, string> {
   const token = getToken();
@@ -18,7 +18,14 @@ function authHeaders(): Record<string, string> {
 }
 
 export default function ApiKeyConfigPage() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (!isLoggedIn()) {
+      navigate("/register", { replace: true });
+    }
+  }, [navigate]);
   const { configs, loading, error, addConfig, updateConfig, deleteConfig, refreshStatus } = useApiConfigs();
   const [showForm, setShowForm] = useState(false);
   const [editConfig, setEditConfig] = useState<ApiConfig | null>(null);
