@@ -102,7 +102,7 @@ function Dashboard() {
       toast.success(`「${p.name}」已创建`);
       setShowCreate(false);
       resetForm();
-      navigate(`/project/${p.slug}`);
+      navigate(`/project/${p.id}`);
     } catch {
       toast.error("创建失败");
     } finally {
@@ -174,7 +174,7 @@ function Dashboard() {
                           hover:bg-base-200 hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5
                           transition-all duration-300 group"
               >
-                <div className="card-body py-5" onClick={() => navigate(`/project/${p.slug}`)}>
+                <div className="card-body py-5" onClick={() => navigate(`/project/${p.id}`)}>
                   <div className="flex items-start justify-between">
                     <div className="min-w-0">
                       <h3 className="font-serif text-base truncate group-hover:text-primary transition-colors">{p.name}</h3>

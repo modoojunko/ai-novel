@@ -22,7 +22,7 @@ async def archive_chapter(root_path: str, chapter_ref: str, full_text: str) -> d
     await get_storage().write_md(root_path, archive_path, full_text)
 
     # Generate 200-char summary via AI
-    client = get_ai_client()
+    client = await get_ai_client()
     summary_text = await client.chat(
         model="haiku",
         system="",

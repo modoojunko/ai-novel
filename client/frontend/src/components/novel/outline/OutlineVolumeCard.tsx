@@ -18,6 +18,7 @@ export interface ChapterCardData {
 
 interface OutlineVolumeCardProps {
   volumeRef: string;
+  volNumber: number;
   title: string;
   chapterCount: number;
   chapters: ChapterCardData[];
@@ -32,6 +33,7 @@ interface OutlineVolumeCardProps {
 
 export default function OutlineVolumeCard({
   volumeRef,
+  volNumber,
   title,
   chapterCount,
   chapters,
@@ -61,7 +63,7 @@ export default function OutlineVolumeCard({
       >
         <Book className="w-4 h-4 text-primary/60 flex-shrink-0" />
         <span className="text-sm font-medium text-base-content flex-1 text-left truncate">
-          {title || "未命名卷"}
+          {`第${volNumber}卷：${title || "未命名卷"}`}
         </span>
         <span className="text-xs text-base-content/40 tabular-nums flex-shrink-0">
           {chapterCount} 章

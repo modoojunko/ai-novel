@@ -203,6 +203,7 @@ export default function OutlineOverview({
             <OutlineVolumeCard
               key={vol.ref}
               volumeRef={vol.ref}
+              volNumber={parseInt(vol.ref.replace("vol-", ""), 10) || 1}
               title={vol.title}
               chapterCount={vol.chapter_count}
               chapters={chapterCardData}

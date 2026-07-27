@@ -8,13 +8,14 @@ from projects.service import get_project
 
 router = APIRouter(prefix="/api/projects/{project_id}/settings", tags=["settings"])
 
-VALID_TYPES = {"world", "style", "anti-ai", "hooks", "characters", "ai-model"}
+VALID_TYPES = {"world", "style", "anti-ai", "hooks", "characters", "ai-model", "genre"}
 FILE_MAP = {
     "world": "settings/world-setting.yaml",
     "style": "settings/writing-style.yaml",
     "anti-ai": "settings/anti-ai.yaml",
     "hooks": "settings/hooks.yaml",
     "ai-model": "settings/ai-model.yaml",
+    "genre": "settings/genre.yaml",
 }
 
 

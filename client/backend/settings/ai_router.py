@@ -47,7 +47,7 @@ async def generate_all_settings(
             "No story premise found. Create the project with a story description first.",
         )
 
-    client = get_ai_client()
+    client = await get_ai_client()
     results = {}
 
     for t in types:
@@ -103,7 +103,7 @@ async def generate_field(
     formatted_prompt = prompt_template.format(
         premise=premise, context=json.dumps(context, ensure_ascii=False)
     )
-    client = get_ai_client()
+    client = await get_ai_client()
 
     try:
         text = await client.chat(
