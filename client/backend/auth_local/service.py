@@ -170,14 +170,15 @@ async def browser_auth(silent: bool = False) -> dict:
                 cfg["last_login_at"] = datetime.now(UTC).isoformat()
                 save_local_config(cfg)
                 return {"code": 0, "data": {"message": "已登录", "tier": cfg["tier"], "token": cfg["token"]}}
-        except Exception:  # noqa: BLE001, S110
-            pass
-        # S端不可用，DEV_MODE 回退 dev-token
-        cfg["token"] = "dev-token"
-        cfg["tier"] = "lifetime"
-        cfg["last_login_at"] = datetime.now(UTC).isoformat()
-        save_local_config(cfg)
-        return {"code": 0, "data": {"message": "开发模式", "token": "dev-token"}}
+        except httpx.RequestError:
+            # S端 不可达，DEV_MODE 回退 dev-token
+            cfg["token"] = "dev-token"
+            cfg["tier"] = "lifetime"
+            cfg["last_login_at"] = datetime.now(UTC).isoformat()
+            save_local_config(cfg)
+            return {"code": 0, "data": {"message": "开发模式", "token": "dev-token"}}
+        # S端 可达但未登录 → 让用户走登录流程
+        return {"code": 1, "data": {"message": "未登录"}}
 
     if os.environ.get("DEV_MODE"):
         cfg["token"] = "dev-token"
