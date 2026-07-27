@@ -276,7 +276,7 @@ class AuthorizeRequest(BaseModel):
     pc_hash: str
 
 
-ADMIN_TOKEN = "admin123"  # 本地测试用
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "admin123")  # 本地测试用，可环境变量覆盖
 
 
 def list_devices(username: str) -> list:
