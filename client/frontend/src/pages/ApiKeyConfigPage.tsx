@@ -23,7 +23,7 @@ export default function ApiKeyConfigPage() {
 
   useEffect(() => {
     if (!isLoggedIn()) {
-      navigate("/register", { replace: true });
+      navigate("/login", { replace: true });
     }
   }, [navigate]);
   const { configs, loading, error, addConfig, updateConfig, deleteConfig, refreshStatus } = useApiConfigs();
