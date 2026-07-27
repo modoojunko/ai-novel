@@ -4,12 +4,17 @@
 C/S 模式下从本地 config.json 动态读取 API Key/Base URL/Model，而不是从 config.py。
 """
 
+import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
 from anthropic import AsyncAnthropic
 from openai import AsyncOpenAI
+from sqlalchemy import select
+
+from db import async_session
+from models.user import User
 
 
 @dataclass
@@ -23,24 +28,19 @@ class StreamEvent:
 class AIClient:
     """Provider-agnostic AI client.
 
-    C/S 模式下每次创建时从本地 config.json 读取 API Key 配置。
-    支持用户在运行时切换 API Key/Base URL/Model，无需重启。
+    Config (api_key, base_url, model) is passed at construction time.
+    Use get_ai_client_for_user() to create one from DB, or get_ai_client()
+    for the backward-compatible singleton with DB-first + config.json fallback.
     """
 
-    def __init__(self):
+    def __init__(self, api_key: str = "", base_url: str = "", model: str = "deepseek-v4-flash"):
         self._provider = "anthropic"  # default
         self._client: Any | None = None
-        self._reload()
+        self._model = model
+        self._init_client(api_key, base_url)
 
-    def _reload(self):
-        """从本地配置重新加载 API 设置"""
-        from auth_local.service import get_local_config
-
-        cfg = get_local_config()
-        api_key = cfg.get("api_key", "")
-        base_url = cfg.get("api_base_url", "")
-        self._model = cfg.get("api_model", "deepseek-v4-flash")
-
+    def _init_client(self, api_key: str, base_url: str):
+        """Initialize the underlying API client with the given credentials."""
         if not api_key:
             raise ValueError("未配置 API Key，请在设置页面填写")
 
@@ -162,15 +162,62 @@ class AIClient:
                         yield StreamEvent(is_done=True, tokens=tokens)
 
 
-# Singleton
-_client: AIClient | None = None
+def get_ai_client_for_user(user_id: str | None = None) -> AIClient:
+    """Get AI client configured with a user's API settings from DB.
+
+    Falls back to config.json for backward compatibility during migration.
+    If user_id is given, looks up that user; otherwise uses the first user in DB.
+    """
+    try:
+        loop = asyncio.new_event_loop()
+        try:
+            async def _load():
+                async with async_session() as session:
+                    if user_id:
+                        result = await session.execute(select(User).where(User.id == user_id))
+                    else:
+                        result = await session.execute(select(User).limit(1))
+                    user = result.scalar_one_or_none()
+                    if user and user.api_key:
+                        return AIClient(
+                            api_key=user.api_key,
+                            base_url=user.api_base_url,
+                            model=user.api_model,
+                        )
+                    return None
+
+            client = loop.run_until_complete(_load())
+            if client:
+                return client
+        finally:
+            loop.close()
+    except Exception:  # noqa: BLE001, S110
+        pass
+
+    # Fallback: read from config.json
+    from auth_local.service import get_local_config
+
+    cfg = get_local_config()
+    return AIClient(
+        api_key=cfg.get("api_key", ""),
+        base_url=cfg.get("api_base_url", ""),
+        model=cfg.get("api_model", "deepseek-v4-flash"),
+    )
 
 
 def get_ai_client() -> AIClient:
-    global _client
-    if _client is None:
-        _client = AIClient()
-    return _client
+    """Backward-compatible alias. Tries DB first, falls back to config.json."""
+    try:
+        return get_ai_client_for_user()
+    except Exception:  # noqa: BLE001
+        from auth_local.service import get_local_config
+
+        cfg = get_local_config()
+        return AIClient(
+            api_key=cfg.get("api_key", ""),
+            base_url=cfg.get("api_base_url", ""),
+            model=cfg.get("api_model", "deepseek-v4-flash"),
+        )
 
 
 def create_ai_client() -> AIClient:
