@@ -15,11 +15,11 @@ from config import JWT_ALGORITHM, JWT_SECRET
 from db import get_db
 from models.user import User
 
+from .middleware import get_current_user
 from .service import (
     browser_auth,
     check_permission,
     get_local_config,
-    load_or_create_config,
     reset_password,
     verify_session,
 )
@@ -135,8 +135,23 @@ async def api_reset_password(req: ResetPasswordRequest):
 
 
 @router.get("/config")
-async def api_get_config():
-    """获取本地配置"""
+async def api_get_config(
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取本地配置（从数据库，兼容旧 config.json）"""
+    result = await db.execute(select(User).where(User.id == user["id"]))
+    u = result.scalar_one_or_none()
+    if u and u.api_key:
+        return {
+            "has_token": bool(u.token),
+            "tier": u.plan or "none",
+            "expires_at": str(u.subscription_expires_at) if u.subscription_expires_at else "",
+            "has_api_key": bool(u.api_key),
+            "api_base_url": u.api_base_url or "",
+            "api_model": u.api_model or "",
+        }
+    # Fallback to config.json for migration period
     cfg = get_local_config()
     return {
         "has_token": bool(cfg.get("token", "")),
@@ -159,13 +174,18 @@ async def api_verify_key(req: ApiKeyVerifyRequest):
 
 
 @router.post("/config/api-key")
-async def api_save_api_key(req: ApiKeySaveRequest):
-    """保存 AI API Key"""
-    cfg = load_or_create_config()
-    cfg["api_key"] = req.api_key
-    cfg["api_base_url"] = req.api_base_url
-    cfg["api_model"] = req.api_model
-    from .service import save_local_config
-
-    save_local_config(cfg)
+async def api_save_api_key(
+    req: ApiKeySaveRequest,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """保存 AI API Key 到数据库"""
+    result = await db.execute(select(User).where(User.id == user["id"]))
+    u = result.scalar_one_or_none()
+    if not u:
+        raise HTTPException(404, "User not found")
+    u.api_key = req.api_key
+    u.api_base_url = req.api_base_url
+    u.api_model = req.api_model
+    await db.commit()
     return {"code": 0, "msg": "保存成功"}
