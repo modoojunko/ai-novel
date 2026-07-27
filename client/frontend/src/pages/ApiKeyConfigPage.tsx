@@ -103,12 +103,14 @@ export default function ApiKeyConfigPage() {
             管理你的 AI 服务 API Key，为不同小说选择不同模型
           </p>
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => { setShowForm(true); setEditConfig(null); }}
-        >
-          添加 API Key
-        </button>
+        {!showForm && !editConfig && (
+          <button
+            className="btn btn-primary"
+            onClick={() => { setShowForm(true); setEditConfig(null); }}
+          >
+            添加 API Key
+          </button>
+        )}
       </div>
 
       {/* Migration Banner */}
