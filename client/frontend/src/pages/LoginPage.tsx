@@ -14,7 +14,7 @@ export default function LoginPage() {
     (async () => {
       try {
         const res = await request('/auth/check-auth');
-        if (res.code === 0 && res.data?.token) {
+        if (res.code === 0 && res.data?.token && res.data.token !== 'dev-token') {
           localStorage.setItem('auth_token', res.data.token);
           if (res.data.username) localStorage.setItem('auth_username', res.data.username);
           toast.success('自动登录成功');
