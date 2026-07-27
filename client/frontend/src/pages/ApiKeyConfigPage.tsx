@@ -10,6 +10,12 @@ import { ApiConfigForm } from "../components/api-config/ApiConfigForm";
 import type { ApiConfigFormData } from "../components/api-config/ApiConfigForm";
 import { DeleteConfirmDialog } from "../components/api-config/DeleteConfirmDialog";
 import { UndoToast } from "../components/api-config/UndoToast";
+import { getToken } from "../lib/auth";
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { "Authorization": `Bearer ${token}` } : {};
+}
 
 export default function ApiKeyConfigPage() {
   const [searchParams] = useSearchParams();
@@ -31,7 +37,7 @@ export default function ApiKeyConfigPage() {
 
   // Fetch migration status
   useEffect(() => {
-    fetch("/api/v1/user/profile")
+    fetch("/api/v1/user/profile", { headers: authHeaders() })
       .then((r) => r.json())
       .then((data) => {
         if (data.migration_completed !== undefined) {
