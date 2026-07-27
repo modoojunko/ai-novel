@@ -1,7 +1,16 @@
 """Connection testing — vendor-specific health check.
 
-This module is a stub. In production it makes real HTTP calls;
-in tests, the router layer never invokes it without mocking.
+TODO: This module is a stub. The router endpoints
+`POST /api/v1/api-configs/{config_id}/test` and
+`POST /api/v1/api-configs/{config_id}/refresh-models` in
+api_configs/router.py currently return hardcoded stub responses
+instead of calling this function.
+
+To implement: dispatch to vendor-specific HTTP health-check
+functions (e.g. Anthropic: GET /models, OpenAI: GET /models,
+Ollama: GET /api/tags) and parse the response to extract available
+model IDs. Each vendor function should handle auth failures,
+timeouts, and network errors gracefully.
 """
 
 from __future__ import annotations

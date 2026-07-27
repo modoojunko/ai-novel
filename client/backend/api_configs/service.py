@@ -344,7 +344,7 @@ async def apply_model_to_all_projects(
             p.ai_config_id = api_config_id
             p.ai_model = model
             succeeded.append(p.id)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             failed.append({"id": p.id, "reason": str(e)})
 
     await db.commit()
@@ -480,8 +480,7 @@ async def get_usage_summary(
     total_all = result.scalar()
 
     # This month
-    from datetime import date
-    first_of_month = date.today().replace(day=1)
+    first_of_month = datetime.now(UTC).date().replace(day=1)
     result = await db.execute(
         select(sa_func.coalesce(sa_func.sum(TokenLog.tokens_in + TokenLog.tokens_out), 0))
         .where(
@@ -492,7 +491,7 @@ async def get_usage_summary(
     total_month = result.scalar()
 
     # Today
-    today = date.today()
+    today = datetime.now(UTC).date()
     result = await db.execute(
         select(sa_func.coalesce(sa_func.sum(TokenLog.tokens_in + TokenLog.tokens_out), 0))
         .where(

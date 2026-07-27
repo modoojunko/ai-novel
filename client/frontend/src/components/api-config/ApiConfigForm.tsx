@@ -51,7 +51,8 @@ export function ApiConfigForm({ config, onSubmit, onCancel }: ApiConfigFormProps
     if (!name.trim()) { setError("请输入配置名称"); return; }
     if (!vendorId) { setError("请选择供应商"); return; }
     if (!baseUrl.trim()) { setError("请输入 Base URL"); return; }
-    if (vendorId !== "ollama" && !apiKey.trim()) { setError("请输入 API Key"); return; }
+    // edit mode: empty api key means keep the existing key
+    if (!isEdit && vendorId !== "ollama" && !apiKey.trim()) { setError("请输入 API Key"); return; }
 
     setSaving(true);
     setError(null);
@@ -133,10 +134,17 @@ export function ApiConfigForm({ config, onSubmit, onCancel }: ApiConfigFormProps
           type="password"
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
-          placeholder={vendorId === "ollama" ? "Ollama 不需要 API Key" : "sk-..."}
+          placeholder={vendorId === "ollama" ? "Ollama 不需要 API Key" : isEdit ? "留空则保留当前密钥" : "sk-..."}
           disabled={saving || vendorId === "ollama"}
-          required={vendorId !== "ollama"}
+          required={!isEdit && vendorId !== "ollama"}
         />
+        {isEdit && config?.api_key_masked && (
+          <label className="label">
+            <span className="label-text-alt text-base-content/50">
+              当前密钥：{config.api_key_masked}
+            </span>
+          </label>
+        )}
       </div>
 
       {/* Actions */}

@@ -23,6 +23,9 @@ from projects.service import (
 from projects.service import (
     list_projects as _list_projects,
 )
+from projects.service import (
+    project_to_dict,
+)
 
 from .schemas import (
     ApplyModelToAllBody,
@@ -54,23 +57,6 @@ router = APIRouter(prefix="/api/v1", tags=["api-configs"])
 
 def _user_id(user: dict) -> str:
     return user["id"]
-
-
-def _project_dict(p) -> dict:
-    return {
-        "id": str(p.id),
-        "name": p.name,
-        "slug": p.slug,
-        "current_phase": p.current_phase,
-        "status": p.status,
-        "total_volumes": p.total_volumes,
-        "total_chapters": p.total_chapters,
-        "total_archives": p.total_archives,
-        "ai_config_id": str(p.ai_config_id) if p.ai_config_id else None,
-        "ai_model": p.ai_model,
-        "created_at": p.created_at.isoformat() if p.created_at else None,
-        "updated_at": p.updated_at.isoformat() if p.updated_at else None,
-    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -269,7 +255,7 @@ async def list_projects_v1(
 ):
     """List all projects for the current user."""
     projects = await _list_projects(db, _user_id(user))
-    return [_project_dict(p) for p in projects]
+    return [project_to_dict(p) for p in projects]
 
 
 # STATIC before parameterized
@@ -296,7 +282,7 @@ async def get_project_v1(
     project = await _get_project(db, project_id, _user_id(user))
     if not project:
         raise HTTPException(404, "Project not found")
-    return _project_dict(project)
+    return project_to_dict(project)
 
 
 @router.get("/projects/{project_id}/ai-model")

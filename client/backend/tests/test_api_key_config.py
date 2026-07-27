@@ -32,7 +32,7 @@ from sqlalchemy import select, text
 
 # ── Test environment ───────────────────────────────────────────────────────
 # Must be set BEFORE importing app modules, so db.py picks up the test DB.
-_tmp_db = tempfile.NamedTemporaryFile(suffix="_test_apikey.db", delete=False)
+_tmp_db = tempfile.NamedTemporaryFile(suffix="_test_apikey.db", delete=False)  # noqa: SIM115
 _tmp_db.close()
 _tmp_data_root = tempfile.mkdtemp(prefix="test_apikey_")
 
@@ -145,9 +145,8 @@ async def _count_configs(user_id: str) -> int:
     """Count ApiConfig rows for a user."""
     async with async_session() as session:
         result = await session.execute(
-            select(text("COUNT(*)")).select_from(text("api_configs")).where(
-                text(f"user_id = '{user_id}'")
-            )
+            text("SELECT COUNT(*) FROM api_configs WHERE user_id = :uid"),
+            {"uid": user_id},
         )
         return result.scalar()
 
@@ -261,13 +260,16 @@ async def _clean_user_configs(user_id: str):
     """Remove ApiConfigs and projects for a given user to ensure test isolation."""
     async with async_session() as session:
         await session.execute(
-            text(f"DELETE FROM project_model_audit_log WHERE user_id = '{user_id}'")
+            text("DELETE FROM project_model_audit_log WHERE user_id = :uid"),
+            {"uid": user_id},
         )
         await session.execute(
-            text(f"DELETE FROM api_configs WHERE user_id = '{user_id}'")
+            text("DELETE FROM api_configs WHERE user_id = :uid"),
+            {"uid": user_id},
         )
         await session.execute(
-            text(f"DELETE FROM projects WHERE user_id = '{user_id}'")
+            text("DELETE FROM projects WHERE user_id = :uid"),
+            {"uid": user_id},
         )
         await session.commit()
 
@@ -277,18 +279,18 @@ async def _clean_user_data(user_id: str):
     async with async_session() as session:
         # Delete projects
         await session.execute(
-            select(Project).where(Project.user_id == user_id)
-        )
-        await session.execute(
-            text(f"DELETE FROM projects WHERE user_id = '{user_id}'")
+            text("DELETE FROM projects WHERE user_id = :uid"),
+            {"uid": user_id},
         )
         # Delete api configs
         await session.execute(
-            text(f"DELETE FROM api_configs WHERE user_id = '{user_id}'")
+            text("DELETE FROM api_configs WHERE user_id = :uid"),
+            {"uid": user_id},
         )
         # Delete user
         await session.execute(
-            text(f"DELETE FROM users WHERE id = '{user_id}'")
+            text("DELETE FROM users WHERE id = :uid"),
+            {"uid": user_id},
         )
         await session.commit()
 
@@ -979,9 +981,8 @@ class TestDataMigration:
 
                 # Idempotency check: skip if ApiConfig already exists with matching key/url
                 existing = await session.execute(
-                    sa_select(text("*")).select_from(text("api_configs")).where(
-                        text(f"user_id = '{user.id}' AND api_key = '{user.api_key}' AND base_url = '{user.api_base_url}'")
-                    )
+                    text("SELECT * FROM api_configs WHERE user_id = :uid AND api_key = :key AND base_url = :url"),
+                    {"uid": user.id, "key": user.api_key, "url": user.api_base_url},
                 )
                 if existing.fetchone():
                     return None  # Already migrated

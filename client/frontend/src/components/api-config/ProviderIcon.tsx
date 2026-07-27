@@ -5,7 +5,7 @@ interface ProviderIconProps {
   size?: number;
 }
 
-const ICONS: Record<VendorId, string> = {
+const ICONS = {
   openai: "⚡",
   anthropic: "🤖",
   deepseek: "🔍",
@@ -14,9 +14,9 @@ const ICONS: Record<VendorId, string> = {
   qwen: "🐉",
   ollama: "🦙",
   "openai-compat": "🔗",
-};
+} satisfies Record<VendorId, string>;
 
-export const VENDOR_LABELS: Record<VendorId, string> = {
+export const VENDOR_LABELS = {
   openai: "OpenAI",
   anthropic: "Anthropic",
   deepseek: "DeepSeek",
@@ -25,7 +25,7 @@ export const VENDOR_LABELS: Record<VendorId, string> = {
   qwen: "Qwen",
   ollama: "Ollama",
   "openai-compat": "OpenAI 兼容",
-};
+} satisfies Record<VendorId, string>;
 
 export function ProviderIcon({ vendor, size = 36 }: ProviderIconProps) {
   return (

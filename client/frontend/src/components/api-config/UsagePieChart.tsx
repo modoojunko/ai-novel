@@ -1,3 +1,17 @@
+/**
+ * SVG-based donut chart.
+ *
+ * Approach: Uses stroke-dasharray / stroke-dashoffset on <circle> elements
+ * to render proportional arc segments. Each segment is offset by the cumulative
+ * percentage of previous segments (via strokeDashoffset), and its visible length
+ * is set via strokeDasharray. The whole chart is rotated -90deg so the first
+ * segment starts at 12 o'clock (convention for donut charts).
+ *
+ * - Single segment: rendered as a full circle with a single stroke color.
+ * - Multiple segments: one <circle> per segment with calculated dash params.
+ * - Empty / zero-total / loading states: handled explicitly.
+ */
+
 interface UsagePieChartProps {
   data: Array<{ model: string; tokens: number }>;
   loading?: boolean;

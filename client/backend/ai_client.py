@@ -4,7 +4,6 @@
 C/S 模式下从本地 config.json 动态读取 API Key/Base URL/Model，而不是从 config.py。
 """
 
-import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
@@ -162,35 +161,25 @@ class AIClient:
                         yield StreamEvent(is_done=True, tokens=tokens)
 
 
-def get_ai_client_for_user(user_id: str | None = None) -> AIClient:
+async def get_ai_client_for_user(user_id: str | None = None) -> AIClient:
     """Get AI client configured with a user's API settings from DB.
 
     Falls back to config.json for backward compatibility during migration.
     If user_id is given, looks up that user; otherwise uses the first user in DB.
     """
     try:
-        loop = asyncio.new_event_loop()
-        try:
-            async def _load():
-                async with async_session() as session:
-                    if user_id:
-                        result = await session.execute(select(User).where(User.id == user_id))
-                    else:
-                        result = await session.execute(select(User).limit(1))
-                    user = result.scalar_one_or_none()
-                    if user and user.api_key:
-                        return AIClient(
-                            api_key=user.api_key,
-                            base_url=user.api_base_url,
-                            model=user.api_model,
-                        )
-                    return None
-
-            client = loop.run_until_complete(_load())
-            if client:
-                return client
-        finally:
-            loop.close()
+        async with async_session() as session:
+            if user_id:
+                result = await session.execute(select(User).where(User.id == user_id))
+            else:
+                result = await session.execute(select(User).limit(1))
+            user = result.scalar_one_or_none()
+            if user and user.api_key:
+                return AIClient(
+                    api_key=user.api_key,
+                    base_url=user.api_base_url,
+                    model=user.api_model,
+                )
     except Exception:  # noqa: BLE001, S110
         pass
 
@@ -205,10 +194,10 @@ def get_ai_client_for_user(user_id: str | None = None) -> AIClient:
     )
 
 
-def get_ai_client() -> AIClient:
+async def get_ai_client() -> AIClient:
     """Backward-compatible alias. Tries DB first, falls back to config.json."""
     try:
-        return get_ai_client_for_user()
+        return await get_ai_client_for_user()
     except Exception:  # noqa: BLE001
         from auth_local.service import get_local_config
 
@@ -220,10 +209,11 @@ def get_ai_client() -> AIClient:
         )
 
 
-def create_ai_client() -> AIClient:
+async def create_ai_client() -> AIClient:
     """Alias for get_ai_client() — for callers that use this name."""
-    return get_ai_client()
+    return await get_ai_client()
 
 
-def resolve_model(name: str) -> str:
-    return get_ai_client().resolve(name)
+async def resolve_model(name: str) -> str:
+    client = await get_ai_client()
+    return client.resolve(name)

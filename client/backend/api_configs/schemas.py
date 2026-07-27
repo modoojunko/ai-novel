@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -26,7 +26,7 @@ def mask_api_key(key: str) -> str:
 # ── Request bodies ─────────────────────────────────────────────────────────
 
 class CreateApiConfigBody(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=100)
     vendor_id: str
     base_url: str
     api_key: str = ""
@@ -37,13 +37,6 @@ class CreateApiConfigBody(BaseModel):
     def _validate_vendor(cls, v: str) -> str:
         if v not in KNOWN_VENDORS:
             raise ValueError(f"Unknown vendor_id '{v}'. Must be one of: {', '.join(sorted(KNOWN_VENDORS))}")
-        return v
-
-    @field_validator("name")
-    @classmethod
-    def _validate_name(cls, v: str) -> str:
-        if not v or len(v) > 100:
-            raise ValueError("name must be between 1 and 100 characters")
         return v
 
 

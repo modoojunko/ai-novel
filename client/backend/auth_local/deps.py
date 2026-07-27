@@ -34,7 +34,7 @@ async def require_ai_access(
         )
         if result.scalar_one_or_none():
             return True
-    except Exception:
+    except Exception:  # noqa: S110
         pass
 
     # Fallback: check old User.api_key for migration period
@@ -43,7 +43,7 @@ async def require_ai_access(
         u = result.scalar_one_or_none()
         if u and u.api_key:
             return True
-    except Exception:
+    except Exception:  # noqa: S110
         pass
 
     # Fallback to config.json

@@ -42,7 +42,7 @@ async def run_perspective_conversion(
     from ai_client import get_ai_client
 
     # C/S: Token tracking removed — user brings own API key
-    client = get_ai_client()
+    client = await get_ai_client()
     guidance = await client.chat(
         model="haiku",
         max_tokens=500,
