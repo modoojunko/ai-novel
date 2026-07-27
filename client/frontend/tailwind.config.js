@@ -9,6 +9,9 @@ export default {
         mono: ['"JetBrains Mono"', "monospace"],
         display: ['"EB Garamond"', '"Noto Serif SC"', "serif"],
       },
+      colors: {
+        "rate-limited": "#7c3aed",
+      },
     },
   },
   plugins: [require("daisyui")],

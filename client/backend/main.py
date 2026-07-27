@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 import models  # noqa: F401
+from api_configs.router import router as api_configs_router
 from archive.router import archives_router
 from archive.router import router as archive_router
 
@@ -87,6 +88,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:  # noqa: BLE001
         import logging
         logging.getLogger("uvicorn.error").warning("Config migration failed: %s", e)
+
+    # ── Migrate User old fields → ApiConfig ──────────────────────────
+    try:
+        from api_configs.service import migrate_user_configs
+        async with async_session() as session:
+            await migrate_user_configs(session)
+    except Exception as e:  # noqa: BLE001
+        import logging
+        logging.getLogger("uvicorn.error").warning("ApiConfig migration failed: %s", e)
+
     yield
 
 
@@ -118,6 +129,9 @@ app.include_router(novel_router)
 app.include_router(chapters_versions_router)
 app.include_router(story_router)
 app.include_router(workflow_router)
+
+# API Key Config management (v1)
+app.include_router(api_configs_router)
 app.include_router(genres_router)
 
 

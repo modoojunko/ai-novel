@@ -4,6 +4,7 @@
 import hashlib
 import os
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from jose import jwt
@@ -23,6 +24,7 @@ from .service import (
     reset_password,
     verify_session,
 )
+from models.api_config import ApiConfig
 
 router = APIRouter(tags=["auth"])
 
@@ -161,6 +163,45 @@ async def api_get_config(
         "api_base_url": cfg.get("api_base_url", ""),
         "api_model": cfg.get("api_model", ""),
     }
+
+
+@router.get("/user/profile")
+async def api_user_profile(
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get user profile with migration status."""
+    result = await db.execute(select(User).where(User.id == user["id"]))
+    u = result.scalar_one_or_none()
+    if not u:
+        raise HTTPException(404, "User not found")
+
+    resp: dict[str, Any] = {
+        "id": u.id,
+        "email": u.email,
+        "display_name": u.display_name,
+    }
+
+    # Check if user has old api_key fields without ApiConfig
+    has_old_fields = bool(u.api_key)
+    if has_old_fields:
+        # Check if at least one ApiConfig exists
+        cfg_result = await db.execute(
+            select(ApiConfig).where(ApiConfig.user_id == u.id).limit(1)
+        )
+        has_api_config = cfg_result.scalar_one_or_none() is not None
+
+        if has_api_config:
+            # Post-migration
+            cfg = cfg_result.scalar_one()
+            resp["migration_completed"] = True
+            resp["migration_config_name"] = cfg.name
+        else:
+            # Pre-migration (has old fields but not migrated yet)
+            resp["migration_completed"] = False
+            resp["migration_config_name"] = None
+
+    return resp
 
 
 @router.post("/verify-key")

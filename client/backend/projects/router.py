@@ -163,6 +163,8 @@ def _project_dict(p) -> dict:
         "total_volumes": p.total_volumes,
         "total_chapters": p.total_chapters,
         "total_archives": p.total_archives,
+        "ai_config_id": str(p.ai_config_id) if p.ai_config_id else None,
+        "ai_model": p.ai_model,
         "created_at": p.created_at.isoformat(),
         "updated_at": p.updated_at.isoformat(),
     }
