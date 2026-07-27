@@ -17,9 +17,10 @@ from auth_local.middleware import get_current_user
 from db import get_db
 from models.api_config import ApiConfig
 from models.user import User
-
 from projects.service import (
     get_project as _get_project,
+)
+from projects.service import (
     list_projects as _list_projects,
 )
 

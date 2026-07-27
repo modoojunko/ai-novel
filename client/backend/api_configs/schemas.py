@@ -7,7 +7,6 @@ from typing import Any
 
 from pydantic import BaseModel, field_validator
 
-
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 KNOWN_VENDORS = {
@@ -84,7 +83,7 @@ class ApiConfigResponse(BaseModel):
     updated_at: str | None = None
 
     @classmethod
-    def from_orm_row(cls, row: Any) -> "ApiConfigResponse":
+    def from_orm_row(cls, row: Any) -> ApiConfigResponse:
         """Build from a DB row or model instance."""
         models_list: list[str] = []
         if row.get("models"):

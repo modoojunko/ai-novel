@@ -21,12 +21,9 @@ Requires:
 
 import asyncio
 import hashlib
-import json
 import os
 import tempfile
 import uuid
-from datetime import UTC, datetime
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -46,12 +43,12 @@ os.environ["DATA_ROOT"] = _tmp_data_root
 # ---------------------------------------------------------------------------
 #  Now import the application
 # ---------------------------------------------------------------------------
-from main import app
-from db import Base, async_session, engine, get_db
 from auth_local.middleware import get_current_user
 from config import JWT_ALGORITHM, JWT_SECRET
-from models.user import User
+from db import Base, async_session, engine, get_db
+from main import app
 from models.project import Project
+from models.user import User
 
 # Common test constants
 TEST_USER_EMAIL = "apikey_test@example.com"
@@ -814,9 +811,9 @@ class TestModelSelection:
         assert resp.status_code == 200
         projects = resp.json()
         if isinstance(projects, list):
-            target = next((proj for proj in projects if proj["id"] == p.id), None)
+            next((proj for proj in projects if proj["id"] == p.id), None)
         else:
-            target = projects.get(str(p.id)) if isinstance(projects, dict) else None
+            projects.get(str(p.id)) if isinstance(projects, dict) else None
         # The response shape depends on implementation; just check the project exists
         assert any(
             isinstance(proj, dict) and proj.get("id") == p.id
@@ -964,6 +961,7 @@ class TestDataMigration:
     def _run_migration(self):
         """Execute the migration logic directly (same as lifespan code)."""
         from sqlalchemy import select as sa_select
+
         from api_configs.vendor import detect_vendor
 
         async def _migrate():
@@ -1073,7 +1071,6 @@ class TestDataMigration:
 
         # Run migration — should do nothing
         async def _check():
-            from api_configs.vendor import detect_vendor
             async with async_session() as session:
                 result = await session.execute(
                     select(User).where(
@@ -1104,7 +1101,7 @@ class TestDataMigration:
 
     def test_migration_vendor_detection_unknown(self, client):
         """TC-MIGRATE-06: Unknown base_url -> openai-compat."""
-        from api_configs.vendor import detect_vendor, resolve_vendor
+        from api_configs.vendor import resolve_vendor
         vendor_id, display_name, protocol = resolve_vendor("https://custom-proxy.com/v1")
         assert vendor_id == "openai-compat"
         assert display_name == "OpenAI 兼容"
@@ -1280,7 +1277,7 @@ class TestVendorDetection:
 
     @pytest.fixture(autouse=True)
     def _import_vendor(self):
-        from api_configs.vendor import detect_vendor, resolve_vendor, VENDOR_PATTERNS
+        from api_configs.vendor import VENDOR_PATTERNS, detect_vendor, resolve_vendor
         self.detect_vendor = detect_vendor
         self.resolve_vendor = resolve_vendor
         self.VENDOR_PATTERNS = VENDOR_PATTERNS
@@ -1341,7 +1338,7 @@ class TestVendorDetection:
 
     def test_resolve_vendor_override(self):
         """TC-VENDOR-09: vendor_override overrides auto-detection."""
-        vendor_id, display_name, protocol = self.resolve_vendor(
+        vendor_id, _display_name, _protocol = self.resolve_vendor(
             "https://api.openai.com",
             vendor_override="deepseek",
         )
@@ -1349,7 +1346,7 @@ class TestVendorDetection:
 
     def test_resolve_no_override_uses_detection(self):
         """TC-VENDOR-10: No vendor_override -> auto-detect."""
-        vendor_id, display_name, protocol = self.resolve_vendor("https://api.anthropic.com")
+        vendor_id, _display_name, _protocol = self.resolve_vendor("https://api.anthropic.com")
         assert vendor_id == "anthropic"
 
 

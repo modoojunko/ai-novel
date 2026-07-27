@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import JWT_ALGORITHM, JWT_SECRET
 from db import get_db
+from models.api_config import ApiConfig
 from models.user import User
 
 from .middleware import get_current_user
@@ -24,7 +25,6 @@ from .service import (
     reset_password,
     verify_session,
 )
-from models.api_config import ApiConfig
 
 router = APIRouter(tags=["auth"])
 

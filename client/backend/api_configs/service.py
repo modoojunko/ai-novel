@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import json
-import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select, text as sql_text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.api_config import ApiConfig
@@ -18,7 +17,6 @@ from models.user import User
 
 from .schemas import mask_api_key
 from .vendor import detect_vendor, resolve_vendor
-
 
 # ── ApiConfig CRUD ─────────────────────────────────────────────────────────
 
@@ -225,23 +223,21 @@ async def set_project_model(
     # Record audit log before changing
     old_config_id = project.ai_config_id
     old_model = project.ai_model
-    old_config_name = None
     if old_config_id:
         old_cfg = await db.execute(
             select(ApiConfig).where(ApiConfig.id == old_config_id)
         )
         old_cfg_obj = old_cfg.scalar_one_or_none()
         if old_cfg_obj:
-            old_config_name = old_cfg_obj.name
+            pass
 
-    new_config_name = None
     if api_config_id:
         new_cfg = await db.execute(
             select(ApiConfig).where(ApiConfig.id == api_config_id)
         )
         new_cfg_obj = new_cfg.scalar_one_or_none()
         if new_cfg_obj:
-            new_config_name = new_cfg_obj.name
+            pass
 
     # Determine change_type
     if old_config_id is None and old_model is None:

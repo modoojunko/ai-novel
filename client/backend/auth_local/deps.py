@@ -11,12 +11,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import get_db
-from models.project import Project
 from models.api_config import ApiConfig
+from models.project import Project
+from models.user import User
 
 from .middleware import get_current_user
 from .service import check_permission, get_local_config
-from models.user import User
 
 
 async def require_ai_access(
