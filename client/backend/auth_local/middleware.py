@@ -32,7 +32,7 @@ async def get_current_user(
 
     token = credentials.credentials
 
-    # 尝试验证 JWT（开发模式也验证真实 JWT）
+    # 尝试验证 JWT（S端 部署环境使用的格式）
     from jose import jwt as jose_jwt
 
     from config import JWT_ALGORITHM, JWT_SECRET
@@ -41,4 +41,6 @@ async def get_current_user(
         payload = jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         return {"id": payload.get("sub", "")}
     except jose_jwt.JWTError:
-        raise HTTPException(status_code=401, detail="无效的令牌")
+        pass
+
+    raise HTTPException(status_code=401, detail="无效的令牌")
