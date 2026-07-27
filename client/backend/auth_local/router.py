@@ -4,6 +4,7 @@
 import hashlib
 import os
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from jose import jwt
@@ -11,15 +12,18 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api_configs.crypto import encrypt_api_key
+from api_configs.vendor import resolve_vendor
 from config import JWT_ALGORITHM, JWT_SECRET
 from db import get_db
+from models.api_config import ApiConfig
 from models.user import User
 
+from .middleware import get_current_user
 from .service import (
     browser_auth,
     check_permission,
     get_local_config,
-    load_or_create_config,
     reset_password,
     verify_session,
 )
@@ -135,8 +139,25 @@ async def api_reset_password(req: ResetPasswordRequest):
 
 
 @router.get("/config")
-async def api_get_config():
-    """获取本地配置"""
+async def api_get_config(
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取本地配置（从数据库，兼容旧 config.json）"""
+    result = await db.execute(select(User).where(User.id == user["id"]))
+    u = result.scalar_one_or_none()
+    if u and u.api_key:
+        return {
+            "has_token": bool(u.token),
+            "tier": u.plan or "none",
+            "expires_at": str(u.subscription_expires_at)
+            if u.subscription_expires_at
+            else "",
+            "has_api_key": bool(u.api_key),
+            "api_base_url": u.api_base_url or "",
+            "api_model": u.api_model or "",
+        }
+    # Fallback to config.json for migration period
     cfg = get_local_config()
     return {
         "has_token": bool(cfg.get("token", "")),
@@ -146,6 +167,45 @@ async def api_get_config():
         "api_base_url": cfg.get("api_base_url", ""),
         "api_model": cfg.get("api_model", ""),
     }
+
+
+@router.get("/user/profile")
+async def api_user_profile(
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get user profile with migration status."""
+    result = await db.execute(select(User).where(User.id == user["id"]))
+    u = result.scalar_one_or_none()
+    if not u:
+        raise HTTPException(404, "User not found")
+
+    resp: dict[str, Any] = {
+        "id": u.id,
+        "email": u.email,
+        "display_name": u.display_name,
+    }
+
+    # Check if user has old api_key fields without ApiConfig
+    has_old_fields = bool(u.api_key)
+    if has_old_fields:
+        # Check if at least one ApiConfig exists
+        cfg_result = await db.execute(
+            select(ApiConfig).where(ApiConfig.user_id == u.id).limit(1)
+        )
+        has_api_config = cfg_result.scalar_one_or_none() is not None
+
+        if has_api_config:
+            # Post-migration
+            cfg = cfg_result.scalar_one()
+            resp["migration_completed"] = True
+            resp["migration_config_name"] = cfg.name
+        else:
+            # Pre-migration (has old fields but not migrated yet)
+            resp["migration_completed"] = False
+            resp["migration_config_name"] = None
+
+    return resp
 
 
 @router.post("/verify-key")
@@ -159,13 +219,41 @@ async def api_verify_key(req: ApiKeyVerifyRequest):
 
 
 @router.post("/config/api-key")
-async def api_save_api_key(req: ApiKeySaveRequest):
-    """保存 AI API Key"""
-    cfg = load_or_create_config()
-    cfg["api_key"] = req.api_key
-    cfg["api_base_url"] = req.api_base_url
-    cfg["api_model"] = req.api_model
-    from .service import save_local_config
+async def api_save_api_key(
+    req: ApiKeySaveRequest,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """保存 AI API Key 到数据库 (创建或更新 ApiConfig)"""
+    # Detect vendor from base_url
+    vendor_id, vendor_name, _ = resolve_vendor(req.api_base_url)
+    config_name = f"{vendor_name} 默认配置"
 
-    save_local_config(cfg)
+    # Look for existing ApiConfig with matching name
+    existing = await db.execute(
+        select(ApiConfig).where(
+            ApiConfig.user_id == user["id"],
+            ApiConfig.name == config_name,
+        )
+    )
+    cfg = existing.scalar_one_or_none()
+
+    if cfg:
+        # Update existing config
+        cfg.api_key = encrypt_api_key(req.api_key) if req.api_key else ""
+        cfg.base_url = req.api_base_url or ""
+    else:
+        # Create new config
+        cfg = ApiConfig(
+            user_id=user["id"],
+            name=config_name,
+            vendor=vendor_id,
+            vendor_display_name=vendor_name,
+            api_key=encrypt_api_key(req.api_key) if req.api_key else "",
+            base_url=req.api_base_url or "",
+            status="active",
+        )
+        db.add(cfg)
+
+    await db.commit()
     return {"code": 0, "msg": "保存成功"}

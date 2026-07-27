@@ -15,7 +15,7 @@ async def build_project_tree(project_id: str, root_path: str) -> dict:
             for ch in data.get("chapters") or []:
                 chapters.append(
                     {
-                        "ref": f"vol-{ch['volume']}-ch-{ch['chapter']}",
+                        "ref": f"vol-{data['volume']}-ch-{ch['chapter']}",
                         "volume": ch.get("volume"),
                         "chapter": ch.get("chapter"),
                         "title": ch.get("title", ""),

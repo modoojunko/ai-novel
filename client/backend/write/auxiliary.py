@@ -153,7 +153,7 @@ async def stream_continue(
     role = ctx.pop("_role", "一位小说家")
 
     # Stream
-    client = get_ai_client()
+    client = await get_ai_client()
     generated_text = ""
 
     async for event in client.chat_stream(
@@ -195,7 +195,7 @@ async def polish_text(
     resolved_model = model or ctx.pop("_writing_model", "haiku")
     role = ctx.pop("_role", "一位小说家")
 
-    client = get_ai_client()
+    client = await get_ai_client()
     return await client.chat(
         model=resolved_model,
         system=f"你是一位文字编辑专家，请遵循以下角色定位：{role}",
@@ -223,7 +223,7 @@ async def expand_text(
     resolved_model = model or ctx.pop("_writing_model", "haiku")
     role = ctx.pop("_role", "一位小说家")
 
-    client = get_ai_client()
+    client = await get_ai_client()
     return await client.chat(
         model=resolved_model,
         system=f"你是一位擅长细节描写的文学作家，请遵循以下角色定位：{role}",

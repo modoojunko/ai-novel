@@ -4,6 +4,16 @@ import { getApiBaseUrl } from "./env";
 
 const BASE = `${getApiBaseUrl()}/api`;
 
+/** Fetch wrapper that redirects to /config on 503 (AI config required). */
+export async function apiFetch(input: RequestInfo, init?: RequestInit): Promise<Response> {
+  const resp = await fetch(input, init);
+  if (resp.status === 503) {
+    window.location.href = '/config';
+    throw new Error('Service unavailable');
+  }
+  return resp;
+}
+
 export async function request(path: string, options?: { method?: string; body?: string; headers?: Record<string, string> }): Promise<any> {
   const method = options?.method || 'GET';
   const headers: Record<string, string> = { ...(options?.headers || {}) };

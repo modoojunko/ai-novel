@@ -29,7 +29,7 @@ async def stream_segment(
 
     system_msg = style.get("role", "一位小说家")
 
-    client = get_ai_client()
+    client = await get_ai_client()
     full_text = ""
     async for event in client.chat_stream(
         model=model,

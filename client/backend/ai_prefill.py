@@ -23,7 +23,7 @@ async def prefill_world_setting(root_path: str) -> dict:
         synopsis=synopsis, genre_label=genre_label
     )
 
-    client = get_ai_client()
+    client = await get_ai_client()
     text = await client.chat(
         model="haiku",
         system="",

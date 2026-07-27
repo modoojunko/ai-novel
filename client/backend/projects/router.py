@@ -15,6 +15,7 @@ from projects.service import (
     get_project,
     get_project_by_slug,
     list_projects,
+    project_to_dict,
 )
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -59,7 +60,7 @@ async def create(
         synopsis=body.synopsis,
         genre_profile=body.genre_profile,
     )
-    return _project_dict(project)
+    return project_to_dict(project)
 
 
 @ai_router.post("/suggest-meta")
@@ -81,7 +82,7 @@ async def suggest_meta(
 
     prompt = load_prompt("suggest_meta").format(premise=body.premise)
 
-    client = get_ai_client()
+    client = await get_ai_client()
 
     try:
         text = await client.chat(
@@ -107,7 +108,7 @@ async def list_all(
     _limit: bool = Depends(require_project_limit),
 ):
     projects = await list_projects(db, user["id"])
-    return [_project_dict(p) for p in projects]
+    return [project_to_dict(p) for p in projects]
 
 
 @router.get("/by-slug/{slug}")
@@ -121,7 +122,7 @@ async def get_one_by_slug(
     project = await get_project_by_slug(db, user["id"], slug)
     if not project:
         raise HTTPException(404, "Project not found")
-    return _project_dict(project)
+    return project_to_dict(project)
 
 
 @router.get("/{project_id}")
@@ -135,7 +136,7 @@ async def get_one(
     project = await get_project(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    return _project_dict(project)
+    return project_to_dict(project)
 
 
 @router.delete("/{project_id}")
@@ -151,18 +152,3 @@ async def delete(
         raise HTTPException(404, "Project not found")
     await delete_project(db, project)
     return {"ok": True}
-
-
-def _project_dict(p) -> dict:
-    return {
-        "id": str(p.id),
-        "name": p.name,
-        "slug": p.slug,
-        "current_phase": p.current_phase,
-        "status": p.status,
-        "total_volumes": p.total_volumes,
-        "total_chapters": p.total_chapters,
-        "total_archives": p.total_archives,
-        "created_at": p.created_at.isoformat(),
-        "updated_at": p.updated_at.isoformat(),
-    }
