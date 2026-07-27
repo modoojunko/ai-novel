@@ -21,6 +21,7 @@ from .vendor import detect_vendor, resolve_vendor
 
 # ── ApiConfig CRUD ─────────────────────────────────────────────────────────
 
+
 async def create_api_config(
     db: AsyncSession,
     user_id: str,
@@ -39,7 +40,9 @@ async def create_api_config(
         raise ValueError("名称已被使用")
 
     # Resolve vendor
-    resolved_vendor_id, resolved_display_name, _ = resolve_vendor(base_url, vendor_override)
+    resolved_vendor_id, resolved_display_name, _ = resolve_vendor(
+        base_url, vendor_override
+    )
 
     config = ApiConfig(
         user_id=user_id,
@@ -57,9 +60,7 @@ async def create_api_config(
     return _config_to_dict(config)
 
 
-async def get_user_api_configs(
-    db: AsyncSession, user_id: str
-) -> list[dict[str, Any]]:
+async def get_user_api_configs(db: AsyncSession, user_id: str) -> list[dict[str, Any]]:
     """List all configs for a user."""
     result = await db.execute(
         select(ApiConfig)
@@ -143,7 +144,9 @@ async def delete_api_config(
 
     # Find affected projects
     proj_result = await db.execute(
-        select(Project).where(Project.ai_config_id == config_id, Project.status != "deleted")
+        select(Project).where(
+            Project.ai_config_id == config_id, Project.status != "deleted"
+        )
     )
     affected = list(proj_result.scalars().all())
     affected_names = [p.name for p in affected]
@@ -165,13 +168,10 @@ async def delete_api_config(
 
 # ── Status / Batch ─────────────────────────────────────────────────────────
 
-async def get_batch_status(
-    db: AsyncSession, user_id: str
-) -> list[dict[str, Any]]:
+
+async def get_batch_status(db: AsyncSession, user_id: str) -> list[dict[str, Any]]:
     """Return current status for all user's configs."""
-    result = await db.execute(
-        select(ApiConfig).where(ApiConfig.user_id == user_id)
-    )
+    result = await db.execute(select(ApiConfig).where(ApiConfig.user_id == user_id))
     statuses = []
     for c in result.scalars().all():
         models_list: list[str] = []
@@ -183,21 +183,28 @@ async def get_batch_status(
             except (json.JSONDecodeError, TypeError):
                 pass
         plain_key = decrypt_api_key(c.api_key)
-        statuses.append({
-            "id": c.id,
-            "status": c.status,
-            "last_test_status": c.last_test_status,
-            "last_test_error": c.last_test_error,
-            "last_tested_at": c.last_tested_at.isoformat() if c.last_tested_at else None,
-            "models": models_list,
-            "models_updated_at": c.models_updated_at.isoformat() if c.models_updated_at else None,
-            "api_key_masked": mask_api_key(plain_key),
-            "vendor": c.vendor,
-        })
+        statuses.append(
+            {
+                "id": c.id,
+                "status": c.status,
+                "last_test_status": c.last_test_status,
+                "last_test_error": c.last_test_error,
+                "last_tested_at": c.last_tested_at.isoformat()
+                if c.last_tested_at
+                else None,
+                "models": models_list,
+                "models_updated_at": c.models_updated_at.isoformat()
+                if c.models_updated_at
+                else None,
+                "api_key_masked": mask_api_key(plain_key),
+                "vendor": c.vendor,
+            }
+        )
     return statuses
 
 
 # ── Project AI Model ───────────────────────────────────────────────────────
+
 
 async def set_project_model(
     db: AsyncSession,
@@ -303,9 +310,7 @@ async def apply_model_to_all_projects(
         return {"ok": False, "error": "Config not found"}
 
     proj_result = await db.execute(
-        select(Project).where(
-            Project.user_id == user_id, Project.status != "deleted"
-        )
+        select(Project).where(Project.user_id == user_id, Project.status != "deleted")
     )
     projects = list(proj_result.scalars().all())
 
@@ -341,6 +346,7 @@ async def apply_model_to_all_projects(
 
 
 # ── Model History ──────────────────────────────────────────────────────────
+
 
 async def get_model_history(
     db: AsyncSession,
@@ -383,15 +389,17 @@ async def get_model_history(
             if cfg_obj:
                 new_config_name = cfg_obj.name
 
-        entries.append({
-            "id": log.id,
-            "changed_at": log.created_at.isoformat() if log.created_at else "",
-            "old_config_name": old_config_name,
-            "new_config_name": new_config_name,
-            "old_model": log.old_model,
-            "new_model": log.new_model,
-            "change_type": log.change_type,
-        })
+        entries.append(
+            {
+                "id": log.id,
+                "changed_at": log.created_at.isoformat() if log.created_at else "",
+                "old_config_name": old_config_name,
+                "new_config_name": new_config_name,
+                "old_model": log.old_model,
+                "new_model": log.new_model,
+                "change_type": log.change_type,
+            }
+        )
     return entries
 
 
@@ -424,7 +432,10 @@ async def restore_model_history(
             select(ApiConfig).where(ApiConfig.id == entry.new_api_config_id)
         )
         if not cfg_result.scalar_one_or_none():
-            return {"error": "config_not_found", "message": "该配置关联的 API Key 已不存在"}
+            return {
+                "error": "config_not_found",
+                "message": "该配置关联的 API Key 已不存在",
+            }
 
     # Restore
     old_config_id = project.ai_config_id
@@ -455,24 +466,25 @@ async def restore_model_history(
 
 # ── Usage ──────────────────────────────────────────────────────────────────
 
-async def get_usage_summary(
-    db: AsyncSession, user_id: str
-) -> dict[str, Any]:
+
+async def get_usage_summary(db: AsyncSession, user_id: str) -> dict[str, Any]:
     """Get global usage summary."""
     from sqlalchemy import func as sa_func
 
     # All time
     result = await db.execute(
-        select(sa_func.coalesce(sa_func.sum(TokenLog.tokens_in + TokenLog.tokens_out), 0))
-        .where(TokenLog.user_id == user_id)
+        select(
+            sa_func.coalesce(sa_func.sum(TokenLog.tokens_in + TokenLog.tokens_out), 0)
+        ).where(TokenLog.user_id == user_id)
     )
     total_all = result.scalar()
 
     # This month
     first_of_month = datetime.now(UTC).date().replace(day=1)
     result = await db.execute(
-        select(sa_func.coalesce(sa_func.sum(TokenLog.tokens_in + TokenLog.tokens_out), 0))
-        .where(
+        select(
+            sa_func.coalesce(sa_func.sum(TokenLog.tokens_in + TokenLog.tokens_out), 0)
+        ).where(
             TokenLog.user_id == user_id,
             TokenLog.created_at >= first_of_month,
         )
@@ -482,8 +494,9 @@ async def get_usage_summary(
     # Today
     today = datetime.now(UTC).date()
     result = await db.execute(
-        select(sa_func.coalesce(sa_func.sum(TokenLog.tokens_in + TokenLog.tokens_out), 0))
-        .where(
+        select(
+            sa_func.coalesce(sa_func.sum(TokenLog.tokens_in + TokenLog.tokens_out), 0)
+        ).where(
             TokenLog.user_id == user_id,
             sa_func.date(TokenLog.created_at) == today,
         )
@@ -569,14 +582,13 @@ async def get_project_usage(
 
 # ── Migration ──────────────────────────────────────────────────────────────
 
+
 async def migrate_user_configs(db: AsyncSession) -> None:
     """Migrate User.api_key / api_base_url / api_model -> ApiConfig.
 
     Runs in FastAPI lifespan. Idempotent.
     """
-    result = await db.execute(
-        select(ApiConfig.__table__.c.user_id).distinct()
-    )
+    result = await db.execute(select(ApiConfig.__table__.c.user_id).distinct())
     migrated_user_ids = {row[0] for row in result.fetchall()}
 
     user_result = await db.execute(
@@ -634,6 +646,7 @@ async def migrate_user_configs(db: AsyncSession) -> None:
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
+
 def _config_to_dict(config: ApiConfig) -> dict[str, Any]:
     plain_key = decrypt_api_key(config.api_key)
     models_list: list[str] = []
@@ -656,9 +669,13 @@ def _config_to_dict(config: ApiConfig) -> dict[str, Any]:
         "status": config.status,
         "last_test_status": config.last_test_status,
         "last_test_error": config.last_test_error,
-        "last_tested_at": config.last_tested_at.isoformat() if config.last_tested_at else None,
+        "last_tested_at": config.last_tested_at.isoformat()
+        if config.last_tested_at
+        else None,
         "models": models_list,
-        "models_updated_at": config.models_updated_at.isoformat() if config.models_updated_at else None,
+        "models_updated_at": config.models_updated_at.isoformat()
+        if config.models_updated_at
+        else None,
         "created_at": config.created_at.isoformat() if config.created_at else None,
         "updated_at": config.updated_at.isoformat() if config.updated_at else None,
     }

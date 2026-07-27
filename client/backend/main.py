@@ -59,7 +59,15 @@ async def lifespan(app: FastAPI):
                     user = result.scalar_one_or_none()
                     if user:
                         changed = False
-                        for field in ["api_key", "api_base_url", "api_model", "token", "pc_hash", "pc_name", "server_api"]:
+                        for field in [
+                            "api_key",
+                            "api_base_url",
+                            "api_model",
+                            "token",
+                            "pc_hash",
+                            "pc_name",
+                            "server_api",
+                        ]:
                             if cfg.get(field):
                                 setattr(user, field, cfg[field])
                                 changed = True
@@ -70,13 +78,18 @@ async def lifespan(app: FastAPI):
                         if cfg.get("expires_at") and not user.subscription_expires_at:
                             try:
                                 from datetime import date
-                                user.subscription_expires_at = date.fromisoformat(cfg["expires_at"])
+
+                                user.subscription_expires_at = date.fromisoformat(
+                                    cfg["expires_at"]
+                                )
                                 changed = True
                             except ValueError:
                                 pass
                         if cfg.get("last_login_at") and not user.activated_at:
                             try:
-                                user.activated_at = datetime.fromisoformat(cfg["last_login_at"])
+                                user.activated_at = datetime.fromisoformat(
+                                    cfg["last_login_at"]
+                                )
                                 changed = True
                             except ValueError:
                                 pass
@@ -87,15 +100,18 @@ async def lifespan(app: FastAPI):
                 json.dump({}, f)
     except Exception as e:  # noqa: BLE001
         import logging
+
         logging.getLogger("uvicorn.error").warning("Config migration failed: %s", e)
 
     # ── Migrate User old fields → ApiConfig ──────────────────────────
     try:
         from api_configs.service import migrate_user_configs
+
         async with async_session() as session:
             await migrate_user_configs(session)
     except Exception as e:  # noqa: BLE001
         import logging
+
         logging.getLogger("uvicorn.error").warning("ApiConfig migration failed: %s", e)
 
     yield

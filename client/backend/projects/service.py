@@ -98,6 +98,7 @@ async def delete_project(db: AsyncSession, project: Project):
 
 # ── Serialization ─────────────────────────────────────────────────────────
 
+
 def project_to_dict(p) -> dict:
     """Convert a Project ORM instance to a serializable dict."""
     return {

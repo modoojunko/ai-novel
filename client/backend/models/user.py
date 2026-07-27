@@ -32,9 +32,7 @@ class User(Base):
     api_base_url: Mapped[str] = mapped_column(
         String(500), default="https://api.deepseek.com/anthropic"
     )
-    api_model: Mapped[str] = mapped_column(
-        String(100), default="deepseek-v4-flash"
-    )
+    api_model: Mapped[str] = mapped_column(String(100), default="deepseek-v4-flash")
     token: Mapped[str] = mapped_column(String(512), default="", server_default="")
     pc_hash: Mapped[str] = mapped_column(String(64), default="", server_default="")
     pc_name: Mapped[str] = mapped_column(String(200), default="", server_default="")
@@ -44,5 +42,8 @@ class User(Base):
 
     # Relationships
     api_configs = relationship(
-        "ApiConfig", back_populates="user", cascade="all, delete-orphan", passive_deletes=True
+        "ApiConfig",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )

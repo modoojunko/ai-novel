@@ -10,7 +10,14 @@ from pydantic import BaseModel, Field, field_validator
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 KNOWN_VENDORS = {
-    "openai", "anthropic", "deepseek", "glm", "kimi", "qwen", "ollama", "openai-compat",
+    "openai",
+    "anthropic",
+    "deepseek",
+    "glm",
+    "kimi",
+    "qwen",
+    "ollama",
+    "openai-compat",
 }
 
 
@@ -25,6 +32,7 @@ def mask_api_key(key: str) -> str:
 
 # ── Request bodies ─────────────────────────────────────────────────────────
 
+
 class CreateApiConfigBody(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     vendor_id: str
@@ -36,7 +44,9 @@ class CreateApiConfigBody(BaseModel):
     @classmethod
     def _validate_vendor(cls, v: str) -> str:
         if v not in KNOWN_VENDORS:
-            raise ValueError(f"Unknown vendor_id '{v}'. Must be one of: {', '.join(sorted(KNOWN_VENDORS))}")
+            raise ValueError(
+                f"Unknown vendor_id '{v}'. Must be one of: {', '.join(sorted(KNOWN_VENDORS))}"
+            )
         return v
 
 
@@ -58,6 +68,7 @@ class ApplyModelToAllBody(BaseModel):
 
 
 # ── Response schemas ───────────────────────────────────────────────────────
+
 
 class ApiConfigResponse(BaseModel):
     id: str

@@ -150,7 +150,9 @@ async def api_get_config(
         return {
             "has_token": bool(u.token),
             "tier": u.plan or "none",
-            "expires_at": str(u.subscription_expires_at) if u.subscription_expires_at else "",
+            "expires_at": str(u.subscription_expires_at)
+            if u.subscription_expires_at
+            else "",
             "has_api_key": bool(u.api_key),
             "api_base_url": u.api_base_url or "",
             "api_model": u.api_model or "",

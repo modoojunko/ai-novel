@@ -27,10 +27,12 @@ async def require_ai_access(
     # Check ApiConfig first (new system)
     try:
         result = await db.execute(
-            select(ApiConfig).where(
+            select(ApiConfig)
+            .where(
                 ApiConfig.user_id == user["id"],
                 ApiConfig.status == "active",
-            ).limit(1)
+            )
+            .limit(1)
         )
         if result.scalar_one_or_none():
             return True

@@ -15,13 +15,31 @@ class VendorPattern:
 
 
 VENDOR_PATTERNS: list[VendorPattern] = [
-    VendorPattern("openai", "OpenAI", re.compile(r"^https://api\.openai\.com", re.IGNORECASE)),
-    VendorPattern("anthropic", "Anthropic", re.compile(r"^https://api\.anthropic\.com", re.IGNORECASE)),
-    VendorPattern("deepseek", "DeepSeek", re.compile(r"^https://api\.deepseek\.com", re.IGNORECASE)),
-    VendorPattern("glm", "GLM", re.compile(r"^https://open\.bigmodel\.cn", re.IGNORECASE)),
-    VendorPattern("kimi", "Kimi", re.compile(r"^https://api\.moonshot\.cn", re.IGNORECASE)),
-    VendorPattern("qwen", "Qwen", re.compile(r"^https://dashscope\.aliyuncs\.com", re.IGNORECASE)),
-    VendorPattern("ollama", "Ollama", re.compile(r"^http://localhost:11434", re.IGNORECASE)),
+    VendorPattern(
+        "openai", "OpenAI", re.compile(r"^https://api\.openai\.com", re.IGNORECASE)
+    ),
+    VendorPattern(
+        "anthropic",
+        "Anthropic",
+        re.compile(r"^https://api\.anthropic\.com", re.IGNORECASE),
+    ),
+    VendorPattern(
+        "deepseek",
+        "DeepSeek",
+        re.compile(r"^https://api\.deepseek\.com", re.IGNORECASE),
+    ),
+    VendorPattern(
+        "glm", "GLM", re.compile(r"^https://open\.bigmodel\.cn", re.IGNORECASE)
+    ),
+    VendorPattern(
+        "kimi", "Kimi", re.compile(r"^https://api\.moonshot\.cn", re.IGNORECASE)
+    ),
+    VendorPattern(
+        "qwen", "Qwen", re.compile(r"^https://dashscope\.aliyuncs\.com", re.IGNORECASE)
+    ),
+    VendorPattern(
+        "ollama", "Ollama", re.compile(r"^http://localhost:11434", re.IGNORECASE)
+    ),
 ]
 
 ANTHROPIC_MODELS: list[str] = [

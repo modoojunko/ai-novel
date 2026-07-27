@@ -57,6 +57,7 @@ TEST_USER_PASSWORD = "TestPass123!"
 
 # ── Helper: initialise database ────────────────────────────────────────────
 
+
 def _run_async(coro):
     """Run a coroutine synchronously (for fixtures)."""
     loop = asyncio.new_event_loop()
@@ -155,16 +156,16 @@ async def _get_config(user_id: str, config_id: str):
     """Get a config by id for a user."""
     async with async_session() as session:
         from sqlalchemy import text as sql_text
+
         result = await session.execute(
-            sql_text(
-                "SELECT * FROM api_configs WHERE id = :id AND user_id = :uid"
-            ),
+            sql_text("SELECT * FROM api_configs WHERE id = :id AND user_id = :uid"),
             {"id": config_id, "uid": user_id},
         )
         return result.fetchone()
 
 
 # ── Fixtures ───────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
@@ -180,6 +181,7 @@ def setup_database():
         pass
     try:
         import shutil
+
         shutil.rmtree(_tmp_data_root)
     except OSError:
         pass
@@ -205,8 +207,10 @@ async def _override_get_db():
 
 def _make_current_user_override(user_id: str):
     """Return a dependency override callable that returns the given user_id."""
+
     async def _override():
         return {"id": user_id}
+
     return _override
 
 
@@ -234,11 +238,14 @@ def user_token(client) -> str:
     uid = uuid.uuid4().hex[:12]
     email = f"apikey_user_{uid}@example.com"
 
-    resp = client.post("/api/auth/register", json={
-        "email": email,
-        "password": TEST_USER_PASSWORD,
-        "display_name": f"Tester_{uid[:6]}",
-    })
+    resp = client.post(
+        "/api/auth/register",
+        json={
+            "email": email,
+            "password": TEST_USER_PASSWORD,
+            "display_name": f"Tester_{uid[:6]}",
+        },
+    )
     assert resp.status_code in (200, 201), f"Register failed: {resp.text}"
     data = resp.json()
     token = data["access_token"]
@@ -248,6 +255,7 @@ def user_token(client) -> str:
     async def _override():
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         return {"id": payload["sub"]}
+
     app.dependency_overrides[get_current_user] = _override
 
     yield token
@@ -303,6 +311,7 @@ def _auth_headers(token: str) -> dict:
 #  P0 — ApiConfig CRUD
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestApiKeyCRUD:
     """ApiConfig create, read, update, delete."""
 
@@ -316,7 +325,9 @@ class TestApiKeyCRUD:
             _run_async(_create_user(user_id=self.CRUD_USER_ID))
             TestApiKeyCRUD._user_created = True
         # Always set override for this test class (setup_session_overrides resets before each test)
-        app.dependency_overrides[get_current_user] = _make_current_user_override(self.CRUD_USER_ID)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            self.CRUD_USER_ID
+        )
         # Clean up configs from previous tests to ensure isolation
         _run_async(_clean_user_configs(self.CRUD_USER_ID))
         yield
@@ -325,12 +336,15 @@ class TestApiKeyCRUD:
 
     def test_create_config_basic(self, client):
         """TC-CRUD-01: Create basic ApiConfig with valid data."""
-        resp = client.post("/api/v1/api-configs", json={
-            "name": "我的 OpenAI",
-            "vendor_id": "openai",
-            "base_url": "https://api.openai.com",
-            "api_key": "sk-test-12345",
-        })
+        resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "我的 OpenAI",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-test-12345",
+            },
+        )
         assert resp.status_code == 201, f"Create failed: {resp.text}"
         data = resp.json()
         assert data["name"] == "我的 OpenAI"
@@ -340,74 +354,97 @@ class TestApiKeyCRUD:
         assert data["status"] in ("active", "untested")
         # API key should be masked or not returned in full
         if "api_key" in data:
-            assert "***" in data["api_key"] or len(data["api_key"]) < len("sk-test-12345")
+            assert "***" in data["api_key"] or len(data["api_key"]) < len(
+                "sk-test-12345"
+            )
 
     def test_create_config_with_vendor_detection(self, client):
         """Create config, verify vendor auto-detection."""
-        resp = client.post("/api/v1/api-configs", json={
-            "name": "测试 DeepSeek",
-            "vendor_id": "deepseek",
-            "base_url": "https://api.deepseek.com",
-            "api_key": "sk-ds-test",
-        })
+        resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "测试 DeepSeek",
+                "vendor_id": "deepseek",
+                "base_url": "https://api.deepseek.com",
+                "api_key": "sk-ds-test",
+            },
+        )
         assert resp.status_code == 201
         assert resp.json()["vendor"] == "deepseek"
 
     def test_create_openai_compat_fallback(self, client):
         """TC-VENDOR-08: Unknown base_url -> vendor = openai-compat."""
-        resp = client.post("/api/v1/api-configs", json={
-            "name": "自定义代理",
-            "vendor_id": "openai-compat",
-            "base_url": "https://my-custom-proxy.com/v1",
-            "api_key": "sk-custom",
-        })
+        resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "自定义代理",
+                "vendor_id": "openai-compat",
+                "base_url": "https://my-custom-proxy.com/v1",
+                "api_key": "sk-custom",
+            },
+        )
         assert resp.status_code == 201
         assert resp.json()["vendor"] == "openai-compat"
 
     def test_create_ollama_without_api_key(self, client):
         """TC-CRUD-02: Ollama config does not require an API key."""
-        resp = client.post("/api/v1/api-configs", json={
-            "name": "本地 Ollama",
-            "vendor_id": "ollama",
-            "base_url": "http://localhost:11434",
-            "api_key": "",
-        })
+        resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "本地 Ollama",
+                "vendor_id": "ollama",
+                "base_url": "http://localhost:11434",
+                "api_key": "",
+            },
+        )
         assert resp.status_code == 201, f"Ollama create failed: {resp.text}"
 
     def test_create_duplicate_name_same_user(self, client):
         """TC-CRUD-03: Same user cannot have two configs with the same name."""
-        client.post("/api/v1/api-configs", json={
-            "name": "唯一名称",
-            "vendor_id": "openai",
-            "base_url": "https://api.openai.com",
-            "api_key": "sk-1",
-        })
-        resp = client.post("/api/v1/api-configs", json={
-            "name": "唯一名称",
-            "vendor_id": "deepseek",
-            "base_url": "https://api.deepseek.com",
-            "api_key": "sk-2",
-        })
+        client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "唯一名称",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-1",
+            },
+        )
+        resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "唯一名称",
+                "vendor_id": "deepseek",
+                "base_url": "https://api.deepseek.com",
+                "api_key": "sk-2",
+            },
+        )
         assert resp.status_code == 409
         assert "名称" in resp.text or "name" in resp.text.lower()
 
     def test_create_missing_name_returns_422(self, client):
         """TC-CRUD-06: Missing required fields -> 422."""
-        resp = client.post("/api/v1/api-configs", json={
-            "vendor_id": "openai",
-            "base_url": "https://api.openai.com",
-            "api_key": "sk-1",
-        })
+        resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-1",
+            },
+        )
         assert resp.status_code == 422
 
     def test_create_invalid_vendor_id_returns_422(self, client):
         """TC-CRUD-05: Invalid vendor_id -> 422."""
-        resp = client.post("/api/v1/api-configs", json={
-            "name": "坏供应商",
-            "vendor_id": "nonexistent-vendor",
-            "base_url": "https://x.com",
-            "api_key": "sk-1",
-        })
+        resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "坏供应商",
+                "vendor_id": "nonexistent-vendor",
+                "base_url": "https://x.com",
+                "api_key": "sk-1",
+            },
+        )
         assert resp.status_code == 422
 
     # ── List ──
@@ -420,18 +457,33 @@ class TestApiKeyCRUD:
 
     def test_list_configs_multiple(self, client):
         """TC-CRUD-08: List returns all configs for the user."""
-        client.post("/api/v1/api-configs", json={
-            "name": "列表测试 A", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-a",
-        })
-        client.post("/api/v1/api-configs", json={
-            "name": "列表测试 B", "vendor_id": "deepseek",
-            "base_url": "https://api.deepseek.com", "api_key": "sk-b",
-        })
-        client.post("/api/v1/api-configs", json={
-            "name": "列表测试 C", "vendor_id": "ollama",
-            "base_url": "http://localhost:11434", "api_key": "",
-        })
+        client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "列表测试 A",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-a",
+            },
+        )
+        client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "列表测试 B",
+                "vendor_id": "deepseek",
+                "base_url": "https://api.deepseek.com",
+                "api_key": "sk-b",
+            },
+        )
+        client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "列表测试 C",
+                "vendor_id": "ollama",
+                "base_url": "http://localhost:11434",
+                "api_key": "",
+            },
+        )
         resp = client.get("/api/v1/api-configs")
         assert resp.status_code == 200
         assert len(resp.json()) == 3
@@ -439,28 +491,42 @@ class TestApiKeyCRUD:
     def test_list_configs_other_user_isolation(self, client):
         """TC-CRUD-09: Other user's configs are not visible."""
         # Create under current user
-        client.post("/api/v1/api-configs", json={
-            "name": "用户隔离测试", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-iso",
-        })
+        client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "用户隔离测试",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-iso",
+            },
+        )
         # Switch to another user
         other_id = "isolation-other-user"
         _run_async(_create_user(user_id=other_id))
-        app.dependency_overrides[get_current_user] = _make_current_user_override(other_id)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            other_id
+        )
         resp = client.get("/api/v1/api-configs")
         assert resp.status_code == 200
         assert resp.json() == []
         # Switch back
-        app.dependency_overrides[get_current_user] = _make_current_user_override(self.CRUD_USER_ID)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            self.CRUD_USER_ID
+        )
 
     # ── Get single ──
 
     def test_get_config_by_id(self, client):
         """TC-CRUD-10: Get single config by ID."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "获取测试", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-get",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "获取测试",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-get",
+            },
+        )
         config_id = create_resp.json()["id"]
         resp = client.get(f"/api/v1/api-configs/{config_id}")
         assert resp.status_code == 200
@@ -474,44 +540,69 @@ class TestApiKeyCRUD:
 
     def test_get_config_other_user_not_found(self, client):
         """TC-CRUD-12: Other user's config is not accessible."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "跨用户获取", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-cross",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "跨用户获取",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-cross",
+            },
+        )
         config_id = create_resp.json()["id"]
         # Switch user
         other_id = "cross-get-other"
         _run_async(_create_user(user_id=other_id))
-        app.dependency_overrides[get_current_user] = _make_current_user_override(other_id)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            other_id
+        )
         resp = client.get(f"/api/v1/api-configs/{config_id}")
         assert resp.status_code == 404
-        app.dependency_overrides[get_current_user] = _make_current_user_override(self.CRUD_USER_ID)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            self.CRUD_USER_ID
+        )
 
     # ── Update ──
 
     def test_update_config_name(self, client):
         """TC-CRUD-13: Update config name."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "旧名称", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-upd",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "旧名称",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-upd",
+            },
+        )
         config_id = create_resp.json()["id"]
-        resp = client.put(f"/api/v1/api-configs/{config_id}", json={
-            "name": "新名称",
-        })
+        resp = client.put(
+            f"/api/v1/api-configs/{config_id}",
+            json={
+                "name": "新名称",
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["name"] == "新名称"
 
     def test_update_config_base_url(self, client):
         """TC-CRUD-14: Update base_url (vendor may re-detect)."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "URL 更新测试", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-url",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "URL 更新测试",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-url",
+            },
+        )
         config_id = create_resp.json()["id"]
-        resp = client.put(f"/api/v1/api-configs/{config_id}", json={
-            "base_url": "https://api.deepseek.com",
-        })
+        resp = client.put(
+            f"/api/v1/api-configs/{config_id}",
+            json={
+                "base_url": "https://api.deepseek.com",
+            },
+        )
         assert resp.status_code == 200
         # Vendor may have changed due to re-detection
         data = resp.json()
@@ -519,30 +610,51 @@ class TestApiKeyCRUD:
 
     def test_update_config_api_key(self, client):
         """TC-CRUD-15: Update API key."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "Key 更新测试", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-old-key",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "Key 更新测试",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-old-key",
+            },
+        )
         config_id = create_resp.json()["id"]
-        resp = client.put(f"/api/v1/api-configs/{config_id}", json={
-            "api_key": "sk-new-key",
-        })
+        resp = client.put(
+            f"/api/v1/api-configs/{config_id}",
+            json={
+                "api_key": "sk-new-key",
+            },
+        )
         assert resp.status_code == 200
 
     def test_update_config_name_duplicate(self, client):
         """TC-CRUD-17: Update to a name already used by another config -> 409."""
-        client.post("/api/v1/api-configs", json={
-            "name": "已存在名称", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-exist",
-        })
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "要改名的配置", "vendor_id": "deepseek",
-            "base_url": "https://api.deepseek.com", "api_key": "sk-rename",
-        })
+        client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "已存在名称",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-exist",
+            },
+        )
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "要改名的配置",
+                "vendor_id": "deepseek",
+                "base_url": "https://api.deepseek.com",
+                "api_key": "sk-rename",
+            },
+        )
         config_id = create_resp.json()["id"]
-        resp = client.put(f"/api/v1/api-configs/{config_id}", json={
-            "name": "已存在名称",
-        })
+        resp = client.put(
+            f"/api/v1/api-configs/{config_id}",
+            json={
+                "name": "已存在名称",
+            },
+        )
         assert resp.status_code == 409
 
     def test_update_config_not_found(self, client):
@@ -552,26 +664,40 @@ class TestApiKeyCRUD:
 
     def test_update_config_other_user_returns_404(self, client):
         """Other user cannot update this config."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "跨用户更新", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-cross-upd",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "跨用户更新",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-cross-upd",
+            },
+        )
         config_id = create_resp.json()["id"]
         other_id = "cross-upd-other"
         _run_async(_create_user(user_id=other_id))
-        app.dependency_overrides[get_current_user] = _make_current_user_override(other_id)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            other_id
+        )
         resp = client.put(f"/api/v1/api-configs/{config_id}", json={"name": "hacked"})
         assert resp.status_code == 404
-        app.dependency_overrides[get_current_user] = _make_current_user_override(self.CRUD_USER_ID)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            self.CRUD_USER_ID
+        )
 
     # ── Delete ──
 
     def test_delete_config_no_projects(self, client):
         """TC-CRUD-18: Delete config that no project references."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "删除测试(无项目)", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-del-empty",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "删除测试(无项目)",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-del-empty",
+            },
+        )
         config_id = create_resp.json()["id"]
         resp = client.delete(f"/api/v1/api-configs/{config_id}")
         assert resp.status_code == 200
@@ -586,22 +712,32 @@ class TestApiKeyCRUD:
 
     def test_delete_config_other_user_returns_404(self, client):
         """Other user cannot delete this config."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "跨用户删除", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-cross-del",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "跨用户删除",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-cross-del",
+            },
+        )
         config_id = create_resp.json()["id"]
         other_id = "cross-del-other"
         _run_async(_create_user(user_id=other_id))
-        app.dependency_overrides[get_current_user] = _make_current_user_override(other_id)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            other_id
+        )
         resp = client.delete(f"/api/v1/api-configs/{config_id}")
         assert resp.status_code == 404
-        app.dependency_overrides[get_current_user] = _make_current_user_override(self.CRUD_USER_ID)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            self.CRUD_USER_ID
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  P0 — Delete cascade
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestDeleteCascade:
     """Delete ApiConfig that is referenced by projects."""
@@ -614,25 +750,34 @@ class TestDeleteCascade:
         if not TestDeleteCascade._setup_done:
             _run_async(_create_user(user_id=self.CASCADE_USER_ID))
             TestDeleteCascade._setup_done = True
-        app.dependency_overrides[get_current_user] = _make_current_user_override(self.CASCADE_USER_ID)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            self.CASCADE_USER_ID
+        )
         _run_async(_clean_user_configs(self.CASCADE_USER_ID))
         yield
 
     def test_delete_config_used_by_one_project(self, client):
         """TC-CASCADE-01: Delete config used by 1 project -> projects.ai_config_id=NULL."""
         # Create config
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "级联删除测试-1", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-c1",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "级联删除测试-1",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-c1",
+            },
+        )
         config_id = create_resp.json()["id"]
         # Create project referencing it
-        p = _run_async(_create_project(
-            user_id=self.CASCADE_USER_ID,
-            name="级联项目1",
-            ai_config_id=config_id,
-            ai_model="gpt-4o",
-        ))
+        p = _run_async(
+            _create_project(
+                user_id=self.CASCADE_USER_ID,
+                name="级联项目1",
+                ai_config_id=config_id,
+                ai_model="gpt-4o",
+            )
+        )
         # Delete config
         resp = client.delete(f"/api/v1/api-configs/{config_id}")
         assert resp.status_code == 200
@@ -642,41 +787,59 @@ class TestDeleteCascade:
         projects = _run_async(_get_projects_by_user(self.CASCADE_USER_ID))
         for proj in projects:
             if proj.id == p.id:
-                assert proj.ai_config_id is None, "Project ai_config_id should be NULL after config delete"
-                assert proj.ai_model == "gpt-4o", "Project ai_model should be retained for history"
+                assert proj.ai_config_id is None, (
+                    "Project ai_config_id should be NULL after config delete"
+                )
+                assert proj.ai_model == "gpt-4o", (
+                    "Project ai_model should be retained for history"
+                )
 
     def test_delete_config_used_by_multiple_projects(self, client):
         """TC-CASCADE-02: Delete config used by 3 projects -> all nullified."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "级联删除测试-多", "vendor_id": "deepseek",
-            "base_url": "https://api.deepseek.com", "api_key": "sk-cmulti",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "级联删除测试-多",
+                "vendor_id": "deepseek",
+                "base_url": "https://api.deepseek.com",
+                "api_key": "sk-cmulti",
+            },
+        )
         config_id = create_resp.json()["id"]
         # Create 3 projects
         for i in range(3):
-            _run_async(_create_project(
-                user_id=self.CASCADE_USER_ID,
-                name=f"级联多项目{i}",
-                ai_config_id=config_id,
-                ai_model="deepseek-v4-flash",
-            ))
+            _run_async(
+                _create_project(
+                    user_id=self.CASCADE_USER_ID,
+                    name=f"级联多项目{i}",
+                    ai_config_id=config_id,
+                    ai_model="deepseek-v4-flash",
+                )
+            )
         resp = client.delete(f"/api/v1/api-configs/{config_id}")
         assert resp.status_code == 200
         assert resp.json()["affected_projects"] == 3
 
     def test_delete_config_retains_project_model_name(self, client):
         """TC-CASCADE-03: project.ai_model is preserved after config delete."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "保留模型名测试", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-retain",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "保留模型名测试",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-retain",
+            },
+        )
         config_id = create_resp.json()["id"]
-        p = _run_async(_create_project(
-            user_id=self.CASCADE_USER_ID,
-            name="保留模型项目",
-            ai_config_id=config_id,
-            ai_model="gpt-4o-mini",
-        ))
+        p = _run_async(
+            _create_project(
+                user_id=self.CASCADE_USER_ID,
+                name="保留模型项目",
+                ai_config_id=config_id,
+                ai_model="gpt-4o-mini",
+            )
+        )
         client.delete(f"/api/v1/api-configs/{config_id}")
         projects = _run_async(_get_projects_by_user(self.CASCADE_USER_ID))
         for proj in projects:
@@ -689,6 +852,7 @@ class TestDeleteCascade:
 #  P0 — Model Selection
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestModelSelection:
     """Per-project AI model selection."""
 
@@ -700,73 +864,106 @@ class TestModelSelection:
         if not TestModelSelection._setup_done:
             _run_async(_create_user(user_id=self.MODEL_USER_ID))
             TestModelSelection._setup_done = True
-        app.dependency_overrides[get_current_user] = _make_current_user_override(self.MODEL_USER_ID)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            self.MODEL_USER_ID
+        )
         _run_async(_clean_user_configs(self.MODEL_USER_ID))
         yield
 
     def test_set_ai_model(self, client):
         """TC-MODEL-01: Set AI model for a project."""
         # Create config first
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "模型选择测试", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-model",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "模型选择测试",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-model",
+            },
+        )
         config_id = create_resp.json()["id"]
         # Create project
-        p = _run_async(_create_project(
-            user_id=self.MODEL_USER_ID,
-            name="模型项目",
-        ))
+        p = _run_async(
+            _create_project(
+                user_id=self.MODEL_USER_ID,
+                name="模型项目",
+            )
+        )
         # Set model
-        resp = client.put(f"/api/v1/projects/{p.id}/ai-model", json={
-            "api_config_id": config_id,
-            "model": "gpt-4o",
-        })
+        resp = client.put(
+            f"/api/v1/projects/{p.id}/ai-model",
+            json={
+                "api_config_id": config_id,
+                "model": "gpt-4o",
+            },
+        )
         assert resp.status_code == 200
         # Verify via project GET (model info returned as part of project response)
         resp2 = client.get(f"/api/v1/projects/{p.id}")
         assert resp2.status_code == 200
         data = resp2.json()
-        assert data.get("ai_config_id") == config_id, f"Expected ai_config_id={config_id}, got {data.get('ai_config_id')}"
-        assert data.get("ai_model") == "gpt-4o", f"Expected ai_model=gpt-4o, got {data.get('ai_model')}"
+        assert data.get("ai_config_id") == config_id, (
+            f"Expected ai_config_id={config_id}, got {data.get('ai_config_id')}"
+        )
+        assert data.get("ai_model") == "gpt-4o", (
+            f"Expected ai_model=gpt-4o, got {data.get('ai_model')}"
+        )
 
     def test_set_model_with_nonexistent_config(self, client):
         """TC-MODEL-03: Set model with nonexistent config_id -> 404."""
-        p = _run_async(_create_project(
-            user_id=self.MODEL_USER_ID,
-            name="模型项目-不存在",
-        ))
-        resp = client.put(f"/api/v1/projects/{p.id}/ai-model", json={
-            "api_config_id": "nonexistent-config-id",
-            "model": "gpt-4o",
-        })
+        p = _run_async(
+            _create_project(
+                user_id=self.MODEL_USER_ID,
+                name="模型项目-不存在",
+            )
+        )
+        resp = client.put(
+            f"/api/v1/projects/{p.id}/ai-model",
+            json={
+                "api_config_id": "nonexistent-config-id",
+                "model": "gpt-4o",
+            },
+        )
         assert resp.status_code == 404
 
     def test_clear_model_selection(self, client):
         """TC-MODEL-04: Clear model (set both to null)."""
-        p = _run_async(_create_project(
-            user_id=self.MODEL_USER_ID,
-            name="模型项目-清除",
-        ))
-        resp = client.put(f"/api/v1/projects/{p.id}/ai-model", json={
-            "api_config_id": None,
-            "model": None,
-        })
+        p = _run_async(
+            _create_project(
+                user_id=self.MODEL_USER_ID,
+                name="模型项目-清除",
+            )
+        )
+        resp = client.put(
+            f"/api/v1/projects/{p.id}/ai-model",
+            json={
+                "api_config_id": None,
+                "model": None,
+            },
+        )
         assert resp.status_code == 200
 
     def test_set_model_other_user_project_returns_404(self, client):
         """Cannot set model for another user's project."""
         other_id = "model-other-user"
         _run_async(_create_user(user_id=other_id))
-        p = _run_async(_create_project(
-            user_id=other_id,
-            name="他人的项目",
-        ))
-        app.dependency_overrides[get_current_user] = _make_current_user_override(self.MODEL_USER_ID)
-        resp = client.put(f"/api/v1/projects/{p.id}/ai-model", json={
-            "api_config_id": "ignored",
-            "model": "gpt-4o",
-        })
+        p = _run_async(
+            _create_project(
+                user_id=other_id,
+                name="他人的项目",
+            )
+        )
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            self.MODEL_USER_ID
+        )
+        resp = client.put(
+            f"/api/v1/projects/{p.id}/ai-model",
+            json={
+                "api_config_id": "ignored",
+                "model": "gpt-4o",
+            },
+        )
         assert resp.status_code == 404
 
     def test_apply_model_to_all_projects(self, client):
@@ -774,41 +971,61 @@ class TestModelSelection:
         # Create 3 projects with no model
         projects = []
         for i in range(3):
-            p = _run_async(_create_project(
-                user_id=self.MODEL_USER_ID,
-                name=f"批量应用项目{i}",
-            ))
+            p = _run_async(
+                _create_project(
+                    user_id=self.MODEL_USER_ID,
+                    name=f"批量应用项目{i}",
+                )
+            )
             projects.append(p)
         # Create config
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "批量应用测试", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-batch",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "批量应用测试",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-batch",
+            },
+        )
         config_id = create_resp.json()["id"]
         # Apply to all
-        resp = client.post("/api/v1/projects/apply-model-to-all", json={
-            "api_config_id": config_id,
-            "model": "gpt-4o",
-        })
+        resp = client.post(
+            "/api/v1/projects/apply-model-to-all",
+            json={
+                "api_config_id": config_id,
+                "model": "gpt-4o",
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert len(data.get("succeeded", [])) == 3
 
     def test_project_list_includes_model_info(self, client):
         """TC-MODEL-05: Project list response includes ai_config and ai_model."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "项目列表测试", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-plist",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "项目列表测试",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-plist",
+            },
+        )
         config_id = create_resp.json()["id"]
-        p = _run_async(_create_project(
-            user_id=self.MODEL_USER_ID,
-            name="列表模型项目",
-        ))
-        client.put(f"/api/v1/projects/{p.id}/ai-model", json={
-            "api_config_id": config_id,
-            "model": "gpt-4o-mini",
-        })
+        p = _run_async(
+            _create_project(
+                user_id=self.MODEL_USER_ID,
+                name="列表模型项目",
+            )
+        )
+        client.put(
+            f"/api/v1/projects/{p.id}/ai-model",
+            json={
+                "api_config_id": config_id,
+                "model": "gpt-4o-mini",
+            },
+        )
         resp = client.get("/api/v1/projects")
         assert resp.status_code == 200
         projects = resp.json()
@@ -827,6 +1044,7 @@ class TestModelSelection:
 #  P0 — Edit Config Effect on Project Model State (TP-03 fix)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestEditConfigEffect:
     """Editing a config should not break project model references.
 
@@ -841,27 +1059,39 @@ class TestEditConfigEffect:
         if not TestEditConfigEffect._setup_done:
             _run_async(_create_user(user_id=self.EDIT_USER_ID))
             TestEditConfigEffect._setup_done = True
-        app.dependency_overrides[get_current_user] = _make_current_user_override(self.EDIT_USER_ID)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            self.EDIT_USER_ID
+        )
         _run_async(_clean_user_configs(self.EDIT_USER_ID))
         yield
 
     def test_edit_config_name_does_not_affect_project(self, client):
         """TC-EDIT-01: Rename config -> project still references same config ID."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "编辑测试原名称", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-edit",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "编辑测试原名称",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-edit",
+            },
+        )
         config_id = create_resp.json()["id"]
-        p = _run_async(_create_project(
-            user_id=self.EDIT_USER_ID,
-            name="编辑影响项目",
-            ai_config_id=config_id,
-            ai_model="gpt-4o",
-        ))
+        p = _run_async(
+            _create_project(
+                user_id=self.EDIT_USER_ID,
+                name="编辑影响项目",
+                ai_config_id=config_id,
+                ai_model="gpt-4o",
+            )
+        )
         # Rename config
-        client.put(f"/api/v1/api-configs/{config_id}", json={
-            "name": "编辑测试新名称",
-        })
+        client.put(
+            f"/api/v1/api-configs/{config_id}",
+            json={
+                "name": "编辑测试新名称",
+            },
+        )
         # Project should still reference the same config
         resp = client.get(f"/api/v1/projects/{p.id}")
         data = resp.json()
@@ -869,21 +1099,31 @@ class TestEditConfigEffect:
 
     def test_edit_config_api_key_project_unaffected(self, client):
         """TC-EDIT-02: Edit api_key -> project's ai_config_id and ai_model unchanged."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "Key编辑项目测试", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-old-key",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "Key编辑项目测试",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-old-key",
+            },
+        )
         config_id = create_resp.json()["id"]
-        p = _run_async(_create_project(
-            user_id=self.EDIT_USER_ID,
-            name="Key编辑项目",
-            ai_config_id=config_id,
-            ai_model="gpt-4o",
-        ))
+        p = _run_async(
+            _create_project(
+                user_id=self.EDIT_USER_ID,
+                name="Key编辑项目",
+                ai_config_id=config_id,
+                ai_model="gpt-4o",
+            )
+        )
         # Change the key
-        client.put(f"/api/v1/api-configs/{config_id}", json={
-            "api_key": "sk-new-key",
-        })
+        client.put(
+            f"/api/v1/api-configs/{config_id}",
+            json={
+                "api_key": "sk-new-key",
+            },
+        )
         resp = client.get(f"/api/v1/projects/{p.id}")
         data = resp.json()
         assert data.get("ai_config_id") == config_id
@@ -891,21 +1131,31 @@ class TestEditConfigEffect:
 
     def test_edit_config_base_url_project_link_preserved(self, client):
         """TC-EDIT-04: Edit base_url (which may change vendor) -> project link preserved."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "URL编辑测试", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-url",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "URL编辑测试",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-url",
+            },
+        )
         config_id = create_resp.json()["id"]
-        p = _run_async(_create_project(
-            user_id=self.EDIT_USER_ID,
-            name="URL编辑项目",
-            ai_config_id=config_id,
-            ai_model="gpt-4o",
-        ))
+        p = _run_async(
+            _create_project(
+                user_id=self.EDIT_USER_ID,
+                name="URL编辑项目",
+                ai_config_id=config_id,
+                ai_model="gpt-4o",
+            )
+        )
         # Change base_url (vendor may re-detect)
-        client.put(f"/api/v1/api-configs/{config_id}", json={
-            "base_url": "https://api.deepseek.com",
-        })
+        client.put(
+            f"/api/v1/api-configs/{config_id}",
+            json={
+                "base_url": "https://api.deepseek.com",
+            },
+        )
         resp = client.get(f"/api/v1/projects/{p.id}")
         data = resp.json()
         # Project still points to same config
@@ -913,17 +1163,24 @@ class TestEditConfigEffect:
 
     def test_delete_config_then_project_shows_invalid(self, client):
         """TC-EDIT-05: Delete config -> project ai_config_id=NULL, ai_model retained."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "删除影响项目测试", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-del-proj",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "删除影响项目测试",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-del-proj",
+            },
+        )
         config_id = create_resp.json()["id"]
-        p = _run_async(_create_project(
-            user_id=self.EDIT_USER_ID,
-            name="删除影响项目",
-            ai_config_id=config_id,
-            ai_model="gpt-4o",
-        ))
+        p = _run_async(
+            _create_project(
+                user_id=self.EDIT_USER_ID,
+                name="删除影响项目",
+                ai_config_id=config_id,
+                ai_model="gpt-4o",
+            )
+        )
         # Delete config
         client.delete(f"/api/v1/api-configs/{config_id}")
         resp = client.get(f"/api/v1/projects/{p.id}")
@@ -935,6 +1192,7 @@ class TestEditConfigEffect:
 # ═══════════════════════════════════════════════════════════════════════════
 #  P0 — Data Migration (User old fields → ApiConfig)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestDataMigration:
     """Migrate User.api_key / api_base_url / api_model -> ApiConfig.
@@ -950,12 +1208,14 @@ class TestDataMigration:
     def _setup(self, client):
         if not TestDataMigration._setup_done:
             # Create user WITH old-style api_key/api_base_url/api_model
-            _run_async(_create_user(
-                user_id=self.MIGRATE_USER_ID,
-                api_key="sk-migration-key",
-                api_base_url="https://api.openai.com",
-                api_model="gpt-4o",
-            ))
+            _run_async(
+                _create_user(
+                    user_id=self.MIGRATE_USER_ID,
+                    api_key="sk-migration-key",
+                    api_base_url="https://api.openai.com",
+                    api_model="gpt-4o",
+                )
+            )
             TestDataMigration._setup_done = True
         _run_async(_clean_user_configs(self.MIGRATE_USER_ID))
         yield
@@ -981,7 +1241,9 @@ class TestDataMigration:
 
                 # Idempotency check: skip if ApiConfig already exists with matching key/url
                 existing = await session.execute(
-                    text("SELECT * FROM api_configs WHERE user_id = :uid AND api_key = :key AND base_url = :url"),
+                    text(
+                        "SELECT * FROM api_configs WHERE user_id = :uid AND api_key = :key AND base_url = :url"
+                    ),
                     {"uid": user.id, "key": user.api_key, "url": user.api_base_url},
                 )
                 if existing.fetchone():
@@ -1018,9 +1280,7 @@ class TestDataMigration:
                 # If user had a model, set it on all existing projects
                 if user.api_model:
                     proj_result = await session.execute(
-                        sa_select(Project).where(
-                            Project.user_id == user.id
-                        )
+                        sa_select(Project).where(Project.user_id == user.id)
                     )
                     for project in proj_result.scalars().all():
                         project.ai_config_id = config_id
@@ -1034,10 +1294,12 @@ class TestDataMigration:
     def test_migrate_creates_api_config(self, client):
         """TC-MIGRATE-01: Migration creates ApiConfig with correct vendor."""
         # Create a project (no config yet)
-        _run_async(_create_project(
-            user_id=self.MIGRATE_USER_ID,
-            name="迁移前项目",
-        ))
+        _run_async(
+            _create_project(
+                user_id=self.MIGRATE_USER_ID,
+                name="迁移前项目",
+            )
+        )
         config_id = self._run_migration()
         assert config_id is not None, "Migration should have created a config"
 
@@ -1068,7 +1330,9 @@ class TestDataMigration:
         """TC-MIGRATE-04: User without old fields -> no migration triggered."""
         clean_user_id = "clean-migrate-user"
         _run_async(_create_user(user_id=clean_user_id))  # No api_key set
-        app.dependency_overrides[get_current_user] = _make_current_user_override(clean_user_id)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            clean_user_id
+        )
 
         # Run migration — should do nothing
         async def _check():
@@ -1087,14 +1351,17 @@ class TestDataMigration:
     def test_migration_vendor_detection_openai(self, client):
         """TC-MIGRATE-05: base_url=api.openai.com -> vendor=openai."""
         user_id = "vendor-detect-openai"
-        _run_async(_create_user(
-            user_id=user_id,
-            api_key="sk-openai",
-            api_base_url="https://api.openai.com",
-            api_model="gpt-4o",
-        ))
+        _run_async(
+            _create_user(
+                user_id=user_id,
+                api_key="sk-openai",
+                api_base_url="https://api.openai.com",
+                api_model="gpt-4o",
+            )
+        )
 
         from api_configs.vendor import detect_vendor
+
         result = detect_vendor("https://api.openai.com")
         assert result is not None
         assert result.vendor_id == "openai"
@@ -1103,16 +1370,19 @@ class TestDataMigration:
     def test_migration_vendor_detection_unknown(self, client):
         """TC-MIGRATE-06: Unknown base_url -> openai-compat."""
         from api_configs.vendor import resolve_vendor
-        vendor_id, display_name, protocol = resolve_vendor("https://custom-proxy.com/v1")
+
+        vendor_id, display_name, protocol = resolve_vendor(
+            "https://custom-proxy.com/v1"
+        )
         assert vendor_id == "openai-compat"
         assert display_name == "OpenAI 兼容"
         assert protocol == "openai"
 
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 #  P0 — Migration Status Endpoint
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestMigrationStatus:
     """GET /api/v1/user/profile migration_completed flag."""
@@ -1125,7 +1395,9 @@ class TestMigrationStatus:
         if not TestMigrationStatus._setup_done:
             _run_async(_create_user(user_id=self.MS_USER_ID))
             TestMigrationStatus._setup_done = True
-        app.dependency_overrides[get_current_user] = _make_current_user_override(self.MS_USER_ID)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            self.MS_USER_ID
+        )
         _run_async(_clean_user_configs(self.MS_USER_ID))
         yield
 
@@ -1142,7 +1414,9 @@ class TestMigrationStatus:
         fresh_id = "fresh-ms-user"
         _run_async(_create_user(user_id=fresh_id))
         old_override = app.dependency_overrides[get_current_user]
-        app.dependency_overrides[get_current_user] = _make_current_user_override(fresh_id)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            fresh_id
+        )
         resp = client.get("/api/v1/user/profile")
         assert resp.status_code == 200
         data = resp.json()
@@ -1153,27 +1427,29 @@ class TestMigrationStatus:
     def test_migration_status_after_migration_legacy_user(self, client):
         """TC-MIGRATE-08: Post-migration -> migration_completed=true + config name."""
         legacy_id = "legacy-ms-user"
-        _run_async(_create_user(
-            user_id=legacy_id,
-            api_key="sk-legacy-ms",
-            api_base_url="https://api.deepseek.com",
-            api_model="deepseek-v4-flash",
-        ))
+        _run_async(
+            _create_user(
+                user_id=legacy_id,
+                api_key="sk-legacy-ms",
+                api_base_url="https://api.deepseek.com",
+                api_model="deepseek-v4-flash",
+            )
+        )
         old_override = app.dependency_overrides[get_current_user]
 
         async def _do_migration():
             async with async_session() as session:
-                result = await session.execute(
-                    select(User).where(User.id == legacy_id)
-                )
+                result = await session.execute(select(User).where(User.id == legacy_id))
                 user = result.scalar_one_or_none()
                 if not user:
                     return
                 # Simulate migration: create ApiConfig, set project configs, set migrated flag
                 from api_configs.vendor import detect_vendor
+
                 detected = detect_vendor(user.api_base_url)
                 vendor_name = detected.display_name if detected else "OpenAI 兼容"
                 from sqlalchemy import text as sql_text
+
                 config_id = str(uuid.uuid4())
                 await session.execute(
                     sql_text(
@@ -1181,10 +1457,13 @@ class TestMigrationStatus:
                         "VALUES (:id, :uid, :name, :vendor, :vdn, :key, :url, :status, datetime('now'), datetime('now'))"
                     ),
                     {
-                        "id": config_id, "uid": user.id,
+                        "id": config_id,
+                        "uid": user.id,
                         "name": f"{vendor_name} 默认配置",
-                        "vendor": "deepseek", "vdn": "DeepSeek",
-                        "key": user.api_key, "url": user.api_base_url,
+                        "vendor": "deepseek",
+                        "vdn": "DeepSeek",
+                        "key": user.api_key,
+                        "url": user.api_base_url,
                         "status": "active",
                     },
                 )
@@ -1198,7 +1477,9 @@ class TestMigrationStatus:
                 await session.commit()
 
         _run_async(_do_migration())
-        app.dependency_overrides[get_current_user] = _make_current_user_override(legacy_id)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            legacy_id
+        )
         resp = client.get("/api/v1/user/profile")
         assert resp.status_code == 200
         data = resp.json()
@@ -1212,6 +1493,7 @@ class TestMigrationStatus:
 #  P0 — Connection Test / Batch Status
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestConnectionStatus:
     """Batch status endpoint and single-config connection testing."""
 
@@ -1223,7 +1505,9 @@ class TestConnectionStatus:
         if not TestConnectionStatus._setup_done:
             _run_async(_create_user(user_id=self.CONN_USER_ID))
             TestConnectionStatus._setup_done = True
-        app.dependency_overrides[get_current_user] = _make_current_user_override(self.CONN_USER_ID)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            self.CONN_USER_ID
+        )
         _run_async(_clean_user_configs(self.CONN_USER_ID))
         yield
 
@@ -1241,10 +1525,15 @@ class TestConnectionStatus:
 
     def test_batch_status_structure(self, client):
         """TC-CONN-03: Status response has expected fields."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "状态测试", "vendor_id": "deepseek",
-            "base_url": "https://api.deepseek.com", "api_key": "sk-status",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "状态测试",
+                "vendor_id": "deepseek",
+                "base_url": "https://api.deepseek.com",
+                "api_key": "sk-status",
+            },
+        )
         config_id = create_resp.json()["id"]
 
         resp = client.get("/api/v1/api-configs/status")
@@ -1257,7 +1546,14 @@ class TestConnectionStatus:
             target = next((c for c in configs if c.get("config_id") == config_id), None)
         assert target is not None, f"Config {config_id} not found in status response"
         # Check expected fields
-        for field in ("id", "status", "last_test_status", "last_test_error", "last_tested_at", "models"):
+        for field in (
+            "id",
+            "status",
+            "last_test_status",
+            "last_test_error",
+            "last_tested_at",
+            "models",
+        ):
             assert field in target, f"Field '{field}' missing from status entry"
 
     def test_single_config_test_not_found(self, client):
@@ -1270,6 +1566,7 @@ class TestConnectionStatus:
 #  P0 — Vendor Detection
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestVendorDetection:
     """Vendor detection from base URL — unit-level tests for detect_vendor()."""
 
@@ -1279,6 +1576,7 @@ class TestVendorDetection:
     @pytest.fixture(autouse=True)
     def _import_vendor(self):
         from api_configs.vendor import VENDOR_PATTERNS, detect_vendor, resolve_vendor
+
         self.detect_vendor = detect_vendor
         self.resolve_vendor = resolve_vendor
         self.VENDOR_PATTERNS = VENDOR_PATTERNS
@@ -1332,7 +1630,9 @@ class TestVendorDetection:
 
     def test_resolve_openai_compat_fallback(self):
         """resolve_vendor falls back to openai-compat for unknown URLs."""
-        vendor_id, display_name, protocol = self.resolve_vendor("https://custom-proxy.com/v1")
+        vendor_id, display_name, protocol = self.resolve_vendor(
+            "https://custom-proxy.com/v1"
+        )
         assert vendor_id == "openai-compat"
         assert display_name == "OpenAI 兼容"
         assert protocol == "openai"
@@ -1347,13 +1647,16 @@ class TestVendorDetection:
 
     def test_resolve_no_override_uses_detection(self):
         """TC-VENDOR-10: No vendor_override -> auto-detect."""
-        vendor_id, _display_name, _protocol = self.resolve_vendor("https://api.anthropic.com")
+        vendor_id, _display_name, _protocol = self.resolve_vendor(
+            "https://api.anthropic.com"
+        )
         assert vendor_id == "anthropic"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  P1 — Usage Statistics (non-blocking)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestUsageStatistics:
     """Token usage aggregation endpoints."""
@@ -1366,7 +1669,9 @@ class TestUsageStatistics:
         if not TestUsageStatistics._setup_done:
             _run_async(_create_user(user_id=self.USAGE_USER_ID))
             TestUsageStatistics._setup_done = True
-        app.dependency_overrides[get_current_user] = _make_current_user_override(self.USAGE_USER_ID)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            self.USAGE_USER_ID
+        )
         _run_async(_clean_user_configs(self.USAGE_USER_ID))
         yield
 
@@ -1381,10 +1686,15 @@ class TestUsageStatistics:
 
     def test_per_config_usage_empty(self, client):
         """TC-USAGE-04: Per-config usage with no data."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "用量测试", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-usage",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "用量测试",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-usage",
+            },
+        )
         config_id = create_resp.json()["id"]
         resp = client.get(f"/api/v1/api-configs/{config_id}/usage")
         assert resp.status_code == 200
@@ -1404,6 +1714,7 @@ class TestUsageStatistics:
 #  P2 — Model Change History (non-blocking)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestChangeHistory:
     """Model change history recording and retrieval."""
 
@@ -1415,7 +1726,9 @@ class TestChangeHistory:
         if not TestChangeHistory._setup_done:
             _run_async(_create_user(user_id=self.HIST_USER_ID))
             TestChangeHistory._setup_done = True
-        app.dependency_overrides[get_current_user] = _make_current_user_override(self.HIST_USER_ID)
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            self.HIST_USER_ID
+        )
         _run_async(_clean_user_configs(self.HIST_USER_ID))
         yield
 
@@ -1430,18 +1743,26 @@ class TestChangeHistory:
 
     def test_history_structure(self, client):
         """TC-HISTORY-04: History entry has expected fields."""
-        create_resp = client.post("/api/v1/api-configs", json={
-            "name": "历史配置", "vendor_id": "openai",
-            "base_url": "https://api.openai.com", "api_key": "sk-hist",
-        })
+        create_resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "历史配置",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-hist",
+            },
+        )
         config_id = create_resp.json()["id"]
         p = _run_async(_create_project(user_id=self.HIST_USER_ID, name="历史结构项目"))
 
         # Set model (triggers history entry)
-        client.put(f"/api/v1/projects/{p.id}/ai-model", json={
-            "api_config_id": config_id,
-            "model": "gpt-4o",
-        })
+        client.put(
+            f"/api/v1/projects/{p.id}/ai-model",
+            json={
+                "api_config_id": config_id,
+                "model": "gpt-4o",
+            },
+        )
 
         # Check history
         resp = client.get(f"/api/v1/projects/{p.id}/model-history")

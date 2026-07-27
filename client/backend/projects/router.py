@@ -152,4 +152,3 @@ async def delete(
         raise HTTPException(404, "Project not found")
     await delete_project(db, project)
     return {"ok": True}
-

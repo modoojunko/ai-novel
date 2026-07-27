@@ -55,6 +55,7 @@ router = APIRouter(prefix="/api/v1", tags=["api-configs"])
 
 # ── Helper ─────────────────────────────────────────────────────────────────
 
+
 def _user_id(user: dict) -> str:
     return user["id"]
 
@@ -111,8 +112,13 @@ async def create_config(
     """Create a new API Key config."""
     try:
         result = await create_api_config(
-            db, _user_id(user), body.name, body.vendor_id,
-            body.base_url, api_key=body.api_key, vendor_override=body.vendor_override,
+            db,
+            _user_id(user),
+            body.name,
+            body.vendor_id,
+            body.base_url,
+            api_key=body.api_key,
+            vendor_override=body.vendor_override,
         )
         return result
     except ValueError as e:
@@ -267,7 +273,10 @@ async def apply_model_to_all(
 ):
     """Apply a model to all projects."""
     result = await apply_model_to_all_projects(
-        db, _user_id(user), body.api_config_id, body.model,
+        db,
+        _user_id(user),
+        body.api_config_id,
+        body.model,
     )
     return result
 
@@ -307,7 +316,11 @@ async def set_project_model_route(
 ):
     """Set a project's AI model."""
     result = await set_project_model(
-        db, _user_id(user), project_id, body.api_config_id, body.model,
+        db,
+        _user_id(user),
+        project_id,
+        body.api_config_id,
+        body.model,
     )
     if result is None:
         raise HTTPException(404, "Project or config not found")

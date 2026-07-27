@@ -32,7 +32,9 @@ class AIClient:
     for the backward-compatible singleton with DB-first + config.json fallback.
     """
 
-    def __init__(self, api_key: str = "", base_url: str = "", model: str = "deepseek-v4-flash"):
+    def __init__(
+        self, api_key: str = "", base_url: str = "", model: str = "deepseek-v4-flash"
+    ):
         self._provider = "anthropic"  # default
         self._client: Any | None = None
         self._model = model
