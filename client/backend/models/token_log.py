@@ -1,5 +1,6 @@
-# DEPRECATED (C/S): Token tracking removed — user brings own API key.
-# Model retained for schema compatibility; table will be empty.
+"""TokenLog tracks token usage per AI call with fields for
+user/project/api_config/operation/model/tokens."""
+
 import uuid
 from datetime import datetime
 

@@ -12,6 +12,8 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api_configs.crypto import encrypt_api_key
+from api_configs.vendor import resolve_vendor
 from config import JWT_ALGORITHM, JWT_SECRET
 from db import get_db
 from models.api_config import ApiConfig
@@ -220,13 +222,36 @@ async def api_save_api_key(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """保存 AI API Key 到数据库"""
-    result = await db.execute(select(User).where(User.id == user["id"]))
-    u = result.scalar_one_or_none()
-    if not u:
-        raise HTTPException(404, "User not found")
-    u.api_key = req.api_key
-    u.api_base_url = req.api_base_url
-    u.api_model = req.api_model
+    """保存 AI API Key 到数据库 (创建或更新 ApiConfig)"""
+    # Detect vendor from base_url
+    vendor_id, vendor_name, _ = resolve_vendor(req.api_base_url)
+    config_name = f"{vendor_name} 默认配置"
+
+    # Look for existing ApiConfig with matching name
+    existing = await db.execute(
+        select(ApiConfig).where(
+            ApiConfig.user_id == user["id"],
+            ApiConfig.name == config_name,
+        )
+    )
+    cfg = existing.scalar_one_or_none()
+
+    if cfg:
+        # Update existing config
+        cfg.api_key = encrypt_api_key(req.api_key) if req.api_key else ""
+        cfg.base_url = req.api_base_url or ""
+    else:
+        # Create new config
+        cfg = ApiConfig(
+            user_id=user["id"],
+            name=config_name,
+            vendor=vendor_id,
+            vendor_display_name=vendor_name,
+            api_key=encrypt_api_key(req.api_key) if req.api_key else "",
+            base_url=req.api_base_url or "",
+            status="active",
+        )
+        db.add(cfg)
+
     await db.commit()
     return {"code": 0, "msg": "保存成功"}

@@ -15,6 +15,7 @@ from models.project import Project
 from models.token_log import TokenLog
 from models.user import User
 
+from .crypto import decrypt_api_key, encrypt_api_key
 from .schemas import mask_api_key
 from .vendor import detect_vendor, resolve_vendor
 
@@ -46,7 +47,7 @@ async def create_api_config(
         vendor=resolved_vendor_id,
         vendor_display_name=resolved_display_name,
         vendor_override=vendor_override,
-        api_key=api_key,
+        api_key=encrypt_api_key(api_key),
         base_url=base_url,
         status="active",
     )
@@ -106,6 +107,8 @@ async def update_api_config(
             raise ValueError("名称已被使用")
 
     # Apply updates
+    if "api_key" in updates:
+        updates["api_key"] = encrypt_api_key(updates["api_key"])
     for field in ("name", "api_key", "vendor_override", "models"):
         if field in updates:
             setattr(config, field, updates[field])
@@ -179,6 +182,7 @@ async def get_batch_status(
                     models_list = parsed
             except (json.JSONDecodeError, TypeError):
                 pass
+        plain_key = decrypt_api_key(c.api_key)
         statuses.append({
             "id": c.id,
             "status": c.status,
@@ -187,7 +191,7 @@ async def get_batch_status(
             "last_tested_at": c.last_tested_at.isoformat() if c.last_tested_at else None,
             "models": models_list,
             "models_updated_at": c.models_updated_at.isoformat() if c.models_updated_at else None,
-            "api_key_masked": mask_api_key(c.api_key),
+            "api_key_masked": mask_api_key(plain_key),
             "vendor": c.vendor,
         })
     return statuses
@@ -223,21 +227,6 @@ async def set_project_model(
     # Record audit log before changing
     old_config_id = project.ai_config_id
     old_model = project.ai_model
-    if old_config_id:
-        old_cfg = await db.execute(
-            select(ApiConfig).where(ApiConfig.id == old_config_id)
-        )
-        old_cfg_obj = old_cfg.scalar_one_or_none()
-        if old_cfg_obj:
-            pass
-
-    if api_config_id:
-        new_cfg = await db.execute(
-            select(ApiConfig).where(ApiConfig.id == api_config_id)
-        )
-        new_cfg_obj = new_cfg.scalar_one_or_none()
-        if new_cfg_obj:
-            pass
 
     # Determine change_type
     if old_config_id is None and old_model is None:
@@ -610,7 +599,7 @@ async def migrate_user_configs(db: AsyncSession) -> None:
             name=f"{vendor_name} 默认配置",
             vendor=vendor_id,
             vendor_display_name=vendor_name,
-            api_key=user.api_key,
+            api_key=encrypt_api_key(user.api_key),
             base_url=user.api_base_url,
             status="active",
         )
@@ -646,6 +635,7 @@ async def migrate_user_configs(db: AsyncSession) -> None:
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 def _config_to_dict(config: ApiConfig) -> dict[str, Any]:
+    plain_key = decrypt_api_key(config.api_key)
     models_list: list[str] = []
     if config.models:
         try:
@@ -661,8 +651,8 @@ def _config_to_dict(config: ApiConfig) -> dict[str, Any]:
         "vendor": config.vendor,
         "vendor_display_name": config.vendor_display_name,
         "base_url": config.base_url,
-        "api_key": mask_api_key(config.api_key),
-        "api_key_masked": mask_api_key(config.api_key),
+        "api_key": mask_api_key(plain_key),
+        "api_key_masked": mask_api_key(plain_key),
         "status": config.status,
         "last_test_status": config.last_test_status,
         "last_test_error": config.last_test_error,

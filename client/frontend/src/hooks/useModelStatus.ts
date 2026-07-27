@@ -7,6 +7,7 @@ const API_BASE = "/api/v1";
 export function useModelStatus(projectId: string | undefined) {
   const { configs, loading: configsLoading } = useApiConfigs();
   const [currentConfigId, setCurrentConfigId] = useState<string | null>(null);
+  const [currentConfigName, setCurrentConfigName] = useState<string | null>(null);
   const [currentModel, setCurrentModel] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +22,7 @@ export function useModelStatus(projectId: string | undefined) {
       if (resp.ok) {
         const data = await resp.json();
         setCurrentConfigId(data.api_config_id);
+        setCurrentConfigName(data.config_name || null);
         setCurrentModel(data.model);
       }
     } catch (e) {
@@ -76,6 +78,7 @@ export function useModelStatus(projectId: string | undefined) {
     modelOptions,
     currentModel,
     currentConfigId,
+    currentConfigName,
     hasKeys,
     loading: loading || configsLoading,
     error,

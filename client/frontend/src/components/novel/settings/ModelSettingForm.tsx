@@ -11,7 +11,7 @@ interface ModelSettingFormProps {
 }
 
 export default function ModelSettingForm({ projectId }: ModelSettingFormProps) {
-  const { status, modelOptions, currentModel, currentConfigId, hasKeys, loading, selectModel } = useModelStatus(projectId);
+  const { status, modelOptions, currentModel, currentConfigId, currentConfigName, hasKeys, loading, selectModel } = useModelStatus(projectId);
   const [saving, setSaving] = useState(false);
   const [showApplyAll, setShowApplyAll] = useState(false);
   const [applyResult, setApplyResult] = useState<{ succeeded: string[]; failed: Array<{ id: string; reason: string }> } | null>(null);
@@ -55,7 +55,7 @@ export default function ModelSettingForm({ projectId }: ModelSettingFormProps) {
         <span className="text-sm font-medium text-base-content/70">当前状态：</span>
         <StatusBadge
           status={status}
-          configName={currentConfigId || undefined}
+          configName={currentConfigName || undefined}
           modelName={currentModel || undefined}
         />
       </div>
