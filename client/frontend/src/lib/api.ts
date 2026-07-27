@@ -33,7 +33,8 @@ export async function request(path: string, options?: { method?: string; body?: 
   });
 
   if (res.status === 401) {
-    window.location.hash = "#/login";
+    localStorage.removeItem("auth_token");
+    window.location.href = "/#/login";
     throw new Error("Unauthorized");
   }
 
