@@ -74,11 +74,6 @@ def load_or_create_config() -> dict:
     if os.environ.get("SERVER_API_BASE") and not cfg.get("server_api"):
         cfg["server_api"] = os.environ["SERVER_API_BASE"]
         changed = True
-    if os.environ.get("DEV_MODE") and not cfg.get("token"):
-        cfg["token"] = "dev-token"
-        cfg["tier"] = "lifetime"
-        cfg["last_login_at"] = datetime.now(UTC).isoformat()
-        changed = True
     if changed:
         save_local_config(cfg)
     return cfg
@@ -158,35 +153,6 @@ async def browser_auth(silent: bool = False) -> dict:
     cfg = load_or_create_config()
     pc_hash = cfg["pc_hash"]
 
-    if os.environ.get("DEV_MODE") and silent:
-        # 静默检测：优先试 S端（S端可能正在运行）
-        try:
-            result = await call_server_api("check-auth", params={"pc_hash": pc_hash})
-            if result.get("code") == 0:
-                data = result["data"]
-                cfg["token"] = data["token"]
-                cfg["tier"] = data.get("tier", "none")
-                cfg["expires_at"] = data.get("expires_at", "")
-                cfg["last_login_at"] = datetime.now(UTC).isoformat()
-                save_local_config(cfg)
-                return {"code": 0, "data": {"message": "已登录", "tier": cfg["tier"], "token": cfg["token"]}}
-        except httpx.RequestError:
-            # S端 不可达，DEV_MODE 回退 dev-token
-            cfg["token"] = "dev-token"
-            cfg["tier"] = "lifetime"
-            cfg["last_login_at"] = datetime.now(UTC).isoformat()
-            save_local_config(cfg)
-            return {"code": 0, "data": {"message": "开发模式", "token": "dev-token"}}
-        # S端 可达但未登录 → 让用户走登录流程
-        return {"code": 1, "data": {"message": "未登录"}}
-
-    if os.environ.get("DEV_MODE"):
-        cfg["token"] = "dev-token"
-        cfg["tier"] = "lifetime"
-        cfg["last_login_at"] = datetime.now(UTC).isoformat()
-        save_local_config(cfg)
-        return {"code": 0, "data": {"message": "开发模式", "token": "dev-token"}}
-
     # 静默模式：只查一次，不打开浏览器
     if silent:
         result = await call_server_api("check-auth", params={"pc_hash": pc_hash})
@@ -241,13 +207,6 @@ async def verify_session() -> dict:
     token = cfg.get("token", "")
     last_login = cfg.get("last_login_at", "")
     expires_at = cfg.get("expires_at", "")
-
-    if os.environ.get("DEV_MODE"):
-        return {
-            "valid": True,
-            "tier": cfg.get("tier", "lifetime"),
-            "trial_remaining_days": 365,
-        }
 
     if not token:
         return {"valid": False, "msg": "未登录"}

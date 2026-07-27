@@ -32,23 +32,13 @@ async def get_current_user(
 
     token = credentials.credentials
 
-    if os.environ.get("DEV_MODE"):
-        # 开发模式：接受 "dev-token"（旧式）或有效 JWT
-        if token == "dev-token":
-            return {"id": "devuser"}
-        # 尝试验证 JWT
-        from jose import jwt as jose_jwt
+    # 尝试验证 JWT（开发模式也验证真实 JWT）
+    from jose import jwt as jose_jwt
 
-        from config import JWT_ALGORITHM, JWT_SECRET
+    from config import JWT_ALGORITHM, JWT_SECRET
 
-        try:
-            payload = jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-            return {"id": payload.get("sub", "devuser")}
-        except jose_jwt.JWTError:
-            raise HTTPException(status_code=401, detail="无效的令牌")
-
-    cfg = get_local_config()
-    local_token = cfg.get("token", "")
-    if not local_token:
-        raise HTTPException(status_code=401, detail="未登录")
-    return {"id": local_token[:8]}
+    try:
+        payload = jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return {"id": payload.get("sub", "")}
+    except jose_jwt.JWTError:
+        raise HTTPException(status_code=401, detail="无效的令牌")
