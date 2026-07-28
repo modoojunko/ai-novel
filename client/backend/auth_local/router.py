@@ -171,6 +171,8 @@ async def get_current_device(
                 )
 
         return result
+    except httpx.TimeoutException:
+        return {"enrolled": False, "activated": False, "device_count": 0, "active_limit": 0, "error": "S端 超时"}
     except httpx.RequestError:
         return {"enrolled": False, "activated": False, "device_count": 0, "active_limit": 0, "error": "S端 不可达"}
 

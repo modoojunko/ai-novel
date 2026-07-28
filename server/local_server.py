@@ -215,6 +215,7 @@ def register_device(conn, user_id: str, device_profile_b64: str) -> bool:
             )
             return True
     else:
+        # 无指纹设备：同一用户最多 1 条记录
         existing = conn.execute(
             "SELECT id FROM device_registry WHERE user_id=? AND fingerprint='' ORDER BY last_active_at DESC LIMIT 1",
             (user_id,)
@@ -224,7 +225,7 @@ def register_device(conn, user_id: str, device_profile_b64: str) -> bool:
                 "UPDATE device_registry SET last_active_at=datetime('now'), hostname=?, os=?, os_arch=?, updated_at=datetime('now') WHERE id=?",
                 (hostname, os_val, os_arch, existing["id"])
             )
-            return False
+            return False  # 复用已有无指纹记录
         else:
             conn.execute(
                 "INSERT INTO device_registry (user_id, fingerprint, hostname, os, os_arch) VALUES (?, '', ?, ?, ?)",
@@ -705,10 +706,12 @@ async def api_devices_list(authorization: str = Header(default="")):
     target_fp = devices[0]["fingerprint"] if devices else ""
     activation = compute_activation(devices, active_limit, target_fp, tier)
 
+    # 预计算 top N fingerprint 集合，单次 O(n log n) 查询代替每设备 O(n²)
+    top_n_fps = {d["fingerprint"] for d in devices[:active_limit]} if active_limit > 0 else set()
+
     result_devices = []
     for i, d in enumerate(devices):
-        dev_fp = d["fingerprint"]
-        is_activated = compute_activation(devices, active_limit, dev_fp, tier)["activated"]
+        is_activated = d["fingerprint"] in top_n_fps
         reason = None
         if not is_activated:
             if tier == "none":
