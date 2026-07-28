@@ -3,10 +3,10 @@
 
 import hashlib
 import os
-import httpx
 from datetime import UTC, datetime
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from jose import jwt
 from pydantic import BaseModel
@@ -22,10 +22,10 @@ from models.user import User
 
 from .middleware import get_current_user
 from .service import (
+    _get_server_api,
     browser_auth,
     check_permission,
     get_local_config,
-    _get_server_api,
     reset_password,
     verify_session,
 )
@@ -150,7 +150,12 @@ async def get_current_device(
     pc_hash = cfg.get("pc_hash", "")
 
     if not token:
-        return {"enrolled": False, "activated": False, "device_count": 0, "active_limit": 0}
+        return {
+            "enrolled": False,
+            "activated": False,
+            "device_count": 0,
+            "active_limit": 0,
+        }
 
     try:
         async with httpx.AsyncClient(timeout=5) as client:
@@ -172,9 +177,21 @@ async def get_current_device(
 
         return result
     except httpx.TimeoutException:
-        return {"enrolled": False, "activated": False, "device_count": 0, "active_limit": 0, "error": "S端 超时"}
+        return {
+            "enrolled": False,
+            "activated": False,
+            "device_count": 0,
+            "active_limit": 0,
+            "error": "S端 超时",
+        }
     except httpx.RequestError:
-        return {"enrolled": False, "activated": False, "device_count": 0, "active_limit": 0, "error": "S端 不可达"}
+        return {
+            "enrolled": False,
+            "activated": False,
+            "device_count": 0,
+            "active_limit": 0,
+            "error": "S端 不可达",
+        }
 
 
 @router.get("/config")

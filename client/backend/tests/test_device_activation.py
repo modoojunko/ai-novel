@@ -1,12 +1,8 @@
 """C端 设备注册与激活 — 编解码 + 采集函数测试"""
 
-import json
 import base64
-import platform
+import json
 from unittest.mock import patch
-
-import pytest
-
 
 # ── encode_device_profile 测试 ──
 
@@ -15,12 +11,14 @@ def test_encode_device_profile_roundtrip():
     """编解码往返一致"""
     from auth_local.service import encode_device_profile
 
-    result = encode_device_profile({
-        "fingerprint": "FP-001-ABCD",
-        "hostname": "主开发机",
-        "os": "Windows 11",
-        "os_arch": "AMD64",
-    })
+    result = encode_device_profile(
+        {
+            "fingerprint": "FP-001-ABCD",
+            "hostname": "主开发机",
+            "os": "Windows 11",
+            "os_arch": "AMD64",
+        }
+    )
     assert isinstance(result, str)
     assert "=" not in result  # no padding
 
@@ -37,12 +35,14 @@ def test_encode_device_profile_empty_fields():
     """空字段编码正常"""
     from auth_local.service import encode_device_profile
 
-    result = encode_device_profile({
-        "fingerprint": "",
-        "hostname": "",
-        "os": "",
-        "os_arch": "",
-    })
+    result = encode_device_profile(
+        {
+            "fingerprint": "",
+            "hostname": "",
+            "os": "",
+            "os_arch": "",
+        }
+    )
     assert isinstance(result, str)
     raw = base64.urlsafe_b64decode(result + "==")
     data = json.loads(raw)
@@ -118,6 +118,7 @@ def test_collect_device_profile_wmic_success():
         assert len(profile["fingerprint"]) == 64
         # fingerprint 是 wmic 输出拼接后的 sha256
         import hashlib
+
         expected = hashlib.sha256(b"CPU-123-CPU-123-CPU-123").hexdigest()
         assert profile["fingerprint"] == expected
 
