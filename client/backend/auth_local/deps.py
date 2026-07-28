@@ -31,6 +31,7 @@ async def require_ai_access(
             .where(
                 ApiConfig.user_id == user["id"],
                 ApiConfig.status == "active",
+                ApiConfig.api_key != "",
             )
             .limit(1)
         )

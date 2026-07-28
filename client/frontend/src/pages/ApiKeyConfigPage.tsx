@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useApiConfigs } from "../hooks/useApiConfigs";
 import type { ApiConfig } from "../types/api-config";
 import { MigrationBanner } from "../components/api-config/MigrationBanner";
@@ -10,10 +10,23 @@ import { ApiConfigForm } from "../components/api-config/ApiConfigForm";
 import type { ApiConfigFormData } from "../components/api-config/ApiConfigForm";
 import { DeleteConfirmDialog } from "../components/api-config/DeleteConfirmDialog";
 import { UndoToast } from "../components/api-config/UndoToast";
+import { getToken, isLoggedIn } from "../lib/auth";
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { "Authorization": `Bearer ${token}` } : {};
+}
 
 export default function ApiKeyConfigPage() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { configs, loading, error, addConfig, updateConfig, deleteConfig, refreshStatus } = useApiConfigs();
+
+  useEffect(() => {
+    if (!isLoggedIn()) {
+      navigate("/login", { replace: true });
+    }
+  }, [navigate]);
+  const { configs, loading, error, addConfig, updateConfig, deleteConfig, refreshStatus, testConfig, testRawConfig } = useApiConfigs();
   const [showForm, setShowForm] = useState(false);
   const [editConfig, setEditConfig] = useState<ApiConfig | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApiConfig | null>(null);
@@ -31,7 +44,7 @@ export default function ApiKeyConfigPage() {
 
   // Fetch migration status
   useEffect(() => {
-    fetch("/api/v1/user/profile")
+    fetch("/api/v1/user/profile", { headers: authHeaders() })
       .then((r) => r.json())
       .then((data) => {
         if (data.migration_completed !== undefined) {
@@ -46,10 +59,12 @@ export default function ApiKeyConfigPage() {
       await updateConfig(editConfig.id, data);
       setEditConfig(null);
     } else {
-      await addConfig(data);
+      const newConfig = await addConfig(data);
+      // Auto-test after create so the card shows real status
+      try { await testConfig(newConfig.id); } catch { /* non-blocking */ }
       setShowForm(false);
     }
-  }, [editConfig, updateConfig, addConfig]);
+  }, [editConfig, updateConfig, addConfig, testConfig]);
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) return;
@@ -97,12 +112,14 @@ export default function ApiKeyConfigPage() {
             管理你的 AI 服务 API Key，为不同小说选择不同模型
           </p>
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => { setShowForm(true); setEditConfig(null); }}
-        >
-          添加 API Key
-        </button>
+        {!showForm && !editConfig && (
+          <button
+            className="btn btn-primary"
+            onClick={() => { setShowForm(true); setEditConfig(null); }}
+          >
+            添加 API Key
+          </button>
+        )}
       </div>
 
       {/* Migration Banner */}
@@ -123,6 +140,7 @@ export default function ApiKeyConfigPage() {
             config={editConfig ?? undefined}
             onSubmit={handleFormSubmit}
             onCancel={() => { setShowForm(false); setEditConfig(null); }}
+            onTest={async (data) => testRawConfig({ vendor_id: data.vendor_id, base_url: data.base_url, api_key: data.api_key })}
           />
         </div>
       )}
@@ -154,6 +172,7 @@ export default function ApiKeyConfigPage() {
                 config={c}
                 onEdit={() => { setEditConfig(c); setShowForm(false); }}
                 onDelete={() => { setDeleteTarget(c); }}
+                onTest={async (cfg) => testConfig(cfg.id)}
               />
             ))}
           </div>

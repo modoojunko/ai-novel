@@ -1773,3 +1773,72 @@ class TestChangeHistory:
         entry = history[0]
         for field in ("id", "changed_at", "new_model", "change_type"):
             assert field in entry, f"Field '{field}' missing from history entry"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Real JWT Auth Integration (not using dependency overrides)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestRealJwtAuth:
+    """Test API endpoints with real JWT tokens via Authorization header.
+
+    Unlike other tests, this class does NOT override get_current_user.
+    It registers a user via the API and sends the JWT in the header,
+    exercising the real auth middleware.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, client):
+        """Register user and store token."""
+        uid = uuid.uuid4().hex[:12]
+        email = f"jwtauth_{uid}@example.com"
+        resp = client.post(
+            "/api/auth/register",
+            json={"email": email, "password": "TestPass123!", "display_name": f"JWT_{uid[:6]}"},
+        )
+        assert resp.status_code in (200, 201)
+        data = resp.json()
+        self.token = data["access_token"]
+        self.user_id = data["user"]["id"]
+        # Remove the override so real auth runs
+        old_override = app.dependency_overrides.pop(get_current_user, None)
+        yield
+        # Restore override for other tests
+        if old_override:
+            app.dependency_overrides[get_current_user] = old_override
+        _run_async(_clean_user_data(self.user_id))
+
+    def _headers(self) -> dict:
+        return {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
+
+    def test_create_config_with_real_jwt(self, client):
+        """Create config using real JWT auth."""
+        resp = client.post(
+            "/api/v1/api-configs",
+            json={"name": "JWT Test", "vendor_id": "openai", "base_url": "https://api.openai.com", "api_key": "sk-jwt-test"},
+            headers=self._headers(),
+        )
+        assert resp.status_code == 201, f"Expected 201, got {resp.status_code}: {resp.text}"
+        data = resp.json()
+        assert data["name"] == "JWT Test"
+
+    def test_list_configs_with_real_jwt(self, client):
+        """List configs using real JWT auth."""
+        resp = client.get("/api/v1/api-configs", headers=self._headers())
+        assert resp.status_code == 200
+
+    def test_unauthorized_returns_401(self, client):
+        """Without JWT token, endpoints return 401."""
+        resp = client.post(
+            "/api/v1/api-configs",
+            json={"name": "No Auth", "vendor_id": "openai", "base_url": "https://api.openai.com", "api_key": "sk-no"},
+        )
+        assert resp.status_code == 401, f"Expected 401, got {resp.status_code}"
+
+    def test_invalid_token_returns_401(self, client):
+        """With invalid JWT token, endpoints return 401."""
+        resp = client.get(
+            "/api/v1/api-configs",
+            headers={"Authorization": "Bearer invalid-token"},
+        )
+        assert resp.status_code == 401

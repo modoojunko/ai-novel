@@ -50,14 +50,9 @@ export default function LandingPage() {
                   我的作品
                 </Link>
               ) : (
-                <>
-                  <Link to="/login" className="text-sm text-base-content/50 hover:text-base-content transition-colors no-underline">
-                    登录
-                  </Link>
-                  <Link to="/register" className="btn btn-primary btn-sm">
-                    开始使用
-                  </Link>
-                </>
+                <Link to="/login" className="btn btn-primary btn-sm">
+                  登录
+                </Link>
               );
             })()}
           </div>

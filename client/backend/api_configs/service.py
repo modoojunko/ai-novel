@@ -15,6 +15,7 @@ from models.project import Project
 from models.token_log import TokenLog
 from models.user import User
 
+from .connection import test_connection as _test_connection
 from .crypto import decrypt_api_key, encrypt_api_key
 from .schemas import mask_api_key
 from .vendor import detect_vendor, resolve_vendor
@@ -79,6 +80,37 @@ async def get_api_config(
     )
     config = result.scalar_one_or_none()
     return _config_to_dict(config) if config else None
+
+
+async def test_api_config(
+    db: AsyncSession, user_id: str, config_id: str
+) -> dict[str, Any]:
+    """Test a config's connection, save results to DB, and return outcome."""
+    result = await db.execute(
+        select(ApiConfig).where(ApiConfig.id == config_id, ApiConfig.user_id == user_id)
+    )
+    config = result.scalar_one_or_none()
+    if not config:
+        return {"ok": False, "status": "not_found", "models": None, "error": "配置不存在"}
+
+    plain_key = decrypt_api_key(config.api_key)
+    outcome = await _test_connection(
+        vendor_id=config.vendor,
+        api_key=plain_key,
+        base_url=config.base_url,
+    )
+
+    # Persist results
+    config.last_test_status = outcome["status"]
+    config.last_test_error = outcome.get("error")
+    config.last_tested_at = datetime.now(UTC)
+    if outcome.get("models"):
+        config.models = json.dumps(outcome["models"], ensure_ascii=False)
+        config.models_updated_at = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(config)
+
+    return outcome
 
 
 async def update_api_config(
