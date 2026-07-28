@@ -1779,6 +1779,7 @@ class TestChangeHistory:
 #  Real JWT Auth Integration (not using dependency overrides)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestRealJwtAuth:
     """Test API endpoints with real JWT tokens via Authorization header.
 
@@ -1794,7 +1795,11 @@ class TestRealJwtAuth:
         email = f"jwtauth_{uid}@example.com"
         resp = client.post(
             "/api/auth/register",
-            json={"email": email, "password": "TestPass123!", "display_name": f"JWT_{uid[:6]}"},
+            json={
+                "email": email,
+                "password": "TestPass123!",
+                "display_name": f"JWT_{uid[:6]}",
+            },
         )
         assert resp.status_code in (200, 201)
         data = resp.json()
@@ -1809,16 +1814,26 @@ class TestRealJwtAuth:
         _run_async(_clean_user_data(self.user_id))
 
     def _headers(self) -> dict:
-        return {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
+        return {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json",
+        }
 
     def test_create_config_with_real_jwt(self, client):
         """Create config using real JWT auth."""
         resp = client.post(
             "/api/v1/api-configs",
-            json={"name": "JWT Test", "vendor_id": "openai", "base_url": "https://api.openai.com", "api_key": "sk-jwt-test"},
+            json={
+                "name": "JWT Test",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-jwt-test",
+            },
             headers=self._headers(),
         )
-        assert resp.status_code == 201, f"Expected 201, got {resp.status_code}: {resp.text}"
+        assert resp.status_code == 201, (
+            f"Expected 201, got {resp.status_code}: {resp.text}"
+        )
         data = resp.json()
         assert data["name"] == "JWT Test"
 
@@ -1831,7 +1846,12 @@ class TestRealJwtAuth:
         """Without JWT token, endpoints return 401."""
         resp = client.post(
             "/api/v1/api-configs",
-            json={"name": "No Auth", "vendor_id": "openai", "base_url": "https://api.openai.com", "api_key": "sk-no"},
+            json={
+                "name": "No Auth",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-no",
+            },
         )
         assert resp.status_code == 401, f"Expected 401, got {resp.status_code}"
 

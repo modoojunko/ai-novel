@@ -91,7 +91,12 @@ async def test_api_config(
     )
     config = result.scalar_one_or_none()
     if not config:
-        return {"ok": False, "status": "not_found", "models": None, "error": "配置不存在"}
+        return {
+            "ok": False,
+            "status": "not_found",
+            "models": None,
+            "error": "配置不存在",
+        }
 
     plain_key = decrypt_api_key(config.api_key)
     outcome = await _test_connection(

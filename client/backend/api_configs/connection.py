@@ -33,11 +33,21 @@ async def test_connection(
     # Some vendors (Ollama) don't require an API key
     requires_key = vendor_id != "ollama"
     if requires_key and not api_key.strip():
-        return {"ok": False, "status": "auth_error", "models": None, "error": "API Key 为空，请填写后再测试"}
+        return {
+            "ok": False,
+            "status": "auth_error",
+            "models": None,
+            "error": "API Key 为空，请填写后再测试",
+        }
 
     endpoint, headers, extract_fn = _build_probe(vendor_id, api_key, base_url)
     if endpoint is None:
-        return {"ok": False, "status": "network_error", "models": None, "error": "不支持的供应商"}
+        return {
+            "ok": False,
+            "status": "network_error",
+            "models": None,
+            "error": "不支持的供应商",
+        }
 
     try:
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
@@ -45,28 +55,49 @@ async def test_connection(
     except httpx.TimeoutException:
         return {"ok": False, "status": "timeout", "models": None, "error": "连接超时"}
     except httpx.ConnectError:
-        return {"ok": False, "status": "network_error", "models": None, "error": "无法连接服务器"}
+        return {
+            "ok": False,
+            "status": "network_error",
+            "models": None,
+            "error": "无法连接服务器",
+        }
     except httpx.RequestError as exc:
-        return {"ok": False, "status": "network_error", "models": None, "error": f"网络错误: {exc}"}
+        return {
+            "ok": False,
+            "status": "network_error",
+            "models": None,
+            "error": f"网络错误: {exc}",
+        }
 
     if resp.status_code == 401 or resp.status_code == 403:
         detail = _extract_error_detail(resp)
         return {
-            "ok": False, "status": "auth_error", "models": None,
+            "ok": False,
+            "status": "auth_error",
+            "models": None,
             "error": f"认证失败 (HTTP {resp.status_code}){detail}",
         }
     if resp.status_code == 429:
-        return {"ok": False, "status": "rate_limited", "models": None, "error": "请求频率限制 (HTTP 429)"}
+        return {
+            "ok": False,
+            "status": "rate_limited",
+            "models": None,
+            "error": "请求频率限制 (HTTP 429)",
+        }
     if resp.status_code >= 500:
         detail = _extract_error_detail(resp)
         return {
-            "ok": False, "status": "network_error", "models": None,
+            "ok": False,
+            "status": "network_error",
+            "models": None,
             "error": f"服务端错误 (HTTP {resp.status_code}){detail}",
         }
     if resp.status_code != 200:
         detail = _extract_error_detail(resp)
         return {
-            "ok": False, "status": "unknown", "models": None,
+            "ok": False,
+            "status": "unknown",
+            "models": None,
             "error": f"异常响应 (HTTP {resp.status_code}){detail}",
         }
 
@@ -137,7 +168,9 @@ def _extract_openai_models(resp: httpx.Response) -> list[str]:
     """Extract model IDs from OpenAI-compatible /models response."""
     try:
         data = resp.json()
-        return [m["id"] for m in data.get("data", []) if isinstance(m, dict) and m.get("id")]
+        return [
+            m["id"] for m in data.get("data", []) if isinstance(m, dict) and m.get("id")
+        ]
     except (KeyError, TypeError, ValueError):
         return []
 
@@ -146,7 +179,9 @@ def _extract_anthropic_models(resp: httpx.Response) -> list[str]:
     """Extract model IDs from Anthropic /v1/models response."""
     try:
         data = resp.json()
-        return [m["id"] for m in data.get("data", []) if isinstance(m, dict) and m.get("id")]
+        return [
+            m["id"] for m in data.get("data", []) if isinstance(m, dict) and m.get("id")
+        ]
     except (KeyError, TypeError, ValueError):
         return []
 
@@ -155,7 +190,11 @@ def _extract_error_detail(resp: httpx.Response) -> str:
     """Extract a human-readable detail snippet from an error response."""
     try:
         body = resp.json()
-        msg = body.get("error", {}).get("message", "") or body.get("message", "") or body.get("error", "")
+        msg = (
+            body.get("error", {}).get("message", "")
+            or body.get("message", "")
+            or body.get("error", "")
+        )
         if isinstance(msg, str) and msg.strip():
             return f" — {msg.strip()[:120]}"
     except (ValueError, TypeError, AttributeError):
@@ -167,6 +206,10 @@ def _extract_ollama_models(resp: httpx.Response) -> list[str]:
     """Extract model names from Ollama /api/tags response."""
     try:
         data = resp.json()
-        return [m["name"] for m in data.get("models", []) if isinstance(m, dict) and m.get("name")]
+        return [
+            m["name"]
+            for m in data.get("models", [])
+            if isinstance(m, dict) and m.get("name")
+        ]
     except (KeyError, TypeError, ValueError):
         return []

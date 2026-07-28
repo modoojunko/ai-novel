@@ -13,11 +13,10 @@ from anthropic import AsyncAnthropic
 from openai import AsyncOpenAI
 from sqlalchemy import select
 
+from api_configs.crypto import decrypt_api_key
 from db import async_session
 from models.api_config import ApiConfig
 from models.user import User
-
-from api_configs.crypto import decrypt_api_key
 
 
 @dataclass

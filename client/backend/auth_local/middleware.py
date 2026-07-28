@@ -42,13 +42,22 @@ async def get_current_user(
         user_id = payload.get("sub", "")
         # 确保 C端 本地存在此用户
         if user_id:
+            from sqlalchemy import select as _select
+
             from db import async_session as _session
             from models.user import User as _User
-            from sqlalchemy import select as _select
+
             async with _session() as s:
                 r = await s.execute(_select(_User).where(_User.id == user_id))
                 if not r.scalar_one_or_none():
-                    s.add(_User(id=user_id, email=f"{user_id}@s.local", password_hash="*", display_name=user_id))
+                    s.add(
+                        _User(
+                            id=user_id,
+                            email=f"{user_id}@s.local",
+                            password_hash="*",
+                            display_name=user_id,
+                        )
+                    )
                     await s.commit()
         return {"id": user_id}
     except jose_jwt.JWTError:

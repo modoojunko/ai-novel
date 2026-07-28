@@ -49,8 +49,10 @@ from .service import (
     get_user_api_configs,
     restore_model_history,
     set_project_model,
-    test_api_config as _test_api_config,
     update_api_config,
+)
+from .service import (
+    test_api_config as _test_api_config,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["api-configs"])
