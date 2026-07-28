@@ -4,6 +4,7 @@
 C/S 模式下从本地 config.json 动态读取 API Key/Base URL/Model，而不是从 config.py。
 """
 
+import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
@@ -12,7 +13,9 @@ from anthropic import AsyncAnthropic
 from openai import AsyncOpenAI
 from sqlalchemy import select
 
+from api_configs.crypto import decrypt_api_key
 from db import async_session
+from models.api_config import ApiConfig
 from models.user import User
 
 
@@ -164,28 +167,92 @@ class AIClient:
 
 
 async def get_ai_client_for_user(user_id: str | None = None) -> AIClient:
-    """Get AI client configured with a user's API settings from DB.
+    """Get AI client configured with a user's API settings.
 
-    Falls back to config.json for backward compatibility during migration.
-    If user_id is given, looks up that user; otherwise uses the first user in DB.
+    Priority:
+    1. Project's configured ApiConfig (if project_id provided — see get_ai_client_for_project)
+    2. Any active ApiConfig for the user
+    3. Old User.api_key / api_base_url / api_model (migration fallback)
+    4. config.json (legacy fallback)
     """
     try:
         async with async_session() as session:
             if user_id:
-                result = await session.execute(select(User).where(User.id == user_id))
-            else:
-                result = await session.execute(select(User).limit(1))
-            user = result.scalar_one_or_none()
-            if user and user.api_key:
-                return AIClient(
-                    api_key=user.api_key,
-                    base_url=user.api_base_url,
-                    model=user.api_model,
+                # Check for active ApiConfig records (new system)
+                result = await session.execute(
+                    select(ApiConfig)
+                    .where(
+                        ApiConfig.user_id == user_id,
+                        ApiConfig.status == "active",
+                        ApiConfig.api_key != "",
+                    )
+                    .order_by(ApiConfig.created_at.desc())
+                    .limit(1)
                 )
+                cfg = result.scalar_one_or_none()
+                if cfg:
+                    plain_key = decrypt_api_key(cfg.api_key)
+                    if plain_key:
+                        models_list: list[str] = []
+                        if cfg.models:
+                            try:
+                                parsed = json.loads(cfg.models)
+                                if isinstance(parsed, list):
+                                    models_list = parsed
+                            except (json.JSONDecodeError, TypeError):
+                                pass
+                        # Use first model as the default, or empty
+                        model = models_list[0] if models_list else ""
+                        return AIClient(
+                            api_key=plain_key,
+                            base_url=cfg.base_url,
+                            model=model or "",
+                        )
+
+                # Fallback: old User.api_key (migration period)
+                result = await session.execute(select(User).where(User.id == user_id))
+                user = result.scalar_one_or_none()
+                if user and user.api_key:
+                    return AIClient(
+                        api_key=user.api_key,
+                        base_url=user.api_base_url,
+                        model=user.api_model,
+                    )
+            else:
+                # No user_id: find any user with a config
+                result = await session.execute(
+                    select(ApiConfig)
+                    .where(ApiConfig.status == "active", ApiConfig.api_key != "")
+                    .order_by(ApiConfig.created_at.desc())
+                    .limit(1)
+                )
+                cfg = result.scalar_one_or_none()
+                if cfg:
+                    plain_key = decrypt_api_key(cfg.api_key)
+                    if plain_key:
+                        return AIClient(
+                            api_key=plain_key,
+                            base_url=cfg.base_url,
+                            model="",
+                        )
+
+                # Fallback: any user with old api_key
+                result = await session.execute(
+                    select(User)
+                    .where(User.api_key != "", User.api_key.isnot(None))
+                    .limit(1)
+                )
+                user = result.scalar_one_or_none()
+                if user:
+                    return AIClient(
+                        api_key=user.api_key,
+                        base_url=user.api_base_url,
+                        model=user.api_model,
+                    )
     except Exception:  # noqa: BLE001, S110
         pass
 
-    # Fallback: read from config.json
+    # Final fallback: read from config.json
     from auth_local.service import get_local_config
 
     cfg = get_local_config()

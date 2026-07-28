@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ApiConfig } from "../types/api-config";
+import { getToken } from "../lib/auth";
 
 const API_BASE = "/api/v1";
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { "Authorization": `Bearer ${token}` } : {};
+}
 
 export function useApiConfigs() {
   const [configs, setConfigs] = useState<ApiConfig[]>([]);
@@ -12,7 +18,7 @@ export function useApiConfigs() {
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch(`${API_BASE}/api-configs`);
+      const resp = await fetch(`${API_BASE}/api-configs`, { headers: authHeaders() });
       if (resp.status === 503) {
         window.location.href = "/config";
         return;
@@ -39,7 +45,7 @@ export function useApiConfigs() {
   }): Promise<ApiConfig> => {
     const resp = await fetch(`${API_BASE}/api-configs`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify(body),
     });
     if (resp.status === 409) throw new Error("名称已被使用");
@@ -55,7 +61,7 @@ export function useApiConfigs() {
   ): Promise<ApiConfig> => {
     const resp = await fetch(`${API_BASE}/api-configs/${id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify(body),
     });
     if (resp.status === 409) throw new Error("名称已被使用");
@@ -70,6 +76,7 @@ export function useApiConfigs() {
   ): Promise<{ affected_projects: number; affected_names: string[] }> => {
     const resp = await fetch(`${API_BASE}/api-configs/${id}`, {
       method: "DELETE",
+      headers: authHeaders(),
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const result = await resp.json();
@@ -81,7 +88,7 @@ export function useApiConfigs() {
 
   const refreshStatus = useCallback(async () => {
     try {
-      const resp = await fetch(`${API_BASE}/api-configs/status`);
+      const resp = await fetch(`${API_BASE}/api-configs/status`, { headers: authHeaders() });
       if (resp.ok) {
         const data = await resp.json();
         setConfigs((prev) =>
@@ -105,6 +112,41 @@ export function useApiConfigs() {
   const refreshModels = async (id: string) => {
     const resp = await fetch(`${API_BASE}/api-configs/${id}/refresh-models`, {
       method: "POST",
+      headers: authHeaders(),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    return resp.json();
+  };
+
+  const testConfig = async (id: string): Promise<{ ok: boolean; status: string; models?: string[]; error?: string }> => {
+    const resp = await fetch(`${API_BASE}/api-configs/${id}/test`, {
+      method: "POST",
+      headers: authHeaders(),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const result = await resp.json();
+    // Refresh configs to pick up persisted test status
+    if (result.ok || result.status) {
+      setConfigs((prev) =>
+        prev.map((c) =>
+          c.id === id
+            ? { ...c, last_test_status: result.status, models: result.models ?? c.models }
+            : c,
+        ),
+      );
+    }
+    return result;
+  };
+
+  const testRawConfig = async (body: {
+    vendor_id: string;
+    base_url: string;
+    api_key: string;
+  }): Promise<{ ok: boolean; status: string; models?: string[]; error?: string }> => {
+    const resp = await fetch(`${API_BASE}/api-configs/test-connection`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify(body),
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     return resp.json();
@@ -120,5 +162,7 @@ export function useApiConfigs() {
     refresh,
     refreshStatus,
     refreshModels,
+    testConfig,
+    testRawConfig,
   };
 }

@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
+import { getToken } from "../lib/auth";
 
 const API_BASE = "/api/v1";
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { "Authorization": `Bearer ${token}` } : {};
+}
 
 type Period = "month" | "week" | "custom";
 
@@ -24,7 +30,7 @@ export function useUsageStats(options: {
       else if (options.projectId)
         url = `${API_BASE}/projects/${options.projectId}/usage`;
       else url = `${API_BASE}/api-configs/usage-summary`;
-      const resp = await fetch(url);
+      const resp = await fetch(url, { headers: authHeaders() });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const json = await resp.json();
       setData(json);

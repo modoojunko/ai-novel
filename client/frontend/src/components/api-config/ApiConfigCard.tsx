@@ -1,12 +1,13 @@
 import { useState } from "react";
 import type { ApiConfig, ConnectionStatus } from "../../types/api-config";
 import { ProviderIcon } from "./ProviderIcon";
-import type { StatusBadgeStatus } from "../shared/StatusBadge";
+import { Loader2, Plug, PlugZap } from "lucide-react";
 
 interface ApiConfigCardProps {
   config: ApiConfig;
   onEdit: (config: ApiConfig) => void;
   onDelete: (config: ApiConfig) => void;
+  onTest: (config: ApiConfig) => Promise<{ ok: boolean; status: string; error?: string }>;
 }
 
 const STATUS_BORDER: Record<string, string> = {
@@ -37,8 +38,23 @@ function ConnectionStatusTag({ status }: { status: ConnectionStatus | null | und
   return <span className={`badge badge-sm ${info.cls}`}>{info.text}</span>;
 }
 
-export function ApiConfigCard({ config, onEdit, onDelete }: ApiConfigCardProps) {
+export function ApiConfigCard({ config, onEdit, onDelete, onTest }: ApiConfigCardProps) {
   const borderClass = getStatusClass(config.last_test_status);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await onTest(config);
+      setTestResult(res.ok ? "✅ 连接正常" : `❌ ${res.error || "测试失败"}`);
+    } catch {
+      setTestResult("❌ 测试请求失败");
+    } finally {
+      setTesting(false);
+    }
+  };
 
   return (
     <div
@@ -73,16 +89,31 @@ export function ApiConfigCard({ config, onEdit, onDelete }: ApiConfigCardProps) 
       )}
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 pt-1">
-        <button className="btn btn-ghost btn-xs" onClick={() => onEdit(config)}>
-          编辑
-        </button>
-        <button
-          className="btn btn-ghost btn-xs text-error"
-          onClick={() => onDelete(config)}
-        >
-          删除
-        </button>
+      <div className="flex items-center justify-between pt-1">
+        {testResult ? (
+          <span className="text-xs">{testResult}</span>
+        ) : (
+          <span />
+        )}
+        <div className="flex gap-1">
+          <button
+            className="btn btn-ghost btn-xs"
+            onClick={handleTest}
+            disabled={testing}
+          >
+            {testing ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+            {testing ? "测试中…" : "测试连接"}
+          </button>
+          <button className="btn btn-ghost btn-xs" onClick={() => onEdit(config)}>
+            编辑
+          </button>
+          <button
+            className="btn btn-ghost btn-xs text-error"
+            onClick={() => onDelete(config)}
+          >
+            删除
+          </button>
+        </div>
       </div>
     </div>
   );

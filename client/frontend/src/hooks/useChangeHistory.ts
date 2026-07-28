@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ChangeEntry } from "../types/api-config";
+import { getToken } from "../lib/auth";
 
 const API_BASE = "/api/v1";
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { "Authorization": `Bearer ${token}` } : {};
+}
 
 export function useChangeHistory(projectId: string | undefined) {
   const [history, setHistory] = useState<ChangeEntry[]>([]);
@@ -18,6 +24,7 @@ export function useChangeHistory(projectId: string | undefined) {
     try {
       const resp = await fetch(
         `${API_BASE}/projects/${projectId}/model-history`,
+        { headers: authHeaders() },
       );
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json();
@@ -37,7 +44,7 @@ export function useChangeHistory(projectId: string | undefined) {
     if (!projectId) return;
     const resp = await fetch(
       `${API_BASE}/projects/${projectId}/model-history/${entryId}/restore`,
-      { method: "POST" },
+      { method: "POST", headers: authHeaders() },
     );
     if (resp.status === 400) {
       const err = await resp.json();

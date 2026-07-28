@@ -12,6 +12,7 @@ import webbrowser
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
+from jose import jwt as jose_jwt
 
 
 # 从 config.json 读取 S端 API 地址，避免环境变量传递问题
@@ -73,11 +74,6 @@ def load_or_create_config() -> dict:
     # 环境变量中的 SERVER_API_BASE 同步到 config.json（持久化）
     if os.environ.get("SERVER_API_BASE") and not cfg.get("server_api"):
         cfg["server_api"] = os.environ["SERVER_API_BASE"]
-        changed = True
-    if os.environ.get("DEV_MODE") and not cfg.get("token"):
-        cfg["token"] = "dev-token"
-        cfg["tier"] = "lifetime"
-        cfg["last_login_at"] = datetime.now(UTC).isoformat()
         changed = True
     if changed:
         save_local_config(cfg)
@@ -158,13 +154,6 @@ async def browser_auth(silent: bool = False) -> dict:
     cfg = load_or_create_config()
     pc_hash = cfg["pc_hash"]
 
-    if os.environ.get("DEV_MODE"):
-        cfg["token"] = "dev-token"
-        cfg["tier"] = "lifetime"
-        cfg["last_login_at"] = datetime.now(UTC).isoformat()
-        save_local_config(cfg)
-        return {"code": 0, "data": {"message": "开发模式", "token": "dev-token"}}
-
     # 静默模式：只查一次，不打开浏览器
     if silent:
         result = await call_server_api("check-auth", params={"pc_hash": pc_hash})
@@ -175,6 +164,7 @@ async def browser_auth(silent: bool = False) -> dict:
             cfg["expires_at"] = data.get("expires_at", "")
             cfg["last_login_at"] = datetime.now(UTC).isoformat()
             save_local_config(cfg)
+            await _ensure_local_user(cfg["token"])
             return {
                 "code": 0,
                 "data": {
@@ -186,7 +176,8 @@ async def browser_auth(silent: bool = False) -> dict:
         return {"code": 1, "data": {"message": "未登录"}}
 
     # 打开浏览器到 S端 授权页面
-    auth_url = f"{_get_server_api()}/auth-page?pc_hash={pc_hash}"
+    pc_name = cfg.get("pc_name", "")
+    auth_url = f"{_get_server_api()}/auth-page?pc_hash={pc_hash}&pc_name={pc_name}"
     webbrowser.open(auth_url)
 
     # 轮询等待用户授权
@@ -200,6 +191,7 @@ async def browser_auth(silent: bool = False) -> dict:
             cfg["expires_at"] = data.get("expires_at", "")
             cfg["last_login_at"] = datetime.now(UTC).isoformat()
             save_local_config(cfg)
+            await _ensure_local_user(cfg["token"])
             return {
                 "code": 0,
                 "data": {
@@ -219,13 +211,6 @@ async def verify_session() -> dict:
     token = cfg.get("token", "")
     last_login = cfg.get("last_login_at", "")
     expires_at = cfg.get("expires_at", "")
-
-    if os.environ.get("DEV_MODE"):
-        return {
-            "valid": True,
-            "tier": cfg.get("tier", "lifetime"),
-            "trial_remaining_days": 365,
-        }
 
     if not token:
         return {"valid": False, "msg": "未登录"}
@@ -304,6 +289,35 @@ def check_permission(now: date | None = None) -> dict:
             return {"allowed": False, "reason": "invalid", "msg": "套餐信息异常"}
 
     return {"allowed": True, "tier": tier}
+
+
+async def _ensure_local_user(token: str) -> None:
+    """Ensure the JWT-authenticated S端 user exists in C端's local DB."""
+    try:
+        from config import JWT_ALGORITHM, JWT_SECRET
+        from db import async_session
+        from models.user import User
+
+        payload = jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get("sub", "")
+        if not user_id:
+            return
+        async with async_session() as session:
+            from sqlalchemy import select
+
+            existing = await session.execute(select(User).where(User.id == user_id))
+            if not existing.scalar_one_or_none():
+                session.add(
+                    User(
+                        id=user_id,
+                        email=f"{user_id}@s端.local",
+                        password_hash="*",
+                        display_name=user_id,
+                    )
+                )
+                await session.commit()
+    except Exception:  # noqa: S110
+        pass
 
 
 async def reset_password(security_answer: str, new_password: str) -> dict:

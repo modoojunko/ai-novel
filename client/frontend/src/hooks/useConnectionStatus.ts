@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
 import type { ConnectionStatus } from "../types/api-config";
+import { getToken } from "../lib/auth";
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { "Authorization": `Bearer ${token}` } : {};
+}
 
 const CACHE_TTL = parseInt(
   import.meta.env.VITE_CACHE_TTL || "30000",
@@ -28,7 +34,7 @@ export function useConnectionStatus(configId: string | undefined) {
     if (cached) setStale(true);
 
     setLoading(true);
-    fetch(`/api/v1/api-configs/${configId}/test`, { method: "POST" })
+    fetch(`/api/v1/api-configs/${configId}/test`, { method: "POST", headers: authHeaders() })
       .then((r) => r.json())
       .then((data) => {
         const s = data.status as ConnectionStatus;

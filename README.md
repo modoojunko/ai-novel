@@ -100,6 +100,7 @@ ai-novel/
 │   │   ├── config.py         配置 (DATA_ROOT, JWT_SECRET, SERVER_API_BASE)
 │   │   ├── db.py             SQLAlchemy + SQLite
 │   │   ├── ai_client.py      AI 客户端（动态 API Key）
+│   │   ├── api_configs/      API Key 多配置管理
 │   │   ├── models/           ORM: User, Project, TokenLog, NovelFile
 │   │   ├── auth_local/       License 验证 + JWT
 │   │   ├── projects/         项目 CRUD
