@@ -146,14 +146,21 @@ async def api_get_config(
     """获取本地配置（从数据库，兼容旧 config.json）"""
     result = await db.execute(select(User).where(User.id == user["id"]))
     u = result.scalar_one_or_none()
-    if u and u.api_key:
+
+    # 检查 ApiConfig 表中是否有任何配置（多 Key 时代）
+    config_result = await db.execute(
+        select(ApiConfig).where(ApiConfig.user_id == user["id"]).limit(1)
+    )
+    has_api_config = config_result.scalar_one_or_none() is not None
+
+    if u:
         return {
             "has_token": bool(u.token),
             "tier": u.plan or "none",
             "expires_at": str(u.subscription_expires_at)
             if u.subscription_expires_at
             else "",
-            "has_api_key": bool(u.api_key),
+            "has_api_key": bool(u.api_key) or has_api_config,
             "api_base_url": u.api_base_url or "",
             "api_model": u.api_model or "",
         }
@@ -163,7 +170,7 @@ async def api_get_config(
         "has_token": bool(cfg.get("token", "")),
         "tier": cfg.get("tier", "none"),
         "expires_at": cfg.get("expires_at", ""),
-        "has_api_key": bool(cfg.get("api_key")),
+        "has_api_key": has_api_config or bool(cfg.get("api_key")),
         "api_base_url": cfg.get("api_base_url", ""),
         "api_model": cfg.get("api_model", ""),
     }

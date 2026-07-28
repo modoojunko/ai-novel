@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ApiConfig, FlatModelOption, ModelStatus } from "../types/api-config";
 import { useApiConfigs } from "./useApiConfigs";
+import { getToken } from "../lib/auth";
 
 const API_BASE = "/api/v1";
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { "Authorization": `Bearer ${token}` } : {};
+}
 
 export function useModelStatus(projectId: string | undefined) {
   const { configs, loading: configsLoading } = useApiConfigs();
@@ -18,7 +24,7 @@ export function useModelStatus(projectId: string | undefined) {
       return;
     }
     try {
-      const resp = await fetch(`${API_BASE}/projects/${projectId}/ai-model`);
+      const resp = await fetch(`${API_BASE}/projects/${projectId}/ai-model`, { headers: authHeaders() });
       if (resp.ok) {
         const data = await resp.json();
         setCurrentConfigId(data.api_config_id);
@@ -65,7 +71,7 @@ export function useModelStatus(projectId: string | undefined) {
     if (!projectId) return;
     const resp = await fetch(`${API_BASE}/projects/${projectId}/ai-model`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({ api_config_id: apiConfigId, model }),
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);

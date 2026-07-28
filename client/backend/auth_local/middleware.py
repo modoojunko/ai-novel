@@ -32,23 +32,33 @@ async def get_current_user(
 
     token = credentials.credentials
 
-    if os.environ.get("DEV_MODE"):
-        # 开发模式：接受 "dev-token"（旧式）或有效 JWT
-        if token == "dev-token":
-            return {"id": "devuser"}
-        # 尝试验证 JWT
-        from jose import jwt as jose_jwt
+    # 验证 JWT（S端 部署环境使用的格式）
+    from jose import jwt as jose_jwt
 
-        from config import JWT_ALGORITHM, JWT_SECRET
+    from config import JWT_ALGORITHM, JWT_SECRET
 
-        try:
-            payload = jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-            return {"id": payload.get("sub", "devuser")}
-        except jose_jwt.JWTError:
-            raise HTTPException(status_code=401, detail="无效的令牌")
+    try:
+        payload = jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get("sub", "")
+        # 确保 C端 本地存在此用户
+        if user_id:
+            from sqlalchemy import select as _select
 
-    cfg = get_local_config()
-    local_token = cfg.get("token", "")
-    if not local_token:
-        raise HTTPException(status_code=401, detail="未登录")
-    return {"id": local_token[:8]}
+            from db import async_session as _session
+            from models.user import User as _User
+
+            async with _session() as s:
+                r = await s.execute(_select(_User).where(_User.id == user_id))
+                if not r.scalar_one_or_none():
+                    s.add(
+                        _User(
+                            id=user_id,
+                            email=f"{user_id}@s.local",
+                            password_hash="*",
+                            display_name=user_id,
+                        )
+                    )
+                    await s.commit()
+        return {"id": user_id}
+    except jose_jwt.JWTError:
+        raise HTTPException(status_code=401, detail="无效的令牌")

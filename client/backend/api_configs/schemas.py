@@ -178,6 +178,12 @@ class AiModelResponse(BaseModel):
     config_name: str | None = None
 
 
+class TestRawBody(BaseModel):
+    vendor_id: str
+    base_url: str
+    api_key: str = ""
+
+
 class TestResultResponse(BaseModel):
     ok: bool
     status: str

@@ -19,7 +19,21 @@ import secrets
 import string
 import hashlib
 import sqlite3
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
+
+from jose import jwt as jose_jwt
+
+JWT_SECRET = "local-license-secret"
+JWT_ALGORITHM = "HS256"
+
+
+def _make_jwt(username: str) -> str:
+    payload = {
+        "sub": username,
+        "username": username,
+        "exp": int((datetime.now(timezone.utc) + timedelta(days=30)).timestamp()),
+    }
+    return jose_jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 from pathlib import Path
 from functools import wraps
 
@@ -274,6 +288,7 @@ class AuthorizeRequest(BaseModel):
     username: str
     password: str
     pc_hash: str
+    pc_name: str = ""
 
 
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "admin123")  # 本地测试用，可环境变量覆盖
@@ -350,7 +365,7 @@ async def api_activate(req: ActivateRequest):
         return {
             "code": 0,
             "data": {
-                "token": f"local-token-{username}",
+                "token": _make_jwt(username),
                 "tier": code_row["tier"],
                 "expires_at": expires_at.isoformat(),
                 "devices": devices,
@@ -385,7 +400,7 @@ async def api_register(req: RegisterRequest):
         )
         conn.commit()
         conn.close()
-        return {"code": 0, "data": {"token": f"local-token-{username}", "message": "注册成功"}}
+        return {"code": 0, "data": {"token": _make_jwt(username), "message": "注册成功"}}
     except Exception:
         return {"code": -1, "msg": "内部错误，请查看服务器日志"}
 
@@ -421,8 +436,24 @@ async def api_authorize(req: AuthorizeRequest):
         # 记录授权
         conn.execute(
             "INSERT OR REPLACE INTO auth_tokens (pc_hash, username, token, tier, expires_at, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
-            (req.pc_hash, user["username"], f"oauth-{req.pc_hash[:8]}", tier, expires_at)
+            (req.pc_hash, user["username"], _make_jwt(user["username"]), tier, expires_at)
         )
+
+        # 注册设备
+        existing_dev = conn.execute(
+            "SELECT 1 FROM devices WHERE username=? AND pc_hash=?",
+            (user["username"], req.pc_hash)
+        ).fetchone()
+        if existing_dev:
+            conn.execute(
+                "UPDATE devices SET last_active_at=datetime('now') WHERE username=? AND pc_hash=?",
+                (user["username"], req.pc_hash)
+            )
+        else:
+            conn.execute(
+                "INSERT INTO devices (username, pc_hash, pc_name, last_active_at, bound_at) VALUES (?, ?, ?, datetime('now'), datetime('now'))",
+                (user["username"], req.pc_hash, req.pc_name or "浏览器登录")
+            )
         conn.commit()
         conn.close()
         return {"code": 0, "data": {"message": "授权成功", "tier": tier, "expires_at": expires_at}}
@@ -483,7 +514,7 @@ async def api_login(req: LoginRequest):
         return {
             "code": 0,
             "data": {
-                "token": f"local-token-{user['username']}",
+                "token": _make_jwt(user['username']),
                 "expires_at": max_expires.isoformat(),
                 "tier": ", ".join(sorted(tiers)),
                 "devices": devices,
@@ -496,7 +527,7 @@ async def api_login(req: LoginRequest):
 @app.post("/api/verify")
 async def api_verify(req: VerifyRequest):
     try:
-        if not req.token.startswith("local-token-"):
+        if not _user_from_token(req.token):
             return {"code": 2, "msg": "Token 无效"}
         if req.username not in req.token:
             return {"code": 2, "msg": "Token 和用户名不匹配"}
@@ -648,8 +679,13 @@ def _gen_token() -> str:
 
 def _user_from_token(token: str):
     if not token: return None
+    # Try JWT decode first
+    try:
+        payload = jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload.get("sub")
+    except jose_jwt.JWTError:
+        pass
     conn = get_db()
-    # 清理过期 token（排除空字符串，空表示永不过期）
     conn.execute("DELETE FROM auth_tokens WHERE expires_at != '' AND expires_at IS NOT NULL AND expires_at < datetime('now')")
     row = conn.execute("SELECT username FROM auth_tokens WHERE token=?", (token,)).fetchone()
     conn.commit()

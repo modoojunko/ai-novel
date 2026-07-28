@@ -1,11 +1,13 @@
 import { useState } from "react";
 import type { ApiConfig } from "../../types/api-config";
 import { ProviderIcon, VENDOR_LABELS } from "./ProviderIcon";
+import { Loader2 } from "lucide-react";
 
 interface ApiConfigFormProps {
   config?: ApiConfig; // If provided, edit mode
   onSubmit: (data: ApiConfigFormData) => Promise<void>;
   onCancel: () => void;
+  onTest?: (data: ApiConfigFormData) => Promise<{ ok: boolean; status: string; error?: string }>;
 }
 
 export interface ApiConfigFormData {
@@ -26,13 +28,15 @@ const VENDORS = [
   { id: "openai-compat", label: "OpenAI 兼容", baseUrl: "" },
 ];
 
-export function ApiConfigForm({ config, onSubmit, onCancel }: ApiConfigFormProps) {
+export function ApiConfigForm({ config, onSubmit, onCancel, onTest }: ApiConfigFormProps) {
   const isEdit = !!config;
   const [name, setName] = useState(config?.name || "");
   const [vendorId, setVendorId] = useState(config?.vendor || "");
   const [baseUrl, setBaseUrl] = useState(config?.base_url || "");
   const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const selectedVendor = VENDORS.find((v) => v.id === vendorId);
@@ -43,6 +47,25 @@ export function ApiConfigForm({ config, onSubmit, onCancel }: ApiConfigFormProps
     const v = VENDORS.find((x) => x.id === id);
     if (v && v.baseUrl) {
       setBaseUrl(v.baseUrl);
+    }
+  };
+
+  const handleTest = async () => {
+    if (!vendorId) { setTestResult({ ok: false, message: "请选择供应商" }); return; }
+    if (!baseUrl.trim()) { setTestResult({ ok: false, message: "请输入 Base URL" }); return; }
+    if (!isEdit && vendorId !== "ollama" && !apiKey.trim()) { setTestResult({ ok: false, message: "请输入 API Key" }); return; }
+
+    if (!onTest) return;
+    setTesting(true);
+    setTestResult(null);
+    setError(null);
+    try {
+      const res = await onTest({ name: name.trim(), vendor_id: vendorId, base_url: baseUrl.trim(), api_key: apiKey });
+      setTestResult({ ok: res.ok, message: res.ok ? "✅ 连接正常" : `❌ ${res.error || "测试失败"}` });
+    } catch {
+      setTestResult({ ok: false, message: "❌ 测试请求失败" });
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -147,8 +170,21 @@ export function ApiConfigForm({ config, onSubmit, onCancel }: ApiConfigFormProps
         )}
       </div>
 
+      {/* Test result */}
+      {testResult && (
+        <div className={`text-sm px-3 py-2 rounded-lg ${testResult.ok ? "bg-success/10 text-success" : "bg-error/10 text-error"}`}>
+          {testResult.message}
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex justify-end gap-2 pt-2">
+        {onTest && (
+          <button type="button" className="btn btn-outline" onClick={handleTest} disabled={testing || saving}>
+            {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            {testing ? "测试中…" : "测试连接"}
+          </button>
+        )}
         <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={saving}>
           取消
         </button>

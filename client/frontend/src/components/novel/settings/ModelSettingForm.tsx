@@ -1,5 +1,11 @@
 import { useState, useCallback } from "react";
 import { useModelStatus } from "../../../hooks/useModelStatus";
+import { getToken } from "../../../lib/auth";
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { "Authorization": `Bearer ${token}` } : {};
+}
 import { StatusBadge } from "../../shared/StatusBadge";
 import { ModelSelector } from "./ModelSelector";
 import { ChangeTimeline } from "./ChangeTimeline";
@@ -34,7 +40,7 @@ export default function ModelSettingForm({ projectId }: ModelSettingFormProps) {
     try {
       const resp = await fetch("/api/v1/projects/apply-model-to-all", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ api_config_id: currentConfigId, model: currentModel }),
       });
       const data = await resp.json();

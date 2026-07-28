@@ -48,6 +48,7 @@ function Dashboard() {
   const [creating, setCreating] = useState(false);
   const [manualMode, setManualMode] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+  const [showKeyHint, setShowKeyHint] = useState(false);
   const navigate = useNavigate();
 
   async function handleDelete() {
@@ -69,9 +70,9 @@ function Dashboard() {
       if (r.tier) setTier(r.tier);
       if (r.trial_remaining_days !== undefined) setTrialDays(r.trial_remaining_days);
     }).catch(() => {});
-    // 未配置 API Key 时跳转到配置页
+    // 检查 API Key 配置状态
     api.get("/auth/config").then((cfg: any) => {
-      if (!cfg.has_api_key) navigate('/config');
+      if (!cfg.has_api_key) setShowKeyHint(true);
     }).catch(() => {});
   }, []);
 
@@ -137,6 +138,12 @@ function Dashboard() {
         </div>
       )}
 
+      {showKeyHint && (
+        <div className="alert alert-info mb-4 shadow-sm">
+          <span>💡 还没配置 API Key，</span>
+          <a href="/#/config" className="link link-primary">去配置</a>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold font-display text-base-content">我的作品</h1>
         {!(tier === 'none' && projects.length >= 1) && (

@@ -8,7 +8,7 @@ const BASE = `${getApiBaseUrl()}/api`;
 export async function apiFetch(input: RequestInfo, init?: RequestInit): Promise<Response> {
   const resp = await fetch(input, init);
   if (resp.status === 503) {
-    window.location.href = '/config';
+    window.location.href = "/#/config";
     throw new Error('Service unavailable');
   }
   return resp;
@@ -33,8 +33,14 @@ export async function request(path: string, options?: { method?: string; body?: 
   });
 
   if (res.status === 401) {
-    window.location.hash = "#/login";
+    localStorage.removeItem("auth_token");
+    window.location.href = "/#/login";
     throw new Error("Unauthorized");
+  }
+
+  if (res.status === 503) {
+    window.location.href = "/#/config";
+    throw new Error('Service unavailable');
   }
 
   if (!res.ok) {
