@@ -503,12 +503,13 @@ async function loadDevices() {
   empty.style.display = 'none';
   cards.style.display = 'block';
 
-  var d = res.data;
-  capacity.textContent = '共 ' + d.total_count + ' 台设备 · 已激活 ' + d.activated_count + ' 台（限额 ' + d.active_limit + ' 台）';
+  var devices = res.data || [];
+  capacity.textContent = '共 ' + (res.total_count || 0) + ' 台设备 · 已激活 ' + (res.activated_count || 0) + ' 台（限额 ' + (res.active_limit || 0) + ' 台）';
 
-  cards.innerHTML = d.map(function(dev, i) {
+  cards.innerHTML = devices.map(function(dev, i) {
     var isActivated = dev.activated;
     var cls = isActivated ? 'dc dc-a' : 'dc dc-d';
+    var devName = dev.hostname || '未知设备';
     var nmCls = isActivated ? 'dc-nm' : 'dc-nm muted';
     var osCls = isActivated ? 'dc-os' : 'dc-os muted';
     var icon = DC_ICONS[i % DC_ICONS.length];
@@ -531,7 +532,7 @@ async function loadDevices() {
       '<div class="dc-ic">' + icon + '</div>' +
       '<div class="dc-bd">' +
         '<div class="dc-hd">' +
-          '<span class="' + nmCls + '">' + dev.hostname + '</span>' +
+          '<span class="' + nmCls + '">' + devName + '</span>' +
           badge + recent +
         '</div>' +
         '<div class="' + osCls + '">' + osText + '</div>' +
@@ -548,13 +549,12 @@ async function loadDevices() {
 async function loadDeviceCount() {
   try {
     const res = await request('/device/my');
-    var count = res.data ? (res.data.total_count || res.data.length || 0) : 0;
+    var devs = res.data || [];
+    var count = res.total_count || devs.length || 0;
     document.getElementById('deviceCountDash').textContent = count;
     document.getElementById('deviceCountCard').textContent = count;
-    var lastActive = res.data && res.data.length > 0
-      ? (res.data[0].last_active_at
-        ? '上次活跃：' + new Date(res.data[0].last_active_at).toLocaleString('zh-CN')
-        : '-')
+    var lastActive = devs.length > 0 && devs[0].last_active_at
+      ? '上次活跃：' + new Date(devs[0].last_active_at).toLocaleString('zh-CN')
       : '暂无设备';
     document.getElementById('deviceStatusText').textContent = '共 3 台可用 · ' + lastActive;
   } catch(e) {
