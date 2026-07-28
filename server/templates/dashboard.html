@@ -349,23 +349,53 @@
       <!-- ============================================================
            PAGE: DEVICES (设备管理)
            ============================================================ -->
+      <style>
+      #pageDevices .dv-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+      #pageDevices .dv-hdr h2{font-size:20px;font-weight:700;font-family:var(--font-serif)}
+      #pageDevices .dv-cap{font-size:13px;color:#999}
+      #pageDevices .dv-card{background:#fff;border-radius:10px;padding:20px;margin-bottom:10px;transition:box-shadow .15s;display:flex;align-items:flex-start;gap:12px}
+      #pageDevices .dv-card:hover{box-shadow:0 2px 10px rgba(0,0,0,.06)}
+      #pageDevices .dv-card.dv-a{border:1px solid #c8e6c9;border-left:4px solid #43a047}
+      #pageDevices .dv-card.dv-d{border:1px dashed #e0e0e0;border-left:4px solid #bdbdbd;background:#fafafa}
+      #pageDevices .dv-ic{width:40px;height:40px;border-radius:10px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;margin-top:2px}
+      #pageDevices .dv-bd{flex:1;min-width:0}
+      #pageDevices .dv-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px}
+      #pageDevices .dv-nm{font-size:16px;font-weight:600;color:#333}
+      #pageDevices .dv-nm.dim{color:#bbb}
+      #pageDevices .dv-dot{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:500}
+      #pageDevices .dv-dot.on{color:#43a047}
+      #pageDevices .dv-dot.off{color:#bbb}
+      #pageDevices .dv-dot::before{content:'';width:8px;height:8px;border-radius:50%;display:inline-block}
+      #pageDevices .dv-dot.on::before{background:#43a047}
+      #pageDevices .dv-dot.off::before{background:#bdbdbd}
+      #pageDevices .dv-tg{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:500;background:#e3f2fd;color:#1565c0}
+      #pageDevices .dv-os{font-size:14px;color:#888;margin-bottom:2px}
+      #pageDevices .dv-os.dim{color:#ccc}
+      #pageDevices .dv-mt{display:flex;gap:16px;font-size:12px;color:#bbb}
+      #pageDevices .dv-mt.dim{color:#ddd}
+      #pageDevices .dv-up{margin-top:10px;padding:8px 14px;background:#fff8e1;border-radius:8px;font-size:12px;color:#8b6f00;line-height:1.4}
+      #pageDevices .dv-up a{color:#f57f17;font-weight:600;text-decoration:underline}
+      @keyframes dv-pulse{0%{background-position:200% 0}100%{background-position:-200% 0}}
+      .dv-sk{background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200% 100%;animation:dv-pulse 1.5s ease-in-out infinite;border-radius:8px}
+      </style>
       <div id="pageDevices" style="display:none;">
         <div class="sd-subpage">
-          <div class="subpage-header">
-            <div class="subpage-icon" data-lucide="monitor" style="background:linear-gradient(135deg,var(--co-brown-light),var(--co-brown-mid));"></div>
-            <div class="subpage-info">
-              <h3>我的设备</h3>
-              <p id="deviceCapacity" style="font-size:13px;color:#999;"></p>
-            </div>
+
+          <div id="dvEmpty" style="text-align:center;padding:60px 20px;background:#fff;border-radius:10px;border:1px solid #eee;display:none">
+            <div style="font-size:40px;margin-bottom:12px;opacity:.35">📟</div>
+            <h3 style="font-size:16px;font-weight:600;color:#999;margin-bottom:4px">还没有注册设备</h3>
+            <p style="font-size:13px;color:#bbb;margin-bottom:16px">首次从 C端 登录授权后，设备会自动注册到这里</p>
+            <a href="/download" style="display:inline-block;padding:9px 22px;background:#333;color:#fff;border-radius:8px;font-size:13px;font-weight:500;text-decoration:none">📥 下载 C端</a>
           </div>
-          <div id="deviceList">
-            <div id="deviceEmpty" class="sd-empty-state">
-              <div class="empty-icon" data-lucide="monitor" style="width:40px;height:40px;margin:0 auto var(--space-3);opacity:0.3;"></div>
-              <div class="empty-title">还没有注册设备</div>
-              <div class="empty-desc">首次从 C端 登录授权后，设备会自动注册到这里</div>
+
+          <div id="dvContent" style="display:none">
+            <div class="dv-hdr">
+              <h2>我的设备</h2>
+              <span id="dvCapacity" class="dv-cap"></span>
             </div>
-            <div id="deviceCards" style="display:none;"></div>
+            <div id="dvCards"></div>
           </div>
+
         </div>
       </div>
 
@@ -477,7 +507,7 @@ function switchPage() {
   document.querySelectorAll('.sidebar nav a').forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + page));
   Object.values(PAGES).forEach(id => document.getElementById(id).style.display = 'none');
   document.getElementById(PAGES[page] || PAGES.dashboard).style.display = 'block';
-  if (page === 'devices') loadDevices();
+  if (page === 'devices') { document.getElementById('dvLoading').style.display='none'; document.getElementById('dvLoadingCards').style.display='none'; loadDevices(); }
   if (page === 'dashboard') loadDeviceCount();
 }
 
@@ -485,38 +515,36 @@ window.addEventListener('hashchange', switchPage);
 
 // ── Device management ──
 
-var DC_ICONS = ['🖥️', '💻', '📱', '🖥️', '💻'];
+var DV_ICONS = ['🖥️', '💻', '📱', '🖥️', '💻'];
 
 async function loadDevices() {
   const res = await request('/device/my');
-  const cards = document.getElementById('deviceCards');
-  const empty = document.getElementById('deviceEmpty');
-  const capacity = document.getElementById('deviceCapacity');
+  const dvCards = document.getElementById('dvCards');
+  const dvEmpty = document.getElementById('dvEmpty');
+  const dvContent = document.getElementById('dvContent');
+  const dvCapacity = document.getElementById('dvCapacity');
 
   if (!res.data || res.data.length === 0) {
-    cards.style.display = 'none';
-    empty.style.display = 'block';
-    capacity.textContent = '';
+    dvCards.style.display = 'none';
+    dvEmpty.style.display = 'block';
+    dvContent.style.display = 'none';
     return;
   }
 
-  empty.style.display = 'none';
-  cards.style.display = 'block';
+  dvEmpty.style.display = 'none';
+  dvContent.style.display = 'block';
+  dvCards.style.display = 'block';
 
   var devices = res.data || [];
-  capacity.textContent = '共 ' + (res.total_count || 0) + ' 台设备 · 已激活 ' + (res.activated_count || 0) + ' 台（限额 ' + (res.active_limit || 0) + ' 台）';
+  dvCapacity.textContent = '共 ' + (res.total_count || 0) + ' 台设备 · 已激活 ' + (res.activated_count || 0) + ' 台（限额 ' + (res.active_limit || 0) + ' 台）';
 
-  cards.innerHTML = devices.map(function(dev, i) {
+  dvCards.innerHTML = devices.map(function(dev, i) {
     var isActivated = dev.activated;
-    var cls = isActivated ? 'dc dc-a' : 'dc dc-d';
+    var cls = 'dv-card ' + (isActivated ? 'dv-a' : 'dv-d');
     var devName = dev.hostname || '未知设备';
-    var nmCls = isActivated ? 'dc-nm' : 'dc-nm muted';
-    var osCls = isActivated ? 'dc-os' : 'dc-os muted';
-    var icon = DC_ICONS[i % DC_ICONS.length];
-    var badge = isActivated
-      ? '<span class="dc-ok">已激活</span>'
-      : '<span class="dc-no">未激活</span>';
-    var recent = dev.is_current ? '<span class="dc-tg">最近使用</span>' : '';
+    var icon = DV_ICONS[i % DV_ICONS.length];
+    var badge = '<span class="dv-dot ' + (isActivated ? 'on' : 'off') + '">' + (isActivated ? '已激活' : '未激活') + '</span>';
+    var recent = dev.is_current ? '<span class="dv-tg">最近使用</span>' : '';
     var osText = dev.os || '未知系统';
     var lastActive = dev.last_active_at ? new Date(dev.last_active_at).toLocaleString('zh-CN') : '-';
     var boundAt = dev.bound_at ? new Date(dev.bound_at).toLocaleString('zh-CN') : '-';
@@ -524,19 +552,19 @@ async function loadDevices() {
     if (!isActivated && dev.reason) {
       var msg = dev.reason.message;
       if (msg.indexOf('限额') >= 0) {
-        msg = msg.replace('限额', '<a href="#license" style="color:#f57f17;font-weight:600;text-decoration:underline">限额</a>');
+        msg = msg.replace('限额', '<a href="#license">限额</a>');
       }
-      guide = '<div class="dc-up">⚡ ' + msg + '</div>';
+      guide = '<div class="dv-up">⚡ ' + msg + '</div>';
     }
     return '<div class="' + cls + '">' +
-      '<div class="dc-ic">' + icon + '</div>' +
-      '<div class="dc-bd">' +
-        '<div class="dc-hd">' +
-          '<span class="' + nmCls + '">' + devName + '</span>' +
+      '<div class="dv-ic">' + icon + '</div>' +
+      '<div class="dv-bd">' +
+        '<div class="dv-hd">' +
+          '<span class="dv-nm' + (isActivated ? '' : ' dim') + '">' + devName + '</span>' +
           badge + recent +
         '</div>' +
-        '<div class="' + osCls + '">' + osText + '</div>' +
-        '<div class="dc-mt">' +
+        '<div class="dv-os' + (isActivated ? '' : ' dim') + '">' + osText + '</div>' +
+        '<div class="dv-mt' + (isActivated ? '' : ' dim') + '">' +
           '<span>最近活动：' + lastActive + '</span>' +
           '<span>绑定：' + boundAt + '</span>' +
         '</div>' +
@@ -556,7 +584,7 @@ async function loadDeviceCount() {
     var lastActive = devs.length > 0 && devs[0].last_active_at
       ? '上次活跃：' + new Date(devs[0].last_active_at).toLocaleString('zh-CN')
       : '暂无设备';
-    document.getElementById('deviceStatusText').textContent = '共 3 台可用 · ' + lastActive;
+    document.getElementById('deviceStatusText').textContent = '共 ' + (res.active_limit || 3) + ' 台可用 · ' + lastActive;
   } catch(e) {
     document.getElementById('deviceCountDash').textContent = '-';
     document.getElementById('deviceCountCard').textContent = '-';
