@@ -550,7 +550,7 @@ async function loadDevices() {
     var icon = DV_ICONS[i % DV_ICONS.length];
     var badge = '<span class="dv-dot ' + (isActivated ? 'on' : 'off') + '">' + (isActivated ? '已激活' : '未激活') + '</span>';
     var recent = dev.is_current ? '<span class="dv-tg">最近使用</span>' : '';
-    var osText = dev.os || '未知系统';
+    var osText = dev.os ? dev.os : '';
     var lastActive = dev.last_active_at ? new Date(dev.last_active_at).toLocaleString('zh-CN') : '-';
     var boundAt = dev.bound_at ? new Date(dev.bound_at).toLocaleString('zh-CN') : '-';
     var guide = '';
@@ -568,15 +568,26 @@ async function loadDevices() {
           '<span class="dv-nm' + (isActivated ? '' : ' dim') + '">' + devName + '</span>' +
           badge + recent +
         '</div>' +
-        '<div class="dv-os' + (isActivated ? '' : ' dim') + '">' + osText + '</div>' +
-        '<div class="dv-mt' + (isActivated ? '' : ' dim') + '">' +
+        (osText ? '<div class="dv-os' + (isActivated ? '' : ' dim') + '">' + osText + '</div>' : '') +
+        '<div class="dv-mt' + (isActivated ? '' : ' dim') + '" style="display:flex;align-items:center;justify-content:space-between">' +
           '<span>最近活动：' + lastActive + '</span>' +
           '<span>绑定：' + boundAt + '</span>' +
+          '<a href="#" onclick="removeDevice('' + (dev.id || '') + '','' + (dev.fingerprint || '') + '','' + (dev.pc_hash || '') + '')" style="font-size:11px;color:#999;text-decoration:none">移除</a>' +
         '</div>' +
         guide +
       '</div>' +
     '</div>';
   }).join('');
+}
+
+async function removeDevice(id, fingerprint, pc_hash) {
+  if (!confirm('确定移除这台设备？')) return;
+  var body = {};
+  if (id) body.id = id;
+  if (fingerprint) body.fingerprint = fingerprint;
+  if (pc_hash) body.pc_hash = pc_hash;
+  var r = await request('/device/remove', { method:'POST', body:JSON.stringify(body) });
+  if (r.code === 0) { loadDevices(); loadDeviceCount(); }
 }
 
 async function loadDeviceCount() {

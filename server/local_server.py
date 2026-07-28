@@ -1159,6 +1159,7 @@ async def api_device_my(authorization: str = Header(None)):
         result = []
         for i, d in enumerate(old_data):
             result.append({
+                "pc_hash": d.get("pc_hash", ""),
                 "hostname": d.get("pc_name") or "未知设备",
                 "os": "",
                 "os_arch": "",
@@ -1220,7 +1221,13 @@ async def api_device_remove(body: dict, authorization: str = Header(None)):
     username = _user_from_token(token)
     if not username: return {"code": 1, "msg": "未登录"}
     conn = get_db()
+    # 从旧表移除（devices.username 是用户名）
     conn.execute("DELETE FROM devices WHERE username=? AND pc_hash=?", (username, body.get("pc_hash","")))
+    # 从新表 device_registry 移除（user_id 存的是用户名，与旧表 username 一致）
+    if body.get("id"):
+        conn.execute("DELETE FROM device_registry WHERE user_id=? AND id=?", (username, body["id"]))
+    if body.get("fingerprint"):
+        conn.execute("DELETE FROM device_registry WHERE user_id=? AND fingerprint=?", (username, body["fingerprint"]))
     conn.commit(); conn.close()
     return {"code": 0, "data": {"success": True}}
 
