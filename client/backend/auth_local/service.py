@@ -176,7 +176,8 @@ async def browser_auth(silent: bool = False) -> dict:
         return {"code": 1, "data": {"message": "未登录"}}
 
     # 打开浏览器到 S端 授权页面
-    auth_url = f"{_get_server_api()}/auth-page?pc_hash={pc_hash}"
+    pc_name = cfg.get("pc_name", "")
+    auth_url = f"{_get_server_api()}/auth-page?pc_hash={pc_hash}&pc_name={pc_name}"
     webbrowser.open(auth_url)
 
     # 轮询等待用户授权

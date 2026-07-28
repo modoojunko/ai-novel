@@ -11,6 +11,12 @@ export default function LoginPage() {
 
   // 静默检测：当前浏览器在 S端 是否已登录
   useEffect(() => {
+    // 如果用户刚手动退出，跳过自动检测，让用户看到登录按钮
+    if (sessionStorage.getItem("manual_logout")) {
+      sessionStorage.removeItem("manual_logout");
+      setChecking(false);
+      return;
+    }
     (async () => {
       try {
         const res = await request('/auth/check-auth');

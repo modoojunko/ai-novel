@@ -27,10 +27,12 @@ from projects.service import (
     project_to_dict,
 )
 
+from .connection import test_connection as _test_raw_connection
 from .schemas import (
     ApplyModelToAllBody,
     CreateApiConfigBody,
     SetAiModelBody,
+    TestRawBody,
     UpdateApiConfigBody,
 )
 from .service import (
@@ -47,6 +49,7 @@ from .service import (
     get_user_api_configs,
     restore_model_history,
     set_project_model,
+    test_api_config as _test_api_config,
     update_api_config,
 )
 
@@ -146,6 +149,19 @@ async def batch_status(
     return await get_batch_status(db, _user_id(user))
 
 
+@router.post("/api-configs/test-connection")
+async def test_raw_connection(
+    body: TestRawBody,
+    user: dict = Depends(get_current_user),
+):
+    """Test a connection with raw config data (no saved config needed)."""
+    return await _test_raw_connection(
+        vendor_id=body.vendor_id,
+        api_key=body.api_key,
+        base_url=body.base_url,
+    )
+
+
 @router.get("/api-configs/usage-summary")
 async def usage_summary(
     user: dict = Depends(get_current_user),
@@ -217,11 +233,11 @@ async def test_config(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Test a single config's connection."""
-    config = await get_api_config(db, _user_id(user), config_id)
-    if not config:
+    """Test a single config's connection and save results."""
+    result = await _test_api_config(db, _user_id(user), config_id)
+    if result.get("status") == "not_found":
         raise HTTPException(404, "配置不存在")
-    return {"ok": False, "status": "untested", "models": []}
+    return result
 
 
 @router.post("/api-configs/{config_id}/refresh-models")

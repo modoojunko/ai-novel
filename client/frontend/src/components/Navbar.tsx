@@ -33,6 +33,7 @@ export default function Navbar() {
               onClick={() => {
                 localStorage.removeItem("auth_token");
                 localStorage.removeItem("auth_username");
+                sessionStorage.setItem("manual_logout", "1");
                 window.location.hash = "#/";
               }}
             >

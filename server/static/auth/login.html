@@ -43,6 +43,7 @@ button:disabled{background:#93b8f0;cursor:not-allowed}
 <script>
 const params=new URLSearchParams(window.location.search);
 const pcHash=params.get('pc_hash');
+const pcName=params.get('pc_name')||'';
 document.getElementById('loginForm').onsubmit=async(e)=>{
   e.preventDefault();const btn=document.getElementById('loginBtn');btn.disabled=true;btn.textContent='授权中...';
   const msg=document.getElementById('msg');
@@ -50,7 +51,8 @@ document.getElementById('loginForm').onsubmit=async(e)=>{
     const r=await fetch('/api/authorize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
       username:document.getElementById('username').value,
       password:document.getElementById('password').value,
-      pc_hash:pcHash
+      pc_hash:pcHash,
+      pc_name:pcName
     })});
     const d=await r.json();
     if(d.code===0){

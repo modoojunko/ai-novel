@@ -118,6 +118,40 @@ export function useApiConfigs() {
     return resp.json();
   };
 
+  const testConfig = async (id: string): Promise<{ ok: boolean; status: string; models?: string[]; error?: string }> => {
+    const resp = await fetch(`${API_BASE}/api-configs/${id}/test`, {
+      method: "POST",
+      headers: authHeaders(),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const result = await resp.json();
+    // Refresh configs to pick up persisted test status
+    if (result.ok || result.status) {
+      setConfigs((prev) =>
+        prev.map((c) =>
+          c.id === id
+            ? { ...c, last_test_status: result.status, models: result.models ?? c.models }
+            : c,
+        ),
+      );
+    }
+    return result;
+  };
+
+  const testRawConfig = async (body: {
+    vendor_id: string;
+    base_url: string;
+    api_key: string;
+  }): Promise<{ ok: boolean; status: string; models?: string[]; error?: string }> => {
+    const resp = await fetch(`${API_BASE}/api-configs/test-connection`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    return resp.json();
+  };
+
   return {
     configs,
     loading,
@@ -128,5 +162,7 @@ export function useApiConfigs() {
     refresh,
     refreshStatus,
     refreshModels,
+    testConfig,
+    testRawConfig,
   };
 }

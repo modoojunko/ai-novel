@@ -65,12 +65,12 @@ AI Novel（爱小说）—— 基于 C/S 架构的 AI 辅助长篇小说创作�
 ## 常用命令
 
 ```bash
-# 启动 C端 后端（开发模式，无需 License）
-cd client/backend && mkdir -p data
-DEV_MODE=1 DATA_ROOT=./data uvicorn main:app --reload --host 127.0.0.1 --port 8000
-
-# 启动 S端 本地模拟器（用于 License 测试）
+# 先启动 S端 本地模拟器（终端 1）
 python server/local_server.py
+
+# 再启动 C端 后端（终端 2）— SERVER_API_BASE 指向本地 S端
+cd client/backend && mkdir -p data
+DATA_ROOT=./data SERVER_API_BASE=http://127.0.0.1:19000/api uvicorn main:app --reload --host 127.0.0.1 --port 8000
 
 # 仅启动前端（UI 开发，热更新在 localhost:5173）
 cd client/frontend && npm run dev
@@ -177,7 +177,7 @@ ai-novel/
 
 ## 当前状态
 
-后端已完成（所有路由模块已接入，3 个 AI 调用点的 Token 追踪已激活，双存储后端）。前端已完整构建，使用 React 19 + Vite + daisyUI，包含写作工作室（SSE 流式）、归档阅读器、时间线、设置表单。速率限制中间件已激活。尚未编写测试。
+后端已完成（所有路由模块已接入，3 个 AI 调用点的 Token 追踪已激活，双存储后端）。前端已完整构建，使用 React 19 + Vite + daisyUI，包含写作工作室（SSE 流式）、归档阅读器、时间线、设置表单。速率限制中间件已激活。API Key 多配置管理已完成（19 个端点 + 8 个供应商 + Fernet 加密）。API Key 配置后端测试 66 个已通过。
 
 ## 智能体调度协议
 

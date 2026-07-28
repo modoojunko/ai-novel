@@ -26,7 +26,7 @@ export default function ApiKeyConfigPage() {
       navigate("/login", { replace: true });
     }
   }, [navigate]);
-  const { configs, loading, error, addConfig, updateConfig, deleteConfig, refreshStatus } = useApiConfigs();
+  const { configs, loading, error, addConfig, updateConfig, deleteConfig, refreshStatus, testConfig, testRawConfig } = useApiConfigs();
   const [showForm, setShowForm] = useState(false);
   const [editConfig, setEditConfig] = useState<ApiConfig | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApiConfig | null>(null);
@@ -59,10 +59,12 @@ export default function ApiKeyConfigPage() {
       await updateConfig(editConfig.id, data);
       setEditConfig(null);
     } else {
-      await addConfig(data);
+      const newConfig = await addConfig(data);
+      // Auto-test after create so the card shows real status
+      try { await testConfig(newConfig.id); } catch { /* non-blocking */ }
       setShowForm(false);
     }
-  }, [editConfig, updateConfig, addConfig]);
+  }, [editConfig, updateConfig, addConfig, testConfig]);
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) return;
@@ -138,6 +140,7 @@ export default function ApiKeyConfigPage() {
             config={editConfig ?? undefined}
             onSubmit={handleFormSubmit}
             onCancel={() => { setShowForm(false); setEditConfig(null); }}
+            onTest={async (data) => testRawConfig({ vendor_id: data.vendor_id, base_url: data.base_url, api_key: data.api_key })}
           />
         </div>
       )}
@@ -169,6 +172,7 @@ export default function ApiKeyConfigPage() {
                 config={c}
                 onEdit={() => { setEditConfig(c); setShowForm(false); }}
                 onDelete={() => { setDeleteTarget(c); }}
+                onTest={async (cfg) => testConfig(cfg.id)}
               />
             ))}
           </div>
