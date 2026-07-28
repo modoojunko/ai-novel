@@ -4,12 +4,12 @@
 import asyncio
 import base64
 import hashlib
-import urllib.parse
 import json
 import os
 import platform
 import subprocess
 import time
+import urllib.parse
 import webbrowser
 from datetime import UTC, date, datetime, timedelta
 

@@ -1131,9 +1131,61 @@ async def api_device_my(authorization: str = Header(None)):
     username = _user_from_token(token)
     if not username: return {"code": 1, "msg": "未登录"}
     conn = get_db()
-    devices = conn.execute("SELECT pc_hash, pc_name, last_active_at FROM devices WHERE username=?", (username,)).fetchall()
+
+    # 查询套餐
+    codes_row = conn.execute(
+        "SELECT tier, expires_at FROM codes WHERE bound_username=? AND status='active' ORDER BY expires_at DESC LIMIT 1",
+        (username,)
+    ).fetchone()
+    tier = codes_row["tier"] if codes_row else "free"
+
+    # 从新表 device_registry 查询
+    rows = conn.execute(
+        "SELECT * FROM device_registry WHERE user_id=? ORDER BY last_active_at DESC, updated_at DESC, id DESC",
+        (username,)
+    ).fetchall()
+    registry_devices = [dict(r) for r in rows]
+
+    active_limit = get_user_tier_limit(tier)
+    top_n_fps = {d["fingerprint"] for d in registry_devices[:active_limit]} if active_limit > 0 else set()
+
+    result_devices = []
+    for i, d in enumerate(registry_devices):
+        fp = d["fingerprint"]
+        is_activated = fp in top_n_fps
+        reason = None
+        if not is_activated:
+            if tier == "none":
+                reason = {"code": "account_inactive", "message": "账号未激活，所有设备均为免费模式"}
+            else:
+                reason = {"code": "limit_exceeded", "message": f"已超出设备限额（限额 {active_limit} 台），升级套餐可激活全功能"}
+
+        result_devices.append({
+            "id": d["id"],
+            "hostname": d["hostname"] or "未知设备",
+            "os": d["os"],
+            "os_arch": d["os_arch"],
+            "fingerprint": fp,
+            "activated": is_activated,
+            "reason": reason,
+            "is_current": i == 0,
+            "last_active_at": d["last_active_at"],
+            "bound_at": d["bound_at"],
+            "active_limit": active_limit,
+            "activated_count": min(len(top_n_fps), active_limit) if active_limit > 0 else 0,
+            "total_count": len(registry_devices),
+        })
+
+    # 也返回旧表设备数量（兼容）
+    old_devices = conn.execute("SELECT COUNT(*) as cnt FROM devices WHERE username=?", (username,)).fetchone()
     conn.close()
-    return {"code": 0, "data": [dict(d) for d in devices]}
+    return {
+        "code": 0,
+        "data": result_devices,
+        "total_count": len(result_devices),
+        "activated_count": min(len(top_n_fps), active_limit) if active_limit > 0 else 0,
+        "active_limit": active_limit,
+    }
 
 
 @app.post("/api/device/remove")
@@ -1145,16 +1197,6 @@ async def api_device_remove(body: dict, authorization: str = Header(None)):
     conn.execute("DELETE FROM devices WHERE username=? AND pc_hash=?", (username, body.get("pc_hash","")))
     conn.commit(); conn.close()
     return {"code": 0, "data": {"success": True}}
-
-
-@app.get("/dashboard/devices")
-async def page_dashboard_devices(jwt: str = ""):
-    """设备管理页面（独立 HTML）"""
-    html_path = Path(__file__).parent / "static" / "dashboard" / "devices.html"
-    if html_path.exists():
-        content = html_path.read_text(encoding="utf-8")
-        return HTMLResponse(content)
-    return HTMLResponse("页面不可用", status_code=503)
 
 
 # ── 静态文件挂载（放在最后，避免拦截 API 路由） ──

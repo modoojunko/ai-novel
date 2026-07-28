@@ -27,7 +27,7 @@
       </a>
       <a href="#devices">
         <span class="nav-icon" data-lucide="monitor"></span>
-        设备管理
+        我的设备
       </a>
       <a href="#account">
         <span class="nav-icon" data-lucide="settings"></span>
@@ -354,16 +354,17 @@
           <div class="subpage-header">
             <div class="subpage-icon" data-lucide="monitor" style="background:linear-gradient(135deg,var(--co-brown-light),var(--co-brown-mid));"></div>
             <div class="subpage-info">
-              <h3>设备管理</h3>
-              <p>管理已授权的设备 · 最多绑定 3 台</p>
+              <h3>我的设备</h3>
+              <p id="deviceCapacity" style="font-size:13px;color:#999;"></p>
             </div>
           </div>
           <div id="deviceList">
-            <div class="sd-empty-state">
+            <div id="deviceEmpty" class="sd-empty-state">
               <div class="empty-icon" data-lucide="monitor" style="width:40px;height:40px;margin:0 auto var(--space-3);opacity:0.3;"></div>
-              <div class="empty-title">暂无绑定设备</div>
-              <div class="empty-desc">打开 C端 客户端，通过浏览器登录授权后<br>当前设备会自动显示在此处</div>
+              <div class="empty-title">还没有注册设备</div>
+              <div class="empty-desc">首次从 C端 登录授权后，设备会自动注册到这里</div>
             </div>
+            <div id="deviceCards" style="display:none;"></div>
           </div>
         </div>
       </div>
@@ -484,34 +485,61 @@ window.addEventListener('hashchange', switchPage);
 
 // ── Device management ──
 
+var DC_ICONS = ['🖥️', '💻', '📱', '🖥️', '💻'];
+
 async function loadDevices() {
   const res = await request('/device/my');
-  const list = document.getElementById('deviceList');
+  const cards = document.getElementById('deviceCards');
+  const empty = document.getElementById('deviceEmpty');
+  const capacity = document.getElementById('deviceCapacity');
+
   if (!res.data || res.data.length === 0) {
-    list.innerHTML =
-      '<div class="sd-empty-state">' +
-      '<div class="empty-icon" style="font-size:2.5rem;margin-bottom:var(--space-3);opacity:0.4;">💻</div>' +
-      '<div class="empty-title">暂无绑定设备</div>' +
-      '<div class="empty-desc">打开 C端 客户端，通过浏览器登录授权后<br>当前设备会自动显示在此处</div>' +
-      '</div>';
+    cards.style.display = 'none';
+    empty.style.display = 'block';
+    capacity.textContent = '';
     return;
   }
-  list.innerHTML = res.data.map(d => {
-    const last = d.last_active_at ? new Date(d.last_active_at).toLocaleDateString('zh-CN') : '-';
-    const name = d.pc_name || '未知设备';
-    const isOnline = d.is_online || false;
-    return '<div class="sd-device-item">' +
-      '<div class="device-info">' +
-        '<div class="device-icon">💻</div>' +
-        '<div>' +
-          '<div class="device-name">' + name + '</div>' +
-          '<div class="device-meta">编号 ' + (d.pc_hash||'').slice(0,12) + '… · 最后活跃：' + last + '</div>' +
+
+  empty.style.display = 'none';
+  cards.style.display = 'block';
+
+  var d = res.data;
+  capacity.textContent = '共 ' + d.total_count + ' 台设备 · 已激活 ' + d.activated_count + ' 台（限额 ' + d.active_limit + ' 台）';
+
+  cards.innerHTML = d.map(function(dev, i) {
+    var isActivated = dev.activated;
+    var cls = isActivated ? 'dc dc-a' : 'dc dc-d';
+    var nmCls = isActivated ? 'dc-nm' : 'dc-nm muted';
+    var osCls = isActivated ? 'dc-os' : 'dc-os muted';
+    var icon = DC_ICONS[i % DC_ICONS.length];
+    var badge = isActivated
+      ? '<span class="dc-ok">已激活</span>'
+      : '<span class="dc-no">未激活</span>';
+    var recent = dev.is_current ? '<span class="dc-tg">最近使用</span>' : '';
+    var osText = dev.os || '未知系统';
+    var lastActive = dev.last_active_at ? new Date(dev.last_active_at).toLocaleString('zh-CN') : '-';
+    var boundAt = dev.bound_at ? new Date(dev.bound_at).toLocaleString('zh-CN') : '-';
+    var guide = '';
+    if (!isActivated && dev.reason) {
+      var msg = dev.reason.message;
+      if (msg.indexOf('限额') >= 0) {
+        msg = msg.replace('限额', '<a href="#license" style="color:#f57f17;font-weight:600;text-decoration:underline">限额</a>');
+      }
+      guide = '<div class="dc-up">⚡ ' + msg + '</div>';
+    }
+    return '<div class="' + cls + '">' +
+      '<div class="dc-ic">' + icon + '</div>' +
+      '<div class="dc-bd">' +
+        '<div class="dc-hd">' +
+          '<span class="' + nmCls + '">' + dev.hostname + '</span>' +
+          badge + recent +
         '</div>' +
-      '</div>' +
-      '<div class="device-status">' +
-        '<span class="status-dot ' + (isOnline ? 'status-dot-active' : 'status-dot-inactive') + '"></span>' +
-        '<span class="status-text" style="' + (isOnline ? '' : 'color:var(--co-brown-light);') + '">' + (isOnline ? '在线' : '离线') + '</span>' +
-        '<button class="btn btn-danger btn-sm" style="margin-left:var(--space-3);" onclick="removeDevice(\'' + d.pc_hash + '\')">解绑</button>' +
+        '<div class="' + osCls + '">' + osText + '</div>' +
+        '<div class="dc-mt">' +
+          '<span>最近活动：' + lastActive + '</span>' +
+          '<span>绑定：' + boundAt + '</span>' +
+        '</div>' +
+        guide +
       '</div>' +
     '</div>';
   }).join('');
@@ -520,27 +548,20 @@ async function loadDevices() {
 async function loadDeviceCount() {
   try {
     const res = await request('/device/my');
-    const count = res.data ? res.data.length : 0;
-    const maxDevices = 3;
+    var count = res.data ? (res.data.total_count || res.data.length || 0) : 0;
     document.getElementById('deviceCountDash').textContent = count;
     document.getElementById('deviceCountCard').textContent = count;
-    const lastActive = res.data && res.data.length > 0
+    var lastActive = res.data && res.data.length > 0
       ? (res.data[0].last_active_at
         ? '上次活跃：' + new Date(res.data[0].last_active_at).toLocaleString('zh-CN')
         : '-')
       : '暂无设备';
-    document.getElementById('deviceStatusText').textContent = '共 ' + maxDevices + ' 台可用 · ' + lastActive;
+    document.getElementById('deviceStatusText').textContent = '共 3 台可用 · ' + lastActive;
   } catch(e) {
     document.getElementById('deviceCountDash').textContent = '-';
     document.getElementById('deviceCountCard').textContent = '-';
     document.getElementById('deviceStatusText').textContent = '加载失败';
   }
-}
-
-async function removeDevice(hash) {
-  if (!confirm('确定解绑此设备？')) return;
-  const r = await request('/device/remove', { method:'POST', body:JSON.stringify({ pc_hash: hash }) });
-  if (r.code === 0) { loadDevices(); loadDeviceCount(); }
 }
 
 // ── Activation ──
