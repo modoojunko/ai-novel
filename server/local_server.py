@@ -435,7 +435,7 @@ async def api_authorize(req: AuthorizeRequest):
         # 记录授权
         conn.execute(
             "INSERT OR REPLACE INTO auth_tokens (pc_hash, username, token, tier, expires_at, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
-            (req.pc_hash, user["username"], f"oauth-{req.pc_hash[:8]}", tier, expires_at)
+            (req.pc_hash, user["username"], _make_jwt(user["username"]), tier, expires_at)
         )
         conn.commit()
         conn.close()

@@ -12,6 +12,7 @@ import webbrowser
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
+from jose import jwt as jose_jwt
 
 
 # 从 config.json 读取 S端 API 地址，避免环境变量传递问题
@@ -163,6 +164,7 @@ async def browser_auth(silent: bool = False) -> dict:
             cfg["expires_at"] = data.get("expires_at", "")
             cfg["last_login_at"] = datetime.now(UTC).isoformat()
             save_local_config(cfg)
+            await _ensure_local_user(cfg["token"])
             return {
                 "code": 0,
                 "data": {
@@ -188,6 +190,7 @@ async def browser_auth(silent: bool = False) -> dict:
             cfg["expires_at"] = data.get("expires_at", "")
             cfg["last_login_at"] = datetime.now(UTC).isoformat()
             save_local_config(cfg)
+            await _ensure_local_user(cfg["token"])
             return {
                 "code": 0,
                 "data": {
@@ -285,6 +288,24 @@ def check_permission(now: date | None = None) -> dict:
             return {"allowed": False, "reason": "invalid", "msg": "套餐信息异常"}
 
     return {"allowed": True, "tier": tier}
+
+
+async def _ensure_local_user(token: str) -> None:
+    """Ensure the JWT-authenticated S端 user exists in C端's local DB."""
+    try:
+        from config import JWT_ALGORITHM, JWT_SECRET
+        payload = jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get("sub", "")
+        if not user_id:
+            return
+        async with async_session() as session:
+            from sqlalchemy import select
+            existing = await session.execute(select(User).where(User.id == user_id))
+            if not existing.scalar_one_or_none():
+                session.add(User(id=user_id, email=f"{user_id}@s端.local", password_hash="*", display_name=user_id))
+                await session.commit()
+    except Exception:  # noqa: BLE001, S110
+        pass
 
 
 async def reset_password(security_answer: str, new_password: str) -> dict:
