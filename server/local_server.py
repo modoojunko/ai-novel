@@ -1147,6 +1147,35 @@ async def api_device_my(authorization: str = Header(None)):
     registry_devices = [dict(r) for r in rows]
 
     active_limit = get_user_tier_limit(tier)
+
+    # 如果新表无数据，回退到旧表 devices
+    if not registry_devices:
+        old_rows = conn.execute(
+            "SELECT pc_hash, pc_name, last_active_at, bound_at FROM devices WHERE username=? ORDER BY last_active_at DESC",
+            (username,)
+        ).fetchall()
+        old_data = [dict(r) for r in old_rows]
+        conn.close()
+        result = []
+        for i, d in enumerate(old_data):
+            result.append({
+                "hostname": d.get("pc_name") or "未知设备",
+                "os": "",
+                "os_arch": "",
+                "activated": i == 0 and tier != "none",
+                "reason": None,
+                "is_current": i == 0,
+                "last_active_at": d.get("last_active_at", ""),
+                "bound_at": d.get("bound_at", ""),
+            })
+        return {
+            "code": 0,
+            "data": result,
+            "total_count": len(result),
+            "activated_count": 1 if result and tier != "none" else 0,
+            "active_limit": active_limit,
+        }
+
     top_n_fps = {d["fingerprint"] for d in registry_devices[:active_limit]} if active_limit > 0 else set()
 
     result_devices = []
@@ -1175,9 +1204,6 @@ async def api_device_my(authorization: str = Header(None)):
             "activated_count": min(len(top_n_fps), active_limit) if active_limit > 0 else 0,
             "total_count": len(registry_devices),
         })
-
-    # 也返回旧表设备数量（兼容）
-    old_devices = conn.execute("SELECT COUNT(*) as cnt FROM devices WHERE username=?", (username,)).fetchone()
     conn.close()
     return {
         "code": 0,
