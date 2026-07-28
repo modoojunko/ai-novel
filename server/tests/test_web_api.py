@@ -96,7 +96,7 @@ class TestOAuthRegister:
     def test_success(self, client, uid):
         r = client.post("/api/register", json={"username": f"or_{uid}", "password": "P1!", "security_question": "q", "security_answer": "a", "pc_hash": f"h_{uid}", "pc_name": "pc"})
         assert r.json()["code"] == 0
-        assert r.json()["data"]["token"].startswith("local-token-")
+        assert r.json()["data"]["token"].startswith("eyJ")
 
     def test_dup(self, client, oauth_user):
         r = client.post("/api/register", json={"username": oauth_user["username"], "password": "X2!", "security_question": "q", "security_answer": "a", "pc_hash": "h2", "pc_name": "pc2"})

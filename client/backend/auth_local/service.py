@@ -2,7 +2,9 @@
 """浏览器 OAuth 登录 + 30 天滚动验证"""
 
 import asyncio
+import base64
 import hashlib
+import urllib.parse
 import json
 import os
 import platform
@@ -126,6 +128,51 @@ def generate_pc_hash() -> str:
     return hashlib.sha256(raw.encode()).hexdigest()[:32]
 
 
+def collect_device_profile() -> dict:
+    """采集当前设备硬件信息，构造 DeviceProfile"""
+    info = []
+    for wmic_query in [
+        "cpu get ProcessorId",
+        "baseboard get SerialNumber",
+        "diskdrive get SerialNumber",
+    ]:
+        try:
+            result = subprocess.run(
+                ["wmic"] + wmic_query.split(),
+                capture_output=True, text=True, timeout=5, check=False
+            )
+            if result.returncode == 0:
+                lines = result.stdout.strip().split("\n")
+                if len(lines) > 1:
+                    val = lines[1].strip()
+                    if val:
+                        info.append(val)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+
+    raw = "-".join(info) or platform.node() or "unknown"
+    fingerprint = hashlib.sha256(raw.encode()).hexdigest()
+
+    return {
+        "fingerprint": fingerprint,
+        "hostname": platform.node() or "",
+        "os": platform.platform() or "",
+        "os_arch": platform.machine() or "",
+    }
+
+
+def encode_device_profile(device_info: dict) -> str:
+    """DeviceProfile → URL-safe Base64（无 padding）"""
+    payload = {
+        "f": device_info.get("fingerprint", ""),
+        "h": device_info.get("hostname", ""),
+        "o": device_info.get("os", ""),
+        "a": device_info.get("os_arch", ""),
+    }
+    raw = json.dumps(payload, separators=(",", ":"))
+    return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
+
+
 async def call_server_api(
     endpoint: str,
     method: str = "GET",
@@ -175,9 +222,18 @@ async def browser_auth(silent: bool = False) -> dict:
             }
         return {"code": 1, "data": {"message": "未登录"}}
 
-    # 打开浏览器到 S端 授权页面
+    # 采集设备信息并编码为 device_profile
+    device_info = collect_device_profile()
+    device_profile = encode_device_profile(device_info)
+
+    # 打开浏览器到 S端 授权页面（附带设备信息）
     pc_name = cfg.get("pc_name", "")
-    auth_url = f"{_get_server_api()}/auth-page?pc_hash={pc_hash}&pc_name={pc_name}"
+    auth_url = (
+        f"{_get_server_api()}/auth-page"
+        f"?pc_hash={pc_hash}"
+        f"&pc_name={urllib.parse.quote(pc_name)}"
+        f"&device_profile={device_profile}"
+    )
     webbrowser.open(auth_url)
 
     # 轮询等待用户授权

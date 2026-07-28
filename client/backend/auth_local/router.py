@@ -3,6 +3,7 @@
 
 import hashlib
 import os
+import httpx
 from datetime import UTC, datetime
 from typing import Any
 
@@ -24,6 +25,7 @@ from .service import (
     browser_auth,
     check_permission,
     get_local_config,
+    _get_server_api,
     reset_password,
     verify_session,
 )
@@ -136,6 +138,41 @@ async def api_refresh():
 async def api_reset_password(req: ResetPasswordRequest):
     """密保重置密码"""
     return await reset_password(req.security_answer, req.new_password)
+
+
+@router.get("/devices/current")
+async def get_current_device(
+    user: dict = Depends(get_current_user),
+):
+    """获取当前设备激活状态（代理到 S端）"""
+    cfg = get_local_config()
+    token = cfg.get("token", "")
+    pc_hash = cfg.get("pc_hash", "")
+
+    if not token:
+        return {"enrolled": False, "activated": False, "device_count": 0, "active_limit": 0}
+
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(
+                f"{_get_server_api()}/api/devices/current",
+                params={"pc_hash": pc_hash},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            result = resp.json()
+
+        # 消费 enrolled
+        if result.get("enrolled"):
+            async with httpx.AsyncClient(timeout=3) as client:
+                await client.post(
+                    f"{_get_server_api()}/api/devices/consume-enrolled",
+                    params={"pc_hash": pc_hash},
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+
+        return result
+    except httpx.RequestError:
+        return {"enrolled": False, "activated": False, "device_count": 0, "active_limit": 0, "error": "S端 不可达"}
 
 
 @router.get("/config")
