@@ -98,10 +98,10 @@ test.describe('认证流程', () => {
       await page.goto('/login')
       await page.getByText('忘记密码？').first().click()
       await page.waitForTimeout(500)
-      // 重置区域的输入框用 fieldset legend 筛选
+      // 重置区域的输入框现在用独有的 label（不重复）
+      await page.getByRole('textbox', { name: '重置账号' }).fill('testuser')
       await page.getByRole('textbox', { name: '密保答案' }).fill('Fluffy')
       await page.getByRole('textbox', { name: '新密码' }).fill('NewPass456!')
-      await page.getByRole('textbox', { name: '用户名' }).last().fill('testuser')
       await page.locator('button:has-text("重置密码")').click()
       await page.waitForTimeout(2000)
       await expect(page.getByText('密码已重置').first()).toBeVisible({ timeout: 10000 })

@@ -26,8 +26,10 @@ export class MockApi {
     this.page = page
   }
 
-  /** 在每次测试前调用，注册每个 API 路由的精确拦截 */
+  /** 在每次测试前调用：重置状态 + 注册路由拦截 */
   async setup(): Promise<void> {
+    this.currentUser = null
+    this.devices = []
     for (const url of this.routes) {
       await this.page.route(url, (route) => this.handler(route))
     }

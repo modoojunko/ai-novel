@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import AppCard from '@/components/ui/AppCard.vue'
 import AppInput from '@/components/ui/AppInput.vue'
+import { SECURITY_QUESTIONS } from "@/constants/security-questions"
 import AppButton from '@/components/ui/AppButton.vue'
 
 const router = useRouter()
@@ -36,14 +37,7 @@ const canSubmit = computed(() => {
     && !session.isLoading
 })
 
-const questionOptions = [
-  { value: '', label: '请选择密保问题', disabled: true },
-  { value: '你的第一本书是？', label: '你的第一本书是？' },
-  { value: '你的宠物名字是？', label: '你的宠物名字是？' },
-  { value: '你的出生城市是？', label: '你的出生城市是？' },
-  { value: '你最喜欢的老师是？', label: '你最喜欢的老师是？' },
-  { value: '__custom__', label: '自定义问题' },
-]
+const questionOptions = SECURITY_QUESTIONS
 
 const showCustomInput = ref(false)
 
@@ -83,11 +77,12 @@ async function handleRegister() {
         <!-- 组 1：必填账号信息 -->
         <fieldset class="fieldset">
           <legend class="fieldset-legend">账号信息</legend>
-          <AppInput v-model="username" label="用户名" />
+          <AppInput v-model="username" label="用户名" autocomplete="username" />
           <AppInput
             v-model="password"
             type="password"
             label="密码"
+            autocomplete="new-password"
             :error="passwordError"
             hint="至少 6 位"
           />

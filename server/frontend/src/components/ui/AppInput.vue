@@ -12,6 +12,7 @@ const props = withDefaults(defineProps<{
   icon?: string
   disabled?: boolean
   name?: string
+  autocomplete?: string
 }>(), {
   type: 'text',
   disabled: false,
@@ -48,6 +49,7 @@ function onInput(e: Event) {
         :aria-label="label"
         :type="inputType"
         :placeholder
+        :autocomplete
         :value="modelValue"
         :disabled
         @input="onInput"

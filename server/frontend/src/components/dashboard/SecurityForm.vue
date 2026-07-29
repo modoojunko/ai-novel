@@ -4,18 +4,12 @@ import { apiSetSecurity } from '@/api/web'
 import { useToast } from '@/composables/useToast'
 import AppCard from '@/components/ui/AppCard.vue'
 import AppInput from '@/components/ui/AppInput.vue'
+import { SECURITY_QUESTIONS } from "@/constants/security-questions"
 import AppButton from '@/components/ui/AppButton.vue'
 
 const toast = useToast()
 
-const questionOptions = [
-  { value: '', label: '请选择密保问题', disabled: true },
-  { value: '你的第一本书是？', label: '你的第一本书是？' },
-  { value: '你的宠物名字是？', label: '你的宠物名字是？' },
-  { value: '你的出生城市是？', label: '你的出生城市是？' },
-  { value: '你最喜欢的老师是？', label: '你最喜欢的老师是？' },
-  { value: '__custom__', label: '自定义问题' },
-]
+const questionOptions = SECURITY_QUESTIONS
 
 const securityQuestion = ref('')
 const customQuestion = ref('')

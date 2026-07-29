@@ -17,8 +17,10 @@ const loadError = ref(false)
 onMounted(async () => {
   loadError.value = false
   try {
-    await session.fetchUserInfo()
-    await deviceStore.fetchDevices()
+    await Promise.all([
+      session.fetchUserInfo(),
+      deviceStore.fetchDevices(),
+    ])
   } catch {
     loadError.value = true
   }
@@ -26,8 +28,10 @@ onMounted(async () => {
 
 function retry() {
   loadError.value = false
-  session.fetchUserInfo()
-  deviceStore.fetchDevices()
+  Promise.all([
+    session.fetchUserInfo(),
+    deviceStore.fetchDevices(),
+  ]).catch(() => { loadError.value = true })
 }
 </script>
 

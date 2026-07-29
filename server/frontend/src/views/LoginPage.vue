@@ -75,8 +75,8 @@ async function handleReset() {
       <p v-if="errorMsg" class="alert alert-error text-sm mb-4">{{ errorMsg }}</p>
 
       <div class="space-y-4">
-        <AppInput v-model="username" label="用户名" />
-        <AppInput v-model="password" type="password" label="密码" />
+        <AppInput v-model="username" label="用户名" autocomplete="username" />
+        <AppInput v-model="password" type="password" label="密码" autocomplete="current-password" />
 
         <AppButton
           variant="primary"
@@ -103,7 +103,7 @@ async function handleReset() {
         </p>
         <p v-else-if="resetMsg" class="alert alert-error text-sm">{{ resetMsg }}</p>
 
-        <AppInput v-model="resetUsername" label="用户名" />
+        <AppInput v-model="resetUsername" label="重置账号" autocomplete="username" />
         <AppInput v-model="resetAnswer" label="密保答案" />
         <AppInput v-model="resetNewPass" type="password" label="新密码" />
 

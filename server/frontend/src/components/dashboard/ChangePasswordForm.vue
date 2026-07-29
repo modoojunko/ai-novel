@@ -64,11 +64,12 @@ async function submit() {
     <p v-if="successMsg" class="alert alert-success text-sm mb-4">{{ successMsg }}</p>
 
     <div class="space-y-4">
-      <AppInput v-model="oldPassword" type="password" label="旧密码" />
+      <AppInput v-model="oldPassword" type="password" label="旧密码" autocomplete="current-password" />
       <AppInput
         v-model="newPassword"
         type="password"
         label="新密码"
+        autocomplete="new-password"
         :error="passwordError"
         hint="至少 6 位"
       />
@@ -76,6 +77,7 @@ async function submit() {
         v-model="confirmPassword"
         type="password"
         label="确认新密码"
+        autocomplete="new-password"
         :error="confirmError"
       />
 
