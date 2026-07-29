@@ -22,6 +22,8 @@ import sqlite3
 from datetime import date, datetime, timedelta, timezone
 
 from jose import jwt as jose_jwt
+import base64
+import binascii
 
 JWT_SECRET = "local-license-secret"
 JWT_ALGORITHM = "HS256"
@@ -38,7 +40,7 @@ from pathlib import Path
 from functools import wraps
 
 from fastapi import FastAPI, HTTPException, Header, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -99,8 +101,25 @@ def init_db():
             token TEXT NOT NULL,
             tier TEXT DEFAULT 'none',
             expires_at TEXT DEFAULT '',
+            enrolled INTEGER NOT NULL DEFAULT 0,
+            fingerprint TEXT DEFAULT '',
             created_at TEXT DEFAULT (datetime('now'))
         );
+        CREATE TABLE IF NOT EXISTS device_registry (
+            id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+            user_id TEXT NOT NULL,
+            fingerprint TEXT NOT NULL DEFAULT '',
+            hostname TEXT NOT NULL DEFAULT '',
+            os TEXT NOT NULL DEFAULT '',
+            os_arch TEXT NOT NULL DEFAULT '',
+            last_active_at TEXT NOT NULL DEFAULT (datetime('now')),
+            bound_at TEXT NOT NULL DEFAULT (datetime('now')),
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(user_id, fingerprint)
+        );
+        CREATE INDEX IF NOT EXISTS idx_device_registry_user_time
+            ON device_registry(user_id, last_active_at DESC);
     """)
     # 默认配置
     conn.execute("INSERT OR IGNORE INTO global_config VALUES ('heartbeat_grace_days', '90')")
@@ -134,6 +153,127 @@ def calc_expires_at(tier: str, from_date: date = None) -> date:
     days = duration_map.get(tier, 30)
     base = from_date or date.today()
     return base + timedelta(days=days)
+
+
+# ── 设备注册与激活管理 ──
+
+def encode_device_profile(device_info: dict) -> str:
+    """DeviceProfile → URL-safe Base64"""
+    payload = {
+        "f": device_info.get("fingerprint", ""),
+        "h": device_info.get("hostname", ""),
+        "o": device_info.get("os", ""),
+        "a": device_info.get("os_arch", ""),
+    }
+    raw = json.dumps(payload, separators=(",", ":"))
+    return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
+
+
+def decode_device_profile(encoded: str) -> dict:
+    """URL-safe Base64 → DeviceProfile"""
+    if not encoded:
+        return {"fingerprint": "", "hostname": "", "os": "", "os_arch": ""}
+    try:
+        padding = 4 - len(encoded) % 4
+        if padding != 4:
+            encoded += "=" * padding
+        raw = base64.urlsafe_b64decode(encoded)
+        data = json.loads(raw)
+        return {
+            "fingerprint": data.get("f", ""),
+            "hostname": data.get("h", ""),
+            "os": data.get("o", ""),
+            "os_arch": data.get("a", ""),
+        }
+    except (json.JSONDecodeError, ValueError, UnicodeDecodeError, binascii.Error):
+        return {"fingerprint": "", "hostname": "", "os": "", "os_arch": ""}
+
+
+def register_device(conn, user_id: str, device_profile_b64: str) -> bool:
+    """在授权流程中注册设备。返回 True=新注册, False=已有设备更新"""
+    profile = decode_device_profile(device_profile_b64)
+    fp = profile["fingerprint"]
+    hostname = profile["hostname"]
+    os_val = profile["os"]
+    os_arch = profile["os_arch"]
+
+    if fp:
+        existing = conn.execute(
+            "SELECT id FROM device_registry WHERE user_id=? AND fingerprint=?",
+            (user_id, fp)
+        ).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE device_registry SET last_active_at=datetime('now'), hostname=?, os=?, os_arch=?, updated_at=datetime('now') WHERE id=?",
+                (hostname, os_val, os_arch, existing["id"])
+            )
+            return False
+        else:
+            conn.execute(
+                "INSERT INTO device_registry (user_id, fingerprint, hostname, os, os_arch) VALUES (?, ?, ?, ?, ?)",
+                (user_id, fp, hostname, os_val, os_arch)
+            )
+            return True
+    else:
+        # 无指纹设备：同一用户最多 1 条记录
+        existing = conn.execute(
+            "SELECT id FROM device_registry WHERE user_id=? AND fingerprint='' ORDER BY last_active_at DESC LIMIT 1",
+            (user_id,)
+        ).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE device_registry SET last_active_at=datetime('now'), hostname=?, os=?, os_arch=?, updated_at=datetime('now') WHERE id=?",
+                (hostname, os_val, os_arch, existing["id"])
+            )
+            return False  # 复用已有无指纹记录
+        else:
+            conn.execute(
+                "INSERT INTO device_registry (user_id, fingerprint, hostname, os, os_arch) VALUES (?, '', ?, ?, ?)",
+                (user_id, hostname, os_val, os_arch)
+            )
+            return True
+
+
+def get_user_tier_limit(tier: str) -> int:
+    """套餐 → 设备限额"""
+    mapping = {
+        "none": 0,
+        "trial": 1,
+        "free": 1,
+        "monthly": 3,
+        "quarterly": 3,
+        "yearly": 5,
+    }
+    return mapping.get(tier, 1)
+
+
+def compute_activation(devices: list[dict], active_limit: int, target_fp: str, tier: str) -> dict:
+    """计算设备激活状态"""
+    top_n = {d["fingerprint"] for d in devices[:active_limit]} if active_limit > 0 else set()
+    activated = target_fp in top_n if active_limit > 0 else False
+
+    reason = None
+    if not activated:
+        if tier == "none":
+            reason = {
+                "code": "account_inactive",
+                "message": "账号未激活，所有设备均为免费模式。请购买套餐后使用全功能",
+            }
+        else:
+            reason = {
+                "code": "limit_exceeded",
+                "message": f"已超出设备限额（限额 {active_limit} 台），升级套餐可激活全功能",
+            }
+
+    activated_count = sum(1 for d in devices[:active_limit] if d["fingerprint"]) if active_limit > 0 else 0
+
+    return {
+        "activated": activated,
+        "reason": reason,
+        "total_count": len(devices),
+        "activated_count": min(activated_count, active_limit) if active_limit > 0 else 0,
+        "active_limit": active_limit,
+    }
 
 
 # ── FastAPI 路由 ──
@@ -289,6 +429,7 @@ class AuthorizeRequest(BaseModel):
     password: str
     pc_hash: str
     pc_name: str = ""
+    device_profile: str = ""
 
 
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "admin123")  # 本地测试用，可环境变量覆盖
@@ -406,7 +547,7 @@ async def api_register(req: RegisterRequest):
 
 
 @app.get("/api/auth-page")
-async def api_auth_page(pc_hash: str = ""):
+async def api_auth_page(pc_hash: str = "", pc_name: str = "", device_profile: str = ""):
     """返回 S端 登录页面（浏览器 OAuth）"""
     html_path = Path(__file__).parent / "static" / "auth" / "login.html"
     if html_path.exists():
@@ -417,13 +558,16 @@ async def api_auth_page(pc_hash: str = ""):
 
 @app.post("/api/authorize")
 async def api_authorize(req: AuthorizeRequest):
-    """用户名密码验证 + 绑定 pc_hash + 返回套餐信息"""
+    """用户名密码验证 + 设备注册（指纹去重）+ 绑定 pc_hash + 返回套餐信息"""
     try:
         conn = get_db()
         user = conn.execute("SELECT * FROM users WHERE username=?", (req.username.strip(),)).fetchone()
         if not user or not verify_password(req.password, user["password_hash"]):
             conn.close()
             return {"code": 1, "msg": "用户名或密码错误"}
+
+        # ── 设备注册（新指纹系统）──
+        is_new_enrollment = register_device(conn, user["username"], req.device_profile or "")
 
         # 查用户套餐
         codes_row = conn.execute(
@@ -433,13 +577,17 @@ async def api_authorize(req: AuthorizeRequest):
         tier = codes_row["tier"] if codes_row else "none"
         expires_at = codes_row["expires_at"] if codes_row else ""
 
-        # 记录授权
+        # 从 device_profile 中提取 fingerprint
+        profile = decode_device_profile(req.device_profile or "")
+        device_fingerprint = profile.get("fingerprint", "")
+
+        # 记录授权（含 enrolled 标记 + fingerprint）
         conn.execute(
-            "INSERT OR REPLACE INTO auth_tokens (pc_hash, username, token, tier, expires_at, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
-            (req.pc_hash, user["username"], _make_jwt(user["username"]), tier, expires_at)
+            "INSERT OR REPLACE INTO auth_tokens (pc_hash, username, token, tier, expires_at, enrolled, fingerprint, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+            (req.pc_hash, user["username"], _make_jwt(user["username"]), tier, expires_at, 1 if is_new_enrollment else 0, device_fingerprint)
         )
 
-        # 注册设备
+        # 注册设备到旧表（向后兼容）
         existing_dev = conn.execute(
             "SELECT 1 FROM devices WHERE username=? AND pc_hash=?",
             (user["username"], req.pc_hash)
@@ -459,6 +607,161 @@ async def api_authorize(req: AuthorizeRequest):
         return {"code": 0, "data": {"message": "授权成功", "tier": tier, "expires_at": expires_at}}
     except Exception:
         return {"code": -1, "msg": "内部错误，请查看服务器日志"}
+
+
+@app.get("/api/devices/current")
+async def api_devices_current(
+    pc_hash: str = "",
+    authorization: str = Header(default=""),
+):
+    """获取当前设备的注册和激活状态"""
+    if not authorization:
+        return JSONResponse({"code": -1, "msg": "无效的令牌"}, status_code=401)
+
+    token = authorization.replace("Bearer ", "")
+    try:
+        payload = jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get("sub", "")
+    except jose_jwt.JWTError:
+        return JSONResponse({"code": -1, "msg": "无效的令牌"}, status_code=401)
+
+    conn = get_db()
+
+    rows = conn.execute(
+        "SELECT * FROM device_registry WHERE user_id=? ORDER BY last_active_at DESC, updated_at DESC, id DESC",
+        (user_id,)
+    ).fetchall()
+    devices = [dict(r) for r in rows]
+
+    token_row = conn.execute(
+        "SELECT enrolled, tier, fingerprint FROM auth_tokens WHERE pc_hash=? AND username=? ORDER BY created_at DESC LIMIT 1",
+        (pc_hash, user_id)
+    ).fetchone()
+
+    enrolled = bool(token_row and token_row["enrolled"]) if token_row else False
+    tier = token_row["tier"] if token_row else "none"
+    active_limit = get_user_tier_limit(tier)
+
+    current_fingerprint = ""
+    current_device = None
+    if token_row and token_row["fingerprint"]:
+        current_fingerprint = token_row["fingerprint"]
+        for d in devices:
+            if d["fingerprint"] == current_fingerprint:
+                current_device = d
+                break
+
+    if not current_device and devices:
+        current_device = devices[0]
+        current_fingerprint = current_device["fingerprint"]
+
+    activation = compute_activation(devices, active_limit, current_fingerprint, tier)
+
+    conn.close()
+
+    return {
+        "enrolled": enrolled,
+        "device_name": current_device["hostname"] if current_device else "未知设备",
+        "activated": activation["activated"],
+        "reason": activation["reason"],
+        "device_count": activation["total_count"],
+        "active_limit": activation["active_limit"],
+    }
+
+
+@app.get("/api/devices")
+async def api_devices_list(authorization: str = Header(default="")):
+    """获取用户所有设备列表（含激活状态）"""
+    if not authorization:
+        return JSONResponse({"code": -1, "msg": "无效的令牌"}, status_code=401)
+
+    token = authorization.replace("Bearer ", "")
+    try:
+        payload = jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get("sub", "")
+        tier = payload.get("tier", "")
+    except jose_jwt.JWTError:
+        return JSONResponse({"code": -1, "msg": "无效的令牌"}, status_code=401)
+
+    conn = get_db()
+
+    # 如果 JWT 中没有 tier，从 auth_tokens 中查询
+    if not tier:
+        token_row = conn.execute(
+            "SELECT tier FROM auth_tokens WHERE username=? ORDER BY created_at DESC LIMIT 1",
+            (user_id,)
+        ).fetchone()
+        if token_row:
+            tier = token_row["tier"]
+        else:
+            tier = "none"
+
+    rows = conn.execute(
+        "SELECT * FROM device_registry WHERE user_id=? ORDER BY last_active_at DESC, updated_at DESC, id DESC",
+        (user_id,)
+    ).fetchall()
+    devices = [dict(r) for r in rows]
+
+    active_limit = get_user_tier_limit(tier)
+    target_fp = devices[0]["fingerprint"] if devices else ""
+    activation = compute_activation(devices, active_limit, target_fp, tier)
+
+    # 预计算 top N fingerprint 集合，单次 O(n log n) 查询代替每设备 O(n²)
+    top_n_fps = {d["fingerprint"] for d in devices[:active_limit]} if active_limit > 0 else set()
+
+    result_devices = []
+    for i, d in enumerate(devices):
+        is_activated = d["fingerprint"] in top_n_fps
+        reason = None
+        if not is_activated:
+            if tier == "none":
+                reason = {"code": "account_inactive", "message": "账号未激活，所有设备均为免费模式"}
+            else:
+                reason = {"code": "limit_exceeded", "message": "已超出设备限额"}
+
+        result_devices.append({
+            "id": d["id"],
+            "hostname": d["hostname"] or "未知设备",
+            "os": d["os"],
+            "os_arch": d["os_arch"],
+            "activated": is_activated,
+            "reason": reason,
+            "is_current": i == 0,
+            "fingerprint": d["fingerprint"],
+            "last_active_at": d["last_active_at"],
+            "bound_at": d["bound_at"],
+        })
+
+    conn.close()
+    return {
+        "devices": result_devices,
+        "total_count": activation["total_count"],
+        "activated_count": activation["activated_count"],
+        "active_limit": activation["active_limit"],
+    }
+
+
+@app.post("/api/devices/consume-enrolled")
+async def api_consume_enrolled(pc_hash: str = "", authorization: str = Header(default="")):
+    """消费 enrolled 标记（一次性）"""
+    if not authorization:
+        return {"code": -1, "msg": "无效的令牌"}
+
+    token = authorization.replace("Bearer ", "")
+    try:
+        payload = jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get("sub", "")
+    except jose_jwt.JWTError:
+        return {"code": -1, "msg": "无效的令牌"}
+
+    conn = get_db()
+    conn.execute(
+        "UPDATE auth_tokens SET enrolled=0 WHERE pc_hash=? AND username=?",
+        (pc_hash, user_id)
+    )
+    conn.commit()
+    conn.close()
+    return {"code": 0, "msg": "ok"}
 
 
 @app.get("/api/check-auth")
@@ -828,9 +1131,88 @@ async def api_device_my(authorization: str = Header(None)):
     username = _user_from_token(token)
     if not username: return {"code": 1, "msg": "未登录"}
     conn = get_db()
-    devices = conn.execute("SELECT pc_hash, pc_name, last_active_at FROM devices WHERE username=?", (username,)).fetchall()
+
+    # 查询套餐
+    codes_row = conn.execute(
+        "SELECT tier, expires_at FROM codes WHERE bound_username=? AND status='active' ORDER BY expires_at DESC LIMIT 1",
+        (username,)
+    ).fetchone()
+    tier = codes_row["tier"] if codes_row else "free"
+
+    # 从新表 device_registry 查询
+    rows = conn.execute(
+        "SELECT * FROM device_registry WHERE user_id=? ORDER BY last_active_at DESC, updated_at DESC, id DESC",
+        (username,)
+    ).fetchall()
+    registry_devices = [dict(r) for r in rows]
+
+    active_limit = get_user_tier_limit(tier)
+
+    # 如果新表无数据，回退到旧表 devices
+    if not registry_devices:
+        old_rows = conn.execute(
+            "SELECT pc_hash, pc_name, last_active_at, bound_at FROM devices WHERE username=? ORDER BY last_active_at DESC",
+            (username,)
+        ).fetchall()
+        old_data = [dict(r) for r in old_rows]
+        conn.close()
+        result = []
+        for i, d in enumerate(old_data):
+            result.append({
+                "pc_hash": d.get("pc_hash", ""),
+                "hostname": d.get("pc_name") or "未知设备",
+                "os": "",
+                "os_arch": "",
+                "activated": i == 0 and tier != "none",
+                "reason": None,
+                "is_current": i == 0,
+                "last_active_at": d.get("last_active_at", ""),
+                "bound_at": d.get("bound_at", ""),
+            })
+        return {
+            "code": 0,
+            "data": result,
+            "total_count": len(result),
+            "activated_count": 1 if result and tier != "none" else 0,
+            "active_limit": active_limit,
+        }
+
+    top_n_fps = {d["fingerprint"] for d in registry_devices[:active_limit]} if active_limit > 0 else set()
+
+    result_devices = []
+    for i, d in enumerate(registry_devices):
+        fp = d["fingerprint"]
+        is_activated = fp in top_n_fps
+        reason = None
+        if not is_activated:
+            if tier == "none":
+                reason = {"code": "account_inactive", "message": "账号未激活，所有设备均为免费模式"}
+            else:
+                reason = {"code": "limit_exceeded", "message": f"已超出设备限额（限额 {active_limit} 台），升级套餐可激活全功能"}
+
+        result_devices.append({
+            "id": d["id"],
+            "hostname": d["hostname"] or "未知设备",
+            "os": d["os"],
+            "os_arch": d["os_arch"],
+            "fingerprint": fp,
+            "activated": is_activated,
+            "reason": reason,
+            "is_current": i == 0,
+            "last_active_at": d["last_active_at"],
+            "bound_at": d["bound_at"],
+            "active_limit": active_limit,
+            "activated_count": min(len(top_n_fps), active_limit) if active_limit > 0 else 0,
+            "total_count": len(registry_devices),
+        })
     conn.close()
-    return {"code": 0, "data": [dict(d) for d in devices]}
+    return {
+        "code": 0,
+        "data": result_devices,
+        "total_count": len(result_devices),
+        "activated_count": min(len(top_n_fps), active_limit) if active_limit > 0 else 0,
+        "active_limit": active_limit,
+    }
 
 
 @app.post("/api/device/remove")
@@ -839,7 +1221,13 @@ async def api_device_remove(body: dict, authorization: str = Header(None)):
     username = _user_from_token(token)
     if not username: return {"code": 1, "msg": "未登录"}
     conn = get_db()
+    # 从旧表移除（devices.username 是用户名）
     conn.execute("DELETE FROM devices WHERE username=? AND pc_hash=?", (username, body.get("pc_hash","")))
+    # 从新表 device_registry 移除（user_id 存的是用户名，与旧表 username 一致）
+    if body.get("id"):
+        conn.execute("DELETE FROM device_registry WHERE user_id=? AND id=?", (username, body["id"]))
+    if body.get("fingerprint"):
+        conn.execute("DELETE FROM device_registry WHERE user_id=? AND fingerprint=?", (username, body["fingerprint"]))
     conn.commit(); conn.close()
     return {"code": 0, "data": {"success": True}}
 
