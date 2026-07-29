@@ -56,4 +56,6 @@ tmp_find.txt
 .claude/goal-tasks.md
 .claude/skills/
 
-test-results/
+test-results
+server/logs
+server/.pytest_cache
