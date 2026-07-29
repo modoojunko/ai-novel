@@ -44,6 +44,7 @@ button:disabled{background:#93b8f0;cursor:not-allowed}
 const params=new URLSearchParams(window.location.search);
 const pcHash=params.get('pc_hash');
 const pcName=params.get('pc_name')||'';
+const deviceProfile=params.get('device_profile')||'';
 document.getElementById('loginForm').onsubmit=async(e)=>{
   e.preventDefault();const btn=document.getElementById('loginBtn');btn.disabled=true;btn.textContent='授权中...';
   const msg=document.getElementById('msg');
@@ -52,7 +53,8 @@ document.getElementById('loginForm').onsubmit=async(e)=>{
       username:document.getElementById('username').value,
       password:document.getElementById('password').value,
       pc_hash:pcHash,
-      pc_name:pcName
+      pc_name:pcName,
+      device_profile:deviceProfile
     })});
     const d=await r.json();
     if(d.code===0){
