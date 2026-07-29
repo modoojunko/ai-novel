@@ -29,6 +29,7 @@ server/
 │       ├── dto.py              请求/响应模型
 │       ├── errors.py           全局异常处理
 │       └── middleware.py        速率限制 / 访问日志 / CORS
+├── frontend/                    # 管理门户 Vue SPA（Phase 3）
 ├── alembic/                     数据库迁移
 ├── tests/
 │   ├── contract/                契约测试（12 条，替换旧系统的 acceptance spec）
