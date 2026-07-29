@@ -22,8 +22,10 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Frontend
-frontend/.next/
+# Claude Code / AI agent config
+.claude/
+.agents/
+skills-lock.json
 frontend/node_modules/
 frontend/out/
 client/frontend/node_modules/
@@ -52,8 +54,6 @@ docs/
 # Temp files
 tmp_find.txt
 
-# Session / goal tracking
-.claude/goal-tasks.md
-.claude/skills/
-
-test-results/
+test-results
+server/logs
+server/.pytest_cache

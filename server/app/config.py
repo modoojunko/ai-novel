@@ -1,0 +1,45 @@
+from __future__ import annotations
+import os
+from pathlib import Path
+
+
+class Settings:
+    """所有配置集中读取环境变量，不可变（使用者只读）。"""
+
+    # ── 服务 ──
+    PORT: int = int(os.getenv("PORT", "19000"))
+    HOST: str = os.getenv("HOST", "127.0.0.1")
+
+    # ── 数据库 ──
+    DB_DIR: Path = Path(os.getenv("DB_DIR", Path(__file__).parent.parent))
+    DB_PATH: str = str(DB_DIR / os.getenv("DB_NAME", "license.db"))
+
+    # ── JWT ──
+    JWT_SECRET: str = os.getenv("JWT_SECRET", "local-license-secret")
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_DAYS: int = 30
+
+    # ── Admin ──
+    ADMIN_TOKEN: str = os.getenv("ADMIN_TOKEN", "admin123")
+
+    # ── 日志 ──
+    LOG_DIR: str = os.getenv("LOG_DIR", str(DB_DIR / "logs"))
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    LOG_FILE: str = os.getenv("LOG_FILE", "s-server.log")
+    LOG_MAX_BYTES: int = 5 * 1024 * 1024  # 5MB
+    LOG_BACKUP_COUNT: int = 5
+
+    # ── 套餐配置（硬编码，将来可迁到 DB）──
+    TIER_POLICY: dict = {
+        "none":     {"device_limit": 0,  "duration_days": 0,    "display": "无套餐"},
+        "trial":    {"device_limit": 1,  "duration_days": 7,    "display": "试用"},
+        "free":     {"device_limit": 1,  "duration_days": 0,    "display": "免费"},
+        "monthly":  {"device_limit": 3,  "duration_days": 30,   "display": "月付"},
+        "quarterly":{"device_limit": 3,  "duration_days": 90,   "display": "季付"},
+        "yearly":   {"device_limit": 5,  "duration_days": 365,  "display": "年付"},
+        "lifetime": {"device_limit": 10, "duration_days": 36500,"display": "永久"},
+    }
+    TIER_POLICY["lifetime"]["device_limit"] = 99
+
+
+settings = Settings()  # 模块级单例，全局引用 from app.config import settings

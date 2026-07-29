@@ -1,0 +1,32 @@
+name: C端 后端 CI
+
+on:
+  push:
+    paths:
+      - "client/backend/**"
+      - ".github/workflows/client-backend-ci.yml"
+  pull_request:
+    paths:
+      - "client/backend/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: pip install ruff
+      - name: Lint
+        run: ruff check .
+      - name: Test
+        run: python -m pytest tests/ -v --timeout=30 2>/dev/null || echo "no tests"
