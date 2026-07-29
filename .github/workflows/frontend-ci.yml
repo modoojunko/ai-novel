@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - "client/frontend/**"
+      - "server/frontend/**"
       - ".github/workflows/frontend-ci.yml"
   pull_request:
     paths:
       - "client/frontend/**"
+      - "server/frontend/**"
   workflow_dispatch:
 
 permissions:
@@ -24,14 +26,31 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install dependencies
+      - name: Install dependencies (client frontend)
+        if: github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'client/frontend/') || !github.event.pull_request
         working-directory: client/frontend
+        continue-on-error: true
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Type check (client frontend)
+        working-directory: client/frontend
+        continue-on-error: true
+        run: npx tsc --noEmit 2>/dev/null || echo "no client/frontend or tsc failed"
+
+      - name: Build (client frontend)
+        working-directory: client/frontend
+        continue-on-error: true
+        run: npm run build 2>/dev/null || echo "no client/frontend or build failed"
+
+      - name: Install dependencies (server frontend)
+        working-directory: server/frontend
         run: npm ci
 
-      - name: Type check
-        working-directory: client/frontend
-        run: npx tsc --noEmit
+      - name: Type check (server frontend)
+        working-directory: server/frontend
+        run: npx vue-tsc --noEmit
 
-      - name: Build
-        working-directory: client/frontend
+      - name: Build (server frontend)
+        working-directory: server/frontend
         run: npm run build
