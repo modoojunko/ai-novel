@@ -65,63 +65,74 @@ AI Novel（爱小说）—— 基于 C/S 架构的 AI 辅助长篇小说创作�
 ## 常用命令
 
 ```bash
-# 先启动 S端 本地模拟器（终端 1）
-python server/local_server.py
+# ═══ C端 ═══
 
-# 再启动 C端 后端（终端 2）— SERVER_API_BASE 指向本地 S端
+# 终端 1：S端 后端（本地模拟）
+cd server && python app/main.py
+
+# 终端 2：C端 后端
 cd client/backend && mkdir -p data
-DATA_ROOT=./data SERVER_API_BASE=http://127.0.0.1:19000/api uvicorn main:app --reload --host 127.0.0.1 --port 8000
+DATA_ROOT=./data SERVER_API_BASE=http://127.0.0.1:19000/api \
+  uvicorn main:app --reload --host 127.0.0.1 --port 8000
 
-# 仅启动前端（UI 开发，热更新在 localhost:5173）
+# 终端 3：C端 前端（Next.js 开发服务器）
 cd client/frontend && npm run dev
 
-# 构建前端生产包
-cd client/frontend && npm run build
+# C端 前端类型检查 / 构建
+cd client/frontend && npx tsc --noEmit && npm run build
 
-# 预览生产构建
-cd client/frontend && npm run preview
+# ═══ S端 ═══
 
-# 前端类型检查
-cd client/frontend && npx tsc --noEmit
+# 终端 1：S端 后端（FastAPI 4A 架构）
+cd server && python app/main.py
 
-# 运行单个后端测试
-cd client/backend && python -m pytest tests/ -k "test_name"
+# 终端 2：S端 前端（Vue 3 SPA 开发服务器）
+cd server/frontend && npm run dev
 
-# 运行全部后端 API 测试
+# S端 前端类型检查 / 构建
+cd server/frontend && npx vue-tsc --noEmit && npm run build
+
+# S端 E2E 测试（Playwright，自动启动 dev server）
+cd server/frontend && npx playwright test
+
+# ═══ 通用 ═══
+
+# C端 后端测试
 cd client/backend && python -m pytest tests/ -v
 
-# 运行全部前端 E2E 测试（需要 Docker 在 :80 运行）
-cd frontend && npx playwright test
-
-# 运行全部测试（后端 + 前端）
-bash scripts/test-all.sh
+# C端 E2E 测试（需要 Docker :80 运行）
+cd client/frontend && npx playwright test
 ```
 
 ## 架构
 
 ```mermaid
 flowchart LR
-    subgraph client ["C端 — 用户本地 (client/)"]
-        FastAPI["FastAPI / uvicorn"]
-        SPA["React SPA"]
+    subgraph client ["C端 — 用户本地桌面应用 (client/)"]
         pywebview["pywebview 窗口"]
+        ReactSPA["React SPA (Next.js)"]
+        FastAPI["FastAPI 后端"]
         SQLite[("SQLite")]
-        FS[("本地文件 / data/")]
+        FS[("本地文件")]
     end
     subgraph server ["S端 — License 服务 (server/)"]
-        ServerApp["FastAPI 应用 (Python)"]
-        CDB[("云数据库")]
+        VueSPA["Vue 3 SPA 门户"]
+        S_Backend["FastAPI 4A 分层架构"]
+        CDB[("SQLite / 云数据库")]
     end
     
-    pywebview -->|Edge WebView2| SPA
-    SPA -->|localhost:8000| FastAPI
+    pywebview -->|Edge WebView2| ReactSPA
+    ReactSPA -->|localhost:8000| FastAPI
     FastAPI --> SQLite
     FastAPI --> FS
-    FastAPI -->|License 认证| ServerApp
-    ServerApp --> CDB
+    FastAPI -->|License / 设备| S_Backend
+    VueSPA -->|/api/*| S_Backend
+    S_Backend --> CDB
 ```
 
-单用户桌面应用。C端 在本地运行所有内容（FastAPI + SQLite + React SPA 封装在 pywebview 中）。S端 负责 License 授权与设备管理（FastAPI 2.0 重构版）。SSE 用于流式生成正文。
+C端 是单用户桌面应用（FastAPI + SQLite + React SPA，pywebview 封装），提供 AI 写作全流程。
+S端 是 License 授权与设备管理服务（FastAPI 4A 分层架构），Vue 3 SPA 管理门户编译后由后端静态托管。
+SSE 用于 C端 流式生成正文。
 
 ## 目录结构
 
@@ -148,18 +159,20 @@ ai-novel/
 │   ├── frontend/             React 19 SPA (Vite + daisyUI)
 │   └── packaging/            PyInstaller + pywebview 打包
 ├── server/                    # S端 — License 授权与设备管理服务
-│   ├── app/                   新系统核心代码（分层架构）
+│   ├── app/                   核心代码（4A 分层架构）
 │   │   ├── config.py          配置管理
 │   │   ├── main.py            FastAPI 应用入口
-│   │   ├── models/            SQLAlchemy ORM（6 张表: users, codes, device_registry, device_grants, global_config）
+│   │   ├── models/            SQLAlchemy ORM（6 张表）
 │   │   ├── domain/            领域层（纯 Python，无框架依赖）
-│   │   ├── infrastructure/    仓储（ORM→Domain 转换）+ 安全（JWT/密码哈希）
+│   │   ├── infrastructure/    仓储 + 安全（JWT/密码哈希）
 │   │   ├── application/       编排用例（11 个 use case）
-│   │   └── interfaces/        API 接口层（3 组路由，17 端点 + middleware + deps）
-│   ├── frontend/              (Phase 3) 管理门户 Vue SPA
-│   ├── alembic/               数据库迁移（基线 + 增量）
-│   ├── tests/                 契约测试（12 条）+ 单元测试（15 条）
-│   └── README.md              启动/API/命令速查
+│   │   └── interfaces/        API 接口层（3 组路由，17 端点）
+│   ├── frontend/              Vue 3 SPA 管理门户（daisyUI + Tailwind）
+│   │   ├── src/               源码（8 页面 / 16 组件 / Pinia / Router）
+│   │   └── e2e/               Playwright 测试（82 条）
+│   ├── alembic/               数据库迁移
+│   ├── tests/                 契约测试 + 单元测试
+│   └── README.md              启动/API 速查
 ├── docs/                     文档（specs + plans）
 └── reference/                项目模板（YAML/MD templates）
 ```
@@ -184,4 +197,12 @@ ai-novel/
 
 ## 当前状态
 
-后端已完成（所有路由模块已接入，3 个 AI 调用点的 Token 追踪已激活，双存储后端）。前端已完整构建，使用 React 19 + Vite + daisyUI，包含写作工作室（SSE 流式）、归档阅读器、时间线、设置表单。速率限制中间件已激活。API Key 多配置管理已完成（19 个端点 + 8 个供应商 + Fernet 加密）。API Key 配置后端测试 66 个已通过。
+### C端 — AI 写作桌面应用
+- **后端**：FastAPI 全功能就绪（所有路由模块已接入，双存储后端，Token 计费，API Key 多配置管理）
+- **前端**：React SPA 完整构建（写作工作室 SSE 流式、归档阅读器、时间线、设定表单）
+- **测试**：后端 66 个测试通过，E2E 测试覆盖核心流程
+
+### S端 — License 授权与设备管理服务
+- **后端**：4A 分层架构重构完成（Domain / Application / Infrastructure / Interfaces 四层，11 个 use case，Alembic 迁移）
+- **前端**：Vue 3 SPA 完整实现（8 页面 / 16 组件 / Pinia / 双主题 / 双向路由守卫 / 82 个 E2E 测试）
+- **CI**：5 个独立 workflow（C端 前后端构建 + S端 前后端构建 + C端 打包 exe）
