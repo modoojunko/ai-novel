@@ -55,6 +55,7 @@ tmp_find.txt
 # Session / goal tracking
 .claude/goal-tasks.md
 .claude/skills/
+skills-lock.json
 
 test-results
 server/logs
