@@ -94,3 +94,24 @@ async def get_project_by_slug(
 async def delete_project(db: AsyncSession, project: Project):
     project.status = "deleted"
     await db.commit()
+
+
+# ── Serialization ─────────────────────────────────────────────────────────
+
+
+def project_to_dict(p) -> dict:
+    """Convert a Project ORM instance to a serializable dict."""
+    return {
+        "id": str(p.id),
+        "name": p.name,
+        "slug": p.slug,
+        "current_phase": p.current_phase,
+        "status": p.status,
+        "total_volumes": p.total_volumes,
+        "total_chapters": p.total_chapters,
+        "total_archives": p.total_archives,
+        "ai_config_id": str(p.ai_config_id) if p.ai_config_id else None,
+        "ai_model": p.ai_model,
+        "created_at": p.created_at.isoformat() if p.created_at else None,
+        "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+    }

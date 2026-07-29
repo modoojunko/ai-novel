@@ -1,0 +1,48 @@
+from __future__ import annotations
+from sqlalchemy.orm import Session
+from app.models.user import UserORM
+from app.domain.identity import User
+
+
+class UserRepo:
+    def __init__(self, db: Session):
+        self.db = db
+
+    @staticmethod
+    def _to_domain(row: UserORM) -> User:
+        return User(
+            username=row.username,
+            password_hash=row.password_hash,
+            status=row.status,
+            security_question=row.security_question or "",
+            security_answer_hash=row.security_answer_hash or "",
+            created_at=row.created_at,
+        )
+
+    def get(self, username: str) -> User | None:
+        row = self.db.query(UserORM).filter(UserORM.username == username).first()
+        return self._to_domain(row) if row else None
+
+    def exists(self, username: str) -> bool:
+        return self.db.query(UserORM).filter(UserORM.username == username).first() is not None
+
+    def create(self, user: User) -> User:
+        row = UserORM(
+            username=user.username,
+            password_hash=user.password_hash,
+            security_question=user.security_question,
+            security_answer_hash=user.security_answer_hash,
+            status=user.status,
+        )
+        self.db.add(row)
+        return user
+
+    def update_password(self, username: str, new_password_hash: str) -> None:
+        self.db.query(UserORM).filter(UserORM.username == username).update(
+            {"password_hash": new_password_hash}
+        )
+
+    def update_security(self, username: str, question: str, answer_hash: str) -> None:
+        self.db.query(UserORM).filter(UserORM.username == username).update(
+            {"security_question": question, "security_answer_hash": answer_hash}
+        )

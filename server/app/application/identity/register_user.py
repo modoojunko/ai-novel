@@ -1,0 +1,63 @@
+"""注册新用户 + 赠送 7 天试用码。"""
+from __future__ import annotations
+import uuid
+from datetime import date, timedelta, datetime
+from app.domain.identity import User
+from app.domain.licensing import ActivationCode
+from app.infrastructure.security.password import hash_password
+from app.infrastructure.repositories.user_repo import UserRepo
+from app.infrastructure.repositories.code_repo import CodeRepo
+
+
+def register_user(
+    user_repo: UserRepo,
+    code_repo: CodeRepo,
+    username: str,
+    password: str,
+    security_question: str = "",
+    security_answer: str = "",
+) -> dict:
+    """注册用户 + 送 7 天 trial 码。返回 {token, tier, expires_at}。"""
+    if user_repo.exists(username):
+        return {"code": 1, "msg": "用户名已存在"}
+
+    answer_hash = hash_password(security_answer) if security_answer else ""
+    user = User(
+        username=username,
+        password_hash=hash_password(password),
+        status="active",
+        security_question=security_question,
+        security_answer_hash=answer_hash,
+    )
+    user_repo.create(user)
+    user_repo.db.flush()  # 确保用户已持久化，后续试用码 FK 不失败
+
+    # 送 7 天试用 —— 与创建用户在同一事务中
+    trial_code_id = f"TRIAL-{uuid.uuid4().hex[:8].upper()}"
+    today = date.today()
+    expires = today + timedelta(days=7)
+    trial = ActivationCode(
+        code_id=trial_code_id,
+        tier="trial",
+        duration_days=7,
+        status="unused",
+        bound_username=username,  # 立即绑定，同一事务中用户已创建
+        expires_at=None,
+        activated_at=None,
+        created_at=datetime.now(),
+        created_by="system",
+    )
+    code_repo.create(trial)
+    code_repo.activate(trial_code_id, username, expires)
+
+    from app.infrastructure.security.jwt import sign_jwt
+    token = sign_jwt(username)
+
+    return {
+        "code": 0,
+        "data": {
+            "token": token,
+            "tier": "trial",
+            "expires_at": expires.isoformat(),
+        },
+    }

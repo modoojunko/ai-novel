@@ -12,9 +12,7 @@ DATABASE_URL = os.environ.get(
     "DATABASE_URL", f"sqlite+aiosqlite:///{DATA_ROOT}/novel.db"
 )
 
-# AI 配置（运行时从 config.json 动态读取）
-DEFAULT_AI_BASE_URL = "https://api.deepseek.com/anthropic"
-DEFAULT_AI_MODEL = "deepseek-v4-flash"
+# AI 配置（通过 C端 UI 配置，写入 config.json）
 
 # JWT（本地存 token 用）
 JWT_SECRET = os.environ.get("JWT_SECRET", "local-license-secret")

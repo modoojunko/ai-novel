@@ -247,7 +247,7 @@ async def run_character_decision(
 ) -> Decision:
     """Run one character's decision. Retries once with stricter prompt on failure."""
     prompt = _build_decision_prompt(character, sensory, stage)
-    client = get_ai_client()
+    client = await get_ai_client()
 
     for attempt in range(2):
         try:

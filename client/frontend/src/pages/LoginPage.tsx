@@ -2,23 +2,34 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { request } from '../lib/api';
 import { toast } from '../lib/toast';
+import { useDeviceActivation } from '../hooks/useDeviceActivation';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState('');
+  const { refreshStatus, showToast } = useDeviceActivation();
 
   // 静默检测：当前浏览器在 S端 是否已登录
   useEffect(() => {
+    // 如果用户刚手动退出，跳过自动检测，让用户看到登录按钮
+    if (sessionStorage.getItem("manual_logout")) {
+      sessionStorage.removeItem("manual_logout");
+      setChecking(false);
+      return;
+    }
     (async () => {
       try {
         const res = await request('/auth/check-auth');
-        if (res.code === 0 && res.data?.token) {
+        if (res.code === 0 && res.data?.token && res.data.token !== 'dev-token') {
           localStorage.setItem('auth_token', res.data.token);
           if (res.data.username) localStorage.setItem('auth_username', res.data.username);
           toast.success('自动登录成功');
-          navigate('/books');
+          // 获取设备激活状态
+          const devStatus = await refreshStatus();
+          if (devStatus) showToast(devStatus);
+          navigate('/books', { replace: true });
           return;
         }
       } catch {
@@ -36,7 +47,10 @@ export default function LoginPage() {
     if (res.code === 0) {
       if (res.data?.token) localStorage.setItem('auth_token', res.data.token);
       toast.success('登录成功');
-      navigate('/books');
+      // 获取设备激活状态
+      const devStatus = await refreshStatus();
+      if (devStatus) showToast(devStatus);
+      navigate('/books', { replace: true });
     } else {
       setError(res.msg || '登录失败');
     }

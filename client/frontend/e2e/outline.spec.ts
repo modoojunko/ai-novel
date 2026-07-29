@@ -226,7 +226,7 @@ test.describe("Phase 3: Outline — volume and chapter outline", () => {
 	    await page.locator("select").first().selectOption("writing");
     // Wait for auto-save by listening for the PUT request
     await page.waitForResponse(
-      (r) => r.url().includes("/chapters/") and r.request().method() == "PUT" and r.status() == 200,
+      (r) => r.url().includes("/chapters/") && r.request().method() == "PUT" && r.status() == 200,
       { timeout: 15000 }
     );
 

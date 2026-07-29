@@ -201,7 +201,7 @@ class DeductionEngine:
         )
 
         try:
-            client = get_ai_client()
+            client = await get_ai_client()
             text = await client.chat(
                 model="haiku",
                 system="只输出 JSON 数组，不要其他文字。",

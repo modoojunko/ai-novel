@@ -84,7 +84,7 @@ async def _stream_chapter(root_path: str, chapter_ref: str, ctx, prompt: str):
     from ai_client import get_ai_client
     from workflow.engine import load_chapter
 
-    client = get_ai_client()
+    client = await get_ai_client()
     model = (
         ctx.style_setting.get("writing_model", "haiku")
         if hasattr(ctx, "style_setting")
