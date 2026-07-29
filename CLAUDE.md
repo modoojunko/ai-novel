@@ -108,21 +108,20 @@ flowchart LR
         SQLite[("SQLite")]
         FS[("本地文件 / data/")]
     end
-    subgraph server ["S端 — CloudBase (server/)"]
-        CF["云函数 (Python)"]
+    subgraph server ["S端 — License 服务 (server/)"]
+        ServerApp["FastAPI 应用 (Python)"]
         CDB[("云数据库")]
-        SH["静态托管"]
     end
     
     pywebview -->|Edge WebView2| SPA
     SPA -->|localhost:8000| FastAPI
     FastAPI --> SQLite
     FastAPI --> FS
-    FastAPI -->|仅激活/登录/验证| CF
-    CF --> CDB
+    FastAPI -->|License 认证| ServerApp
+    ServerApp --> CDB
 ```
 
-单用户桌面应用。C端 在本地运行所有内容（FastAPI + SQLite + React SPA 封装在 pywebview 中）。S端 仅通过 CloudBase 云函数处理 License 认证。SSE 用于流式生成正文。
+单用户桌面应用。C端 在本地运行所有内容（FastAPI + SQLite + React SPA 封装在 pywebview 中）。S端 负责 License 授权与设备管理（FastAPI 2.0 重构版）。SSE 用于流式生成正文。
 
 ## 目录结构
 
@@ -148,11 +147,19 @@ ai-novel/
 │   │   └── story/            剧情推演
 │   ├── frontend/             React 19 SPA (Vite + daisyUI)
 │   └── packaging/            PyInstaller + pywebview 打包
-├── server/                    # S端 — 腾讯云 CloudBase
-│   ├── cloudfunctions/       云函数（activate/login/verify/renew/devices/reset_password/generate_code/query_codes）
-│   ├── lib/                  云函数共享库（db/auth_utils/code_utils）
-│   ├── static/               静态页面（landing + 发码管理）
-│   └── local_server.py       本地 S端 模拟器（测试用）
+├── server/                    # S端 — License 授权与设备管理服务
+│   ├── app/                   新系统核心代码（分层架构）
+│   │   ├── config.py          配置管理
+│   │   ├── main.py            FastAPI 应用入口
+│   │   ├── models/            SQLAlchemy ORM（6 张表: users, codes, device_registry, device_grants, global_config）
+│   │   ├── domain/            领域层（纯 Python，无框架依赖）
+│   │   ├── infrastructure/    仓储（ORM→Domain 转换）+ 安全（JWT/密码哈希）
+│   │   ├── application/       编排用例（11 个 use case）
+│   │   └── interfaces/        API 接口层（3 组路由，17 端点 + middleware + deps）
+│   ├── frontend/              (Phase 3) 管理门户 Vue SPA
+│   ├── alembic/               数据库迁移（基线 + 增量）
+│   ├── tests/                 契约测试（12 条）+ 单元测试（15 条）
+│   └── README.md              启动/API/命令速查
 ├── docs/                     文档（specs + plans）
 └── reference/                项目模板（YAML/MD templates）
 ```
@@ -198,6 +205,7 @@ Claude 充当**智能调度器**——用户描述需求，Claude 自动选择�
 | 🐑 **项目牧羊人** | 跨职能协调、任务拆解、时间线、风险管理 | 将功能拆解为开发任务、估算工作量、跟踪进度 |
 | 🎯 **冲刺排期员** | 冲刺规划、功能优先级排序、资源分配 | 优先级排序 backlog、规划迭代、平衡工作量与影响力 |
 | 🏗️ **后端架构师** | 可扩展系统设计、API 开发、FastAPI 架构 | API 端点、后端架构、C/S 通信设计 |
+| 🏛️ **软件架构师** | 系统设计、领域驱动设计、架构模式、ADR 技术决策 | 架构选型、模块边界、权衡分析、演进策略 |
 | 🖥️ **前端工程师** | React 19 + TypeScript + daisyUI + Tailwind CSS | UI 组件实现、前端功能、性能 |
 | 🗄️ **数据库优化师** | Schema 设计、查询优化、索引、SQLite/PostgreSQL | 慢查询、Schema 迁移、索引策略、N+1 修复 |
 | ⚙️ **DevOps 自动化师** | CI/CD、Docker、SSL、CloudBase 部署 | 部署配置、GitHub Actions、SSL 证书、备份策略 |
