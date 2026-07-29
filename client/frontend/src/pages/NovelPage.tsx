@@ -14,7 +14,7 @@ import { useOnboarding } from "@/hooks/useOnboarding";
 import RightToolbar from "@/components/novel/RightToolbar";
 import PromptManagementPage from "@/components/novel/PromptManagementPage";
 import ArchivePage from "@/components/novel/ArchivePage";
-import { Globe, Feather, Shield, Anchor, Users, Brain, Book, FileText, Trash2, ClipboardList } from "lucide-react";
+import { Globe, Feather, Shield, Anchor, Users, Brain, Book, FileText, Trash2, ClipboardList, BookOpen } from "lucide-react";
 import { useOutline } from "@/hooks/useOutline";
 import OutlineOverview from "@/components/novel/outline/OutlineOverview";
 import OutlineEditor from "@/components/novel/outline/OutlineEditor";
@@ -38,6 +38,7 @@ type ViewState =
   | { tab: "archives"; panel: "reader"; filename: string }
   | { tab: "volume"; panel: "overview" }
   | { tab: "volume"; panel: string; volumeId: string }
+  | { tab: "chapter"; panel: "overview" }
   | { tab: "chapter"; panel: "editor"; chapterRef: string };
 
 // ---------------------------------------------------------------------------
@@ -54,6 +55,7 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 const SETTINGS_TREE_ITEMS: { id: string; icon: React.ReactNode; label: string }[] = [
+  { id: "genre", icon: <BookOpen className="w-3.5 h-3.5" />, label: "题材设定" },
   { id: "world", icon: <Globe className="w-3.5 h-3.5" />, label: "世界设定" },
   { id: "style", icon: <Feather className="w-3.5 h-3.5" />, label: "写作风格" },
   { id: "anti-ai", icon: <Shield className="w-3.5 h-3.5" />, label: "AI痕迹控制" },
@@ -284,7 +286,7 @@ export default function NovelPage() {
       ? viewState.tab === "settings"
         ? viewState.panel
         : undefined
-      : tab === "outline"
+      : (tab === "volume" || tab === "chapter")
         ? viewState.tab === "chapter" && viewState.panel === "editor"
           ? viewState.chapterRef
           : undefined
@@ -434,7 +436,7 @@ export default function NovelPage() {
     } else if (newTab === "volume") {
       setViewState({ tab: "volume", panel: "overview" });
     } else if (newTab === "chapter") {
-      setViewState({ tab: "volume", panel: "overview" });
+      setViewState({ tab: "chapter", panel: "overview" });
     } else if (newTab === "prompts") {
       setViewState({ tab: "prompts" });
     } else if (newTab === "archives") {
@@ -585,6 +587,37 @@ export default function NovelPage() {
               />
             );
       case "chapter":
+        if (viewState.panel === "overview") {
+          return (
+            <OutlineOverview
+                volumes={outline.volumes}
+                chapterStatuses={outline.chapterStatuses}
+                chaptersMap={outline.chaptersMap}
+                totalChapters={outline.totalChapters}
+                filledCount={outline.filledCount}
+                confirmedCount={outline.confirmedCount}
+                allConfirmed={outline.allConfirmed}
+                allHavePerspectiveGuidance={outline.allHavePerspectiveGuidance}
+                loading={outline.loading}
+                error={outline.error}
+                onEditChapter={(ref) => {
+                  outline.loadChapterData(ref);
+                  setViewState({ tab: "chapter", panel: "editor", chapterRef: ref });
+                }}
+                onConfirmChapter={outline.confirmChapter}
+                onPerspectiveChapter={(ref) => {
+                  const chData = outline.chaptersMap.get(ref);
+                  setPerspectiveState({
+                    open: true,
+                    chapterRef: ref,
+                    chapterSummary: chData?.outline?.summary || "",
+                  });
+                }}
+                onGlobalConfirm={outline.transitionToPrompt}
+                onRetry={outline.refetchTree}
+              />
+            );
+        }
         if (viewState.panel === "editor") {
           return (
             <OutlineEditor

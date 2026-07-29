@@ -4,12 +4,19 @@
 C/S 模式下从本地 config.json 动态读取 API Key/Base URL/Model，而不是从 config.py。
 """
 
+import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
 from anthropic import AsyncAnthropic
 from openai import AsyncOpenAI
+from sqlalchemy import select
+
+from api_configs.crypto import decrypt_api_key
+from db import async_session
+from models.api_config import ApiConfig
+from models.user import User
 
 
 @dataclass
@@ -23,24 +30,21 @@ class StreamEvent:
 class AIClient:
     """Provider-agnostic AI client.
 
-    C/S 模式下每次创建时从本地 config.json 读取 API Key 配置。
-    支持用户在运行时切换 API Key/Base URL/Model，无需重启。
+    Config (api_key, base_url, model) is passed at construction time.
+    Use get_ai_client_for_user() to create one from DB, or get_ai_client()
+    for the backward-compatible singleton with DB-first + config.json fallback.
     """
 
-    def __init__(self):
+    def __init__(
+        self, api_key: str = "", base_url: str = "", model: str = "deepseek-v4-flash"
+    ):
         self._provider = "anthropic"  # default
         self._client: Any | None = None
-        self._reload()
+        self._model = model
+        self._init_client(api_key, base_url)
 
-    def _reload(self):
-        """从本地配置重新加载 API 设置"""
-        from auth_local.service import get_local_config
-
-        cfg = get_local_config()
-        api_key = cfg.get("api_key", "")
-        base_url = cfg.get("api_base_url", "")
-        self._model = cfg.get("api_model", "deepseek-v4-flash")
-
+    def _init_client(self, api_key: str, base_url: str):
+        """Initialize the underlying API client with the given credentials."""
         if not api_key:
             raise ValueError("未配置 API Key，请在设置页面填写")
 
@@ -162,21 +166,123 @@ class AIClient:
                         yield StreamEvent(is_done=True, tokens=tokens)
 
 
-# Singleton
-_client: AIClient | None = None
+async def get_ai_client_for_user(user_id: str | None = None) -> AIClient:
+    """Get AI client configured with a user's API settings.
+
+    Priority:
+    1. Project's configured ApiConfig (if project_id provided — see get_ai_client_for_project)
+    2. Any active ApiConfig for the user
+    3. Old User.api_key / api_base_url / api_model (migration fallback)
+    4. config.json (legacy fallback)
+    """
+    try:
+        async with async_session() as session:
+            if user_id:
+                # Check for active ApiConfig records (new system)
+                result = await session.execute(
+                    select(ApiConfig)
+                    .where(
+                        ApiConfig.user_id == user_id,
+                        ApiConfig.status == "active",
+                        ApiConfig.api_key != "",
+                    )
+                    .order_by(ApiConfig.created_at.desc())
+                    .limit(1)
+                )
+                cfg = result.scalar_one_or_none()
+                if cfg:
+                    plain_key = decrypt_api_key(cfg.api_key)
+                    if plain_key:
+                        models_list: list[str] = []
+                        if cfg.models:
+                            try:
+                                parsed = json.loads(cfg.models)
+                                if isinstance(parsed, list):
+                                    models_list = parsed
+                            except (json.JSONDecodeError, TypeError):
+                                pass
+                        # Use first model as the default, or empty
+                        model = models_list[0] if models_list else ""
+                        return AIClient(
+                            api_key=plain_key,
+                            base_url=cfg.base_url,
+                            model=model or "",
+                        )
+
+                # Fallback: old User.api_key (migration period)
+                result = await session.execute(select(User).where(User.id == user_id))
+                user = result.scalar_one_or_none()
+                if user and user.api_key:
+                    return AIClient(
+                        api_key=user.api_key,
+                        base_url=user.api_base_url,
+                        model=user.api_model,
+                    )
+            else:
+                # No user_id: find any user with a config
+                result = await session.execute(
+                    select(ApiConfig)
+                    .where(ApiConfig.status == "active", ApiConfig.api_key != "")
+                    .order_by(ApiConfig.created_at.desc())
+                    .limit(1)
+                )
+                cfg = result.scalar_one_or_none()
+                if cfg:
+                    plain_key = decrypt_api_key(cfg.api_key)
+                    if plain_key:
+                        return AIClient(
+                            api_key=plain_key,
+                            base_url=cfg.base_url,
+                            model="",
+                        )
+
+                # Fallback: any user with old api_key
+                result = await session.execute(
+                    select(User)
+                    .where(User.api_key != "", User.api_key.isnot(None))
+                    .limit(1)
+                )
+                user = result.scalar_one_or_none()
+                if user:
+                    return AIClient(
+                        api_key=user.api_key,
+                        base_url=user.api_base_url,
+                        model=user.api_model,
+                    )
+    except Exception:  # noqa: BLE001, S110
+        pass
+
+    # Final fallback: read from config.json
+    from auth_local.service import get_local_config
+
+    cfg = get_local_config()
+    return AIClient(
+        api_key=cfg.get("api_key", ""),
+        base_url=cfg.get("api_base_url", ""),
+        model=cfg.get("api_model", "deepseek-v4-flash"),
+    )
 
 
-def get_ai_client() -> AIClient:
-    global _client
-    if _client is None:
-        _client = AIClient()
-    return _client
+async def get_ai_client() -> AIClient:
+    """Backward-compatible alias. Tries DB first, falls back to config.json."""
+    try:
+        return await get_ai_client_for_user()
+    except Exception:  # noqa: BLE001
+        from auth_local.service import get_local_config
+
+        cfg = get_local_config()
+        return AIClient(
+            api_key=cfg.get("api_key", ""),
+            base_url=cfg.get("api_base_url", ""),
+            model=cfg.get("api_model", "deepseek-v4-flash"),
+        )
 
 
-def create_ai_client() -> AIClient:
+async def create_ai_client() -> AIClient:
     """Alias for get_ai_client() — for callers that use this name."""
-    return get_ai_client()
+    return await get_ai_client()
 
 
-def resolve_model(name: str) -> str:
-    return get_ai_client().resolve(name)
+async def resolve_model(name: str) -> str:
+    client = await get_ai_client()
+    return client.resolve(name)

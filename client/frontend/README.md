@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# C端 前端 — AI Novel 桌面应用 UI
 
-## Getting Started
+基于 Next.js 的 React SPA，封装在 pywebview 窗口中运行。
 
-First, run the development server:
+## 技术栈
+
+| 项 | 选型 |
+|----|------|
+| 框架 | Next.js (React) |
+| 样式 | Tailwind CSS + daisyUI |
+| 语言 | TypeScript |
+| 包管理 | npm |
+
+## 开发
 
 ```bash
+cd client/frontend
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# 访问 http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 构建
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build
+# 产物输出到 .next/
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 测试
 
-## Learn More
+```bash
+# 类型检查
+npx tsc --noEmit
 
-To learn more about Next.js, take a look at the following resources:
+# E2E 测试（需要 Docker :80 运行）
+npx playwright test
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 目录结构
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+client/frontend/
+├── src/
+│   ├── app/          页面路由
+│   ├── components/   可复用组件
+│   ├── hooks/        组合式逻辑
+│   └── lib/          工具函数
+├── public/           静态资源
+├── e2e/              Playwright E2E 测试
+└── package.json
+```
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+> 注意：C端 为桌面应用，生产环境通过 PyInstaller 打包为 exe，前端构建产物嵌入其中。
