@@ -32,7 +32,7 @@ AI 辅助长篇小说创作平台 —— 单用户桌面应用，数据跟着你
 ```
 
 - **C端** — 你电脑上跑的一切：FastAPI + SQLite + React SPA，装在 pywebview 窗口里
-- **S端** — 只做 License 激活 / 登录 / 验证，跑在腾讯云 CloudBase 上
+- **S端** — License 授权与设备管理服务（FastAPI 2.0 重构版），部署在腾讯云 CloudBase
 - **数据** — SQLite 存元数据，YAML/MD 文件存小说内容，全在安装目录的 `data/` 下，可以随意备份和搬家
 
 ## 六阶段工作流
@@ -114,10 +114,19 @@ ai-novel/
 │   │   └── story/            剧情推演引擎
 │   ├── frontend/             React 19 SPA (Vite + daisyUI)
 │   └── packaging/            PyInstaller + pywebview 打包
-├── server/                    # S端 — 腾讯云 CloudBase
-│   ├── cloudfunctions/       云函数
-│   ├── lib/                  共享库
-│   └── static/               静态页面
+├── server/                    # S端 — License 授权与设备管理服务
+│   ├── app/                   新系统核心代码（分层架构）
+│   │   ├── config.py          配置管理
+│   │   ├── main.py            FastAPI 应用入口
+│   │   ├── models/            SQLAlchemy ORM（6 表）
+│   │   ├── domain/            领域层（纯 Python 业务规则）
+│   │   ├── infrastructure/    仓储 + 安全工具
+│   │   ├── application/       编排用例（11 个）
+│   │   └── interfaces/        API 接口层（17 端点）
+│   ├── frontend/              (Phase 3) 管理门户 Vue SPA
+│   ├── alembic/               数据库迁移
+│   ├── tests/                 契约测试 + 单元测试
+│   └── server/README.md       S端 详细文档
 ├── docs/                     文档
 ├── reference/                项目模板 (YAML/MD templates)
 └── CLAUDE.md                 Claude Code 项目指南
