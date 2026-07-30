@@ -56,7 +56,7 @@ export default function ArchiveReader({
     setContent(null);
     try {
       const data: { filename: string; content: string } = await api.get(
-        `/projects/${projectId}/archives/${encodeURIComponent(filename)}`
+        `/novels/${projectId}/archives/${encodeURIComponent(filename)}`
       );
       setContent(data.content);
     } catch (e: any) {

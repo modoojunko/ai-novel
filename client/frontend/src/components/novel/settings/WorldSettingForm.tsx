@@ -30,7 +30,7 @@ export default function WorldSettingForm({ projectId, settingKey }: Props) {
 
   useEffect(() => {
     setLoading(true);
-    api.get(`/projects/${projectId}/settings/${settingKey}`)
+    api.get(`/novels/${projectId}/settings/${settingKey}`)
       .then((d: any) => {
         if (!d) return;
         setGeo({ scenes: d.geography?.scenes || "", climate: d.geography?.climate || "", limits: d.geography?.limits || "" });
@@ -43,7 +43,7 @@ export default function WorldSettingForm({ projectId, settingKey }: Props) {
 
   async function handleSave() {
     setSaving(true); setError("");
-    try { await api.put(`/projects/${projectId}/settings/${settingKey}`, { geography: geo, politics, rules }); }
+    try { await api.put(`/novels/${projectId}/settings/${settingKey}`, { geography: geo, politics, rules }); }
     catch (e: any) { setError(e.message || "保存失败"); }
     finally { setSaving(false); }
   }
@@ -71,7 +71,7 @@ export default function WorldSettingForm({ projectId, settingKey }: Props) {
     setAiField(field);
     setAiContent("");
     try {
-      const res = await api.post(`/projects/${projectId}/settings/ai/world/${field}`, {
+      const res = await api.post(`/novels/${projectId}/settings/ai/world/${field}`, {
         context: currentValues,
       });
       setAiContent(typeof res.value === "string" ? res.value : JSON.stringify(res.value, null, 2));

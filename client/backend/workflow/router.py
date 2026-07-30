@@ -4,11 +4,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
-from projects.service import get_project
+from novels.ai_backfill import step1_backfill, step2_backfill
+from novels.events import log_event
+from novels.service import get_novel
 from workflow.engine import update_phase
-from workflow.gates import gate_chapter_ready
+from workflow.gates import (
+    gate_chapter_ready,
+    gate_prompts_exist,
+    gate_settings_complete,
+    get_phase_status,
+)
 
-router = APIRouter(prefix="/api/projects/{project_id}/workflow", tags=["workflow"])
+router = APIRouter(prefix="/api/novels/{project_id}/workflow", tags=["workflow"])
 
 
 @router.post("/transition")
@@ -18,7 +25,7 @@ async def transition_workflow(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
 
@@ -26,29 +33,188 @@ async def transition_workflow(
     if not target:
         raise HTTPException(400, "target is required")
 
+    if target == "outline":
+        # Soft gate: check settings but do not block
+        result = await gate_settings_complete(project.root_path)
+        # hard_block is False for settings, so this always passes through
+        if result.hard_block and not result.valid:
+            raise HTTPException(
+                400,
+                {
+                    "error": "Settings incomplete",
+                    "warnings": result.warnings,
+                },
+            )
+
+        update_phase(project, "outline")
+        await db.commit()
+        return {
+            "ok": True,
+            "phase": project.current_phase,
+            "warnings": result.warnings,
+        }
+
     if target == "prompt":
-        # Load all chapters and check each one
+        # Hard gate: chapters must be ready before generating prompts
         files = await get_storage().list_dir(project.root_path, "chapters")
         failures = []
         for f in sorted(files):
             if not f.endswith(".yaml"):
                 continue
             ref = f.replace(".yaml", "")
-            chapter = await get_storage().read_yaml(project.root_path, f"chapters/{f}")
+            chapter = await get_storage().read_yaml(
+                project.root_path, f"chapters/{f}"
+            )
             if not chapter:
                 continue
-            ok, missing = gate_chapter_ready(chapter)
-            if not ok:
-                failures.append({"chapter_ref": ref, "missing": missing})
+            result = gate_chapter_ready(chapter)
+            if result.hard_block and not result.valid:
+                failures.append({"chapter_ref": ref, "missing": result.warnings})
 
         if failures:
             raise HTTPException(
                 400,
-                f"Some chapters are not ready: {failures}",
+                {
+                    "error": "Some chapters are not ready",
+                    "failures": failures,
+                },
             )
 
         update_phase(project, "prompt")
         await db.commit()
         return {"ok": True, "phase": project.current_phase}
 
+    if target == "write":
+        # Hard gate: prompts must exist before writing
+        files = await get_storage().list_dir(project.root_path, "chapters")
+        failures = []
+        for f in sorted(files):
+            if not f.endswith(".yaml"):
+                continue
+            ref = f.replace(".yaml", "")
+            result = await gate_prompts_exist(project.root_path, ref)
+            if result.hard_block and not result.valid:
+                failures.append({"chapter_ref": ref, "missing": result.warnings})
+
+        if failures:
+            raise HTTPException(
+                400,
+                {
+                    "error": "Some chapters have no prompts",
+                    "failures": failures,
+                },
+            )
+
+        update_phase(project, "write")
+        await db.commit()
+        return {"ok": True, "phase": project.current_phase}
+
     raise HTTPException(400, f"Unsupported target: {target}")
+
+
+@router.get("/phase-status")
+async def phase_status_endpoint(
+    project_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return six-phase completion status + warnings for the current project."""
+    project = await get_novel(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Novel not found")
+    status = await get_phase_status(
+        project.root_path, project.current_phase, project
+    )
+    return status
+
+
+# ── AI Backfill endpoints ───────────────────────────────────────────────────
+
+backfill_router = APIRouter(prefix="/api/novels/{project_id}", tags=["backfill"])
+
+
+@backfill_router.get("/ai-backfill/status")
+async def ai_backfill_status(
+    project_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await get_novel(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Novel not found")
+    return {"backfill_status": project.backfill_status or "none"}
+
+
+@backfill_router.post("/ai-backfill/step1")
+async def ai_backfill_step1(
+    project_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await get_novel(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Novel not found")
+
+    project.backfill_status = "step1_running"
+    await db.commit()
+
+    storage = get_storage()
+    root_path = project.root_path
+
+    try:
+        result = await step1_backfill(root_path, project_id)
+        all_fields = any([
+            result.get("synopsis"),
+            result.get("world_setting"),
+            result.get("characters"),
+        ])
+        project.backfill_status = "step1_done" if all_fields else "step1_partial"
+        await db.commit()
+        return result | {"backfill_status": project.backfill_status}
+    except Exception as e:
+        project.backfill_status = "step1_partial"
+        await db.commit()
+        raise HTTPException(500, str(e))
+
+
+@backfill_router.post("/ai-backfill/step2")
+async def ai_backfill_step2(
+    project_id: str,
+    body: dict,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await get_novel(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Novel not found")
+
+    project.backfill_status = "step2_running"
+    await db.commit()
+
+    storage = get_storage()
+    root_path = project.root_path
+    step1_result = body.get("step1_result", {})
+
+    try:
+        result = await step2_backfill(root_path, project_id, step1_result)
+        project.backfill_status = "step2_done"
+        await db.commit()
+        return result | {"backfill_status": "step2_done"}
+    except Exception as e:
+        project.backfill_status = "step2_running"
+        await db.commit()
+        raise HTTPException(500, str(e))
+
+
+@backfill_router.put("/ai-backfill/confirm")
+async def confirm_backfill_step(
+    project_id: str,
+    body: dict,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await get_novel(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Novel not found")
+    log_event(db, user["id"], "ai_backfill_saved", {"novel_id": project_id})
+    return {"ok": True, "backfill_status": project.backfill_status}

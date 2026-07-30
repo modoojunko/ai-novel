@@ -19,7 +19,7 @@ export function streamChapterWrite(
   callbacks: StreamCallbacks,
 ): AbortController {
   return doStreamFetch(
-    `${API_BASE}/projects/${projectId}/chapters/${chapterRef}/write`,
+    `${API_BASE}/novels/${projectId}/chapters/${chapterRef}/write`,
     undefined,
     callbacks,
   );
@@ -32,7 +32,7 @@ export function streamChapterContinue(
   callbacks: StreamCallbacks,
 ): AbortController {
   return doStreamFetch(
-    `${API_BASE}/projects/${projectId}/chapters/${chapterRef}/write/continue`,
+    `${API_BASE}/novels/${projectId}/chapters/${chapterRef}/write/continue`,
     { cursor_position: cursorPosition },
     callbacks,
   );
@@ -142,7 +142,7 @@ export async function polishText(
   contextAfter: string,
 ): Promise<string> {
   const data = await doJsonPost(
-    `${API_BASE}/projects/${projectId}/chapters/${chapterRef}/write/polish`,
+    `${API_BASE}/novels/${projectId}/chapters/${chapterRef}/write/polish`,
     { selected_text: selectedText, context_before: contextBefore, context_after: contextAfter },
   );
   return data.polished_text;
@@ -156,7 +156,7 @@ export async function expandText(
   contextAfter: string,
 ): Promise<string> {
   const data = await doJsonPost(
-    `${API_BASE}/projects/${projectId}/chapters/${chapterRef}/write/expand`,
+    `${API_BASE}/novels/${projectId}/chapters/${chapterRef}/write/expand`,
     { selected_text: selectedText, context_before: contextBefore, context_after: contextAfter },
   );
   return data.expanded_text;

@@ -62,7 +62,7 @@ export default function RegisterPage() {
       const username = res.user?.display_name || displayName || email.split('@')[0];
       if (token) setToken(token, username);
       toast.success('注册成功');
-      navigate('/books');
+      navigate('/novels');
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
       if (msg.includes('已注册')) {

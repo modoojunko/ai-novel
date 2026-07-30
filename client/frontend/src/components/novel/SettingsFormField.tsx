@@ -58,11 +58,11 @@ export default function SettingsFormField({ projectId, settingKey, confirmed, on
         prev.map((s) => (s.type === t.type ? { ...s, status: "loading" as const } : s))
       );
       try {
-        const res = await api.post(`/projects/${projectId}/settings/generate`, {
+        const res = await api.post(`/novels/${projectId}/settings/generate`, {
           types: [t.type],
         });
         if (res[t.type] && !res[t.type]._error) {
-          await api.put(`/projects/${projectId}/settings/${t.type}`, res[t.type]);
+          await api.put(`/novels/${projectId}/settings/${t.type}`, res[t.type]);
           setGenSteps((prev) =>
             prev.map((s) => (s.type === t.type ? { ...s, status: "done" as const } : s))
           );

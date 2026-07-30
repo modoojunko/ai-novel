@@ -4,9 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
-from projects.service import get_project
+from novels.service import get_novel
 
-router = APIRouter(prefix="/api/projects/{project_id}/settings", tags=["settings"])
+router = APIRouter(prefix="/api/novels/{project_id}/settings", tags=["settings"])
 
 VALID_TYPES = {"world", "style", "anti-ai", "hooks", "characters", "ai-model", "genre"}
 STATUS_FILE = "settings/settings-status.yaml"
@@ -18,7 +18,7 @@ async def get_settings_status(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
 
@@ -38,7 +38,7 @@ async def confirm_settings_type(
     if type not in VALID_TYPES:
         raise HTTPException(400, f"Invalid settings type: {type}")
 
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
 

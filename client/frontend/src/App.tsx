@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import ClientShell from "@/components/ClientShell";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -7,9 +7,15 @@ import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import ApiKeyConfigPage from "@/pages/ApiKeyConfigPage";
-import BooksPage from "@/pages/BooksPage";
-import ProjectLayout from "@/pages/ProjectLayout";
+import NovelListPage from "@/pages/NovelListPage";
+import NovelLayout from "@/pages/NovelLayout";
 import NovelPage from "@/pages/NovelPage";
+
+/** 301 过渡：旧路由 /project/:id → /novel/:id */
+function RedirectToNovel() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={"/novel/" + id} replace />;
+}
 
 export default function App() {
   const location = useLocation();
@@ -24,8 +30,12 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/config" element={<ApiKeyConfigPage />} />
-          <Route path="/books" element={<BooksPage />} />
-          <Route path="/project/:id" element={<ProjectLayout />}>
+          {/* 301 过渡（一个版本期后删除） */}
+          <Route path="/books" element={<Navigate to="/novels" replace />} />
+          <Route path="/project/:id" element={<RedirectToNovel />} />
+          {/* 新路由 */}
+          <Route path="/novels" element={<NovelListPage />} />
+          <Route path="/novel/:id" element={<NovelLayout />}>
             <Route index element={<NovelPage />} />
             <Route path="settings" element={<Navigate to=".." replace />} />
             <Route path="settings/world" element={<Navigate to=".." replace />} />

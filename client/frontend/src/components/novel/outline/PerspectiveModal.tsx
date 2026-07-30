@@ -45,7 +45,7 @@ export default function PerspectiveModal({
     setGuidance("");
     try {
       const res: { guidance: string } = await api.post(
-        `/projects/${projectId}/chapters/${chapterRef}/perspective`,
+        `/novels/${projectId}/chapters/${chapterRef}/perspective`,
       );
       setGuidance(res.guidance);
     } catch (e: any) {

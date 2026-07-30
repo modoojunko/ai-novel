@@ -74,13 +74,13 @@ def extract_field(parsed, field):
 class TestSettingsAIValidation:
     def test_generate_no_auth(self):
         r = httpx.post(
-            f"{BASE_URL}/projects/fake-id/settings/generate", json={"types": ["world"]}
+            f"{BASE_URL}/novels/fake-id/settings/generate", json={"types": ["world"]}
         )
         assert r.status_code in (401, 403)
 
     def test_generate_invalid_project(self):
         r = httpx.post(
-            f"{BASE_URL}/projects/nonexistent/settings/generate",
+            f"{BASE_URL}/novels/nonexistent/settings/generate",
             json={"types": ["world"]},
             headers={"Authorization": "Bearer fake-token"},
         )
@@ -88,7 +88,7 @@ class TestSettingsAIValidation:
 
     def test_field_generate_no_auth(self):
         r = httpx.post(
-            f"{BASE_URL}/projects/fake-id/settings/ai/world/scenes",
+            f"{BASE_URL}/novels/fake-id/settings/ai/world/scenes",
             json={"context": {}},
         )
         assert r.status_code in (401, 403)
@@ -99,14 +99,14 @@ class TestSettingsAIValidation:
 
         n = random.randint(10000, 99999)
         r2 = httpx.post(
-            f"{BASE_URL}/projects",
-            json={"name": f"AIProject_{n}"},
+            f"{BASE_URL}/novels",
+            json={"name": f"AINovel_{n}"},
             headers={"Authorization": f"Bearer {token}"},
         )
         assert r2.status_code in (200, 201)
         pid = r2.json()["id"]
         r = httpx.post(
-            f"{BASE_URL}/projects/{pid}/settings/ai/anti-ai/some-field",
+            f"{BASE_URL}/novels/{pid}/settings/ai/anti-ai/some-field",
             json={"context": {}},
             headers={"Authorization": f"Bearer {token}"},
         )

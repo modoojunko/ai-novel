@@ -22,6 +22,7 @@ class StorageBackend(Protocol):
     async def delete_file(self, root_path: str, relative_path: str) -> None: ...
     async def list_dir(self, root_path: str, relative_path: str) -> list[str]: ...
     async def init_skeleton(self, root_path: str) -> None: ...
+    async def delete_root(self, root_path: str) -> None: ...
 
 
 # --- Local filesystem backend ---
@@ -82,8 +83,11 @@ class LocalFileBackend:
 
         _init_project_skeleton_local(root_path)
 
+    async def delete_root(self, root_path: str) -> None:
+        import shutil
 
-# --- Database backend (CloudBase MySQL) ---
+        if os.path.exists(root_path):
+            shutil.rmtree(root_path)
 
 
 class DatabaseFileBackend:
@@ -202,8 +206,17 @@ class DatabaseFileBackend:
                 )
                 await session.commit()
 
-
-# --- Singleton factory ---
+    async def delete_root(self, root_path: str) -> None:
+        user_id, slug = self._parse_root(root_path)
+        async with self._sf() as session:
+            await session.execute(
+                text(
+                    "DELETE FROM novel_files "
+                    "WHERE user_id=:uid AND project_slug=:slug"
+                ),
+                {"uid": user_id, "slug": slug},
+            )
+            await session.commit()
 
 _storage: StorageBackend | None = None
 

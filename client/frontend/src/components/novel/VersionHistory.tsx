@@ -27,7 +27,7 @@ export default function VersionHistory({
 
   useEffect(() => {
     setLoading(true);
-    api.get(`/projects/${projectId}/chapters/${chapterRef}/versions`)
+    api.get(`/novels/${projectId}/chapters/${chapterRef}/versions`)
       .then((data: Version[]) => setVersions(data))
       .catch(() => setVersions([]))
       .finally(() => setLoading(false));
@@ -37,7 +37,7 @@ export default function VersionHistory({
     if (!window.confirm(`确认恢复到 ${versionId}？当前内容将被覆盖。`)) return;
     setRestoring(versionId);
     try {
-      await api.post(`/projects/${projectId}/chapters/${chapterRef}/versions/${versionId}/restore`);
+      await api.post(`/novels/${projectId}/chapters/${chapterRef}/versions/${versionId}/restore`);
       // Refresh versions list and go back
       onBack();
     } catch {

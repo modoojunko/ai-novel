@@ -47,7 +47,7 @@ from auth_local.middleware import get_current_user
 from config import JWT_ALGORITHM, JWT_SECRET
 from db import Base, async_session, engine, get_db
 from main import app
-from models.project import Project
+from models.project import Novel
 from models.user import User
 
 # Common test constants
@@ -111,10 +111,10 @@ async def _create_project(
     name: str = "测试项目",
     ai_config_id: str | None = None,
     ai_model: str | None = None,
-) -> Project:
-    """Insert a Project row."""
+) -> Novel:
+    """Insert a Novel row."""
     async with async_session() as session:
-        project = Project(
+        project = Novel(
             user_id=user_id,
             name=name,
             slug=name.lower().replace(" ", "-") + "-" + uuid.uuid4().hex[:6],
@@ -137,7 +137,7 @@ async def _get_user(user_id: str) -> User | None:
 async def _get_projects_by_user(user_id: str):
     async with async_session() as session:
         result = await session.execute(
-            select(Project).where(Project.user_id == user_id)
+            select(Novel).where(Novel.user_id == user_id)
         )
         return result.scalars().all()
 
@@ -1280,7 +1280,7 @@ class TestDataMigration:
                 # If user had a model, set it on all existing projects
                 if user.api_model:
                     proj_result = await session.execute(
-                        sa_select(Project).where(Project.user_id == user.id)
+                        sa_select(Novel).where(Novel.user_id == user.id)
                     )
                     for project in proj_result.scalars().all():
                         project.ai_config_id = config_id
@@ -1469,7 +1469,7 @@ class TestMigrationStatus:
                 )
                 if user.api_model:
                     proj_result = await session.execute(
-                        select(Project).where(Project.user_id == user.id)
+                        select(Novel).where(Novel.user_id == user.id)
                     )
                     for project in proj_result.scalars().all():
                         project.ai_config_id = config_id

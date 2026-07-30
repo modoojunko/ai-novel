@@ -157,7 +157,7 @@ export function useOutline(projectId: string): UseOutlineReturn {
     setError(null);
     try {
       const res: TreeResponse = await api.get(
-        `/projects/${projectId}/tree`,
+        `/novels/${projectId}/tree`,
       );
       const vols = res.volumes || [];
       setVolumes(vols);
@@ -181,7 +181,7 @@ export function useOutline(projectId: string): UseOutlineReturn {
   const loadChapterData = useCallback(
     async (ref: string): Promise<ChapterData> => {
       const data: ChapterData = await api.get(
-        `/projects/${projectId}/chapters/${ref}`,
+        `/novels/${projectId}/chapters/${ref}`,
       );
 
       setChaptersMap((prev) => {
@@ -219,7 +219,7 @@ export function useOutline(projectId: string): UseOutlineReturn {
       // Merge incoming partial data with known data
       const merged: ChapterData = { ...existing, ...data } as ChapterData;
 
-      await api.put(`/projects/${projectId}/chapters/${ref}`, merged);
+      await api.put(`/novels/${projectId}/chapters/${ref}`, merged);
 
       setChaptersMap((prev) => {
         const next = new Map(prev);
@@ -250,7 +250,7 @@ export function useOutline(projectId: string): UseOutlineReturn {
 
   const confirmChapter = useCallback(
     async (ref: string) => {
-      await api.post(`/projects/${projectId}/chapters/${ref}/confirm`);
+      await api.post(`/novels/${projectId}/chapters/${ref}/confirm`);
 
       // Optimistically update local state
       const updatedVolumes = volumes.map((v) => ({
@@ -275,7 +275,7 @@ export function useOutline(projectId: string): UseOutlineReturn {
   // -----------------------------------------------------------------------
 
   const transitionToPrompt = useCallback(async () => {
-    await api.post(`/projects/${projectId}/workflow/transition`, {
+    await api.post(`/novels/${projectId}/workflow/transition`, {
       target: "prompt",
     });
   }, [projectId]);

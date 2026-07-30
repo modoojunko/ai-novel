@@ -331,10 +331,10 @@ export default function VersionDiff({ projectId, chapterRef, versions }: Version
 
     Promise.all([
       api.get(
-        `/projects/${projectId}/chapters/${chapterRef}/versions/${oldVersionId}/content`,
+        `/novels/${projectId}/chapters/${chapterRef}/versions/${oldVersionId}/content`,
       ) as Promise<VersionContent>,
       api.get(
-        `/projects/${projectId}/chapters/${chapterRef}/versions/${newVersionId}/content`,
+        `/novels/${projectId}/chapters/${chapterRef}/versions/${newVersionId}/content`,
       ) as Promise<VersionContent>,
     ])
       .then(([oldData, newData]) => {

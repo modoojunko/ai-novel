@@ -17,14 +17,14 @@ from auth_local.middleware import get_current_user
 from db import get_db
 from models.api_config import ApiConfig
 from models.user import User
-from projects.service import (
-    get_project as _get_project,
+from novels.service import (
+    get_novel as _get_novel,
 )
-from projects.service import (
+from novels.service import (
     list_projects as _list_projects,
 )
-from projects.service import (
-    project_to_dict,
+from novels.service import (
+    novel_to_dict,
 )
 
 from .connection import test_connection as _test_raw_connection
@@ -279,7 +279,7 @@ async def list_projects_v1(
 ):
     """List all projects for the current user."""
     projects = await _list_projects(db, _user_id(user))
-    return [project_to_dict(p) for p in projects]
+    return [novel_to_dict(p) for p in projects]
 
 
 # STATIC before parameterized
@@ -306,10 +306,10 @@ async def get_project_v1(
     db: AsyncSession = Depends(get_db),
 ):
     """Get a single project."""
-    project = await _get_project(db, project_id, _user_id(user))
+    project = await _get_novel(db, project_id, _user_id(user))
     if not project:
         raise HTTPException(404, "Project not found")
-    return project_to_dict(project)
+    return novel_to_dict(project)
 
 
 @router.get("/projects/{project_id}/ai-model")

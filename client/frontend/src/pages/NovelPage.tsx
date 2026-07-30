@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "@/lib/api";
+import type { Step1Result } from "@/lib/api";
 import type { TreeNode } from "@/components/novel/StructureTree";
 import StructureTree from "@/components/novel/StructureTree";
 import EmptyState from "@/components/novel/EmptyState";
@@ -14,12 +15,18 @@ import { useOnboarding } from "@/hooks/useOnboarding";
 import RightToolbar from "@/components/novel/RightToolbar";
 import PromptManagementPage from "@/components/novel/PromptManagementPage";
 import ArchivePage from "@/components/novel/ArchivePage";
-import { Globe, Feather, Shield, Anchor, Users, Brain, Book, FileText, Trash2, ClipboardList, BookOpen } from "lucide-react";
+import AiReviewStep1 from "@/components/novel/AiReviewStep1";
+import AiReviewStep2 from "@/components/novel/AiReviewStep2";
+import { Globe, Feather, Shield, Anchor, Users, Brain, Book, FileText, Trash2, ClipboardList, BookOpen, AlertTriangle, RefreshCw, Sparkles } from "lucide-react";
 import { useOutline } from "@/hooks/useOutline";
 import OutlineOverview from "@/components/novel/outline/OutlineOverview";
 import OutlineEditor from "@/components/novel/outline/OutlineEditor";
 import PerspectiveModal from "@/components/novel/outline/PerspectiveModal";
 import type { SelectionCapture } from "@/lib/selection";
+import { useNovelState } from "@/hooks/useNovelState";
+import TabProgressButton from "@/components/novel/TabProgressButton";
+import GateBanner from "@/components/novel/GateBanner";
+import OnboardingCard from "@/components/novel/OnboardingCard";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,6 +61,16 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "archives", label: "归档" },
 ];
 
+// Map tab IDs to workflow phase keys for status lookup
+const TAB_PHASE_MAP: Record<string, "settings" | "outline" | "prompt" | "write" | "archive"> = {
+  settings: "settings",
+  volume: "outline",
+  chapter: "outline",   // 章纲属于大纲阶段
+  prompts: "prompt",
+  writing: "write",
+  archives: "archive",
+};
+
 const SETTINGS_TREE_ITEMS: { id: string; icon: React.ReactNode; label: string }[] = [
   { id: "genre", icon: <BookOpen className="w-3.5 h-3.5" />, label: "题材设定" },
   { id: "world", icon: <Globe className="w-3.5 h-3.5" />, label: "世界设定" },
@@ -83,6 +100,71 @@ export default function NovelPage() {
 
   const { settingsStatus, allConfirmed, isNew, confirmSetting, loading: onboardingLoading } =
     useOnboarding(project?.id, volumes);
+
+  // ── AI Review flow (for imported projects on paid tier) ────────────────
+  const [userTier, setUserTier] = useState<string | null>(null);
+  const [aiReviewStep, setAiReviewStep] = useState<1 | 2 | null>(null);
+  const [step1Result, setStep1Result] = useState<Step1Result | null>(null);
+  const [aiReviewDismissed, setAiReviewDismissed] = useState(false);
+
+  // Fetch user tier on mount
+  useEffect(() => {
+    api.post("/auth/verify").then((r: any) => {
+      if (r.tier) setUserTier(r.tier);
+    }).catch(() => {});
+  }, []);
+
+  // Show AI review flow if: imported project + paid user + not dismissed
+  useEffect(() => {
+    if (!project || userTier === null || aiReviewDismissed) return;
+    if (project.source === "import" && userTier !== "none") {
+      // Check if already backfilled
+      api.fetchBackfillStatus(project.id)
+        .then((status: any) => {
+          // Only show if not already completed
+          if (!status?.completed) {
+            setAiReviewStep(1);
+          }
+        })
+        .catch(() => {
+          // If status endpoint fails, still show the flow
+          setAiReviewStep(1);
+        });
+    }
+  }, [project, userTier, aiReviewDismissed]);
+
+  const { phaseStatus, warnings, loading: phaseStatusLoading, error: phaseStatusError, refetch: refetchPhaseStatus } =
+    useNovelState(id);
+
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    if (!id) return false;
+    return localStorage.getItem(`gate-banner-dismissed-${id}`) === 'true';
+  });
+
+  const handleDismissBanner = useCallback(() => {
+    if (!id) return;
+    setBannerDismissed(true);
+    localStorage.setItem(`gate-banner-dismissed-${id}`, 'true');
+  }, [id]);
+
+  // ── Onboarding card ──────────────────────────────────────────────────────
+
+  const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
+    if (!id) return true;
+    return localStorage.getItem(`onboarding-dismissed-${id}`) === 'true';
+  });
+
+  const handleDismissOnboarding = useCallback(() => {
+    if (!id) return;
+    setOnboardingDismissed(true);
+    localStorage.setItem(`onboarding-dismissed-${id}`, 'true');
+  }, [id]);
+
+  const allPhasesPending =
+    phaseStatus !== null &&
+    Object.values(phaseStatus).every((s) => s === "pending");
+
+  const showOnboarding = allPhasesPending && !onboardingDismissed;
 
   const outline = useOutline(project?.id ?? "");
 
@@ -143,7 +225,7 @@ export default function NovelPage() {
     if (!id) return;
     setLoading(true);
     api
-      .get(`/projects/${id}`)
+      .get(`/novels/${id}`)
       .then((p: any) => {
         setProject(p);
       })
@@ -160,11 +242,11 @@ export default function NovelPage() {
   const loadVolumes = useCallback(async () => {
     if (!project?.id) return;
     try {
-      const vols = await api.get(`/projects/${project.id}/volumes`);
+      const vols = await api.get(`/novels/${project.id}/volumes`);
       const withChapters: any[] = [];
       for (const v of vols) {
         const data = await api.get(
-          `/projects/${project.id}/volumes/${v.filename}`
+          `/novels/${project.id}/volumes/${v.filename}`
         );
         withChapters.push({ ...v, chapters: data?.chapters || [] });
       }
@@ -365,7 +447,7 @@ export default function NovelPage() {
     if (!project?.id) return;
     try {
       const volNum = volumes.length + 1;
-      const result = await api.post(`/projects/${project.id}/volumes`, {
+      const result = await api.post(`/novels/${project.id}/volumes`, {
         title: `第${volNum}卷`,
         vol_num: volNum,
       });
@@ -396,7 +478,7 @@ export default function NovelPage() {
       // If no volumes exist, create one first
       let targetVol = volumes[0];
       if (!targetVol) {
-        const volResult = await api.post(`/projects/${project.id}/volumes`, {
+        const volResult = await api.post(`/novels/${project.id}/volumes`, {
           title: `第一卷`,
           vol_num: 1,
         });
@@ -408,10 +490,10 @@ export default function NovelPage() {
       const volNum = parseInt(volRef.replace("vol-", ""), 10) || 1;
 
       // Get current chapter count from this volume
-      const volData = await api.get(`/projects/${project.id}/volumes/${volRef}.yaml`);
+      const volData = await api.get(`/novels/${project.id}/volumes/${volRef}.yaml`);
       const nextCh = (volData?.chapters?.length || 0) + 1;
 
-      const result = await api.post(`/projects/${project.id}/chapters`, {
+      const result = await api.post(`/novels/${project.id}/chapters`, {
         volume: volNum,
         chapter: nextCh,
         title: `第${nextCh}章`,
@@ -740,23 +822,32 @@ case "prompts":
 
         {/* Tabs: 设定 / 正文 / 细纲 / 提示词 / 归档 */}
         <div className="flex items-center gap-1">
-          {TABS.map((t) => (
+          {phaseStatusLoading && (
+            <div className="skeleton h-5 w-24 rounded shrink-0" />
+          )}
+          {phaseStatusError && (
             <button
-              key={t.id}
-              onClick={() => handleTabSwitch(t.id)}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                tab === t.id
-                  ? "bg-primary text-primary-content font-medium"
-                  : "text-base-content/60 hover:text-base-content hover:bg-base-300/40"
-              }`}
+              onClick={refetchPhaseStatus}
+              className="btn btn-ghost btn-xs px-1 text-warning"
+              title="阶段状态加载失败，点击重试"
             >
-              {t.label}
+              <AlertTriangle className="w-3 h-3" />
+            </button>
+          )}
+          {TABS.map((t) => (
+            <TabProgressButton
+              key={t.id}
+              label={t.label}
+              status={phaseStatus ? phaseStatus[TAB_PHASE_MAP[t.id]] : undefined}
+              active={tab === t.id}
+              onClick={() => handleTabSwitch(t.id)}
+            >
               {t.id === "archives" && (project?.total_archives ?? 0) > 0 && (
                 <span className="badge badge-accent badge-xs ml-1">
                   {project.total_archives}
                 </span>
               )}
-            </button>
+            </TabProgressButton>
           ))}
         </div>
 
@@ -772,10 +863,33 @@ case "prompts":
         </div>
       </div>
 
+      {/* ── Phase status loading skeleton ──────────────────────── */}
+      {phaseStatusLoading && (
+        <div className="skeleton h-1 w-full rounded-none shrink-0" />
+      )}
+
+      {/* ── Gate banner ────────────────────────────────────────── */}
+      {!bannerDismissed && (
+        <GateBanner
+          warnings={warnings}
+          onDismiss={handleDismissBanner}
+        />
+      )}
+
+      {/* ── Onboarding card ────────────────────────────────────── */}
+      {showOnboarding && (
+        <OnboardingCard
+          novelId={id!}
+          source={project.source}
+          variant={project.source === "import" ? "imported-novel" : "empty-novel"}
+          onDismiss={handleDismissOnboarding}
+        />
+      )}
+
       {/* ── Dual panel ──────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left tree panel — hidden on prompts & archives tabs */}
-        {tab !== "prompts" && tab !== "archives" && (
+        {/* Left tree panel — hidden on prompts, archives tabs, or AI review flow */}
+        {tab !== "prompts" && tab !== "archives" && !aiReviewStep && (
           <aside className="w-56 flex-shrink-0 overflow-y-auto border-r border-base-300 bg-base-200/30 p-2">
             <StructureTree
               nodes={activeNodes}
@@ -789,7 +903,47 @@ case "prompts":
 
         {/* Right content panel */}
         <main className="flex-1 overflow-y-auto p-4">
-          {renderContent()}
+          {aiReviewStep ? (
+            <div className="max-w-2xl mx-auto pt-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles className="w-5 h-5 text-primary" />
+                <h2 className="font-serif font-semibold text-lg">AI 反推审阅</h2>
+                <span className="text-xs text-base-content/30">步骤 {aiReviewStep}/2</span>
+              </div>
+
+              {aiReviewStep === 1 && (
+                <AiReviewStep1
+                  novelId={project.id}
+                  onComplete={(result) => {
+                    setStep1Result(result);
+                    setAiReviewStep(2);
+                  }}
+                  onBack={() => {
+                    setAiReviewStep(null);
+                    setAiReviewDismissed(true);
+                  }}
+                />
+              )}
+
+              {aiReviewStep === 2 && step1Result && (
+                <AiReviewStep2
+                  novelId={project.id}
+                  step1Result={step1Result}
+                  onComplete={() => {
+                    setAiReviewStep(null);
+                    setAiReviewDismissed(true);
+                    setTab("writing");
+                    setViewState({ tab: "writing", panel: "empty" });
+                  }}
+                  onBack={() => {
+                    setAiReviewStep(1);
+                  }}
+                />
+              )}
+            </div>
+          ) : (
+            renderContent()
+          )}
         </main>
       </div>
     </div>
@@ -799,8 +953,8 @@ case "prompts":
           title="小说"
           confirmText={project.name}
           onConfirm={async () => {
-            await api.delete(`/projects/${project.id}`);
-            window.location.href = "/books";
+            await api.delete(`/novels/${project.id}`);
+            window.location.href = "/novels";
           }}
           onCancel={() => setShowDelete(false)}
         />

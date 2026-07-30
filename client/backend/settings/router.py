@@ -4,9 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
-from projects.service import get_project
+from novels.service import get_novel
 
-router = APIRouter(prefix="/api/projects/{project_id}/settings", tags=["settings"])
+router = APIRouter(prefix="/api/novels/{project_id}/settings", tags=["settings"])
 
 VALID_TYPES = {"world", "style", "anti-ai", "hooks", "characters", "ai-model", "genre"}
 FILE_MAP = {
@@ -26,7 +26,7 @@ async def get_character(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     return (
@@ -45,7 +45,7 @@ async def update_character(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     await get_storage().write_yaml(
@@ -61,7 +61,7 @@ async def get_settings(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     if type not in VALID_TYPES:
@@ -77,7 +77,7 @@ async def update_settings(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     if type not in VALID_TYPES:
@@ -98,7 +98,7 @@ async def delete_character(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     await get_storage().delete_file(
@@ -113,7 +113,7 @@ async def list_characters(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     names = await get_storage().list_dir(

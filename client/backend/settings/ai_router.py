@@ -10,10 +10,10 @@ from auth_local.deps import require_ai_access
 from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
-from projects.service import get_project
+from novels.service import get_novel
 from prompts import load as load_prompt
 
-router = APIRouter(prefix="/api/projects/{project_id}/settings", tags=["settings-ai"])
+router = APIRouter(prefix="/api/novels/{project_id}/settings", tags=["settings-ai"])
 
 VALID_TYPES = {"world", "style", "anti-ai", "hooks", "characters"}
 # Only these types get per-field generation (anti-ai excluded)
@@ -29,7 +29,7 @@ async def generate_all_settings(
     db: AsyncSession = Depends(get_db),
 ):
     """Generate all setting types from premise in one call."""
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
 
@@ -89,7 +89,7 @@ async def generate_field(
     if stype not in FIELD_GENERATABLE:
         raise HTTPException(400, f"Field generation not supported for: {stype}")
 
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
 

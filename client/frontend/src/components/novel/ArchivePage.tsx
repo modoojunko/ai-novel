@@ -215,7 +215,7 @@ export default function ArchivePage({
     setError(null);
     try {
       const files: { filename: string; path: string }[] = await api.get(
-        `/projects/${projectId}/archives`
+        `/novels/${projectId}/archives`
       );
 
       const items = await Promise.all(
@@ -226,7 +226,7 @@ export default function ArchivePage({
           }
           try {
             const chapter = await api.get(
-              `/projects/${projectId}/chapters/${ref}`
+              `/novels/${projectId}/chapters/${ref}`
             );
             return buildArchiveItem(f.filename, chapter);
           } catch {

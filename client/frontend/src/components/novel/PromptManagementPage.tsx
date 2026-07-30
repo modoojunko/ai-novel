@@ -81,7 +81,7 @@ async function fetchPromptText(
 ): Promise<string> {
   const token = getToken();
   const res = await fetch(
-    `${getApiBaseUrl()}/api/projects/${projectId}/chapters/${chapterRef}/prompts/${segKey}`,
+    `${getApiBaseUrl()}/api/novels/${projectId}/chapters/${chapterRef}/prompts/${segKey}`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
   if (!res.ok) {
@@ -141,13 +141,13 @@ export default function PromptManagementPage({
     async function load() {
       setOverviewLoading(true);
       try {
-        const vols: any[] = await api.get(`/projects/${projectId}/volumes`);
+        const vols: any[] = await api.get(`/novels/${projectId}/volumes`);
         const result: VolumeInfo[] = [];
         for (const v of vols) {
           const volNum =
             parseInt((v.name || "").replace("vol-", ""), 10) || 0;
           const data = await api.get(
-            `/projects/${projectId}/volumes/${v.filename}`,
+            `/novels/${projectId}/volumes/${v.filename}`,
           );
           const chapters = (data?.chapters || []).map((ch: any) => ({
             ref: `vol-${volNum}-ch-${ch.chapter}`,
@@ -181,7 +181,7 @@ export default function PromptManagementPage({
       for (const ch of allChapters) {
         try {
           const files: string[] = await api.get(
-            `/projects/${projectId}/chapters/${ch.ref}/prompts`,
+            `/novels/${projectId}/chapters/${ch.ref}/prompts`,
           );
           const segments: PromptFile[] = files
             .map((f) => {
@@ -237,13 +237,13 @@ export default function PromptManagementPage({
       setGeneratingChapters((prev) => new Set(prev).add(chapterRef));
       try {
         await api.post(
-          `/projects/${projectId}/chapters/${chapterRef}/prompts/generate`,
+          `/novels/${projectId}/chapters/${chapterRef}/prompts/generate`,
         );
         toast.success("提示词生成完成");
 
         // Reload prompts for this chapter
         const files: string[] = await api.get(
-          `/projects/${projectId}/chapters/${chapterRef}/prompts`,
+          `/novels/${projectId}/chapters/${chapterRef}/prompts`,
         );
         const segments: PromptFile[] = files
           .map((f) => {
@@ -318,7 +318,7 @@ export default function PromptManagementPage({
     setSaving(true);
     try {
       await api.put(
-        `/projects/${projectId}/chapters/${viewerChapterRef}/prompts/${viewerSegKey}`,
+        `/novels/${projectId}/chapters/${viewerChapterRef}/prompts/${viewerSegKey}`,
         { content: editorContent },
       );
       setViewerContent(editorContent);
