@@ -78,7 +78,7 @@ onMounted(() => {
         <!-- 导航菜单 -->
         <ul class="menu grow gap-1 mt-4">
           <li>
-            <router-link to="/dashboard" active-class="menu-active">
+            <router-link to="/dashboard" exact-active-class="menu-active">
               <Home class="w-4 h-4" />
               首页
             </router-link>
