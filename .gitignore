@@ -57,3 +57,6 @@ tmp_find.txt
 test-results
 server/logs
 server/.pytest_cache
+server/license.db-shm
+server/license.db-wal
+server/frontend/.vite/
