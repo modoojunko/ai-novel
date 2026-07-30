@@ -4,11 +4,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
-from projects.service import get_project
+from novels.service import get_novel
 from workflow.engine import _validate_ref, load_chapter, save_chapter, update_phase
 from workflow.gates import gate_chapter_ready, gate_settings_complete
 
-router = APIRouter(prefix="/api/projects/{project_id}", tags=["chapters"])
+router = APIRouter(prefix="/api/novels/{project_id}", tags=["chapters"])
 
 
 @router.get("/volumes")
@@ -17,7 +17,7 @@ async def list_volumes(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     files = await get_storage().list_dir(project.root_path, "volumes")
@@ -35,13 +35,14 @@ async def create_volume(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
 
-    ok, missing = await gate_settings_complete(project.root_path)
-    if not ok:
-        raise HTTPException(400, f"Settings incomplete: {missing}")
+    result = await gate_settings_complete(project.root_path)
+    # Soft gate: warn but do not block (gate_settings_complete returns hard_block=False)
+    if result.hard_block and not result.valid:
+        raise HTTPException(400, f"Settings incomplete: {result.warnings}")
 
     update_phase(project, "outline")
     vol_num = body.get("vol_num", project.total_volumes + 1)
@@ -67,7 +68,7 @@ async def get_volume(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     data = await get_storage().read_yaml(project.root_path, f"volumes/{filename}")
@@ -84,7 +85,7 @@ async def update_volume(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     data = await get_storage().read_yaml(project.root_path, f"volumes/{filename}")
@@ -104,7 +105,7 @@ async def delete_volume(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     data = await get_storage().read_yaml(project.root_path, f"volumes/{filename}")
@@ -121,7 +122,7 @@ async def create_chapter(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     vol = body.get("volume", 1)
@@ -191,7 +192,7 @@ async def delete_chapter(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
@@ -221,7 +222,7 @@ async def get_chapter(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
@@ -239,7 +240,7 @@ async def update_chapter(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
@@ -254,14 +255,14 @@ async def confirm_chapter(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
     chapter = await load_chapter(project.root_path, chapter_ref)
-    ok, missing = gate_chapter_ready(chapter)
-    if not ok:
-        raise HTTPException(400, f"Chapter not ready: {missing}")
+    result = gate_chapter_ready(chapter)
+    if not result.valid:
+        raise HTTPException(400, f"Chapter not ready: {result.warnings}")
     chapter["status"] = "confirmed"
     await get_storage().write_yaml(
         project.root_path, f"chapters/{chapter_ref}.yaml", chapter

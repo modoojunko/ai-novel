@@ -8,14 +8,14 @@ from auth_local.deps import require_ai_access
 from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
-from projects.service import get_project
+from novels.service import get_novel
 from workflow.engine import _validate_ref, load_chapter, update_phase
 from write.auxiliary import expand_text, polish_text, stream_continue
 from write.quality import run_quality_checks
 from write.stream import stream_segment
 
 router = APIRouter(
-    prefix="/api/projects/{project_id}/chapters/{chapter_ref}/write",
+    prefix="/api/novels/{project_id}/chapters/{chapter_ref}/write",
     tags=["write"],
 )
 
@@ -29,7 +29,7 @@ async def write_stream(
     _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
@@ -62,7 +62,7 @@ async def quality_check(
     _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
@@ -126,7 +126,7 @@ async def write_chapter(
     db: AsyncSession = Depends(get_db),
 ):
     """Stream an AI-written chapter based on all context data."""
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
@@ -164,7 +164,7 @@ async def continue_writing(
     db: AsyncSession = Depends(get_db),
 ):
     """Stream continuation text from a cursor position."""
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
@@ -193,7 +193,7 @@ async def polish_writing(
     db: AsyncSession = Depends(get_db),
 ):
     """Polish selected text (non-streaming)."""
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
@@ -221,7 +221,7 @@ async def expand_writing(
     db: AsyncSession = Depends(get_db),
 ):
     """Expand selected text (non-streaming)."""
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)

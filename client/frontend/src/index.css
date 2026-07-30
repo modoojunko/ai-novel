@@ -106,6 +106,22 @@ html {
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
+/* GateBanner 滑入动画 */
+@keyframes gate-slide-down {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.gate-slide-down {
+  animation: gate-slide-down 200ms ease-out both;
+}
+
 /* 背景色/边框色切换过渡 */
 *,
 *::before,

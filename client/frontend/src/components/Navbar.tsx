@@ -22,7 +22,7 @@ export default function Navbar() {
         <ThemeToggle />
         {loggedIn ? (
           <>
-            <Link to="/books" className="btn btn-ghost btn-sm">
+            <Link to="/novels" className="btn btn-ghost btn-sm">
               我的作品
             </Link>
             <Link to="/config" className="btn btn-ghost btn-sm">

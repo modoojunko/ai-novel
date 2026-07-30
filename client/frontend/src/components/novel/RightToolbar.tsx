@@ -120,7 +120,7 @@ export default function RightToolbar({
     if (!projectId || !chapterRef) return;
     setVersionsLoading(true);
     api
-      .get(`/projects/${projectId}/chapters/${chapterRef}/versions`)
+      .get(`/novels/${projectId}/chapters/${chapterRef}/versions`)
       .then((data: Version[]) => setVersions(data))
       .catch(() => setVersions([]))
       .finally(() => setVersionsLoading(false));

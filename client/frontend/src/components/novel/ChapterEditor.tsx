@@ -255,7 +255,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
           status: statusRef.current,
         };
         await api.put(
-          `/projects/${projectId}/chapters/${chapterRef}`,
+          `/novels/${projectId}/chapters/${chapterRef}`,
           updated,
         );
         setInitialOutline(outlineRef.current);
@@ -540,7 +540,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
 
         // List prompt files for this chapter
         const listRes = await fetch(
-          `${base}/api/projects/${projectId}/chapters/${chapterRef}/prompts`,
+          `${base}/api/novels/${projectId}/chapters/${chapterRef}/prompts`,
           { headers: { Authorization: `Bearer ${token}` } },
         );
         if (!listRes.ok) {
@@ -561,7 +561,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
         for (const file of files) {
           const seg = file.replace(prefix, "").replace(suffix, "");
           const contentRes = await fetch(
-            `${base}/api/projects/${projectId}/chapters/${chapterRef}/prompts/${seg}`,
+            `${base}/api/novels/${projectId}/chapters/${chapterRef}/prompts/${seg}`,
             { headers: { Authorization: `Bearer ${token}` } },
           );
           if (contentRes.ok) {
@@ -592,7 +592,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
       setError(null);
       try {
         const data: ChapterData = await api.get(
-          `/projects/${projectId}/chapters/${chapterRef}`,
+          `/novels/${projectId}/chapters/${chapterRef}`,
         );
         setChapter(data);
         const summary = data.outline?.summary || "";
@@ -627,7 +627,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
       setQcLoading(true);
       setQcResults(null);
       try {
-        const res = await api.post(`/projects/${projectId}/chapters/${chapterRef}/write/quality-check`, {
+        const res = await api.post(`/novels/${projectId}/chapters/${chapterRef}/write/quality-check`, {
           full_text: prose,
         });
         setQcResults(res);
@@ -647,7 +647,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
       if (!window.confirm("确认归档本章？归档后正文将锁定为只读状态。")) return;
       setArchiving(true);
       try {
-        await api.post(`/projects/${projectId}/chapters/${chapterRef}/archive`, {
+        await api.post(`/novels/${projectId}/chapters/${chapterRef}/archive`, {
           full_text: prose,
         });
         setStatus("archived");

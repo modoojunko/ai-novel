@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import get_db
 from models.api_config import ApiConfig
-from models.project import Project
+from models.project import Novel
 from models.user import User
 
 from .middleware import get_current_user
@@ -82,8 +82,8 @@ async def require_project_limit(
         return True
 
     result = await db.execute(
-        select(Project).where(
-            Project.user_id == user["id"], Project.status != "deleted"
+        select(Novel).where(
+            Novel.user_id == user["id"], Novel.status != "deleted"
         )
     )
     count = len(result.scalars().all())

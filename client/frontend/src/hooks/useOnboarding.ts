@@ -11,7 +11,7 @@ export function useOnboarding(projectId: string | undefined, volumes: any[]) {
     if (!projectId) return;
     setLoading(true);
     api
-      .get(`/projects/${projectId}/settings/status`)
+      .get(`/novels/${projectId}/settings/status`)
       .then((data: any) => setSettingsStatus(data))
       .catch(() => setSettingsStatus(null))
       .finally(() => setLoading(false));
@@ -25,7 +25,7 @@ export function useOnboarding(projectId: string | undefined, volumes: any[]) {
   const confirmSetting = useCallback(
     async (type: string) => {
       if (!projectId) return;
-      await api.put(`/projects/${projectId}/settings/status/${type}`);
+      await api.put(`/novels/${projectId}/settings/status/${type}`);
       setSettingsStatus((prev) => ({
         ...Object.fromEntries(SETTINGS_TYPES.map((t) => [t, false])),
         ...prev,

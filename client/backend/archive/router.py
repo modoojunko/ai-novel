@@ -6,16 +6,16 @@ from auth_local.deps import require_ai_access
 from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
-from projects.service import get_project
+from novels.service import get_novel
 from workflow.engine import _validate_ref, update_phase
 
 router = APIRouter(
-    prefix="/api/projects/{project_id}/chapters/{chapter_ref}/archive",
+    prefix="/api/novels/{project_id}/chapters/{chapter_ref}/archive",
     tags=["archive"],
 )
 
 archives_router = APIRouter(
-    prefix="/api/projects/{project_id}/archives",
+    prefix="/api/novels/{project_id}/archives",
     tags=["archives"],
 )
 
@@ -29,7 +29,7 @@ async def archive(
     _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
@@ -55,7 +55,7 @@ async def list_archives(
     _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     files = await get_storage().list_dir(project.root_path, "archives")
@@ -73,7 +73,7 @@ async def get_archive(
     _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     content = await get_storage().read_md(project.root_path, f"archives/{filename}")

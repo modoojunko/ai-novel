@@ -6,11 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
-from projects.service import get_project
+from novels.service import get_novel
 from workflow.engine import _validate_ref, save_chapter
 
 router = APIRouter(
-    prefix="/api/projects/{project_id}/chapters/{chapter_ref}", tags=["versions"]
+    prefix="/api/novels/{project_id}/chapters/{chapter_ref}", tags=["versions"]
 )
 
 
@@ -21,7 +21,7 @@ async def list_versions(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
@@ -58,7 +58,7 @@ async def get_version_content(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
@@ -89,7 +89,7 @@ async def restore_version(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
@@ -125,7 +125,7 @@ async def delete_version(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)

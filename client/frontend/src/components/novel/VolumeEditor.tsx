@@ -85,7 +85,7 @@ export default function VolumeEditor({
     setError(null);
     try {
       const res: VolumeData = await api.get(
-        `/projects/${projectId}/volumes/${filename}`
+        `/novels/${projectId}/volumes/${filename}`
       );
       setData(res);
       setTitle(res.title || "");
@@ -109,7 +109,7 @@ export default function VolumeEditor({
     setSaving(true);
     setError(null);
     try {
-      await api.put(`/projects/${projectId}/volumes/${filename}`, {
+      await api.put(`/novels/${projectId}/volumes/${filename}`, {
         title,
         summary,
       });
@@ -128,7 +128,7 @@ export default function VolumeEditor({
     const vol = data?.volume || 1;
     const nextNum = (data?.chapters?.length || 0) + 1;
     try {
-      const result = await api.post(`/projects/${projectId}/chapters`, {
+      const result = await api.post(`/novels/${projectId}/chapters`, {
         volume: vol,
         chapter: nextNum,
         title: `第${nextNum}章`,
@@ -151,7 +151,7 @@ export default function VolumeEditor({
   const handleDeleteChapter = async (ch: ChapterMeta) => {
     const chapterRef = `${volumeRef}-ch-${ch.chapter}`;
     try {
-      await api.delete(`/projects/${projectId}/chapters/${chapterRef}`);
+      await api.delete(`/novels/${projectId}/chapters/${chapterRef}`);
       await loadVolume();
       onVolumeChange?.();
     } catch (e: any) {
@@ -166,7 +166,7 @@ export default function VolumeEditor({
   const handleDeleteVolume = async () => {
     if (!window.confirm("确定要删除本卷及其所有章节吗？")) return;
     try {
-      await api.delete(`/projects/${projectId}/volumes/${filename}`);
+      await api.delete(`/novels/${projectId}/volumes/${filename}`);
       onVolumeChange?.();
       // Navigate back to parent — rely on parent to handle the empty state
       onChapterSelect("");

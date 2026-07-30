@@ -9,14 +9,22 @@ interface AIProps {
   aiLoading?: boolean;
 }
 
+// ── Shared AI prefilled props ────────────────────────────────────────────
+interface AIPrefilledProps {
+  aiPrefilled?: boolean;
+}
+
 // ── Field ─────────────────────────────────────────────────────────
-export function Field({ label, hint, value, onChange, aiGeneratable, onAIGenerate, aiLoading }: {
+export function Field({ label, hint, value, onChange, aiGeneratable, onAIGenerate, aiLoading, aiPrefilled }: {
   label: string; hint?: string; value: string; onChange: (v: string) => void
-} & AIProps) {
+} & AIProps & AIPrefilledProps) {
   return (
-    <div>
+    <div className={aiPrefilled ? 'border-l-2 border-primary/30 pl-3' : ''}>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs text-base-content/60 font-medium block tracking-wide">{label}</label>
+        <label className="text-xs text-base-content/60 font-medium block tracking-wide flex items-center gap-1">
+          {label}
+          {aiPrefilled && <Sparkles className="w-3 h-3 text-primary/40" />}
+        </label>
         {aiGeneratable && (
           <button
             onClick={onAIGenerate}
@@ -40,13 +48,16 @@ export function Field({ label, hint, value, onChange, aiGeneratable, onAIGenerat
 }
 
 // ── InputField ────────────────────────────────────────────────────
-export function InputField({ label, hint, value, onChange, placeholder, aiGeneratable, onAIGenerate, aiLoading }: {
+export function InputField({ label, hint, value, onChange, placeholder, aiGeneratable, onAIGenerate, aiLoading, aiPrefilled }: {
   label: string; hint?: string; value: string; onChange: (v: string) => void; placeholder?: string
-} & AIProps) {
+} & AIProps & AIPrefilledProps) {
   return (
-    <div>
+    <div className={aiPrefilled ? 'border-l-2 border-primary/30 pl-3' : ''}>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs text-base-content/60 font-medium block tracking-wide">{label}</label>
+        <label className="text-xs text-base-content/60 font-medium block tracking-wide flex items-center gap-1">
+          {label}
+          {aiPrefilled && <Sparkles className="w-3 h-3 text-primary/40" />}
+        </label>
         {aiGeneratable && (
           <button
             onClick={onAIGenerate}
@@ -71,12 +82,15 @@ export function InputField({ label, hint, value, onChange, placeholder, aiGenera
 }
 
 // ── ListEditor ────────────────────────────────────────────────────
-export function ListEditor({ items, onChange, placeholder, aiGeneratable, onAIGenerate, aiLoading }: {
+export function ListEditor({ items, onChange, placeholder, aiGeneratable, onAIGenerate, aiLoading, aiPrefilled }: {
   items: string[]; onChange: (v: string[]) => void; placeholder?: string
-} & AIProps) {
+} & AIProps & AIPrefilledProps) {
   return (
-    <div className="space-y-2">
+    <div className={`space-y-2 ${aiPrefilled ? 'border-l-2 border-primary/30 pl-3' : ''}`}>
       <div className="flex items-center justify-between">
+        {aiPrefilled && (
+          <Sparkles className="w-3 h-3 text-primary/40" />
+        )}
         {aiGeneratable && (
           <button
             onClick={onAIGenerate}

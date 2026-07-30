@@ -47,7 +47,7 @@ class TestHealth:
 
 class TestAuth:
     def test_register_and_auth(self):
-        """Register returns JWT token, token works for project access."""
+        """Register returns JWT token, token works for novel access."""
         user = random_user()
 
         # Register
@@ -57,14 +57,14 @@ class TestAuth:
         token = data.get("access_token") or data["token"]
         assert token is not None
 
-        # Verify the token works by creating a project
+        # Verify the token works by creating a novel
         headers = {"Authorization": f"Bearer {token}"}
         r2 = httpx.post(
-            f"{BASE_URL}/projects",
+            f"{BASE_URL}/novels",
             json={"name": "auth-test-proj"},
             headers=headers,
         )
-        assert r2.status_code in (200, 201), f"Project create failed: {r2.text}"
+        assert r2.status_code in (200, 201), f"Novel create failed: {r2.text}"
         assert r2.json()["name"] == "auth-test-proj"
 
     def test_register_duplicate_email(self):
@@ -79,17 +79,17 @@ class TestAuth:
     def test_unauthenticated_access_returns_401(self):
         """Protected endpoint without token returns 401."""
         # /auth/check-auth returns 200 with JSON even without auth
-        # Use a project endpoint instead
-        resp = httpx.get(f"{BASE_URL}/projects")
+        # Use a novel endpoint instead
+        resp = httpx.get(f"{BASE_URL}/novels")
         assert resp.status_code in (401, 403)
 
 
 # =========================================================================
-# Projects
+# Novels
 # =========================================================================
 
 
-class TestProjects:
+class TestNovels:
     def test_create_and_list(self):
         token, _user = register_user()
         headers = {"Authorization": f"Bearer {token}"}
@@ -98,14 +98,14 @@ class TestProjects:
         import random
 
         name = f"测试项目_{random.randint(1000, 9999)}"
-        r2 = httpx.post(f"{BASE_URL}/projects", json={"name": name}, headers=headers)
+        r2 = httpx.post(f"{BASE_URL}/novels", json={"name": name}, headers=headers)
         assert r2.status_code in (200, 201), f"Create project failed: {r2.text}"
         project = r2.json()
         assert project["name"] == name
         slug = project["slug"]
 
         # List projects
-        r3 = httpx.get(f"{BASE_URL}/projects", headers=headers)
+        r3 = httpx.get(f"{BASE_URL}/novels", headers=headers)
         assert r3.status_code == 200
         slugs = [p["slug"] for p in r3.json()]
         assert slug in slugs
@@ -117,11 +117,11 @@ class TestProjects:
         import random
 
         name = f"slug-test_{random.randint(1000, 9999)}"
-        r2 = httpx.post(f"{BASE_URL}/projects", json={"name": name}, headers=headers)
+        r2 = httpx.post(f"{BASE_URL}/novels", json={"name": name}, headers=headers)
         assert r2.status_code in (200, 201)
         slug = r2.json()["slug"]
 
-        r3 = httpx.get(f"{BASE_URL}/projects/by-slug/{slug}", headers=headers)
+        r3 = httpx.get(f"{BASE_URL}/novels/by-slug/{slug}", headers=headers)
         assert r3.status_code == 200
         assert r3.json()["name"] == name
 
@@ -130,7 +130,7 @@ class TestProjects:
         headers = {"Authorization": f"Bearer {token}"}
 
         r2 = httpx.post(
-            f"{BASE_URL}/projects", json={"name": "delete-me"}, headers=headers
+            f"{BASE_URL}/novels", json={"name": "delete-me"}, headers=headers
         )
         assert r2.status_code in (200, 201)
 
@@ -144,7 +144,7 @@ def _prime_settings(pid: str, headers: dict):
     """Pre-fill required settings so gate_settings_complete passes."""
     # world-setting: need at least 5 filled top-level fields
     httpx.put(
-        f"{BASE_URL}/projects/{pid}/settings/world",
+        f"{BASE_URL}/novels/{pid}/settings/world",
         json={
             "name": "Test World",
             "summary": "A test world for workflow testing",
@@ -157,7 +157,7 @@ def _prime_settings(pid: str, headers: dict):
     )
     # hooks: need at least 3 hooks
     httpx.put(
-        f"{BASE_URL}/projects/{pid}/settings/hooks",
+        f"{BASE_URL}/novels/{pid}/settings/hooks",
         json={
             "hooks": [
                 {
@@ -189,7 +189,7 @@ def _create_project_and_chapter(headers: dict) -> tuple[str, str]:
     import random
 
     name = f"wf-test_{random.randint(1000, 9999)}"
-    r = httpx.post(f"{BASE_URL}/projects", json={"name": name}, headers=headers)
+    r = httpx.post(f"{BASE_URL}/novels", json={"name": name}, headers=headers)
     assert r.status_code in (200, 201), f"Create project failed: {r.text}"
     pid = r.json()["id"]
 
@@ -198,7 +198,7 @@ def _create_project_and_chapter(headers: dict) -> tuple[str, str]:
 
     # Create volume (advances phase to "outline")
     r2 = httpx.post(
-        f"{BASE_URL}/projects/{pid}/volumes",
+        f"{BASE_URL}/novels/{pid}/volumes",
         json={"vol_num": 1, "title": "Volume 1"},
         headers=headers,
     )
@@ -206,7 +206,7 @@ def _create_project_and_chapter(headers: dict) -> tuple[str, str]:
 
     # Create chapter
     r3 = httpx.post(
-        f"{BASE_URL}/projects/{pid}/chapters",
+        f"{BASE_URL}/novels/{pid}/chapters",
         json={"volume": 1, "chapter": 1, "title": "第1章"},
         headers=headers,
     )
@@ -236,7 +236,7 @@ def _create_project_and_chapter(headers: dict) -> tuple[str, str]:
         },
     }
     r4 = httpx.put(
-        f"{BASE_URL}/projects/{pid}/chapters/{chapter_ref}",
+        f"{BASE_URL}/novels/{pid}/chapters/{chapter_ref}",
         json=update_body,
         headers=headers,
     )
@@ -251,7 +251,7 @@ class TestWorkflowConfirm:
         pid, chapter_ref = _create_project_and_chapter(headers)
 
         r = httpx.post(
-            f"{BASE_URL}/projects/{pid}/chapters/{chapter_ref}/confirm",
+            f"{BASE_URL}/novels/{pid}/chapters/{chapter_ref}/confirm",
             headers=headers,
         )
         assert r.status_code == 200, f"Confirm failed: {r.text}"
@@ -259,7 +259,7 @@ class TestWorkflowConfirm:
         assert data["status"] == "confirmed"
 
         # Verify project phase did NOT advance
-        r2 = httpx.get(f"{BASE_URL}/projects/{pid}", headers=headers)
+        r2 = httpx.get(f"{BASE_URL}/novels/{pid}", headers=headers)
         assert r2.status_code == 200
         assert r2.json()["current_phase"] == "outline"
 
@@ -269,21 +269,21 @@ class TestWorkflowConfirm:
         import random
 
         name = f"wf-incomplete_{random.randint(1000, 9999)}"
-        r = httpx.post(f"{BASE_URL}/projects", json={"name": name}, headers=headers)
+        r = httpx.post(f"{BASE_URL}/novels", json={"name": name}, headers=headers)
         assert r.status_code in (200, 201)
         pid = r.json()["id"]
         _prime_settings(pid, headers)
 
         # Create volume
         httpx.post(
-            f"{BASE_URL}/projects/{pid}/volumes",
+            f"{BASE_URL}/novels/{pid}/volumes",
             json={"vol_num": 1, "title": "Volume 1"},
             headers=headers,
         )
 
         # Create chapter but do NOT fill required fields
         r2 = httpx.post(
-            f"{BASE_URL}/projects/{pid}/chapters",
+            f"{BASE_URL}/novels/{pid}/chapters",
             json={"volume": 1, "chapter": 1, "title": "第1章"},
             headers=headers,
         )
@@ -291,7 +291,7 @@ class TestWorkflowConfirm:
         chapter_ref = r2.json()["chapter_ref"]
 
         r3 = httpx.post(
-            f"{BASE_URL}/projects/{pid}/chapters/{chapter_ref}/confirm",
+            f"{BASE_URL}/novels/{pid}/chapters/{chapter_ref}/confirm",
             headers=headers,
         )
         assert r3.status_code == 400
@@ -299,7 +299,7 @@ class TestWorkflowConfirm:
 
     def test_confirm_unauthorized_returns_401(self):
         r = httpx.post(
-            f"{BASE_URL}/projects/nonexistent/chapters/vol-1-ch-1/confirm",
+            f"{BASE_URL}/novels/nonexistent/chapters/vol-1-ch-1/confirm",
         )
         assert r.status_code in (401, 403)
 
@@ -312,14 +312,14 @@ class TestWorkflowTransition:
 
         # First confirm the chapter
         r = httpx.post(
-            f"{BASE_URL}/projects/{pid}/chapters/{chapter_ref}/confirm",
+            f"{BASE_URL}/novels/{pid}/chapters/{chapter_ref}/confirm",
             headers=headers,
         )
         assert r.status_code == 200
 
         # Now transition to prompt phase
         r2 = httpx.post(
-            f"{BASE_URL}/projects/{pid}/workflow/transition",
+            f"{BASE_URL}/novels/{pid}/workflow/transition",
             json={"target": "prompt"},
             headers=headers,
         )
@@ -336,14 +336,14 @@ class TestWorkflowTransition:
 
         # Create a second chapter WITHOUT filling required fields
         r = httpx.post(
-            f"{BASE_URL}/projects/{pid}/chapters",
+            f"{BASE_URL}/novels/{pid}/chapters",
             json={"volume": 1, "chapter": 2, "title": "第2章"},
             headers=headers,
         )
         assert r.status_code in (200, 201)
 
         r = httpx.post(
-            f"{BASE_URL}/projects/{pid}/workflow/transition",
+            f"{BASE_URL}/novels/{pid}/workflow/transition",
             json={"target": "prompt"},
             headers=headers,
         )
@@ -357,7 +357,7 @@ class TestWorkflowTransition:
         pid, _ = _create_project_and_chapter(headers)
 
         r = httpx.post(
-            f"{BASE_URL}/projects/{pid}/workflow/transition",
+            f"{BASE_URL}/novels/{pid}/workflow/transition",
             json={},
             headers=headers,
         )
@@ -370,7 +370,7 @@ class TestWorkflowTransition:
         pid, _ = _create_project_and_chapter(headers)
 
         r = httpx.post(
-            f"{BASE_URL}/projects/{pid}/workflow/transition",
+            f"{BASE_URL}/novels/{pid}/workflow/transition",
             json={"target": "invalid_target"},
             headers=headers,
         )
@@ -379,7 +379,7 @@ class TestWorkflowTransition:
 
     def test_transition_unauthorized_returns_401(self):
         r = httpx.post(
-            f"{BASE_URL}/projects/nonexistent/workflow/transition",
+            f"{BASE_URL}/novels/nonexistent/workflow/transition",
             json={"target": "prompt"},
         )
         assert r.status_code in (401, 403)

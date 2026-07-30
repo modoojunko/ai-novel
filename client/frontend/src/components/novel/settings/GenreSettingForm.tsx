@@ -320,7 +320,7 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
   useEffect(() => {
     setLoading(true);
     api
-      .get(`/projects/${projectId}/settings/${settingKey}`)
+      .get(`/novels/${projectId}/settings/${settingKey}`)
       .then((d: GenreConfigData | null) => {
         if (!d?.genre_id) {
           // No genre set yet — leave empty, component shows prompt
@@ -372,7 +372,7 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
     setSaving(true);
     setError("");
     try {
-      await api.put(`/projects/${projectId}/settings/${settingKey}`, buildPayload(genre));
+      await api.put(`/novels/${projectId}/settings/${settingKey}`, buildPayload(genre));
     } catch (e: any) {
       setError(e.message || "保存失败");
     } finally {
@@ -389,7 +389,7 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
       // Auto-save immediately
       setSaving(true);
       try {
-        await api.put(`/projects/${projectId}/settings/${settingKey}`, buildPayload(g));
+        await api.put(`/novels/${projectId}/settings/${settingKey}`, buildPayload(g));
       } catch (e: any) {
         setError(e.message || "保存失败");
       } finally {

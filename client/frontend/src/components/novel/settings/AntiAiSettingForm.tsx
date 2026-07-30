@@ -25,7 +25,7 @@ export default function AntiAiSettingForm({ projectId, settingKey }: Props) {
 
   useEffect(() => {
     setLoading(true);
-    api.get(`/projects/${projectId}/settings/${settingKey}`)
+    api.get(`/novels/${projectId}/settings/${settingKey}`)
       .then((d: any) => {
         if (!d) return;
         setAdverbs((d.blocklists?.adverbs || []).join("、"));
@@ -43,7 +43,7 @@ export default function AntiAiSettingForm({ projectId, settingKey }: Props) {
   async function handleSave() {
     setSaving(true); setError("");
     try {
-      await api.put(`/projects/${projectId}/settings/${settingKey}`, {
+      await api.put(`/novels/${projectId}/settings/${settingKey}`, {
         blocklists: {
           adverbs: split(adverbs), verbs: split(verbs), adjectives: split(adjectives), connectors: split(connectors),
         },

@@ -46,7 +46,7 @@ export default function LandingPage() {
             {(() => {
               const logged = isLoggedIn();
               return logged ? (
-                <Link to="/books" className="btn btn-primary btn-sm">
+                <Link to="/novels" className="btn btn-primary btn-sm">
                   我的作品
                 </Link>
               ) : (

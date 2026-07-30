@@ -37,7 +37,7 @@ export default function HooksSettingForm({ projectId, settingKey }: Props) {
 
   useEffect(() => {
     setLoading(true);
-    api.get(`/projects/${projectId}/settings/${settingKey}`)
+    api.get(`/novels/${projectId}/settings/${settingKey}`)
       .then((d: any) => {
         if (!d) return;
         setActive(d.active || []);
@@ -50,7 +50,7 @@ export default function HooksSettingForm({ projectId, settingKey }: Props) {
 
   async function handleSave() {
     setSaving(true); setError("");
-    try { await api.put(`/projects/${projectId}/settings/${settingKey}`, { active, resolved, abandoned }); }
+    try { await api.put(`/novels/${projectId}/settings/${settingKey}`, { active, resolved, abandoned }); }
     catch (e: any) { setError(e.message || "保存失败"); }
     finally { setSaving(false); }
   }
@@ -64,7 +64,7 @@ export default function HooksSettingForm({ projectId, settingKey }: Props) {
     setAiContent("");
     try {
       const hooks = tabName === "active" ? active : tabName === "resolved" ? resolved : abandoned;
-      const res = await api.post(`/projects/${projectId}/settings/ai/hooks/description`, {
+      const res = await api.post(`/novels/${projectId}/settings/ai/hooks/description`, {
         context: { hooks, index: hookIndex, current: hooks[hookIndex] },
       });
       setAiContent(typeof res.value === "string" ? res.value : JSON.stringify(res.value, null, 2));

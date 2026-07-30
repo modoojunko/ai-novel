@@ -29,7 +29,7 @@ export default function LoginPage() {
           // 获取设备激活状态
           const devStatus = await refreshStatus();
           if (devStatus) showToast(devStatus);
-          navigate('/books', { replace: true });
+          navigate('/novels', { replace: true });
           return;
         }
       } catch {
@@ -50,7 +50,7 @@ export default function LoginPage() {
       // 获取设备激活状态
       const devStatus = await refreshStatus();
       if (devStatus) showToast(devStatus);
-      navigate('/books', { replace: true });
+      navigate('/novels', { replace: true });
     } else {
       setError(res.msg || '登录失败');
     }

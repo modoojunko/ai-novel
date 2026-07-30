@@ -38,7 +38,7 @@ export default function ModelSettingForm({ projectId }: ModelSettingFormProps) {
     if (!currentConfigId || !currentModel) return;
     setApplying(true);
     try {
-      const resp = await fetch("/api/v1/projects/apply-model-to-all", {
+      const resp = await fetch("/api/v1/novels/apply-model-to-all", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ api_config_id: currentConfigId, model: currentModel }),

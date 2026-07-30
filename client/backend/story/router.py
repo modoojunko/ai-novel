@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth_local.deps import require_ai_access
 from auth_local.middleware import get_current_user
 from db import get_db
-from projects.service import get_project
+from novels.service import get_novel
 from story.engine import DeductionEngine
 
 router = APIRouter(prefix="/api/story", tags=["story"])
@@ -35,7 +35,7 @@ async def init_deduction(
     if not project_id:
         raise HTTPException(400, "project_id is required")
 
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
 

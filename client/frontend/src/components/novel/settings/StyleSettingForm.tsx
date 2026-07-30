@@ -32,7 +32,7 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
 
   useEffect(() => {
     setLoading(true);
-    api.get(`/projects/${projectId}/settings/${settingKey}`)
+    api.get(`/novels/${projectId}/settings/${settingKey}`)
       .then((d: any) => {
         if (!d) return;
         setRole(d.role || "");
@@ -47,7 +47,7 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
   async function handleSave() {
     setSaving(true); setError("");
     try {
-      await api.put(`/projects/${projectId}/settings/${settingKey}`, {
+      await api.put(`/novels/${projectId}/settings/${settingKey}`, {
         role,
         core_principles: principles.filter(Boolean),
         possible_mistakes: mistakes.filter(Boolean),
@@ -70,7 +70,7 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
     setAiField(field);
     setAiContent("");
     try {
-      const res = await api.post(`/projects/${projectId}/settings/ai/style/${field}`, {
+      const res = await api.post(`/novels/${projectId}/settings/ai/style/${field}`, {
         context: currentValues,
       });
       setAiContent(typeof res.value === "string" ? res.value : JSON.stringify(res.value, null, 2));

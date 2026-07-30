@@ -9,7 +9,7 @@ from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
 
 import models  # noqa: F401
@@ -24,15 +24,15 @@ from chapters.versions import router as chapters_versions_router
 from db import Base, async_session, engine
 from genres.router import router as genres_router
 from models.user import User
-from novel.router import router as novel_router
-from projects.router import ai_router
-from projects.router import router as projects_router
+from novels.router import ai_router
+from novels.router import router as novels_router
 from prompt.router import router as prompt_router
 from settings.ai_router import router as settings_ai_router
 from settings.router import router as settings_router
 from settings.status import router as settings_status_router
 from story.router import router as story_router
 from threads.router import router as threads_router
+from workflow.router import backfill_router as workflow_backfill_router
 from workflow.router import router as workflow_router
 from write.router import router as write_router
 
@@ -46,6 +46,37 @@ async def lifespan(app: FastAPI):
         import logging
 
         logging.getLogger("uvicorn.error").warning("Failed to create tables: %s", e)
+
+    # ── Migrate: add source column to projects ───────────────────────
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE projects ADD COLUMN source TEXT DEFAULT 'ai'")
+            )
+    except Exception:
+        pass  # 列已存在
+
+    # ── Migrate: add backfill_status column ──────────────────────────
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE projects ADD COLUMN backfill_status TEXT DEFAULT 'none'")
+            )
+    except Exception:
+        pass  # 列已存在
+
+    # ── Migrate: create events table ─────────────────────────────────
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "CREATE TABLE IF NOT EXISTS events "
+                    "(id TEXT PRIMARY KEY, user_id TEXT, event_type TEXT, "
+                    "payload TEXT, created_at TEXT)"
+                )
+            )
+    except Exception:
+        pass
 
     # ── Migrate config.json → User table ────────────────────────────
     try:
@@ -131,7 +162,7 @@ app.include_router(auth_local_router, prefix="/api/auth", tags=["auth"])
 
 # 业务路由
 app.include_router(ai_router)
-app.include_router(projects_router)
+app.include_router(novels_router)
 app.include_router(settings_router)
 app.include_router(settings_status_router)
 app.include_router(settings_ai_router)
@@ -141,10 +172,10 @@ app.include_router(write_router)
 app.include_router(archive_router)
 app.include_router(archives_router)
 app.include_router(threads_router)
-app.include_router(novel_router)
 app.include_router(chapters_versions_router)
 app.include_router(story_router)
 app.include_router(workflow_router)
+app.include_router(workflow_backfill_router)
 
 # API Key Config management (v1)
 app.include_router(api_configs_router)

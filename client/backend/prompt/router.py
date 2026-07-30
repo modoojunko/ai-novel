@@ -7,7 +7,7 @@ from auth_local.deps import require_ai_access
 from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
-from projects.service import get_project
+from novels.service import get_novel
 from prompt.assembler import assemble_all_segments
 from workflow.engine import _validate_ref, load_chapter, update_phase
 
@@ -17,7 +17,7 @@ class UpdatePromptRequest(BaseModel):
 
 
 router = APIRouter(
-    prefix="/api/projects/{project_id}/chapters/{chapter_ref}",
+    prefix="/api/novels/{project_id}/chapters/{chapter_ref}",
     tags=["prompts"],
 )
 
@@ -30,7 +30,7 @@ async def run_perspective_conversion(
     _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
@@ -69,7 +69,7 @@ async def list_prompts(
     _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     files = await get_storage().list_dir(project.root_path, "prompts")
@@ -84,7 +84,7 @@ async def generate_prompts(
     _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     paths = await assemble_all_segments(project.root_path, chapter_ref, project.name)
@@ -102,7 +102,7 @@ async def get_prompt_content(
     _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
@@ -122,7 +122,7 @@ async def update_prompt_content(
     _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
-    project = await get_project(db, project_id, user["id"])
+    project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)

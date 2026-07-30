@@ -71,7 +71,7 @@ export async function setupProjectPage(page: Page) {
   const token = await setupAuthAndNavigate(page, "/dashboard");
   // Create a project via API
   const name = `E2EProject_${Date.now()}`;
-  const resp = await page.request.post(`${API_URL}/projects`, {
+  const resp = await page.request.post(`${API_URL}/novels`, {
     data: { name },
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -99,7 +99,7 @@ export async function setupChapterPage(page: Page) {
 
   // Get project ID from slug
   const slugResp = await page.request.get(
-    `${API_URL}/projects/by-slug/${slug}`,
+    `${API_URL}/novels/by-slug/${slug}`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   const project = await slugResp.json();
@@ -107,7 +107,7 @@ export async function setupChapterPage(page: Page) {
 
   // Create a volume
   await page.request.post(
-    `${API_URL}/projects/${projectId}/volumes`,
+    `${API_URL}/novels/${projectId}/volumes`,
     {
       data: { title: "第一卷", vol_num: 1 },
       headers: { Authorization: `Bearer ${token}` },
@@ -116,7 +116,7 @@ export async function setupChapterPage(page: Page) {
 
   // Create a chapter
   const chResp = await page.request.post(
-    `${API_URL}/projects/${projectId}/chapters`,
+    `${API_URL}/novels/${projectId}/chapters`,
     {
       data: { volume: 1, chapter: 1, title: "第一章" },
       headers: { Authorization: `Bearer ${token}` },

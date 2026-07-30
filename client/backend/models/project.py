@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from db import Base
 
 
-class Project(Base):
+class Novel(Base):
     __tablename__ = "projects"
 
     id: Mapped[str] = mapped_column(
@@ -22,6 +22,8 @@ class Project(Base):
     total_volumes: Mapped[int] = mapped_column(Integer, default=0)
     total_chapters: Mapped[int] = mapped_column(Integer, default=0)
     total_archives: Mapped[int] = mapped_column(Integer, default=0)
+    source: Mapped[str] = mapped_column(String(10), default="ai")
+    backfill_status: Mapped[str] = mapped_column(String(20), default="none")
     ai_config_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("api_configs.id", ondelete="SET NULL"), nullable=True
     )

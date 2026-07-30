@@ -40,7 +40,7 @@ export default function CharacterManager({ projectId, confirmed, onConfirm }: Pr
   const [charError, setCharError] = useState("");
 
   const loadNames = () => {
-    api.get(`/projects/${projectId}/settings/characters/list`).then(setNames).catch(() => {});
+    api.get(`/novels/${projectId}/settings/characters/list`).then(setNames).catch(() => {});
   };
 
   useEffect(() => { setLoading(true); loadNames(); setLoading(false); }, [projectId]);
@@ -49,7 +49,7 @@ export default function CharacterManager({ projectId, confirmed, onConfirm }: Pr
     setCharError("");
     setSelected(name);
     try {
-      const d = await api.get(`/projects/${projectId}/settings/character/${name}`);
+      const d = await api.get(`/novels/${projectId}/settings/character/${name}`);
       if (d && typeof d === "object") {
         setChar({
           name: d.name || name,
@@ -77,7 +77,7 @@ export default function CharacterManager({ projectId, confirmed, onConfirm }: Pr
     if (!selected) return;
     setSaving(true); setCharError("");
     try {
-      await api.put(`/projects/${projectId}/settings/character/${selected}`, char);
+      await api.put(`/novels/${projectId}/settings/character/${selected}`, char);
     } catch (e: any) { setCharError(e.message || "保存失败"); }
     finally { setSaving(false); }
   }
@@ -86,7 +86,7 @@ export default function CharacterManager({ projectId, confirmed, onConfirm }: Pr
     if (!projectId) { setCharError("项目未加载"); return; }
     try {
       const payload = { name, role, appearance: "", background: "", speech: "", world_view: "", self_image: "", values: "", abilities: "", skills: "", environment: "", possessions: "", relationships: "", experiences: "" };
-      await api.put(`/projects/${projectId}/settings/character/${name}`, payload);
+      await api.put(`/novels/${projectId}/settings/character/${name}`, payload);
       await loadNames();
       setSelected(name);
       setChar(payload);
@@ -100,7 +100,7 @@ export default function CharacterManager({ projectId, confirmed, onConfirm }: Pr
 
   async function deleteCharacter(name: string) {
     try {
-      await api.delete(`/projects/${projectId}/settings/character/${name}`);
+      await api.delete(`/novels/${projectId}/settings/character/${name}`);
       loadNames();
       if (selected === name) { setSelected(null); setChar(emptyChar()); }
       setDeleteTarget(null);

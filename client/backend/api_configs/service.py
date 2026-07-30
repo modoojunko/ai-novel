@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.api_config import ApiConfig
 from models.audit_log import ProjectModelAuditLog
-from models.project import Project
+from models.project import Novel
 from models.token_log import TokenLog
 from models.user import User
 
@@ -181,8 +181,8 @@ async def delete_api_config(
 
     # Find affected projects
     proj_result = await db.execute(
-        select(Project).where(
-            Project.ai_config_id == config_id, Project.status != "deleted"
+        select(Novel).where(
+            Novel.ai_config_id == config_id, Novel.status != "deleted"
         )
     )
     affected = list(proj_result.scalars().all())
@@ -252,7 +252,7 @@ async def set_project_model(
 ) -> dict[str, Any] | None:
     """Set a project's AI model. Returns updated project or None if not found."""
     result = await db.execute(
-        select(Project).where(Project.id == project_id, Project.user_id == user_id)
+        select(Novel).where(Novel.id == project_id, Novel.user_id == user_id)
     )
     project = result.scalar_one_or_none()
     if not project:
@@ -311,7 +311,7 @@ async def get_project_ai_model(
 ) -> dict[str, Any] | None:
     """Get project's current AI model config."""
     result = await db.execute(
-        select(Project).where(Project.id == project_id, Project.user_id == user_id)
+        select(Novel).where(Novel.id == project_id, Novel.user_id == user_id)
     )
     project = result.scalar_one_or_none()
     if not project:
@@ -347,7 +347,7 @@ async def apply_model_to_all_projects(
         return {"ok": False, "error": "Config not found"}
 
     proj_result = await db.execute(
-        select(Project).where(Project.user_id == user_id, Project.status != "deleted")
+        select(Novel).where(Novel.user_id == user_id, Novel.status != "deleted")
     )
     projects = list(proj_result.scalars().all())
 
@@ -395,7 +395,7 @@ async def get_model_history(
     """Get model change history for a project."""
     # Verify project ownership
     proj_result = await db.execute(
-        select(Project).where(Project.id == project_id, Project.user_id == user_id)
+        select(Novel).where(Novel.id == project_id, Novel.user_id == user_id)
     )
     if not proj_result.scalar_one_or_none():
         return []
@@ -449,7 +449,7 @@ async def restore_model_history(
     """Restore a project's model from a history entry."""
     # Verify project ownership
     proj_result = await db.execute(
-        select(Project).where(Project.id == project_id, Project.user_id == user_id)
+        select(Novel).where(Novel.id == project_id, Novel.user_id == user_id)
     )
     project = proj_result.scalar_one_or_none()
     if not project:
@@ -658,7 +658,7 @@ async def migrate_user_configs(db: AsyncSession) -> None:
         # Apply model to existing projects
         if user.api_model:
             proj_result = await db.execute(
-                select(Project).where(Project.user_id == user.id)
+                select(Novel).where(Novel.user_id == user.id)
             )
             for project in proj_result.scalars().all():
                 project.ai_config_id = config.id
