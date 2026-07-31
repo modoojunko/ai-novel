@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 import uuid
+from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from pydantic import BaseModel
@@ -24,7 +25,6 @@ from novels.service import (
     novel_to_dict,
     slugify,
 )
-from dataclasses import asdict
 
 router = APIRouter(prefix="/api/novels", tags=["novels"])
 

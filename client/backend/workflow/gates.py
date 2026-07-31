@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 
 from filesystem.storage import get_storage
 
-
 PHASE_ORDER = ["init", "settings", "outline", "prompt", "write", "archive"]
 
 

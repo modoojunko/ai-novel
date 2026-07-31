@@ -9,8 +9,8 @@ from models.user import User
 __all__ = [
     "ApiConfig",
     "Event",
-    "NovelFile",
     "Novel",
+    "NovelFile",
     "ProjectModelAuditLog",
     "TokenLog",
     "User",

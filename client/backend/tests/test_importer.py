@@ -12,10 +12,6 @@ import pytest
 
 from novels.importer import (
     IMPORT_TEMPLATE_MD,
-    ChapterData,
-    VolumeData,
-    ParseResult,
-    ParseWarning,
     parse_docx,
     parse_file,
     parse_markdown,
@@ -263,7 +259,6 @@ class TestParseFile:
 def _create_test_docx(path: str):
     """Create a minimal .docx fixture with Heading 1 and Heading 2 styles."""
     from docx import Document
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
 
     doc = Document()
 

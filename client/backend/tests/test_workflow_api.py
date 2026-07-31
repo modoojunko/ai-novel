@@ -25,11 +25,11 @@ _tmp_data_root = tempfile.mkdtemp(prefix="test_workflow_")
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_tmp_db.name}"
 os.environ["DATA_ROOT"] = _tmp_data_root
 
-from auth_local.deps import require_ai_access, require_project_limit  # noqa: E402
-from auth_local.middleware import get_current_user  # noqa: E402
-from db import Base, async_session, engine, get_db  # noqa: E402
-from main import app  # noqa: E402
-from models.user import User  # noqa: E402
+from auth_local.deps import require_ai_access, require_project_limit
+from auth_local.middleware import get_current_user
+from db import Base, async_session, engine, get_db
+from main import app
+from models.user import User
 
 # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -315,7 +315,6 @@ class TestImportPersist:
 
     def test_persist_writes_volume_file_by_number(self, client):
         """卷文件必须写为 vol-{N}.yaml，与 create_volume 约定一致。"""
-        import os
 
         r = client.post(
             "/api/novels/import/persist",
@@ -330,8 +329,7 @@ class TestImportPersist:
             },
         )
         assert r.status_code == 201, r.text
-        root_path = r.json().get("root_path")
-        # persist 返回不含 root_path；改从项目详情确认卷结构
+        # 从项目详情/tree 确认卷结构（persist 返回不含 root_path）
         novel_id = r.json()["id"]
         tree = client.get(f"/api/novels/{novel_id}/tree")
         assert tree.status_code == 200

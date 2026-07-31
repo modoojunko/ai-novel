@@ -131,7 +131,7 @@ async def lifespan(app: FastAPI):
                             await session.commit()
             # 不再清空 config.json —— 它是 C端 OAuth 会话的落盘处
             # （token / username / pc_hash），清空会导致每次启动都要重新登录。
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         import logging
 
         logging.getLogger("uvicorn.error").warning("Config migration failed: %s", e)
@@ -142,7 +142,7 @@ async def lifespan(app: FastAPI):
 
         async with async_session() as session:
             await migrate_user_configs(session)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         import logging
 
         logging.getLogger("uvicorn.error").warning("ApiConfig migration failed: %s", e)
