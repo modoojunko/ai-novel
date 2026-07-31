@@ -1,9 +1,10 @@
 import { useReducer, useRef, useEffect, useState } from "react";
-import { api, importPersist } from "@/lib/api";
-import type { VolumeImportData } from "@/lib/api";
+import { api, importParse, importPersist } from "@/lib/api";
+import type { ImportPreviewData, VolumeImportData } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { Wand2, Loader2, Upload, AlertCircle, AlertTriangle, X } from "lucide-react";
 import ImportPreviewTree from "./ImportPreviewTree";
+import ImportUploadZone from "./ImportUploadZone";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -17,16 +18,6 @@ interface Suggestion {
   atmosphere: string;
   elements?: Record<string, string>;
   missing?: string[];
-}
-
-interface ImportPreviewVolume {
-  name: string;
-  chapters: { name: string; content_length: number }[];
-}
-
-interface ImportPreview {
-  title: string;
-  volumes: ImportPreviewVolume[];
 }
 
 type ModalStage =
@@ -54,7 +45,7 @@ type ModalAction =
   | { type: "SET_NAME"; value: string }
   | { type: "FILE_SELECTED"; size: number }
   | { type: "PARSE_START" }
-  | { type: "PARSE_SUCCESS"; preview: ImportPreview }
+  | { type: "PARSE_SUCCESS"; preview: ImportPreviewData }
   | { type: "PARSE_ERROR"; msg: string }
   | { type: "SIZE_ERROR" }
   | { type: "UPDATE_VOLUMES"; volumes: VolumeImportData[] }
@@ -68,7 +59,7 @@ interface ModalState {
   selectedTitle: string;
   suggestion: Suggestion | null;
   errorMsg: string;
-  importPreview: ImportPreview | null;
+  importPreview: ImportPreviewData | null;
   importFileName: string;
   currentVolumes: VolumeImportData[];
 }
@@ -144,8 +135,11 @@ function reducer(state: ModalState, action: ModalAction): ModalState {
         stage: "import-preview",
         importPreview: action.preview,
         currentVolumes: action.preview.volumes.map(v => ({
-          title: v.name,
-          chapters: v.chapters.map(c => ({ title: c.name })),
+          title: v.title,
+          chapters: v.chapters.map(c => ({
+            title: c.title,
+            content: c.content,
+          })),
         })),
       };
     case "PARSE_ERROR":
@@ -176,17 +170,14 @@ export default function CreateProjectModal({
 }: CreateProjectModalProps) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const [submitting, setSubmitting] = useState(false);
-  const [showSkeleton, setShowSkeleton] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const prevStageRef = useRef<ModalStage>(state.stage);
 
   // Reset on open
   useEffect(() => {
     if (open) {
       dispatch({ type: "DISMISS" });
-      setShowSkeleton(false);
       setSubmitting(false);
       fileRef.current = null;
     }
@@ -208,21 +199,27 @@ export default function CreateProjectModal({
     return () => cancelAnimationFrame(id);
   }, [state.stage]);
 
-  // Simulate file parsing when entering import-parsing
+  // Parse the uploaded file when entering import-parsing
   useEffect(() => {
-    if (state.stage !== "import-parsing" || !fileRef.current) return;
-    setShowSkeleton(false);
-    const skeletonTimer = setTimeout(() => setShowSkeleton(true), 3000);
-    const parseTimer = setTimeout(() => {
-      // Placeholder: import parsing is not yet implemented on the backend
-      dispatch({ type: "PARSE_ERROR", msg: "导入解析功能开发中，即将上线" });
-      fileRef.current = null;
-      setShowSkeleton(false);
-    }, 2000);
-    return () => {
-      clearTimeout(skeletonTimer);
-      clearTimeout(parseTimer);
-    };
+    if (state.stage !== "import-parsing") return;
+    const file = fileRef.current;
+    if (!file) return;
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const preview = await importParse(file, controller.signal);
+        dispatch({ type: "PARSE_SUCCESS", preview });
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return;
+        dispatch({
+          type: "PARSE_ERROR",
+          msg: err instanceof Error ? err.message : "解析失败",
+        });
+      } finally {
+        fileRef.current = null;
+      }
+    })();
+    return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.stage]);
 
@@ -262,9 +259,7 @@ export default function CreateProjectModal({
     }
   }
 
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  function handleFileSelect(file: File) {
     if (file.size > 10 * 1024 * 1024) {
       dispatch({ type: "SIZE_ERROR" });
       return;
@@ -689,82 +684,20 @@ export default function CreateProjectModal({
 
   function renderImportUpload() {
     return (
-      <div className="space-y-4">
-        <button
-          className="btn btn-ghost btn-xs gap-1 text-base-content/40 hover:text-base-content/70 -ml-2"
-          onClick={() => dispatch({ type: "GO_BACK" })}
-        >
-          ← 返回选择
-        </button>
-
-        <h3 className="font-bold font-serif text-lg">导入已有稿子</h3>
-        <p className="text-sm text-base-content/50 leading-relaxed">
-          支持 .txt、.md、.docx 格式，单文件不超过 10MB。
-        </p>
-
-        {/* Upload area */}
-        <div
-          className="border-2 border-dashed border-base-300/50 rounded-xl p-8 text-center hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer"
-          onClick={() => fileInputRef.current?.click()}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") fileInputRef.current?.click();
-          }}
-        >
-          <Upload className="w-10 h-10 mx-auto text-base-content/30 mb-3" />
-          <p className="text-sm text-base-content/50">
-            点击选择文件，或将文件拖到此处
-          </p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".txt,.md,.docx"
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-        </div>
-
-        <div className="text-center">
-          <a
-            href="/templates/import-template.zip"
-            className="text-xs link link-primary"
-            onClick={(e) => {
-              e.preventDefault();
-              toast.info("模板下载功能即将上线");
-            }}
-          >
-            下载导入模板
-          </a>
-        </div>
-      </div>
+      <ImportUploadZone
+        onFileSelected={handleFileSelect}
+        onCancel={() => dispatch({ type: "GO_BACK" })}
+      />
     );
   }
 
   function renderImportParsing() {
     return (
       <div className="flex flex-col items-center justify-center py-10 gap-4">
-        {showSkeleton ? (
-          <>
-            <span className="loading loading-spinner loading-lg text-primary" />
-            <p className="text-sm text-base-content/50">
-              文件较大，正在解析卷章结构…
-            </p>
-            <div className="w-full max-w-xs space-y-2 mt-2">
-              <div className="skeleton h-4 w-full" />
-              <div className="skeleton h-4 w-3/4" />
-              <div className="skeleton h-4 w-5/6" />
-              <div className="skeleton h-4 w-1/2" />
-            </div>
-          </>
-        ) : (
-          <>
-            <span className="loading loading-spinner loading-lg text-primary" />
-            <p className="text-sm text-base-content/50">
-              正在解析文件结构…
-            </p>
-          </>
-        )}
+        <span className="loading loading-spinner loading-lg text-primary" />
+        <p className="text-sm text-base-content/50">
+          正在解析文件结构…
+        </p>
       </div>
     );
   }
@@ -850,8 +783,11 @@ export default function CreateProjectModal({
             dispatch({
               type: "UPDATE_VOLUMES",
               volumes: state.importPreview!.volumes.map((v) => ({
-                title: v.name,
-                chapters: v.chapters.map((c) => ({ title: c.name })),
+                title: v.title,
+                chapters: v.chapters.map((c) => ({
+                  title: c.title,
+                  content: c.content,
+                })),
               })),
             })
           }

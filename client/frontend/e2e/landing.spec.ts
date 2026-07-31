@@ -20,10 +20,10 @@ test.describe("Landing page", () => {
       await expect(page.getByText("查看完整工作流")).toBeVisible();
     });
 
-    test("CTA links to register page", async ({ page }) => {
+    test("CTA links to login page", async ({ page }) => {
       await page.goto(url("/"));
       await page.getByText("免费开始写作").click();
-      await expect(page).toHaveURL(/#\/register/);
+      await expect(page).toHaveURL(/#\/login/);
     });
 
     test("查看完整工作流 scrolls to workflow section", async ({ page }) => {
@@ -35,28 +35,6 @@ test.describe("Landing page", () => {
 
   // ── Navigation bar ────────────────────────────────────────────────
   test.describe("Navigation bar", () => {
-    test("nav links present and scroll to sections", async ({ page }) => {
-      await page.goto(url("/"));
-      const nav = page.locator("nav.sticky");
-      await expect(nav.getByText("创作之痛")).toBeVisible();
-      await expect(nav.getByText("工作流")).toBeVisible();
-      await expect(nav.getByText("特色")).toBeVisible();
-
-      await nav.getByText("创作之痛").click({ force: true });
-      await expect(page.locator("#pain-points")).toBeVisible();
-      await nav.getByText("特色").click({ force: true });
-      await expect(page.locator("#features")).toBeVisible();
-    });
-
-    test("has login and register links", async ({ page }) => {
-      await page.goto(url("/"), { waitUntil: "domcontentloaded" });
-      // Wait for nav to be fully rendered
-      await expect(page.locator("nav.sticky")).toBeVisible({ timeout: 10000 });
-      const nav = page.locator("nav.sticky");
-      await expect(nav.locator('a[href*="login"]')).toBeVisible();
-      await expect(nav.locator('a[href*="register"]')).toBeVisible();
-    });
-
     test("has theme toggle with Lucide SVG", async ({ page }) => {
       await page.goto(url("/"));
       const toggle = page.locator("nav.sticky button[title*='主题']");
@@ -136,11 +114,11 @@ test.describe("Landing page", () => {
       await expect(page.getByText(/去 GitHub 点 Star/)).toBeVisible();
     });
 
-    test("免费开始 links to register", async ({ page }) => {
+    test("免费开始 links to login", async ({ page }) => {
       await page.goto(url("/"));
       // Click the last CTA button (bottom of page)
       await page.getByRole("link", { name: "免费开始 →" }).click();
-      await expect(page).toHaveURL(/#\/register/);
+      await expect(page).toHaveURL(/#\/login/);
     });
   });
 

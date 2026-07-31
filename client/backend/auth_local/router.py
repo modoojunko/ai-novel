@@ -1,21 +1,16 @@
 # backend/auth_local/router.py
 """浏览器 OAuth 登录 API"""
 
-import hashlib
-import os
-from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from jose import jwt
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api_configs.crypto import encrypt_api_key
 from api_configs.vendor import resolve_vendor
-from config import JWT_ALGORITHM, JWT_SECRET
 from db import get_db
 from models.api_config import ApiConfig
 from models.user import User
@@ -26,29 +21,10 @@ from .service import (
     browser_auth,
     check_permission,
     get_local_config,
-    reset_password,
     verify_session,
 )
 
 router = APIRouter(tags=["auth"])
-
-
-def require_dev_mode():
-    """DEV_MODE 门控 — 非开发模式返回 403"""
-    if os.environ.get("DEV_MODE") != "1":
-        raise HTTPException(403, "仅在开发模式下可用")
-
-
-class RegisterRequest(BaseModel):
-    email: str
-    password: str
-    display_name: str = ""
-
-
-class ResetPasswordRequest(BaseModel):
-    username: str
-    security_answer: str
-    new_password: str
 
 
 class ApiKeySaveRequest(BaseModel):
@@ -61,46 +37,6 @@ class ApiKeyVerifyRequest(BaseModel):
     api_key: str
     api_base_url: str
 
-
-@router.post("/register")
-async def api_register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    """DEV_MODE only: 注册用户并返回 JWT"""
-    require_dev_mode()
-
-    # 检查邮箱是否已注册
-    result = await db.execute(select(User).where(User.email == req.email))
-    if result.scalar_one_or_none():
-        raise HTTPException(409, "邮箱已注册")
-
-    # 创建用户
-    user = User(
-        email=req.email,
-        password_hash=hashlib.pbkdf2_hmac(
-            "sha256", req.password.encode(), b"ai-novel-salt", 600000
-        ).hex(),
-        display_name=req.display_name or req.email.split("@")[0],
-    )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-
-    # 生成 JWT
-    payload = {
-        "sub": user.id,
-        "email": user.email,
-        "exp": int(datetime.now(UTC).timestamp()) + 30 * 86400,
-    }
-    access_token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-
-    return {
-        "access_token": access_token,
-        "token": access_token,
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "display_name": user.display_name,
-        },
-    }
 
 
 @router.get("/check-auth")
@@ -133,11 +69,6 @@ async def api_refresh():
     result = await verify_session()
     return result
 
-
-@router.post("/reset-password")
-async def api_reset_password(req: ResetPasswordRequest):
-    """密保重置密码"""
-    return await reset_password(req.security_answer, req.new_password)
 
 
 @router.get("/devices/current")

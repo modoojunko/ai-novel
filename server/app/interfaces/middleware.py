@@ -18,7 +18,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     """基于 IP 的速率限制。"""
 
     SENSITIVE_PATHS = {"/api/authorize", "/api/web/login"}
-    LIMIT = 5
+    LIMIT = 30
     WINDOW = 60  # 秒
 
     def __init__(self, app):

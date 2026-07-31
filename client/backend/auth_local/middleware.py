@@ -26,39 +26,44 @@ def get_local_config() -> dict:
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> dict:
-    """验证本地 token，返回用户标识"""
+    """验证本地 OAuth 会话，返回用户标识。
+
+    C端 不自行验签 JWT —— token 由 S端 OAuth 授权流程签发并存入 config.json，
+    这里只核对请求头携带的 token 与本地 OAuth 会话 token 是否一致，身份取
+    S端 授权时下发的 username。校验失败视为未登录。
+    """
     if credentials is None:
         raise HTTPException(status_code=401, detail="未提供认证信息")
 
-    token = credentials.credentials
+    cfg = get_local_config()
+    stored_token = cfg.get("token", "")
+    if not stored_token or credentials.credentials != stored_token:
+        raise HTTPException(status_code=401, detail="登录状态无效，请重新登录")
 
-    # 验证 JWT（S端 部署环境使用的格式）
-    from jose import jwt as jose_jwt
+    username = cfg.get("username", "")
+    if not username:
+        raise HTTPException(status_code=401, detail="未获取到登录用户")
 
-    from config import JWT_ALGORITHM, JWT_SECRET
-
+    # 确保本地存在该用户（OAuth 授权时已创建；此处兜底）
     try:
-        payload = jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user_id = payload.get("sub", "")
-        # 确保 C端 本地存在此用户
-        if user_id:
-            from sqlalchemy import select as _select
+        from sqlalchemy import select as _select
 
-            from db import async_session as _session
-            from models.user import User as _User
+        from db import async_session as _session
+        from models.user import User as _User
 
-            async with _session() as s:
-                r = await s.execute(_select(_User).where(_User.id == user_id))
-                if not r.scalar_one_or_none():
-                    s.add(
-                        _User(
-                            id=user_id,
-                            email=f"{user_id}@s.local",
-                            password_hash="*",
-                            display_name=user_id,
-                        )
+        async with _session() as s:
+            r = await s.execute(_select(_User).where(_User.id == username))
+            if not r.scalar_one_or_none():
+                s.add(
+                    _User(
+                        id=username,
+                        email=f"{username}@s.local",
+                        password_hash="*",
+                        display_name=username,
                     )
-                    await s.commit()
-        return {"id": user_id}
-    except jose_jwt.JWTError:
-        raise HTTPException(status_code=401, detail="无效的令牌")
+                )
+                await s.commit()
+    except Exception:  # noqa: S110
+        pass
+
+    return {"id": username}

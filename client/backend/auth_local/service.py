@@ -14,7 +14,6 @@ import webbrowser
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
-from jose import jwt as jose_jwt
 
 
 # 从 config.json 读取 S端 API 地址，避免环境变量传递问题
@@ -60,6 +59,7 @@ def load_or_create_config() -> dict:
         "api_base_url": "https://api.deepseek.com/anthropic",
         "api_model": "deepseek-v4-flash",
         "token": "",
+        "username": "",
         "tier": "none",
         "expires_at": "",
         "last_login_at": "",
@@ -207,11 +207,12 @@ async def browser_auth(silent: bool = False) -> dict:
         if result.get("code") == 0:
             data = result["data"]
             cfg["token"] = data["token"]
+            cfg["username"] = data.get("username", "")
             cfg["tier"] = data.get("tier", "none")
             cfg["expires_at"] = data.get("expires_at", "")
             cfg["last_login_at"] = datetime.now(UTC).isoformat()
             save_local_config(cfg)
-            await _ensure_local_user(cfg["token"])
+            await _ensure_local_user(cfg["username"])
             return {
                 "code": 0,
                 "data": {
@@ -243,11 +244,12 @@ async def browser_auth(silent: bool = False) -> dict:
         if result.get("code") == 0:
             data = result["data"]
             cfg["token"] = data["token"]
+            cfg["username"] = data.get("username", "")
             cfg["tier"] = data.get("tier", "none")
             cfg["expires_at"] = data.get("expires_at", "")
             cfg["last_login_at"] = datetime.now(UTC).isoformat()
             save_local_config(cfg)
-            await _ensure_local_user(cfg["token"])
+            await _ensure_local_user(cfg["username"])
             return {
                 "code": 0,
                 "data": {
@@ -308,14 +310,6 @@ def check_permission(now: date | None = None) -> dict:
     expires_at = cfg.get("expires_at", "")
     now = now or datetime.now(UTC).date()
 
-    if os.environ.get("DEV_MODE"):
-        return {
-            "allowed": True,
-            "tier": "none",
-            "project_limit": 1,
-            "trial_remaining_days": 7,
-        }
-
     # 免费层
     if tier == "none":
         trial_days = 7
@@ -347,43 +341,27 @@ def check_permission(now: date | None = None) -> dict:
     return {"allowed": True, "tier": tier}
 
 
-async def _ensure_local_user(token: str) -> None:
-    """Ensure the JWT-authenticated S端 user exists in C端's local DB."""
+async def _ensure_local_user(username: str) -> None:
+    """Ensure the OAuth-authenticated S端 user exists in C端's local DB."""
+    if not username:
+        return
     try:
-        from config import JWT_ALGORITHM, JWT_SECRET
         from db import async_session
         from models.user import User
 
-        payload = jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user_id = payload.get("sub", "")
-        if not user_id:
-            return
         async with async_session() as session:
             from sqlalchemy import select
 
-            existing = await session.execute(select(User).where(User.id == user_id))
+            existing = await session.execute(select(User).where(User.id == username))
             if not existing.scalar_one_or_none():
                 session.add(
                     User(
-                        id=user_id,
-                        email=f"{user_id}@s端.local",
+                        id=username,
+                        email=f"{username}@s.local",
                         password_hash="*",
-                        display_name=user_id,
+                        display_name=username,
                     )
                 )
                 await session.commit()
     except Exception:  # noqa: S110
         pass
-
-
-async def reset_password(security_answer: str, new_password: str) -> dict:
-    cfg = load_or_create_config()
-    return await call_server_api(
-        "reset_password",
-        method="POST",
-        json_body={
-            "username": cfg["username"],
-            "security_answer": security_answer,
-            "new_password": new_password,
-        },
-    )

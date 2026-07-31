@@ -126,9 +126,8 @@ async def lifespan(app: FastAPI):
                                 pass
                         if changed:
                             await session.commit()
-            # Clear config.json after migration
-            with open(cfg_path, "w", encoding="utf-8") as f:
-                json.dump({}, f)
+            # 不再清空 config.json —— 它是 C端 OAuth 会话的落盘处
+            # （token / username / pc_hash），清空会导致每次启动都要重新登录。
     except Exception as e:  # noqa: BLE001
         import logging
 

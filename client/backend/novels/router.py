@@ -3,7 +3,7 @@ import os
 import tempfile
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +13,7 @@ from auth_local.deps import require_ai_access, require_project_limit
 from auth_local.middleware import get_current_user
 from auth_local.service import get_local_config
 from db import get_db
-from novels.importer import parse_file
+from novels.importer import IMPORT_TEMPLATE_MD, parse_file
 from novels.service import (
     build_project_tree,
     create_project,
@@ -348,7 +348,7 @@ async def import_persist(
         await db.commit()
         await db.refresh(project)
 
-        return {"novel_id": str(project.id)}
+        return {"id": str(project.id), "name": body.name}
 
     except Exception as e:
         # Clean up on failure
@@ -357,3 +357,12 @@ async def import_persist(
         if os.path.exists(root_path):
             shutil.rmtree(root_path)
         raise HTTPException(500, f"导入持久化失败: {e!s}")
+
+
+@router.get("/import/template")
+async def import_template():
+    """Return the import template markdown for the "下载导入模板" link."""
+    return Response(
+        content=IMPORT_TEMPLATE_MD,
+        media_type="text/markdown; charset=utf-8",
+    )

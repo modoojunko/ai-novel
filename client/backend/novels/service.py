@@ -1,4 +1,3 @@
-import os
 import re
 import uuid
 
@@ -72,9 +71,7 @@ async def create_project(
 
 
 async def list_projects(db: AsyncSession, user_id: str) -> list[Novel]:
-    stmt = select(Novel).where(Novel.status != "deleted")
-    if not os.environ.get("DEV_MODE"):
-        stmt = stmt.where(Novel.user_id == user_id)
+    stmt = select(Novel).where(Novel.status != "deleted", Novel.user_id == user_id)
     result = await db.execute(stmt.order_by(Novel.updated_at.desc()))
     return list(result.scalars().all())
 
@@ -83,7 +80,7 @@ async def get_novel(
     db: AsyncSession, project_id: str, user_id: str | None = None
 ) -> Novel | None:
     stmt = select(Novel).where(Novel.id == project_id)
-    if user_id and not os.environ.get("DEV_MODE"):
+    if user_id:
         stmt = stmt.where(Novel.user_id == user_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
@@ -95,9 +92,8 @@ async def get_project_by_slug(
     stmt = select(Novel).where(
         Novel.slug == slug,
         Novel.status != "deleted",
+        Novel.user_id == user_id,
     )
-    if not os.environ.get("DEV_MODE"):
-        stmt = stmt.where(Novel.user_id == user_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 

@@ -74,9 +74,6 @@ export default function LoginPage() {
         <button className="btn btn-primary btn-lg" onClick={handleBrowserAuth} disabled={loading}>
           {loading ? <span className="loading loading-spinner" /> : '打开浏览器登录'}
         </button>
-        <p className="text-xs text-base-content/40 mt-2">
-          还未注册？<Link to="/register" className="link link-primary">去注册</Link>
-        </p>
         {error && <p className="text-error text-sm mt-2">{error}</p>}
         <p className="text-xs text-base-content/40 mt-4">将在系统浏览器中打开登录页面</p>
       </div>
