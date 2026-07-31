@@ -55,7 +55,7 @@ async def get_current_user(
     if expires_at:
         try:
             expiry = date.fromisoformat(expires_at[:10])
-            if date.today() > expiry:
+            if datetime.now(UTC).date() > expiry:
                 raise HTTPException(status_code=401, detail="登录已过期，请重新登录")
         except ValueError:
             pass

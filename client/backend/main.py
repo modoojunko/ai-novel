@@ -79,6 +79,9 @@ async def lifespan(app: FastAPI):
         pass
 
     # ── Migrate config.json → User table ────────────────────────────
+    # 身份识别统一用 S端 用户标识：users.username 是 S端 主键，C端 User.id /
+    # projects.user_id 等均取该标识（即 user_id = S端 用户名），不引入第二套
+    # UUID 用户标识。root_path 按 slug 组织、与 user_id 无关，故无身份迁移需求。
     try:
         cfg_path = os.path.join(os.environ.get("DATA_ROOT", "./data"), "config.json")
         if os.path.exists(cfg_path):
@@ -111,7 +114,7 @@ async def lifespan(app: FastAPI):
                                 from datetime import date
 
                                 user.subscription_expires_at = date.fromisoformat(
-                                    cfg["expires_at"]
+                                    cfg["expires_at"][:10]
                                 )
                                 changed = True
                             except ValueError:

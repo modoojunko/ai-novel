@@ -341,6 +341,8 @@ async def import_persist(
             slug=slug,
             root_path=root_path,
             source="import",
+            total_volumes=len(body.volumes),
+            total_chapters=sum(len(v.chapters) for v in body.volumes),
         )
         db.add(project)
         await db.commit()

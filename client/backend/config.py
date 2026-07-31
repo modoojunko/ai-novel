@@ -14,10 +14,6 @@ DATABASE_URL = os.environ.get(
 
 # AI 配置（通过 C端 UI 配置，写入 config.json）
 
-# JWT（本地存 token 用）
-JWT_SECRET = os.environ.get("JWT_SECRET", "local-license-secret")
-JWT_ALGORITHM = "HS256"
-
 # 模板路径 — 相对于 config.py 的位置 (client/backend/config.py → ../reference/)
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 REFERENCE_DIR = os.environ.get(

@@ -43,7 +43,6 @@ type ModalAction =
   | { type: "GO_BACK" }
   | { type: "SET_PREMISE"; value: string }
   | { type: "SET_NAME"; value: string }
-  | { type: "FILE_SELECTED"; size: number }
   | { type: "PARSE_START" }
   | { type: "PARSE_SUCCESS"; preview: ImportPreviewData }
   | { type: "PARSE_ERROR"; msg: string }
@@ -60,7 +59,6 @@ interface ModalState {
   suggestion: Suggestion | null;
   errorMsg: string;
   importPreview: ImportPreviewData | null;
-  importFileName: string;
   currentVolumes: VolumeImportData[];
 }
 
@@ -86,7 +84,6 @@ const INITIAL: ModalState = {
   suggestion: null,
   errorMsg: "",
   importPreview: null,
-  importFileName: "",
   currentVolumes: [],
 };
 
@@ -117,16 +114,11 @@ function reducer(state: ModalState, action: ModalAction): ModalState {
     case "GO_MANUAL":
       return { ...state, stage: "manual" };
     case "GO_BACK":
-      return { ...state, stage: "entry-fork", errorMsg: "", importFileName: "", currentVolumes: [] };
+      return { ...state, stage: "entry-fork", errorMsg: "", currentVolumes: [] };
     case "SET_PREMISE":
       return { ...state, premise: action.value };
     case "SET_NAME":
       return { ...state, name: action.value, selectedTitle: action.value };
-    case "FILE_SELECTED":
-      if (action.size > 10 * 1024 * 1024) {
-        return { ...state, stage: "import-size-error" };
-      }
-      return state;
     case "PARSE_START":
       return { ...state, stage: "import-parsing" };
     case "PARSE_SUCCESS":
@@ -139,6 +131,7 @@ function reducer(state: ModalState, action: ModalAction): ModalState {
           chapters: v.chapters.map(c => ({
             title: c.title,
             content: c.content,
+            word_count: c.word_count,
           })),
         })),
       };
@@ -787,6 +780,7 @@ export default function CreateProjectModal({
                 chapters: v.chapters.map((c) => ({
                   title: c.title,
                   content: c.content,
+                  word_count: c.word_count,
                 })),
               })),
             })

@@ -337,3 +337,29 @@ class TestImportPersist:
         assert tree.status_code == 200
         vols = tree.json().get("volumes", [])
         assert vols and vols[0].get("ref") == "vol-1"
+
+
+# ── Novel 查询/删除（by-slug / delete）──────────────────────────────────
+
+
+class TestNovelQueries:
+    def test_get_by_slug(self, client):
+        name = f"slug-test-{uuid.uuid4().hex[:6]}"
+        r = client.post("/api/novels", json={"name": name})
+        assert r.status_code in (200, 201), f"Create failed: {r.text}"
+        slug = r.json()["slug"]
+        r2 = client.get(f"/api/novels/by-slug/{slug}")
+        assert r2.status_code == 200, f"by-slug failed: {r2.text}"
+        assert r2.json()["name"] == name
+
+    def test_delete_project(self, client):
+        name = f"delete-me-{uuid.uuid4().hex[:6]}"
+        r = client.post("/api/novels", json={"name": name})
+        assert r.status_code in (200, 201)
+        pid = r.json()["id"]
+        r2 = client.delete(f"/api/novels/{pid}")
+        assert r2.status_code in (200, 204), f"Delete failed: {r2.text}"
+        # 删除后列表不含该项目
+        r3 = client.get("/api/novels")
+        assert r3.status_code == 200
+        assert all(p["id"] != pid for p in r3.json())

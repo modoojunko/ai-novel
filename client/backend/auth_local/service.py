@@ -287,7 +287,7 @@ async def verify_session() -> dict:
     trial_days = 7
     if expires_at:
         try:
-            expiry = date.fromisoformat(expires_at)
+            expiry = date.fromisoformat(expires_at[:10])
             trial_days = max(0, (expiry - datetime.now(UTC).date()).days)
         except ValueError:
             pass
@@ -315,7 +315,7 @@ def check_permission(now: date | None = None) -> dict:
         trial_days = 7
         if expires_at:
             try:
-                expiry = date.fromisoformat(expires_at)
+                expiry = date.fromisoformat(expires_at[:10])
                 trial_days = max(0, (expiry - now).days)
             except ValueError:
                 pass
@@ -329,7 +329,7 @@ def check_permission(now: date | None = None) -> dict:
     # 付费套餐
     if tier in ("monthly", "quarterly", "yearly"):
         try:
-            if expires_at and date.fromisoformat(expires_at) < now:
+            if expires_at and date.fromisoformat(expires_at[:10]) < now:
                 return {
                     "allowed": False,
                     "reason": "expired",
