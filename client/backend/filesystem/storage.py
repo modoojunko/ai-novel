@@ -28,10 +28,10 @@ class StorageBackend(Protocol):
 class LocalFileBackend:
     @staticmethod
     def _safe(resolve: str, relative: str) -> str:
-        """标准化路径并检查穿越"""
-        r = os.path.normpath(resolve)
-        f = os.path.normpath(os.path.join(resolve, relative))
-        if not f.startswith(r):
+        """标准化路径并检查穿越（组件级比较，防同前缀兄弟目录绕过）"""
+        r = os.path.realpath(resolve)
+        f = os.path.realpath(os.path.join(resolve, relative))
+        if os.path.commonpath([r, f]) != r:
             raise ValueError("Path traversal detected")
         return f
 

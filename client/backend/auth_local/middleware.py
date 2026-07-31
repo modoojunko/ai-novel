@@ -47,6 +47,8 @@ async def get_current_user(
     if last_login:
         try:
             login_time = datetime.fromisoformat(last_login)
+            if login_time.tzinfo is None:
+                login_time = login_time.replace(tzinfo=UTC)
             if datetime.now(UTC) - login_time > timedelta(days=30):
                 raise HTTPException(status_code=401, detail="登录已超过 30 天，请重新登录")
         except ValueError:

@@ -265,7 +265,8 @@ export default function CreateProjectModal({
     if (submitting || !state.importPreview || state.currentVolumes.length === 0) return;
     setSubmitting(true);
     try {
-      const name = state.currentVolumes[0]?.title || state.importPreview.title;
+      // 作品名优先（解析器从首个 # 标题得出），首卷标题兜底
+      const name = state.importPreview.title || state.currentVolumes[0]?.title;
       const result = await importPersist({
         name,
         volumes: state.currentVolumes,

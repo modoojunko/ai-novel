@@ -188,7 +188,7 @@ async def export_project(
 ):
     """打包项目目录为 zip（卷章/设定/正文/版本快照全量），供备份/分享。"""
     project = await get_novel(db, project_id, user["id"])
-    if not project:
+    if not project or project.status == "deleted":
         raise HTTPException(404, "Novel not found")
 
     import io
@@ -203,10 +203,18 @@ async def export_project(
                 zf.write(full, rel)
     buffer.seek(0)
 
+    # RFC 5987 编码中文文件名（slug 保留汉字，latin-1 header 会 UnicodeEncodeError）
+    from urllib.parse import quote
+
+    filename = f"{project.slug}.zip"
     return StreamingResponse(
         buffer,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{project.slug}.zip"'},
+        headers={
+            "Content-Disposition": (
+                f"attachment; filename=export.zip; filename*=UTF-8''{quote(filename)}"
+            )
+        },
     )
 
 

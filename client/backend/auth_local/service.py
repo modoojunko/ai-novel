@@ -275,6 +275,8 @@ async def verify_session() -> dict:
 
     try:
         login_time = datetime.fromisoformat(last_login) if last_login else None
+        if login_time and login_time.tzinfo is None:
+            login_time = login_time.replace(tzinfo=UTC)
         if login_time and datetime.now(UTC) - login_time > timedelta(days=SESSION_DAYS):
             return {"valid": False, "msg": f"登录已超过 {SESSION_DAYS} 天，请重新登录"}
     except ValueError:
