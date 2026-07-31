@@ -5,6 +5,7 @@ import uuid
 from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -177,6 +178,36 @@ async def get_project_tree(
         raise HTTPException(404, "Novel not found")
     tree = await build_project_tree(project_id, project.root_path)
     return tree
+
+
+@router.get("/{project_id}/export")
+async def export_project(
+    project_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """打包项目目录为 zip（卷章/设定/正文/版本快照全量），供备份/分享。"""
+    project = await get_novel(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Novel not found")
+
+    import io
+    import zipfile
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for dirpath, _dirs, files in os.walk(project.root_path):
+            for fname in files:
+                full = os.path.join(dirpath, fname)
+                rel = os.path.relpath(full, project.root_path)
+                zf.write(full, rel)
+    buffer.seek(0)
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{project.slug}.zip"'},
+    )
 
 
 # ── Import endpoints ───────────────────────────────────────────────────────────
