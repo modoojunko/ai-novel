@@ -62,6 +62,6 @@ client/backend/
 ## 关键设计
 
 - **六阶段工作流**：init → settings → outline → prompt → write → archive
-- **双存储后端**：本地文件系统或数据库（`STORAGE_BACKEND` 环境变量切换）
+- **文件系统存储**：小说内容（卷章/设定/正文/版本快照）存本地文件系统 YAML/MD，SQLite 存元数据（用户/项目/计费）
 - **SSE 流式传输**：写作阶段每段一个 SSE 连接，支持并行流
 - **Token 计费**：每次 AI 调用记录到 token_log，按模型单价扣除
