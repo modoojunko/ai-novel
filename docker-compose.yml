@@ -1,11 +1,16 @@
 # docker-compose.yml — AI Novel 一键部署（4 服务）
 #
-#   server-backend  S端 License 服务 (FastAPI)   :19000
-#   server-frontend S端 管理门户 (nginx)         :5173
-#   client-backend  C端 本地后端 (FastAPI)       :8000
-#   client-frontend C端 前端 (nginx)             :5174
+#   server-backend  S端 License 服务 (FastAPI)   :${SERVER_HOST_PORT:-19000}
+#   server-frontend S端 管理门户 (nginx)         :${SERVER_WEB_HOST_PORT:-5173}
+#   client-backend  C端 本地后端 (FastAPI)       :${CLIENT_HOST_PORT:-8000}
+#   client-frontend C端 前端 (nginx)             :${CLIENT_WEB_HOST_PORT:-5174}
 #
-# 数据 bind mount 到 D 盘 .docker-data/，避免占用 C 盘 named volume
+# 全部部署参数可用 .env 或环境变量覆盖，便于在各类机器上部署：
+#   SERVER_HOST_PORT / SERVER_WEB_HOST_PORT / CLIENT_HOST_PORT / CLIENT_WEB_HOST_PORT
+#   SERVER_PORT / CLIENT_PORT              容器内端口（healthcheck/nginx 引用）
+#   JWT_SECRET / ADMIN_TOKEN               密钥（生产务必设置强密钥）
+#   SERVER_API_BASE                       C端 后端连 S端 的地址
+#   SERVER_DATA_DIR / CLIENT_DATA_DIR      数据目录（默认 compose 下 .docker-data/）
 services:
   server-backend:
     build: ./server
@@ -13,14 +18,12 @@ services:
     environment:
       DB_DIR: /app/data
       HOST: 0.0.0.0
-      PORT: "19000"
-      JWT_SECRET: ${JWT_SECRET:-local-license-secret}
-      ADMIN_TOKEN: ${ADMIN_TOKEN:-admin123}
+      PORT: "${SERVER_PORT:-19000}"
+      JWT_SECRET: "${JWT_SECRET:-local-license-secret}"
+      ADMIN_TOKEN: "${ADMIN_TOKEN:-admin123}"
     ports:
-      - "19000:19000"
+      - "${SERVER_HOST_PORT:-19000}:${SERVER_PORT:-19000}"
     volumes:
-      # 数据默认落在 compose 目录下 .docker-data/（项目在 D 盘即 D 盘存储），
-      # 可用环境变量 SERVER_DATA_DIR 覆盖（兼容 Linux CI 校验）
       - ${SERVER_DATA_DIR:-./.docker-data/server}:/app/data
     healthcheck:
       test:
@@ -28,7 +31,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.request,sys; urllib.request.urlopen('http://127.0.0.1:19000/api/auth-page', timeout=5); sys.exit(0)",
+          "import urllib.request,sys; urllib.request.urlopen('http://127.0.0.1:${SERVER_PORT:-19000}/api/auth-page', timeout=5); sys.exit(0)",
         ]
       interval: 10s
       timeout: 5s
@@ -42,7 +45,7 @@ services:
     depends_on:
       - server-backend
     ports:
-      - "5173:80"
+      - "${SERVER_WEB_HOST_PORT:-5173}:80"
     restart: unless-stopped
 
   client-backend:
@@ -50,11 +53,11 @@ services:
     container_name: ai-novel-client-backend
     environment:
       DATA_ROOT: /app/data
-      SERVER_API_BASE: http://server-backend:19000/api
+      SERVER_API_BASE: "${SERVER_API_BASE:-http://server-backend:${SERVER_PORT:-19000}/api}"
     depends_on:
       - server-backend
     ports:
-      - "8000:8000"
+      - "${CLIENT_HOST_PORT:-8000}:${CLIENT_PORT:-8000}"
     volumes:
       - ${CLIENT_DATA_DIR:-./.docker-data/client}:/app/data
     restart: unless-stopped
@@ -65,5 +68,5 @@ services:
     depends_on:
       - client-backend
     ports:
-      - "5174:80"
+      - "${CLIENT_WEB_HOST_PORT:-5174}:80"
     restart: unless-stopped
