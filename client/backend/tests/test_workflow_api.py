@@ -281,3 +281,59 @@ class TestSettingsAIFieldGenerate:
         )
         assert r2.status_code == 400
         assert "not supported" in str(r2.json().get("detail", "")).lower()
+
+
+# ── 导入持久化往返（persist → 读回）──────────────────────────────────────
+
+
+class TestImportPersist:
+    def test_persist_then_read_chapter(self, client):
+        """导入入库后按 vol-N-ch-M 约定可读回章节正文。"""
+        r = client.post(
+            "/api/novels/import/persist",
+            json={
+                "name": "导入测试",
+                "volumes": [
+                    {
+                        "title": "第一卷",
+                        "chapters": [{"title": "第一章", "content": "正文内容"}],
+                    }
+                ],
+            },
+        )
+        assert r.status_code == 201, f"Persist failed: {r.text}"
+        novel_id = r.json()["id"]
+
+        # 项目可查
+        r2 = client.get(f"/api/novels/{novel_id}")
+        assert r2.status_code == 200
+
+        # 章节按数字约定 vol-1-ch-1 读回
+        r3 = client.get(f"/api/novels/{novel_id}/chapters/vol-1-ch-1")
+        assert r3.status_code == 200, f"Chapter read failed: {r3.text}"
+        assert r3.json().get("prose") == "正文内容"
+
+    def test_persist_writes_volume_file_by_number(self, client):
+        """卷文件必须写为 vol-{N}.yaml，与 create_volume 约定一致。"""
+        import os
+
+        r = client.post(
+            "/api/novels/import/persist",
+            json={
+                "name": "卷名测试",
+                "volumes": [
+                    {
+                        "title": "第一卷 风云",
+                        "chapters": [{"title": "第一章", "content": "内容"}],
+                    }
+                ],
+            },
+        )
+        assert r.status_code == 201, r.text
+        root_path = r.json().get("root_path")
+        # persist 返回不含 root_path；改从项目详情确认卷结构
+        novel_id = r.json()["id"]
+        tree = client.get(f"/api/novels/{novel_id}/tree")
+        assert tree.status_code == 200
+        vols = tree.json().get("volumes", [])
+        assert vols and vols[0].get("ref") == "vol-1"

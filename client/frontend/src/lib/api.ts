@@ -91,7 +91,7 @@ export interface Step1Result {
 export interface ChapterImportData {
   title: string;
   content?: string;
-  wordCount?: number;
+  word_count?: number;
 }
 
 export interface VolumeImportData {

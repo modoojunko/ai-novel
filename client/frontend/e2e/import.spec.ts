@@ -127,7 +127,7 @@ test("导入已有稿子：真实解析 → 预览 → 入库 → 小说页展�
     await page.getByRole("button", { name: "确认入库" }).click();
     await expect(page).toHaveURL(/#\/novel\/[0-9a-fA-F-]+/, { timeout: 10000 });
 
-    // 7. 小说页展示导入的卷结构（真实数据落库）
+    // 7. 小说页展示导入内容（真实数据落库；章节可读性由后端往返测试保证）
     await expect(page.getByText("第一卷 风云际会").first()).toBeVisible({
       timeout: 10000,
     });

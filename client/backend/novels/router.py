@@ -265,7 +265,6 @@ async def import_persist(
         # ── 2. Write volumes & chapters ──────────────────────────────
         storage = get_storage()
         for vi, vol in enumerate(body.volumes, start=1):
-            vol_slug = slugify(vol.title)
             vol_data = {
                 "volume": vi,
                 "title": vol.title,
@@ -273,7 +272,6 @@ async def import_persist(
                 "chapters": [],
             }
             for ci, ch in enumerate(vol.chapters, start=1):
-                ch_slug = slugify(ch.title)
                 ch_data = {
                     "volume": vi,
                     "chapter": ci,
@@ -284,7 +282,7 @@ async def import_persist(
                 vol_data["chapters"].append(ch_data)
 
                 # ── 3. Write chapter file ────────────────────────────
-                ch_ref = f"{vol_slug}-{ch_slug}"
+                ch_ref = f"vol-{vi}-ch-{ci}"
                 await storage.write_yaml(
                     root_path, f"chapters/{ch_ref}.yaml", ch_data
                 )
@@ -310,7 +308,7 @@ async def import_persist(
 
             # Write volume file
             await storage.write_yaml(
-                root_path, f"volumes/{vol_slug}.yaml", vol_data
+                root_path, f"volumes/vol-{vi}.yaml", vol_data
             )
 
         # ── 5. Genre detection & synopsis extraction (free-tier) ─────
