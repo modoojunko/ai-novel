@@ -1,0 +1,67 @@
+# docker-compose.yml — AI Novel 一键部署（4 服务）
+#
+#   server-backend  S端 License 服务 (FastAPI)   :19000
+#   server-frontend S端 管理门户 (nginx)         :5173
+#   client-backend  C端 本地后端 (FastAPI)       :8000
+#   client-frontend C端 前端 (nginx)             :5174
+#
+# 数据 bind mount 到 D 盘 .docker-data/，避免占用 C 盘 named volume
+services:
+  server-backend:
+    build: ./server
+    container_name: ai-novel-server-backend
+    environment:
+      DB_DIR: /app/data
+      HOST: 0.0.0.0
+      PORT: "19000"
+      JWT_SECRET: ${JWT_SECRET:-local-license-secret}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-admin123}
+    ports:
+      - "19000:19000"
+    volumes:
+      - d:/code/ai-novel/.docker-data/server:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys; urllib.request.urlopen('http://127.0.0.1:19000/api/auth-page', timeout=5); sys.exit(0)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  server-frontend:
+    build: ./server/frontend
+    container_name: ai-novel-server-frontend
+    depends_on:
+      - server-backend
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+
+  client-backend:
+    build: ./client/backend
+    container_name: ai-novel-client-backend
+    environment:
+      DATA_ROOT: /app/data
+      SERVER_API_BASE: http://server-backend:19000/api
+    depends_on:
+      - server-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - d:/code/ai-novel/.docker-data/client:/app/data
+    restart: unless-stopped
+
+  client-frontend:
+    build: ./client/frontend
+    container_name: ai-novel-client-frontend
+    depends_on:
+      - client-backend
+    ports:
+      - "5174:80"
+    restart: unless-stopped

@@ -51,6 +51,9 @@ client/frontend/dist/
 # Development docs — not tracked in git
 docs/
 
+# Docker compose bind-mount data (D 盘)
+.docker-data/
+
 # Temp files
 tmp_find.txt
 
