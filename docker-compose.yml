@@ -19,7 +19,9 @@ services:
     ports:
       - "19000:19000"
     volumes:
-      - d:/code/ai-novel/.docker-data/server:/app/data
+      # 数据默认落在 compose 目录下 .docker-data/（项目在 D 盘即 D 盘存储），
+      # 可用环境变量 SERVER_DATA_DIR 覆盖（兼容 Linux CI 校验）
+      - ${SERVER_DATA_DIR:-./.docker-data/server}:/app/data
     healthcheck:
       test:
         [
@@ -54,7 +56,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - d:/code/ai-novel/.docker-data/client:/app/data
+      - ${CLIENT_DATA_DIR:-./.docker-data/client}:/app/data
     restart: unless-stopped
 
   client-frontend:
