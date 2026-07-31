@@ -1,16 +1,13 @@
 # backend/auth_local/service.py
 """浏览器 OAuth 登录 + 30 天滚动验证"""
 
-import asyncio
 import base64
 import hashlib
 import json
 import os
 import platform
 import subprocess
-import time
 import urllib.parse
-import webbrowser
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
@@ -23,6 +20,16 @@ def _get_server_api() -> str:
         cfg.get("server_api", "")
         or os.environ.get("SERVER_API_BASE")
         or "https://your-cloudbase-app.com/api"
+    )
+
+
+def _get_public_server_api() -> str:
+    """宿主可访问的 S端 API 地址（前端打开授权页用）；默认与 SERVER_API_BASE 一致"""
+    cfg = get_local_config()
+    return (
+        cfg.get("public_server_api", "")
+        or os.environ.get("PUBLIC_SERVER_API")
+        or _get_server_api()
     )
 
 
@@ -227,40 +234,15 @@ async def browser_auth(silent: bool = False) -> dict:
     device_info = collect_device_profile()
     device_profile = encode_device_profile(device_info)
 
-    # 打开浏览器到 S端 授权页面（附带设备信息）
+    # 构造授权页 URL（宿主可访问地址，由前端在宿主浏览器打开）
     pc_name = cfg.get("pc_name", "")
     auth_url = (
-        f"{_get_server_api()}/auth-page"
+        f"{_get_public_server_api()}/auth-page"
         f"?pc_hash={pc_hash}"
         f"&pc_name={urllib.parse.quote(pc_name)}"
         f"&device_profile={device_profile}"
     )
-    webbrowser.open(auth_url)
-
-    # 轮询等待用户授权
-    start = time.time()
-    while time.time() - start < POLL_TIMEOUT:
-        result = await call_server_api("check-auth", params={"pc_hash": pc_hash})
-        if result.get("code") == 0:
-            data = result["data"]
-            cfg["token"] = data["token"]
-            cfg["username"] = data.get("username", "")
-            cfg["tier"] = data.get("tier", "none")
-            cfg["expires_at"] = data.get("expires_at", "")
-            cfg["last_login_at"] = datetime.now(UTC).isoformat()
-            save_local_config(cfg)
-            await _ensure_local_user(cfg["username"])
-            return {
-                "code": 0,
-                "data": {
-                    "message": "授权成功",
-                    "tier": cfg["tier"],
-                    "token": cfg["token"],
-                },
-            }
-        await asyncio.sleep(POLL_INTERVAL)
-
-    return {"code": -1, "msg": "授权超时，请在浏览器中完成登录"}
+    return {"code": 1, "data": {"auth_url": auth_url, "message": "请在浏览器中完成登录"}}
 
 
 async def verify_session() -> dict:

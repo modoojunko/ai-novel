@@ -42,17 +42,41 @@ export default function LoginPage() {
   const handleBrowserAuth = async () => {
     setLoading(true);
     setError('');
-    const res = await request('/auth/browser-auth', { method: 'POST' });
-    setLoading(false);
-    if (res.code === 0) {
-      if (res.data?.token) localStorage.setItem('auth_token', res.data.token);
-      toast.success('登录成功');
-      // 获取设备激活状态
-      const devStatus = await refreshStatus();
-      if (devStatus) showToast(devStatus);
-      navigate('/novels', { replace: true });
-    } else {
-      setError(res.msg || '登录失败');
+    try {
+      const res = await request('/auth/browser-auth', { method: 'POST' });
+      // 后端返回授权页 URL（宿主浏览器打开），不在容器内开浏览器/轮询
+      if (res.code === 0 && res.data?.token) {
+        // 已有会话
+        localStorage.setItem('auth_token', res.data.token);
+        toast.success('登录成功');
+        const devStatus = await refreshStatus();
+        if (devStatus) showToast(devStatus);
+        navigate('/novels', { replace: true });
+        return;
+      }
+      const authUrl = res.data?.auth_url;
+      if (authUrl) window.open(authUrl, '_blank');
+
+      // 前端轮询 check-auth 直到授权成功
+      let ok = false;
+      for (let i = 0; i < 60; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const check = await request('/auth/check-auth');
+        if (check.code === 0 && check.data?.token) {
+          localStorage.setItem('auth_token', check.data.token);
+          toast.success('登录成功');
+          const devStatus = await refreshStatus();
+          if (devStatus) showToast(devStatus);
+          navigate('/novels', { replace: true });
+          ok = true;
+          break;
+        }
+      }
+      if (!ok) setError('授权超时，请在浏览器中完成登录');
+    } catch {
+      setError('登录失败');
+    } finally {
+      setLoading(false);
     }
   };
 
