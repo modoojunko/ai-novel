@@ -63,3 +63,16 @@ server/.pytest_cache
 server/license.db-shm
 server/license.db-wal
 server/frontend/.vite/
+
+# CDP 调试 Chrome profile 与检查脚本
+.chrome-cdp-profile/
+.tmp-chrome-profile/
+.tmp-chrome-profile2/
+client/frontend/.tmp_*.cjs
+check-live.cjs
+client/frontend/check-live.cjs
+client/frontend/monitor-cdp.cjs
+client/frontend/live-*.png
+client/frontend/shot-*.png
+shot-*.png
+.tmp_check_apikey.py
