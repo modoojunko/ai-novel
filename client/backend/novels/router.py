@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ai_client import get_ai_client
 from auth_local.deps import require_ai_access, require_project_limit
 from auth_local.middleware import get_current_user
-from auth_local.service import get_local_config
 from db import get_db
 from novels.importer import IMPORT_TEMPLATE_MD, parse_file
 from novels.service import (
@@ -83,17 +82,16 @@ async def suggest_meta(
     _limit: bool = Depends(require_project_limit),
 ):
     """Given a story premise, suggest titles, synopsis, genre, and pen name."""
-    cfg = get_local_config()
-    if not cfg.get("api_key"):
-        raise HTTPException(
-            503, "AI service not configured — go to Settings to set your API Key"
-        )
-
     from prompts import load as load_prompt
 
     prompt = load_prompt("suggest_meta").format(premise=body.premise)
 
-    client = await get_ai_client()
+    # 新版 API Key 多配置：get_ai_client() 优先从 api_configs 表读取（解密），
+    # config.json 仅作迁移期兜底；未配置 Key 时 AIClient 构造抛 ValueError。
+    try:
+        client = await get_ai_client()
+    except ValueError as e:
+        raise HTTPException(503, f"AI service not configured — {e}")
 
     try:
         text = await client.chat(
