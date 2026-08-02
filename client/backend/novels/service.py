@@ -101,6 +101,18 @@ async def delete_project(db: AsyncSession, project: Novel):
     await db.commit()
 
 
+async def rename_project(db: AsyncSession, project: Novel, new_name: str) -> Novel:
+    """Rename a novel (display name only — slug/root_path intentionally unchanged).
+
+    The slug stays fixed so the project directory, file keys and any
+    (user_id, slug) uniqueness constraints are untouched.
+    """
+    project.name = new_name
+    await db.commit()
+    await db.refresh(project)
+    return project
+
+
 # ── Serialization ─────────────────────────────────────────────────────────
 
 

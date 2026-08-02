@@ -55,6 +55,7 @@ export const api = {
   get: (path: string) => request(path),
   post: (path: string, body?: unknown) => request(path, { method: 'POST', body: body !== undefined ? JSON.stringify(body) : undefined }),
   put: (path: string, body?: unknown) => request(path, { method: 'PUT', body: body !== undefined ? JSON.stringify(body) : undefined }),
+  patch: (path: string, body?: unknown) => request(path, { method: 'PATCH', body: body !== undefined ? JSON.stringify(body) : undefined }),
   delete: (path: string) => request(path, { method: 'DELETE' }),
   /** Fetch phase status and gate warnings for a novel. */
   fetchPhaseStatus: (novelId: string) =>
@@ -62,6 +63,15 @@ export const api = {
   /** Create a new novel. */
   createNovel: (body: { name: string; source?: string; synopsis?: string; genre_profile?: string }): Promise<{ id: string; name: string }> =>
     request('/novels', { method: 'POST', body: JSON.stringify(body) }),
+  /** Rename a novel (display name only). */
+  renameNovel: (novelId: string, name: string): Promise<{ id: string; name: string }> =>
+    request(`/novels/${novelId}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
+  /** Read story.yaml synopsis. */
+  fetchStory: (novelId: string): Promise<{ synopsis: string }> =>
+    request(`/novels/${novelId}/story`),
+  /** Write story.yaml synopsis (manual backfill). */
+  updateStory: (novelId: string, synopsis: string): Promise<{ ok: boolean; synopsis: string }> =>
+    request(`/novels/${novelId}/story`, { method: 'PUT', body: JSON.stringify({ synopsis }) }),
   /** AI backfill step 1 — three parallel calls: synopsis, world/style, characters */
   aiBackfillStep1: (novelId: string) => request(`/novels/${novelId}/ai-backfill/step1`, { method: 'POST' }),
   /** AI backfill step 2 — generate outline from step1 result */

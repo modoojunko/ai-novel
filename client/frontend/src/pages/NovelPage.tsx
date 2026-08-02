@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "@/lib/api";
+import { toast } from "@/lib/toast";
 import type { Step1Result } from "@/lib/api";
 import type { TreeNode } from "@/components/novel/StructureTree";
 import StructureTree from "@/components/novel/StructureTree";
@@ -17,7 +18,7 @@ import PromptManagementPage from "@/components/novel/PromptManagementPage";
 import ArchivePage from "@/components/novel/ArchivePage";
 import AiReviewStep1 from "@/components/novel/AiReviewStep1";
 import AiReviewStep2 from "@/components/novel/AiReviewStep2";
-import { Globe, Feather, Shield, Anchor, Users, Brain, Book, FileText, Trash2, ClipboardList, BookOpen, AlertTriangle, RefreshCw, Sparkles } from "lucide-react";
+import { Globe, Feather, Shield, Anchor, Users, Brain, Book, FileText, Trash2, ClipboardList, BookOpen, AlertTriangle, RefreshCw, Sparkles, Pencil } from "lucide-react";
 import { useOutline } from "@/hooks/useOutline";
 import OutlineOverview from "@/components/novel/outline/OutlineOverview";
 import OutlineEditor from "@/components/novel/outline/OutlineEditor";
@@ -92,6 +93,9 @@ export default function NovelPage() {
   const [volumes, setVolumes] = useState<any[]>([]);
   const [tab, setTab] = useState<TabId>("settings");
   const [showDelete, setShowDelete] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const nameSavedRef = useRef(false); // 防 Enter 保存后 blur 再触发双保存
   const [viewState, setViewState] = useState<ViewState>({
     tab: "settings",
     panel: "world",
@@ -528,6 +532,25 @@ export default function NovelPage() {
     }
   }, []);
 
+  // 顶栏书名就地编辑：blur/Enter 保存，Esc 取消（savedRef 防双保存竞态）
+  const saveName = useCallback(async () => {
+    const next = nameDraft.trim();
+    if (nameSavedRef.current) {
+      nameSavedRef.current = false;
+      return;
+    }
+    nameSavedRef.current = true;
+    setEditingName(false);
+    if (!next || next === project.name) return;
+    try {
+      const updated = await api.renameNovel(project.id, next);
+      setProject((p: any) => ({ ...p, name: updated.name }));
+      toast.success(`已更名为《${updated.name}》`);
+    } catch {
+      toast.error("改名失败");
+    }
+  }, [nameDraft, project, toast]);
+
   // -----------------------------------------------------------------------
   // Render right panel content
   // -----------------------------------------------------------------------
@@ -815,10 +838,43 @@ case "prompts":
     <div className="flex flex-col h-full">
       {/* ── Top bar ─────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-base-300 bg-base-200/50">
-        {/* Project name */}
-        <h1 className="text-lg font-bold font-serif text-base-content">
-          {project.name}
-        </h1>
+        {/* Project name (inline rename) */}
+        <div className="min-w-0 flex items-center">
+          {editingName ? (
+            <input
+              className="input input-sm input-bordered w-36 font-serif text-base-content"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={saveName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveName();
+                if (e.key === "Escape") {
+                  nameSavedRef.current = true;
+                  setNameDraft(project.name);
+                  setEditingName(false);
+                }
+              }}
+              maxLength={60}
+              autoFocus
+              aria-label="小说书名"
+            />
+          ) : (
+            <button
+              className="group/name flex items-center gap-1.5 max-w-full"
+              onClick={() => {
+                setNameDraft(project.name);
+                setEditingName(true);
+              }}
+              title="点击修改书名"
+              aria-label="点击修改书名"
+            >
+              <h1 className="text-lg font-bold font-serif text-base-content truncate max-w-[30vw] group-hover/name:text-primary transition-colors">
+                {project.name}
+              </h1>
+              <Pencil className="w-3.5 h-3.5 text-base-content/30 group-hover/name:text-base-content/70 transition-colors shrink-0" />
+            </button>
+          )}
+        </div>
 
         {/* Tabs: 设定 / 正文 / 细纲 / 提示词 / 归档 */}
         <div className="flex items-center gap-1">
@@ -883,6 +939,10 @@ case "prompts":
           source={project.source}
           variant={project.source === "import" ? "imported-novel" : "empty-novel"}
           onDismiss={handleDismissOnboarding}
+          onStart={() => {
+            handleDismissOnboarding();
+            handleTabSwitch("settings");
+          }}
         />
       )}
 

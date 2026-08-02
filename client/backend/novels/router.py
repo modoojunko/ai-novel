@@ -14,6 +14,7 @@ from ai_client import get_ai_client
 from auth_local.deps import require_ai_access, require_project_limit
 from auth_local.middleware import get_current_user
 from db import get_db
+from filesystem.storage import get_storage
 from novels.importer import IMPORT_TEMPLATE_MD, parse_file
 from novels.service import (
     build_project_tree,
@@ -23,6 +24,7 @@ from novels.service import (
     get_project_by_slug,
     list_projects,
     novel_to_dict,
+    rename_project,
     slugify,
 )
 
@@ -35,11 +37,19 @@ class CreateProjectBody(BaseModel):
     name: str
     synopsis: str = ""
     genre_profile: str = ""
-    source: str = "ai"
+    source: str = "manual"
 
 
 class SuggestMetaBody(BaseModel):
     premise: str
+
+
+class RenameProjectBody(BaseModel):
+    name: str
+
+
+class UpdateStoryBody(BaseModel):
+    synopsis: str = ""
 
 
 GENRE_CORPUS_NAMES = {
@@ -58,7 +68,6 @@ GENRE_CORPUS_NAMES = {
 async def create(
     body: CreateProjectBody,
     user: dict = Depends(get_current_user),
-    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
     _limit: bool = Depends(require_project_limit),
 ):
@@ -112,9 +121,7 @@ async def suggest_meta(
 @router.get("")
 async def list_all(
     user: dict = Depends(get_current_user),
-    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
-    _limit: bool = Depends(require_project_limit),
 ):
     projects = await list_projects(db, user["id"])
     return [novel_to_dict(p) for p in projects]
@@ -124,9 +131,7 @@ async def list_all(
 async def get_one_by_slug(
     slug: str,
     user: dict = Depends(get_current_user),
-    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
-    _limit: bool = Depends(require_project_limit),
 ):
     project = await get_project_by_slug(db, user["id"], slug)
     if not project:
@@ -138,9 +143,7 @@ async def get_one_by_slug(
 async def get_one(
     project_id: str,
     user: dict = Depends(get_current_user),
-    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
-    _limit: bool = Depends(require_project_limit),
 ):
     project = await get_novel(db, project_id, user["id"])
     if not project:
@@ -148,13 +151,64 @@ async def get_one(
     return novel_to_dict(project)
 
 
+@router.patch("/{project_id}")
+async def rename(
+    project_id: str,
+    body: RenameProjectBody,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rename a novel (display name only — slug/root_path unchanged)."""
+    new_name = body.name.strip()
+    if not new_name:
+        raise HTTPException(422, "书名不能为空")
+    if len(new_name) > 200:
+        raise HTTPException(422, "书名过长")
+    project = await get_novel(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Novel not found")
+    if new_name == project.name:
+        return novel_to_dict(project)  # idempotent same-name save
+    renamed = await rename_project(db, project, new_name)
+    return novel_to_dict(renamed)
+
+
+@router.get("/{project_id}/story")
+async def get_story(
+    project_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Read story.yaml (synopsis etc.) for the synopsis card."""
+    project = await get_novel(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Novel not found")
+    story = await get_storage().read_yaml(project.root_path, "story.yaml") or {}
+    return {"synopsis": story.get("synopsis", "")}
+
+
+@router.put("/{project_id}/story")
+async def update_story(
+    project_id: str,
+    body: UpdateStoryBody,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Write story.yaml.synopsis (manual backfill — never triggers AI prefill)."""
+    project = await get_novel(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Novel not found")
+    story = await get_storage().read_yaml(project.root_path, "story.yaml") or {}
+    story["synopsis"] = body.synopsis.strip()
+    await get_storage().write_yaml(project.root_path, "story.yaml", story)
+    return {"ok": True, "synopsis": body.synopsis.strip()}
+
+
 @router.delete("/{project_id}")
 async def delete(
     project_id: str,
     user: dict = Depends(get_current_user),
-    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
-    _limit: bool = Depends(require_project_limit),
 ):
     project = await get_novel(db, project_id, user["id"])
     if not project:
@@ -168,8 +222,6 @@ async def get_project_tree(
     project_id: str,
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    _: bool = Depends(require_ai_access),
-    _limit: bool = Depends(require_project_limit),
 ):
     project = await get_novel(db, project_id, user["id"])
     if not project:
