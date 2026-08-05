@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { randomUUID } from "crypto";
 import { test, expect, type Page } from "@playwright/test";
 
 // =========================================================================
@@ -28,7 +29,7 @@ let restoreSession: () => void = () => {};
 
 /** 在 S端 注册并登录，返回 S端 签发的 JWT。 */
 async function sRegisterAndLogin() {
-  const name = `e2e_flow_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  const name = `e2e_flow_${Date.now()}_${randomUUID().slice(0, 8)}`;
   const password = "TestPass789!";
   const reg = await fetch(`${S_API}/register`, {
     method: "POST",
