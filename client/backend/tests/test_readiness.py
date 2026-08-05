@@ -252,6 +252,9 @@ class TestConfirmToggle:
 def _create_project_with_chapter(client) -> str:
     """建项目 + 卷 + 章（推进 phase 到 outline，使 phase-status 返回 settings warnings）。"""
     pid = _create_project(client)
+    # PUT /settings/{type} 会把 phase 从 init 推进到 settings（settings/router.py:87）。
+    # 必须先推进，否则 create_volume 的 update_phase("outline") 从 init 直接转 outline 被 engine 拒绝。
+    client.put(f"/api/novels/{pid}/settings/world", json={"details": {"geography": "g"}})
     client.post(f"/api/novels/{pid}/volumes", json={"vol_num": 1, "title": "第一卷"})
     r = client.post(f"/api/novels/{pid}/chapters", json={"volume": 1, "chapter": 1, "title": "第1章"})
     assert r.status_code in (200, 201), r.text
