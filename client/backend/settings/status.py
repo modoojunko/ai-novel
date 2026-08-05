@@ -50,7 +50,7 @@ async def confirm_settings_type(
         ok = await checker(project.root_path)  # type: ignore[operator]
         if not ok:
             raise HTTPException(
-                400, f"该项设定还未填写内容，请先填写后再标记完成"
+                400, "该项设定还未填写内容，请先填写后再标记完成"
             )
 
     data = await get_storage().read_yaml(project.root_path, STATUS_FILE) or {}
