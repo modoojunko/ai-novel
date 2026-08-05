@@ -446,6 +446,8 @@ async def import_persist(
             source="import",
             total_volumes=len(body.volumes),
             total_chapters=sum(len(v.chapters) for v in body.volumes),
+            # 同 create_project：导入即进入 settings 阶段，避免 init 下建卷 500
+            current_phase="settings",
         )
         db.add(project)
         await db.commit()

@@ -63,6 +63,10 @@ async def create_project(
         slug=slug,
         root_path=root_path,
         source=source,
+        # 创建即进入 settings 阶段（六阶段第二阶段）：创建后可直接补设定/建卷建章。
+        # 若不设，phase 保持 init，create_volume/chapter 的 update_phase("outline")
+        # 会被 engine 拒绝（init→outline 非法）→ 500（PRD 3.4 AC-4.3「仍然继续」场景）。
+        current_phase="settings",
     )
     db.add(project)
     await db.commit()
