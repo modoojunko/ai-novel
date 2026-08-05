@@ -123,6 +123,9 @@ def _prime_settings(client, pid: str):
             ]
         },
     )
+    # synopsis / genre（PRD 3.4 判定口径对齐；transition 走软门控不 assert warnings，语义安全）
+    client.put(f"/api/novels/{pid}/story", json={"synopsis": "A test synopsis"})
+    client.put(f"/api/novels/{pid}/settings/genre", json={"genre_id": "fantasy"})
 
 
 def _create_project_and_chapter(client) -> tuple[str, str]:

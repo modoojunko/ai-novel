@@ -11,6 +11,8 @@ interface EmptyStateProps {
   onCreateChapter?: () => void;
   onGoSettings?: () => void;
   settingsComplete?: boolean;
+  /** PRD 3.4 AC-4.3：「仍然继续」旁路——作者选择继续创作后不再提示设定未完成 */
+  bypass?: boolean;
 }
 
 export default function EmptyState({
@@ -18,8 +20,9 @@ export default function EmptyState({
   onCreateChapter,
   onGoSettings,
   settingsComplete = true,
+  bypass = false,
 }: EmptyStateProps) {
-  if (!settingsComplete) {
+  if (!settingsComplete && !bypass) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-6 px-4">
         <ClipboardList className="w-16 h-16 opacity-30 text-base-content/40" />

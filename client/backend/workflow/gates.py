@@ -26,36 +26,29 @@ class GateResult:
 async def gate_settings_complete(root_path: str) -> GateResult:
     """Check if settings are complete enough to start outlining.
 
+    Product decision (2026-08-02): completion = the author clicked "完成设定"
+    (ConfirmToggle) for the item AND its content passed the non-empty check
+    (enforced in PUT /settings/status/{type}). This gate therefore reads the
+    confirmation markers (settings-status.yaml); readiness content checks are
+    used only as supplementary Chinese guidance.
+
     Soft gate — warns but does not block.
     """
-    missing = []
-    world = await get_storage().read_yaml(root_path, "settings/world-setting.yaml")
-    style = await get_storage().read_yaml(root_path, "settings/writing-style.yaml")
-    hooks = await get_storage().read_yaml(root_path, "settings/hooks.yaml")
+    from workflow.readiness import READINESS_KEYS, compute_readiness
 
-    filled_fields = sum(1 for v in world.values() if v)
-    total_fields = len(world) if world else 0
-
-    if filled_fields < 5:
-        missing.append(
-            f"world-setting: need at least 5 fields filled "
-            f"(currently {filled_fields}, total {total_fields})"
-        )
-    if not style.get("role"):
-        missing.append("writing-style: role not set")
-    hook_list = hooks.get("hooks", [])
-    if len(hook_list) < 3:
-        missing.append(
-            f"hooks: need at least 3 hooks (currently {len(hook_list)})"
-        )
-
-    if not missing:
+    status = await get_storage().read_yaml(root_path, "settings/settings-status.yaml") or {}
+    unconfirmed = [k for k in READINESS_KEYS if not bool(status.get(k))]
+    if not unconfirmed:
         return GateResult(valid=True, warnings=[])
 
-    # Soft gate: still valid=True, just return warnings
+    readiness = await compute_readiness(root_path)
+    labels = {m["key"]: m["label"] for m in readiness["missing"]}
+    warnings = [f"尚未完成设定: {labels.get(k, k)}" for k in unconfirmed]
+    if readiness["missing"]:
+        warnings.append(readiness["warning"])
     return GateResult(
         valid=True,
-        warnings=missing,
+        warnings=warnings,
         hard_block=False,
     )
 

@@ -2,16 +2,22 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { BookOpen, Loader2 } from "lucide-react";
+import ConfirmToggle from "./settings/ConfirmToggle";
 
 interface SynopsisCardProps {
   projectId: string;
+  /** PRD 3.4：简介完成确认状态（settings-status.yaml.synopsis） */
+  confirmed?: boolean;
+  /** PRD 3.4：点「完成设定」回调（PUT /settings/status/synopsis） */
+  onConfirm?: () => void;
 }
 
 /**
  * 故事简介补录卡（PRD 3.3）——settings 面板全局常驻（跨所有左侧子节点可见）。
  * 手动填写 synopsis 并保存到 story.yaml，不触发任何 AI 调用。
+ * PRD 3.4：提供「完成设定」确认按钮（与其它设定项口径一致）。
  */
-export default function SynopsisCard({ projectId }: SynopsisCardProps) {
+export default function SynopsisCard({ projectId, confirmed, onConfirm }: SynopsisCardProps) {
   const [synopsis, setSynopsis] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -49,7 +55,10 @@ export default function SynopsisCard({ projectId }: SynopsisCardProps) {
   }, [projectId, synopsis, saving]);
 
   return (
-    <div className="bg-base-200/40 border border-base-300/60 rounded-xl p-4 mb-5">
+    <div
+      id="synopsis-card"
+      className="bg-base-200/40 border border-base-300/60 rounded-xl p-4 mb-5"
+    >
       <div className="flex items-center gap-2 mb-2">
         <BookOpen className="w-4 h-4 text-primary shrink-0" />
         <h3 className="text-sm font-semibold text-base-content">故事简介</h3>
@@ -71,14 +80,19 @@ export default function SynopsisCard({ projectId }: SynopsisCardProps) {
         <p className="text-xs text-base-content/50">
           简介会作为后续设定和写作的依据
         </p>
-        <button
-          className="btn btn-primary btn-sm"
-          onClick={save}
-          disabled={saving}
-        >
-          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-          保存简介
-        </button>
+        <div className="flex items-center gap-2">
+          {onConfirm && (
+            <ConfirmToggle confirmed={!!confirmed} onToggle={onConfirm} />
+          )}
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={save}
+            disabled={saving}
+          >
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+            保存简介
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -165,8 +165,8 @@ app.include_router(auth_local_router, prefix="/api/auth", tags=["auth"])
 # 业务路由
 app.include_router(ai_router)
 app.include_router(novels_router)
+app.include_router(settings_status_router)  # 先注册：GET /settings/status 不能被 /{type} 抢先匹配
 app.include_router(settings_router)
-app.include_router(settings_status_router)
 app.include_router(settings_ai_router)
 app.include_router(chapters_router)
 app.include_router(prompt_router)

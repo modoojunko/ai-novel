@@ -5,10 +5,11 @@ from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
 from novels.service import get_novel
+from workflow.readiness import READINESS_CHECKERS, READINESS_KEYS
 
 router = APIRouter(prefix="/api/novels/{project_id}/settings", tags=["settings"])
 
-VALID_TYPES = {"world", "style", "anti-ai", "hooks", "characters", "ai-model", "genre"}
+VALID_TYPES = {"world", "style", "anti-ai", "hooks", "characters", "ai-model", "genre", "synopsis"}
 STATUS_FILE = "settings/settings-status.yaml"
 
 
@@ -41,6 +42,16 @@ async def confirm_settings_type(
     project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
+
+    # 产品决策：点「完成设定」时判定该项内容是否为空——为空则拒绝确认并提示。
+    # ai-model 不参与判定（模型配置不是创作设定），跳过内容校验。
+    if type in READINESS_KEYS:
+        checker = next(c for k, _l, _j, c in READINESS_CHECKERS if k == type)
+        ok = await checker(project.root_path)  # type: ignore[operator]
+        if not ok:
+            raise HTTPException(
+                400, f"该项设定还未填写内容，请先填写后再标记完成"
+            )
 
     data = await get_storage().read_yaml(project.root_path, STATUS_FILE) or {}
     data[type] = True

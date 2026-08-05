@@ -1,0 +1,296 @@
+"""
+Tests for settings readiness (PRD 3.4):
+- GET /api/novels/{id}/readiness — 7-item content check, Chinese missing labels
+- PUT /api/novels/{id}/settings/status/{type} — judges content on "完成设定" click
+
+Usage:
+    cd client/backend
+    python -m pytest tests/test_readiness.py -v
+"""
+
+import asyncio
+import os
+import tempfile
+import uuid
+
+import pytest
+from fastapi.testclient import TestClient
+
+# ── Test environment ─────────────────────────────────────────────────────
+_tmp_db = tempfile.NamedTemporaryFile(suffix="_test_readiness.db", delete=False)  # noqa: SIM115
+_tmp_db.close()
+_tmp_data_root = tempfile.mkdtemp(prefix="test_readiness_")
+
+os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_tmp_db.name}"
+os.environ["DATA_ROOT"] = _tmp_data_root
+
+from auth_local.deps import require_ai_access, require_project_limit
+from auth_local.middleware import get_current_user
+from db import Base, async_session, engine, get_db
+from main import app
+from models.user import User
+
+
+def _run_async(coro):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
+
+async def _create_tables():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
+async def _create_user(user_id: str) -> str:
+    async with async_session() as session:
+        session.add(
+            User(
+                id=user_id,
+                email=f"{user_id}@test.com",
+                password_hash="*",
+                display_name=user_id,
+            )
+        )
+        await session.commit()
+    return user_id
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _setup_db():
+    _run_async(_create_tables())
+    _run_async(_create_user("rduser"))
+    yield
+
+
+async def _override_get_db():
+    async with async_session() as session:
+        yield session
+
+
+async def _override_current_user():
+    return {"id": "rduser"}
+
+
+@pytest.fixture(autouse=True)
+def _setup_overrides():
+    app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[get_current_user] = _override_current_user
+    app.dependency_overrides[require_ai_access] = lambda: True
+    app.dependency_overrides[require_project_limit] = lambda: True
+    yield
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client():
+    with TestClient(app) as c:
+        yield c
+
+
+def _create_project(client) -> str:
+    name = f"rd-test-{uuid.uuid4().hex[:6]}"
+    r = client.post("/api/novels", json={"name": name})
+    assert r.status_code in (200, 201), f"Create project failed: {r.text}"
+    return r.json()["id"]
+
+
+def _fill_world(client, pid: str, filled: int = 4):
+    details = {
+        "geography": "g", "politics": "p", "culture": "c", "history": "h",
+        "rules": "r", "physics": "f", "biology": "b", "sociology": "s",
+    }
+    for i, k in enumerate(details):
+        if i >= filled:
+            details[k] = ""
+    client.put(f"/api/novels/{pid}/settings/world", json={"details": details})
+
+
+# ── GET /readiness ────────────────────────────────────────────────────────
+
+
+class TestReadiness:
+    def test_new_project_missing_defaults(self, client):
+        """新项目：模板默认值算内容（style/anti-ai 通过），空项进入 missing。"""
+        pid = _create_project(client)
+        r = client.get(f"/api/novels/{pid}/readiness")
+        assert r.status_code == 200
+        data = r.json()
+        keys = {m["key"] for m in data["missing"]}
+        # synopsis/genre/world/hooks/characters 为空 → missing；style/anti-ai 模板有默认 → 通过
+        assert keys == {"synopsis", "genre", "world", "hooks", "characters"}
+        assert not data["complete"]
+        assert "还差" in data["warning"]
+        # 中文 label + jump
+        labels = {m["label"] for m in data["missing"]}
+        assert labels == {"故事简介", "题材类型", "世界设定", "伏笔管理", "角色管理"}
+        for m in data["missing"]:
+            assert m["jump"] in {"synopsis", "genre", "world", "hooks", "characters"}
+
+    def test_all_filled_complete(self, client):
+        pid = _create_project(client)
+        client.put(f"/api/novels/{pid}/story", json={"synopsis": "一个关于稻田的故事"})
+        client.put(f"/api/novels/{pid}/settings/genre", json={"genre_id": "urban-romance"})
+        _fill_world(client, pid, filled=4)
+        client.put(f"/api/novels/{pid}/settings/hooks", json={"hooks": [{"id": "h1", "description": "一个钩子"}]})
+        client.put(f"/api/novels/{pid}/settings/character/张三", json={"name": "张三"})
+        # style/anti-ai 模板默认已通过
+        r = client.get(f"/api/novels/{pid}/readiness")
+        data = r.json()
+        assert data["complete"] is True, data
+        assert data["missing"] == []
+        assert data["warning"] == ""
+
+    def test_world_details_threshold(self, client):
+        """world 判定回归：details 子字段 <4 不通过（修复顶层计数 bug）。"""
+        pid = _create_project(client)
+        _fill_world(client, pid, filled=3)
+        r = client.get(f"/api/novels/{pid}/readiness")
+        keys = {m["key"] for m in r.json()["missing"]}
+        assert "world" in keys
+
+        _fill_world(client, pid, filled=4)
+        r = client.get(f"/api/novels/{pid}/readiness")
+        keys = {m["key"] for m in r.json()["missing"]}
+        assert "world" not in keys
+
+    def test_ai_model_not_judged(self, client):
+        pid = _create_project(client)
+        r = client.get(f"/api/novels/{pid}/readiness")
+        assert "ai-model" not in {m["key"] for m in r.json()["missing"]}
+
+    def test_not_found_404(self, client):
+        assert client.get("/api/novels/no-such/readiness").status_code == 404
+
+
+# ── PUT /settings/status/{type} — ConfirmToggle content judgement ─────────
+
+
+class TestConfirmToggle:
+    def test_confirm_empty_item_rejected(self, client):
+        pid = _create_project(client)
+        # world 为空 → 点完成设定 → 400 + 中文提示
+        r = client.put(f"/api/novels/{pid}/settings/status/world")
+        assert r.status_code == 400
+        assert "还未填写" in r.json()["detail"]
+        # 未被标记完成
+        status = client.get(f"/api/novels/{pid}/settings/status").json()
+        assert status["world"] is False
+
+    def test_confirm_filled_item_accepted(self, client):
+        pid = _create_project(client)
+        _fill_world(client, pid, filled=4)
+        r = client.put(f"/api/novels/{pid}/settings/status/world")
+        assert r.status_code == 200, r.text
+        assert r.json()["confirmed"] is True
+        status = client.get(f"/api/novels/{pid}/settings/status").json()
+        assert status["world"] is True
+
+    def test_ai_model_confirm_no_content_check(self, client):
+        """ai-model 不参与内容判定 → 无条件可确认。"""
+        pid = _create_project(client)
+        r = client.put(f"/api/novels/{pid}/settings/status/ai-model")
+        assert r.status_code == 200
+
+    def test_style_default_passes(self, client):
+        """style.role 模板默认值算内容 → 点完成通过。"""
+        pid = _create_project(client)
+        r = client.put(f"/api/novels/{pid}/settings/status/style")
+        assert r.status_code == 200, r.text
+
+    def test_invalid_type_400(self, client):
+        pid = _create_project(client)
+        r = client.put(f"/api/novels/{pid}/settings/status/bogus")
+        assert r.status_code == 400
+
+    def test_confirm_synopsis(self, client):
+        """synopsis 纳入确认：空简介 → 400；保存简介后 → 可确认。"""
+        pid = _create_project(client)
+        r = client.put(f"/api/novels/{pid}/settings/status/synopsis")
+        assert r.status_code == 400
+        assert "还未填写" in r.json()["detail"]
+        client.put(f"/api/novels/{pid}/story", json={"synopsis": "一个关于稻田的故事"})
+        r = client.put(f"/api/novels/{pid}/settings/status/synopsis")
+        assert r.status_code == 200, r.text
+        assert r.json()["confirmed"] is True
+
+    def test_confirm_genre(self, client):
+        pid = _create_project(client)
+        r = client.put(f"/api/novels/{pid}/settings/status/genre")
+        assert r.status_code == 400
+        client.put(f"/api/novels/{pid}/settings/genre", json={"genre_id": "urban-romance"})
+        r = client.put(f"/api/novels/{pid}/settings/status/genre")
+        assert r.status_code == 200, r.text
+        assert r.json()["confirmed"] is True
+
+    def test_confirm_characters(self, client):
+        pid = _create_project(client)
+        r = client.put(f"/api/novels/{pid}/settings/status/characters")
+        assert r.status_code == 400
+        client.put(f"/api/novels/{pid}/settings/character/张三", json={"name": "张三"})
+        r = client.put(f"/api/novels/{pid}/settings/status/characters")
+        assert r.status_code == 200, r.text
+        assert r.json()["confirmed"] is True
+
+    def test_confirm_hooks(self, client):
+        """模板空钩子（id/description 空）不算内容 → 400；有效钩子后可确认。"""
+        pid = _create_project(client)
+        r = client.put(f"/api/novels/{pid}/settings/status/hooks")
+        assert r.status_code == 400
+        client.put(f"/api/novels/{pid}/settings/hooks", json={"hooks": [{"id": "h1", "description": "一个钩子"}]})
+        r = client.put(f"/api/novels/{pid}/settings/status/hooks")
+        assert r.status_code == 200, r.text
+        assert r.json()["confirmed"] is True
+
+
+# ── Gate — settings 完成判定联动（PRD 3.4 AC-4.1）──────────────────────
+
+
+def _create_project_with_chapter(client) -> str:
+    """建项目 + 卷 + 章（推进 phase 到 outline，使 phase-status 返回 settings warnings）。"""
+    pid = _create_project(client)
+    client.post(f"/api/novels/{pid}/volumes", json={"vol_num": 1, "title": "第一卷"})
+    r = client.post(f"/api/novels/{pid}/chapters", json={"volume": 1, "chapter": 1, "title": "第1章"})
+    assert r.status_code in (200, 201), r.text
+    return pid
+
+
+def _settings_warnings(client, pid: str) -> list[str]:
+    r = client.get(f"/api/novels/{pid}/workflow/phase-status")
+    assert r.status_code == 200, r.text
+    return [w["message"] for w in r.json()["warnings"] if w["phase"] == "settings"]
+
+
+class TestGateSettingsWarnings:
+    def test_synopsis_unconfirmed_warns(self, client):
+        """未确认简介 → settings 警告含「故事简介」。"""
+        pid = _create_project_with_chapter(client)
+        msgs = _settings_warnings(client, pid)
+        assert any("故事简介" in m for m in msgs), msgs
+
+    def test_synopsis_confirmed_removes_warning(self, client):
+        """保存简介并确认 → settings 警告不再含「故事简介」。"""
+        pid = _create_project_with_chapter(client)
+        client.put(f"/api/novels/{pid}/story", json={"synopsis": "一个关于稻田的故事"})
+        r = client.put(f"/api/novels/{pid}/settings/status/synopsis")
+        assert r.status_code == 200, r.text
+        msgs = _settings_warnings(client, pid)
+        assert not any("故事简介" in m for m in msgs), msgs
+
+    def test_all_complete_no_settings_warning(self, client):
+        """7 项内容填满 + 全部确认 → settings 无警告（AC-4.1）。"""
+        pid = _create_project_with_chapter(client)
+        client.put(f"/api/novels/{pid}/story", json={"synopsis": "一个关于稻田的故事"})
+        client.put(f"/api/novels/{pid}/settings/genre", json={"genre_id": "urban-romance"})
+        _fill_world(client, pid, filled=4)
+        client.put(f"/api/novels/{pid}/settings/hooks", json={"hooks": [{"id": "h1", "description": "一个钩子"}]})
+        client.put(f"/api/novels/{pid}/settings/character/张三", json={"name": "张三"})
+        # style/anti-ai 模板默认已通过内容判定
+        for t in ["synopsis", "genre", "world", "style", "anti-ai", "hooks", "characters"]:
+            r = client.put(f"/api/novels/{pid}/settings/status/{t}")
+            assert r.status_code == 200, f"confirm {t} failed: {r.text}"
+        msgs = _settings_warnings(client, pid)
+        assert msgs == [], msgs

@@ -23,15 +23,19 @@ interface SettingsFormFieldProps {
   settingKey: string;
   confirmed?: boolean;
   onConfirm?: () => void;
+  /** PRD 3.4：简介卡的完成确认状态（settings-status.yaml.synopsis） */
+  synopsisConfirmed?: boolean;
+  /** PRD 3.4：简介卡点「完成设定」回调 */
+  onSynopsisConfirm?: () => void;
 }
 
-export default function SettingsFormField({ projectId, settingKey, confirmed, onConfirm }: SettingsFormFieldProps) {
+export default function SettingsFormField({ projectId, settingKey, confirmed, onConfirm, synopsisConfirmed, onSynopsisConfirm }: SettingsFormFieldProps) {
   const title = TITLE_MAP[settingKey] || settingKey;
 
   if (settingKey === "characters") {
     return (
       <div className="p-6">
-        <SynopsisCard projectId={projectId} />
+        <SynopsisCard projectId={projectId} confirmed={synopsisConfirmed} onConfirm={onSynopsisConfirm} />
         <CharacterManager projectId={projectId} confirmed={confirmed} onConfirm={onConfirm} />
       </div>
     );
@@ -41,7 +45,7 @@ export default function SettingsFormField({ projectId, settingKey, confirmed, on
     <div className="p-6">
       {/* 简介补录卡 —— 全局常驻（跨左侧子节点可见） */}
       <div className="max-w-3xl mx-auto">
-        <SynopsisCard projectId={projectId} />
+        <SynopsisCard projectId={projectId} confirmed={synopsisConfirmed} onConfirm={onSynopsisConfirm} />
       </div>
 
       <div className="flex items-center justify-between mb-5 max-w-3xl mx-auto">

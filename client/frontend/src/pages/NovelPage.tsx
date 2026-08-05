@@ -105,6 +105,12 @@ export default function NovelPage() {
   const { settingsStatus, allConfirmed, isNew, confirmSetting, loading: onboardingLoading } =
     useOnboarding(project?.id, volumes);
 
+  // PRD 3.4 AC-4.3：「仍然继续」会话内旁路——点创建卷/章后不再提示设定未完成
+  const [settingsBypass, setSettingsBypass] = useState(false);
+  useEffect(() => {
+    setSettingsBypass(false);
+  }, [id]);
+
   // ── AI Review flow (for imported projects on paid tier) ────────────────
   const [userTier, setUserTier] = useState<string | null>(null);
   const [aiReviewStep, setAiReviewStep] = useState<1 | 2 | null>(null);
@@ -139,6 +145,15 @@ export default function NovelPage() {
 
   const { phaseStatus, warnings, loading: phaseStatusLoading, error: phaseStatusError, refetch: refetchPhaseStatus } =
     useNovelState(id);
+
+  // PRD 3.4：确认设定成功 → 刷新 phase-status（gate 重算 → banner/EmptyState 即时更新）
+  const handleConfirmSetting = useCallback(
+    async (type: string) => {
+      const ok = await confirmSetting(type);
+      if (ok) refetchPhaseStatus();
+    },
+    [confirmSetting, refetchPhaseStatus],
+  );
 
   const [bannerDismissed, setBannerDismissed] = useState(() => {
     if (!id) return false;
@@ -449,6 +464,7 @@ export default function NovelPage() {
 
   const handleCreateVolume = useCallback(async () => {
     if (!project?.id) return;
+    setSettingsBypass(true); // AC-4.3「仍然继续」：作者选择创建卷即旁路设定提示
     try {
       const volNum = volumes.length + 1;
       const result = await api.post(`/novels/${project.id}/volumes`, {
@@ -478,6 +494,7 @@ export default function NovelPage() {
 
   const handleCreateChapter = useCallback(async () => {
     if (!project?.id) return;
+    setSettingsBypass(true); // AC-4.3「仍然继续」：作者选择写第一章即旁路设定提示
     try {
       // If no volumes exist, create one first
       let targetVol = volumes[0];
@@ -563,7 +580,9 @@ export default function NovelPage() {
             projectId={project.id}
             settingKey={viewState.panel}
             confirmed={settingsStatus?.[viewState.panel] ?? false}
-            onConfirm={() => confirmSetting(viewState.panel)}
+            onConfirm={() => handleConfirmSetting(viewState.panel)}
+            synopsisConfirmed={settingsStatus?.synopsis ?? false}
+            onSynopsisConfirm={() => handleConfirmSetting("synopsis")}
           />
         );
       case "writing":
@@ -575,6 +594,7 @@ export default function NovelPage() {
                 onCreateChapter={handleCreateChapter}
                 onGoSettings={handleGoSettings}
                 settingsComplete={allConfirmed}
+                bypass={settingsBypass}
               />
             );
           case "volume":
@@ -646,6 +666,7 @@ export default function NovelPage() {
                 onCreateChapter={handleCreateChapter}
                 onGoSettings={handleGoSettings}
                 settingsComplete={allConfirmed}
+                bypass={settingsBypass}
               />
             );
         }
@@ -782,9 +803,9 @@ case "prompts":
           />
         );
       default:
-        return <EmptyState settingsComplete={allConfirmed} />;
+        return <EmptyState settingsComplete={allConfirmed} bypass={settingsBypass} />;
     }
-  }, [viewState, outline, project, settingsStatus, confirmSetting, allConfirmed, handleCreateVolume, handleCreateChapter, handleGoSettings, setViewState, loadVolumes, handleAIStateChange, aiState, handleContinue, handlePolish, handleExpand, captureNow, setTab]);
+  }, [viewState, outline, project, settingsStatus, allConfirmed, handleConfirmSetting, settingsBypass, handleCreateVolume, handleCreateChapter, handleGoSettings, setViewState, loadVolumes, handleAIStateChange, aiState, handleContinue, handlePolish, handleExpand, captureNow, setTab]);
 
   // -----------------------------------------------------------------------
   // Loading state
@@ -929,6 +950,19 @@ case "prompts":
         <GateBanner
           warnings={warnings}
           onDismiss={handleDismissBanner}
+          onJump={(key) => {
+            if (key === "synopsis") {
+              handleTabSwitch("settings");
+              // 简介卡在 settings 各面板顶部全局常驻，滚动到它并高亮
+              setTimeout(() => {
+                const el = document.getElementById("synopsis-card");
+                el?.scrollIntoView({ behavior: "smooth", block: "center" });
+              }, 120);
+            } else {
+              handleTabSwitch("settings");
+              setViewState({ tab: "settings", panel: key });
+            }
+          }}
         />
       )}
 

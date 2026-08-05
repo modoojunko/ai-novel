@@ -27,6 +27,7 @@ from novels.service import (
     rename_project,
     slugify,
 )
+from workflow.readiness import compute_readiness
 
 router = APIRouter(prefix="/api/novels", tags=["novels"])
 
@@ -228,6 +229,19 @@ async def get_project_tree(
         raise HTTPException(404, "Novel not found")
     tree = await build_project_tree(project_id, project.root_path)
     return tree
+
+
+@router.get("/{project_id}/readiness")
+async def get_readiness(
+    project_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """7 项内容就绪判定（PRD 3.4）：complete / missing[{key,label,jump}] / warning 中文。"""
+    project = await get_novel(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Novel not found")
+    return await compute_readiness(project.root_path)
 
 
 @router.get("/{project_id}/export")
