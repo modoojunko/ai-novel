@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 import os
 from pathlib import Path
 
@@ -43,3 +44,9 @@ class Settings:
 
 
 settings = Settings()  # 模块级单例，全局引用 from app.config import settings
+
+# #5 生产安全：检测弱默认密钥并告警（开箱即跑保留默认值，但生产须显式设置强随机值）
+if settings.JWT_SECRET == "local-license-secret" or settings.ADMIN_TOKEN == "admin123":
+    logging.getLogger(__name__).warning(
+        "检测到弱默认密钥（JWT_SECRET/ADMIN_TOKEN）——生产环境请通过环境变量设置强随机值"
+    )
