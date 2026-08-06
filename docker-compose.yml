@@ -1,0 +1,77 @@
+# docker-compose.yml — AI Novel 一键部署（4 服务）
+#
+#   server-backend  S端 License 服务 (FastAPI)   :${SERVER_HOST_PORT:-19000}
+#   server-frontend S端 管理门户 (nginx)         :${SERVER_WEB_HOST_PORT:-5173}
+#   client-backend  C端 本地后端 (FastAPI)       :${CLIENT_HOST_PORT:-8000}
+#   client-frontend C端 前端 (nginx)             :${CLIENT_WEB_HOST_PORT:-5174}
+#
+# 全部部署参数可用 .env 或环境变量覆盖，便于在各类机器上部署：
+#   SERVER_HOST_PORT / SERVER_WEB_HOST_PORT / CLIENT_HOST_PORT / CLIENT_WEB_HOST_PORT
+#                                       宿主端口映射（跨机器冲突时改这里即可）
+#   JWT_SECRET / ADMIN_TOKEN               密钥（生产务必设置强密钥）
+#   SERVER_API_BASE                       C端 后端连 S端 的地址
+#   SERVER_DATA_DIR / CLIENT_DATA_DIR      数据目录（默认 compose 下 .docker-data/）
+#
+# 容器内端口固定（server-backend:19000 / client-backend:8000 / nginx:80），
+# 是服务间与 nginx 代理的内部契约，不可配；仅宿主端口映射可变。
+services:
+  server-backend:
+    build: ./server
+    container_name: ai-novel-server-backend
+    environment:
+      DB_DIR: /app/data
+      HOST: 0.0.0.0
+      PORT: "19000"
+      JWT_SECRET: "${JWT_SECRET:-local-license-secret}"
+      ADMIN_TOKEN: "${ADMIN_TOKEN:-admin123}"
+    ports:
+      - "${SERVER_HOST_PORT:-19000}:19000"
+    volumes:
+      - ${SERVER_DATA_DIR:-./.docker-data/server}:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys; urllib.request.urlopen('http://127.0.0.1:19000/api/auth-page', timeout=5); sys.exit(0)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  server-frontend:
+    build: ./server/frontend
+    container_name: ai-novel-server-frontend
+    depends_on:
+      - server-backend
+    ports:
+      - "${SERVER_WEB_HOST_PORT:-5173}:80"
+    restart: unless-stopped
+
+  client-backend:
+    build: ./client/backend
+    container_name: ai-novel-client-backend
+    environment:
+      DATA_ROOT: /app/data
+      SERVER_API_BASE: "${SERVER_API_BASE:-http://server-backend:19000/api}"
+      # 宿主可访问的 S端 地址（前端打开 OAuth 授权页用；容器内网名宿主解析不了）
+      PUBLIC_SERVER_API: "${PUBLIC_SERVER_API:-http://localhost:${SERVER_HOST_PORT:-19000}/api}"
+    depends_on:
+      - server-backend
+    ports:
+      - "${CLIENT_HOST_PORT:-8000}:8000"
+    volumes:
+      - ${CLIENT_DATA_DIR:-./.docker-data/client}:/app/data
+    restart: unless-stopped
+
+  client-frontend:
+    build: ./client/frontend
+    container_name: ai-novel-client-frontend
+    depends_on:
+      - client-backend
+    ports:
+      - "${CLIENT_WEB_HOST_PORT:-5174}:80"
+    restart: unless-stopped

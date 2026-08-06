@@ -1,4 +1,3 @@
-import os
 import re
 import uuid
 
@@ -11,7 +10,9 @@ from models.project import Novel
 
 
 def slugify(name: str) -> str:
-    slug = re.sub(r"[^\w\-]", "-", name.lower()).strip("-")
+    # 保留中文（一-鿿）与 word 字符，其余替换为 '-'。
+    # 若不含中文，全中文名会 slug 成 "untitled"，导致不同项目共享同一 root_path 目录、数据串。
+    slug = re.sub(r"[^\w一-鿿\-]", "-", name.lower()).strip("-")
     return slug or "untitled"
 
 
@@ -64,6 +65,10 @@ async def create_project(
         slug=slug,
         root_path=root_path,
         source=source,
+        # 创建即进入 settings 阶段（六阶段第二阶段）：创建后可直接补设定/建卷建章。
+        # 若不设，phase 保持 init，create_volume/chapter 的 update_phase("outline")
+        # 会被 engine 拒绝（init→outline 非法）→ 500（PRD 3.4 AC-4.3「仍然继续」场景）。
+        current_phase="settings",
     )
     db.add(project)
     await db.commit()
@@ -72,19 +77,15 @@ async def create_project(
 
 
 async def list_projects(db: AsyncSession, user_id: str) -> list[Novel]:
-    stmt = select(Novel).where(Novel.status != "deleted")
-    if not os.environ.get("DEV_MODE"):
-        stmt = stmt.where(Novel.user_id == user_id)
+    stmt = select(Novel).where(Novel.status != "deleted", Novel.user_id == user_id)
     result = await db.execute(stmt.order_by(Novel.updated_at.desc()))
     return list(result.scalars().all())
 
 
 async def get_novel(
-    db: AsyncSession, project_id: str, user_id: str | None = None
+    db: AsyncSession, project_id: str, user_id: str
 ) -> Novel | None:
-    stmt = select(Novel).where(Novel.id == project_id)
-    if user_id and not os.environ.get("DEV_MODE"):
-        stmt = stmt.where(Novel.user_id == user_id)
+    stmt = select(Novel).where(Novel.id == project_id, Novel.user_id == user_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -95,9 +96,8 @@ async def get_project_by_slug(
     stmt = select(Novel).where(
         Novel.slug == slug,
         Novel.status != "deleted",
+        Novel.user_id == user_id,
     )
-    if not os.environ.get("DEV_MODE"):
-        stmt = stmt.where(Novel.user_id == user_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -105,6 +105,18 @@ async def get_project_by_slug(
 async def delete_project(db: AsyncSession, project: Novel):
     project.status = "deleted"
     await db.commit()
+
+
+async def rename_project(db: AsyncSession, project: Novel, new_name: str) -> Novel:
+    """Rename a novel (display name only — slug/root_path intentionally unchanged).
+
+    The slug stays fixed so the project directory, file keys and any
+    (user_id, slug) uniqueness constraints are untouched.
+    """
+    project.name = new_name
+    await db.commit()
+    await db.refresh(project)
+    return project
 
 
 # ── Serialization ─────────────────────────────────────────────────────────

@@ -52,9 +52,9 @@ def on_startup():
     logger = logging.getLogger("app")
     logger.info("event=app.start db_path=%s", settings.DB_PATH)
 
-    logger.info("event=app.migration action=create_all")
-    Base.metadata.create_all(bind=engine)
-
+    # 先跑 alembic 迁移（空库上正常建表并打标 alembic_version），
+    # 再 create_all 兜底（checkfirst 默认跳过已存在表）——避免 fresh DB 上
+    # create_all 先建表导致 alembic 迁移的 create_table 冲突。
     alembic_dir = Path(__file__).parent.parent / "alembic"
     if alembic_dir.exists():
         try:
@@ -72,6 +72,9 @@ def on_startup():
                 )
         except Exception as e:
             logger.warning("event=app.migration action=alembic_check error=%s", e)
+
+    logger.info("event=app.migration action=create_all")
+    Base.metadata.create_all(bind=engine)
 
     logger.info("event=app.started version=%s db_path=%s", "2.0.0", settings.DB_PATH)
 

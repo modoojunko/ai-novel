@@ -22,7 +22,6 @@ from auth_local.router import router as auth_local_router
 from chapters.router import router as chapters_router
 from chapters.versions import router as chapters_versions_router
 from db import Base, async_session, engine
-from genres.router import router as genres_router
 from models.user import User
 from novels.router import ai_router
 from novels.router import router as novels_router
@@ -79,6 +78,9 @@ async def lifespan(app: FastAPI):
         pass
 
     # ── Migrate config.json → User table ────────────────────────────
+    # 身份识别统一用 S端 用户标识：users.username 是 S端 主键，C端 User.id /
+    # projects.user_id 等均取该标识（即 user_id = S端 用户名），不引入第二套
+    # UUID 用户标识。root_path 按 slug 组织、与 user_id 无关，故无身份迁移需求。
     try:
         cfg_path = os.path.join(os.environ.get("DATA_ROOT", "./data"), "config.json")
         if os.path.exists(cfg_path):
@@ -111,7 +113,7 @@ async def lifespan(app: FastAPI):
                                 from datetime import date
 
                                 user.subscription_expires_at = date.fromisoformat(
-                                    cfg["expires_at"]
+                                    cfg["expires_at"][:10]
                                 )
                                 changed = True
                             except ValueError:
@@ -126,10 +128,9 @@ async def lifespan(app: FastAPI):
                                 pass
                         if changed:
                             await session.commit()
-            # Clear config.json after migration
-            with open(cfg_path, "w", encoding="utf-8") as f:
-                json.dump({}, f)
-    except Exception as e:  # noqa: BLE001
+            # 不再清空 config.json —— 它是 C端 OAuth 会话的落盘处
+            # （token / username / pc_hash），清空会导致每次启动都要重新登录。
+    except Exception as e:
         import logging
 
         logging.getLogger("uvicorn.error").warning("Config migration failed: %s", e)
@@ -140,7 +141,7 @@ async def lifespan(app: FastAPI):
 
         async with async_session() as session:
             await migrate_user_configs(session)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         import logging
 
         logging.getLogger("uvicorn.error").warning("ApiConfig migration failed: %s", e)
@@ -163,8 +164,8 @@ app.include_router(auth_local_router, prefix="/api/auth", tags=["auth"])
 # 业务路由
 app.include_router(ai_router)
 app.include_router(novels_router)
+app.include_router(settings_status_router)  # 先注册：GET /settings/status 不能被 /{type} 抢先匹配
 app.include_router(settings_router)
-app.include_router(settings_status_router)
 app.include_router(settings_ai_router)
 app.include_router(chapters_router)
 app.include_router(prompt_router)
@@ -179,7 +180,6 @@ app.include_router(workflow_backfill_router)
 
 # API Key Config management (v1)
 app.include_router(api_configs_router)
-app.include_router(genres_router)
 
 
 @app.get("/api/health")

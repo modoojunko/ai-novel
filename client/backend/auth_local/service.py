@@ -1,20 +1,16 @@
 # backend/auth_local/service.py
 """浏览器 OAuth 登录 + 30 天滚动验证"""
 
-import asyncio
 import base64
 import hashlib
 import json
 import os
 import platform
 import subprocess
-import time
 import urllib.parse
-import webbrowser
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
-from jose import jwt as jose_jwt
 
 
 # 从 config.json 读取 S端 API 地址，避免环境变量传递问题
@@ -24,6 +20,16 @@ def _get_server_api() -> str:
         cfg.get("server_api", "")
         or os.environ.get("SERVER_API_BASE")
         or "https://your-cloudbase-app.com/api"
+    )
+
+
+def _get_public_server_api() -> str:
+    """宿主可访问的 S端 API 地址（前端打开授权页用）；默认与 SERVER_API_BASE 一致"""
+    cfg = get_local_config()
+    return (
+        cfg.get("public_server_api", "")
+        or os.environ.get("PUBLIC_SERVER_API")
+        or _get_server_api()
     )
 
 
@@ -60,6 +66,7 @@ def load_or_create_config() -> dict:
         "api_base_url": "https://api.deepseek.com/anthropic",
         "api_model": "deepseek-v4-flash",
         "token": "",
+        "username": "",
         "tier": "none",
         "expires_at": "",
         "last_login_at": "",
@@ -207,11 +214,12 @@ async def browser_auth(silent: bool = False) -> dict:
         if result.get("code") == 0:
             data = result["data"]
             cfg["token"] = data["token"]
+            cfg["username"] = data.get("username", "")
             cfg["tier"] = data.get("tier", "none")
             cfg["expires_at"] = data.get("expires_at", "")
             cfg["last_login_at"] = datetime.now(UTC).isoformat()
             save_local_config(cfg)
-            await _ensure_local_user(cfg["token"])
+            await _ensure_local_user(cfg["username"])
             return {
                 "code": 0,
                 "data": {
@@ -226,39 +234,15 @@ async def browser_auth(silent: bool = False) -> dict:
     device_info = collect_device_profile()
     device_profile = encode_device_profile(device_info)
 
-    # 打开浏览器到 S端 授权页面（附带设备信息）
+    # 构造授权页 URL（宿主可访问地址，由前端在宿主浏览器打开）
     pc_name = cfg.get("pc_name", "")
     auth_url = (
-        f"{_get_server_api()}/auth-page"
+        f"{_get_public_server_api()}/auth-page"
         f"?pc_hash={pc_hash}"
         f"&pc_name={urllib.parse.quote(pc_name)}"
         f"&device_profile={device_profile}"
     )
-    webbrowser.open(auth_url)
-
-    # 轮询等待用户授权
-    start = time.time()
-    while time.time() - start < POLL_TIMEOUT:
-        result = await call_server_api("check-auth", params={"pc_hash": pc_hash})
-        if result.get("code") == 0:
-            data = result["data"]
-            cfg["token"] = data["token"]
-            cfg["tier"] = data.get("tier", "none")
-            cfg["expires_at"] = data.get("expires_at", "")
-            cfg["last_login_at"] = datetime.now(UTC).isoformat()
-            save_local_config(cfg)
-            await _ensure_local_user(cfg["token"])
-            return {
-                "code": 0,
-                "data": {
-                    "message": "授权成功",
-                    "tier": cfg["tier"],
-                    "token": cfg["token"],
-                },
-            }
-        await asyncio.sleep(POLL_INTERVAL)
-
-    return {"code": -1, "msg": "授权超时，请在浏览器中完成登录"}
+    return {"code": 1, "data": {"auth_url": auth_url, "message": "请在浏览器中完成登录"}}
 
 
 async def verify_session() -> dict:
@@ -273,6 +257,8 @@ async def verify_session() -> dict:
 
     try:
         login_time = datetime.fromisoformat(last_login) if last_login else None
+        if login_time and login_time.tzinfo is None:
+            login_time = login_time.replace(tzinfo=UTC)
         if login_time and datetime.now(UTC) - login_time > timedelta(days=SESSION_DAYS):
             return {"valid": False, "msg": f"登录已超过 {SESSION_DAYS} 天，请重新登录"}
     except ValueError:
@@ -285,7 +271,7 @@ async def verify_session() -> dict:
     trial_days = 7
     if expires_at:
         try:
-            expiry = date.fromisoformat(expires_at)
+            expiry = date.fromisoformat(expires_at[:10])
             trial_days = max(0, (expiry - datetime.now(UTC).date()).days)
         except ValueError:
             pass
@@ -308,20 +294,12 @@ def check_permission(now: date | None = None) -> dict:
     expires_at = cfg.get("expires_at", "")
     now = now or datetime.now(UTC).date()
 
-    if os.environ.get("DEV_MODE"):
-        return {
-            "allowed": True,
-            "tier": "none",
-            "project_limit": 1,
-            "trial_remaining_days": 7,
-        }
-
     # 免费层
     if tier == "none":
         trial_days = 7
         if expires_at:
             try:
-                expiry = date.fromisoformat(expires_at)
+                expiry = date.fromisoformat(expires_at[:10])
                 trial_days = max(0, (expiry - now).days)
             except ValueError:
                 pass
@@ -335,7 +313,7 @@ def check_permission(now: date | None = None) -> dict:
     # 付费套餐
     if tier in ("monthly", "quarterly", "yearly"):
         try:
-            if expires_at and date.fromisoformat(expires_at) < now:
+            if expires_at and date.fromisoformat(expires_at[:10]) < now:
                 return {
                     "allowed": False,
                     "reason": "expired",
@@ -347,43 +325,27 @@ def check_permission(now: date | None = None) -> dict:
     return {"allowed": True, "tier": tier}
 
 
-async def _ensure_local_user(token: str) -> None:
-    """Ensure the JWT-authenticated S端 user exists in C端's local DB."""
+async def _ensure_local_user(username: str) -> None:
+    """Ensure the OAuth-authenticated S端 user exists in C端's local DB."""
+    if not username:
+        return
     try:
-        from config import JWT_ALGORITHM, JWT_SECRET
         from db import async_session
         from models.user import User
 
-        payload = jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user_id = payload.get("sub", "")
-        if not user_id:
-            return
         async with async_session() as session:
             from sqlalchemy import select
 
-            existing = await session.execute(select(User).where(User.id == user_id))
+            existing = await session.execute(select(User).where(User.id == username))
             if not existing.scalar_one_or_none():
                 session.add(
                     User(
-                        id=user_id,
-                        email=f"{user_id}@s端.local",
+                        id=username,
+                        email=f"{username}@s.local",
                         password_hash="*",
-                        display_name=user_id,
+                        display_name=username,
                     )
                 )
                 await session.commit()
     except Exception:  # noqa: S110
         pass
-
-
-async def reset_password(security_answer: str, new_password: str) -> dict:
-    cfg = load_or_create_config()
-    return await call_server_api(
-        "reset_password",
-        method="POST",
-        json_body={
-            "username": cfg["username"],
-            "security_answer": security_answer,
-            "new_password": new_password,
-        },
-    )

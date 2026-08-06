@@ -10,7 +10,6 @@ import os
 import re
 from dataclasses import dataclass, field
 
-
 # ── Data types ─────────────────────────────────────────────────────────────────
 
 
@@ -39,6 +38,29 @@ class ParseResult:
     volumes: list[VolumeData] = field(default_factory=list)
     warnings: list[ParseWarning] = field(default_factory=list)
     title: str = ""
+
+
+# 导入模板：与下方解析约定一致（# 卷 / ## 章）
+IMPORT_TEMPLATE_MD = """# 卷一　起点
+
+## 第一章　初来乍到
+
+这里是正文。从第二章起，每一章都用自己的二级标题开头。
+
+## 第二章　新的名字
+
+正文内容。
+
+# 卷二　波澜
+
+## 第一章　风起
+
+正文内容。
+
+## 第二章　暗涌
+
+正文内容。
+"""
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -152,9 +174,8 @@ def parse_markdown(content: str, filename: str = "") -> ParseResult:
                 cur_ch = ChapterData(title=title, content=line + "\n", word_count=0)
                 state = IN_CHAPTER
 
-            elif state == IN_CHAPTER:
-                if cur_ch is not None:
-                    cur_ch.content += line + "\n"
+            elif state == IN_CHAPTER and cur_ch is not None:
+                cur_ch.content += line + "\n"
 
     # ── Flush remaining ──────────────────────────────────────────────────────
     _close_volume()
@@ -246,8 +267,8 @@ def parse_docx(filepath: str) -> ParseResult:
                 cur_ch.content += "\n"
             continue
 
-        is_h1 = style.startswith("Heading 1") or style.startswith("heading 1")
-        is_h2 = style.startswith("Heading 2") or style.startswith("heading 2")
+        is_h1 = style.startswith(("Heading 1", "heading 1"))
+        is_h2 = style.startswith(("Heading 2", "heading 2"))
 
         if is_h1:
             # Volume heading

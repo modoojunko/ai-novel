@@ -1,0 +1,58 @@
+name: Docker 镜像构建
+
+on:
+  push:
+    paths:
+      - "docker-compose.yml"
+      - "**/Dockerfile"
+      - "**/.dockerignore"
+      - "**/nginx.conf"
+      - "server/requirements.txt"
+      - "client/backend/requirements.txt"
+      - "server/frontend/package.json"
+      - "server/frontend/package-lock.json"
+      - "server/frontend/src/**"
+      - "client/frontend/package.json"
+      - "client/frontend/package-lock.json"
+      - "client/frontend/src/**"
+      - ".github/workflows/docker-build-ci.yml"
+  pull_request:
+    paths:
+      - "docker-compose.yml"
+      - "**/Dockerfile"
+      - "**/nginx.conf"
+      - "server/requirements.txt"
+      - "client/backend/requirements.txt"
+      - "server/frontend/package.json"
+      - "server/frontend/package-lock.json"
+      - "server/frontend/src/**"
+      - "client/frontend/package.json"
+      - "client/frontend/package-lock.json"
+      - "client/frontend/src/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 逐个构建 4 个镜像，任一失败即 CI 红 —— 便于排查 Dockerfile/依赖问题
+      - name: Build server-backend (S端 后端)
+        run: docker build -t ai-novel-server-backend:ci ./server
+
+      - name: Build server-frontend (S端 前端 nginx)
+        run: docker build -t ai-novel-server-frontend:ci ./server/frontend
+
+      - name: Build client-backend (C端 后端)
+        run: docker build -t ai-novel-client-backend:ci ./client/backend
+
+      - name: Build client-frontend (C端 前端 nginx)
+        run: docker build -t ai-novel-client-frontend:ci ./client/frontend
+
+      # 额外校验 docker-compose.yml 编排合法（config 级，不需启动容器）
+      - name: Validate docker-compose config
+        run: docker compose config --quiet

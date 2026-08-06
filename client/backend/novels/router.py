@@ -2,8 +2,10 @@ import json
 import os
 import tempfile
 import uuid
+from dataclasses import asdict
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,9 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ai_client import get_ai_client
 from auth_local.deps import require_ai_access, require_project_limit
 from auth_local.middleware import get_current_user
-from auth_local.service import get_local_config
 from db import get_db
-from novels.importer import parse_file
+from filesystem.storage import get_storage
+from novels.importer import IMPORT_TEMPLATE_MD, parse_file
 from novels.service import (
     build_project_tree,
     create_project,
@@ -22,9 +24,10 @@ from novels.service import (
     get_project_by_slug,
     list_projects,
     novel_to_dict,
+    rename_project,
     slugify,
 )
-from dataclasses import asdict
+from workflow.readiness import compute_readiness
 
 router = APIRouter(prefix="/api/novels", tags=["novels"])
 
@@ -35,11 +38,19 @@ class CreateProjectBody(BaseModel):
     name: str
     synopsis: str = ""
     genre_profile: str = ""
-    source: str = "ai"
+    source: str = "manual"
 
 
 class SuggestMetaBody(BaseModel):
     premise: str
+
+
+class RenameProjectBody(BaseModel):
+    name: str
+
+
+class UpdateStoryBody(BaseModel):
+    synopsis: str = ""
 
 
 GENRE_CORPUS_NAMES = {
@@ -58,7 +69,6 @@ GENRE_CORPUS_NAMES = {
 async def create(
     body: CreateProjectBody,
     user: dict = Depends(get_current_user),
-    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
     _limit: bool = Depends(require_project_limit),
 ):
@@ -82,17 +92,16 @@ async def suggest_meta(
     _limit: bool = Depends(require_project_limit),
 ):
     """Given a story premise, suggest titles, synopsis, genre, and pen name."""
-    cfg = get_local_config()
-    if not cfg.get("api_key"):
-        raise HTTPException(
-            503, "AI service not configured — go to Settings to set your API Key"
-        )
-
     from prompts import load as load_prompt
 
     prompt = load_prompt("suggest_meta").format(premise=body.premise)
 
-    client = await get_ai_client()
+    # 新版 API Key 多配置：get_ai_client() 优先从 api_configs 表读取（解密），
+    # config.json 仅作迁移期兜底；未配置 Key 时 AIClient 构造抛 ValueError。
+    try:
+        client = await get_ai_client()
+    except ValueError as e:
+        raise HTTPException(503, f"AI service not configured — {e}")
 
     try:
         text = await client.chat(
@@ -113,9 +122,7 @@ async def suggest_meta(
 @router.get("")
 async def list_all(
     user: dict = Depends(get_current_user),
-    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
-    _limit: bool = Depends(require_project_limit),
 ):
     projects = await list_projects(db, user["id"])
     return [novel_to_dict(p) for p in projects]
@@ -125,9 +132,7 @@ async def list_all(
 async def get_one_by_slug(
     slug: str,
     user: dict = Depends(get_current_user),
-    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
-    _limit: bool = Depends(require_project_limit),
 ):
     project = await get_project_by_slug(db, user["id"], slug)
     if not project:
@@ -139,9 +144,7 @@ async def get_one_by_slug(
 async def get_one(
     project_id: str,
     user: dict = Depends(get_current_user),
-    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
-    _limit: bool = Depends(require_project_limit),
 ):
     project = await get_novel(db, project_id, user["id"])
     if not project:
@@ -149,13 +152,64 @@ async def get_one(
     return novel_to_dict(project)
 
 
+@router.patch("/{project_id}")
+async def rename(
+    project_id: str,
+    body: RenameProjectBody,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rename a novel (display name only — slug/root_path unchanged)."""
+    new_name = body.name.strip()
+    if not new_name:
+        raise HTTPException(422, "书名不能为空")
+    if len(new_name) > 200:
+        raise HTTPException(422, "书名过长")
+    project = await get_novel(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Novel not found")
+    if new_name == project.name:
+        return novel_to_dict(project)  # idempotent same-name save
+    renamed = await rename_project(db, project, new_name)
+    return novel_to_dict(renamed)
+
+
+@router.get("/{project_id}/story")
+async def get_story(
+    project_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Read story.yaml (synopsis etc.) for the synopsis card."""
+    project = await get_novel(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Novel not found")
+    story = await get_storage().read_yaml(project.root_path, "story.yaml") or {}
+    return {"synopsis": story.get("synopsis", "")}
+
+
+@router.put("/{project_id}/story")
+async def update_story(
+    project_id: str,
+    body: UpdateStoryBody,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Write story.yaml.synopsis (manual backfill — never triggers AI prefill)."""
+    project = await get_novel(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Novel not found")
+    story = await get_storage().read_yaml(project.root_path, "story.yaml") or {}
+    story["synopsis"] = body.synopsis.strip()
+    await get_storage().write_yaml(project.root_path, "story.yaml", story)
+    return {"ok": True, "synopsis": body.synopsis.strip()}
+
+
 @router.delete("/{project_id}")
 async def delete(
     project_id: str,
     user: dict = Depends(get_current_user),
-    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
-    _limit: bool = Depends(require_project_limit),
 ):
     project = await get_novel(db, project_id, user["id"])
     if not project:
@@ -169,14 +223,63 @@ async def get_project_tree(
     project_id: str,
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    _: bool = Depends(require_ai_access),
-    _limit: bool = Depends(require_project_limit),
 ):
     project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Novel not found")
     tree = await build_project_tree(project_id, project.root_path)
     return tree
+
+
+@router.get("/{project_id}/readiness")
+async def get_readiness(
+    project_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """7 项内容就绪判定（PRD 3.4）：complete / missing[{key,label,jump}] / warning 中文。"""
+    project = await get_novel(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Novel not found")
+    return await compute_readiness(project.root_path)
+
+
+@router.get("/{project_id}/export")
+async def export_project(
+    project_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """打包项目目录为 zip（卷章/设定/正文/版本快照全量），供备份/分享。"""
+    project = await get_novel(db, project_id, user["id"])
+    if not project or project.status == "deleted":
+        raise HTTPException(404, "Novel not found")
+
+    import io
+    import zipfile
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for dirpath, _dirs, files in os.walk(project.root_path):
+            for fname in files:
+                full = os.path.join(dirpath, fname)
+                rel = os.path.relpath(full, project.root_path)
+                zf.write(full, rel)
+    buffer.seek(0)
+
+    # RFC 5987 编码中文文件名（slug 保留汉字，latin-1 header 会 UnicodeEncodeError）
+    from urllib.parse import quote
+
+    filename = f"{project.slug}.zip"
+    return StreamingResponse(
+        buffer,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": (
+                f"attachment; filename=export.zip; filename*=UTF-8''{quote(filename)}"
+            )
+        },
+    )
 
 
 # ── Import endpoints ───────────────────────────────────────────────────────────
@@ -265,7 +368,6 @@ async def import_persist(
         # ── 2. Write volumes & chapters ──────────────────────────────
         storage = get_storage()
         for vi, vol in enumerate(body.volumes, start=1):
-            vol_slug = slugify(vol.title)
             vol_data = {
                 "volume": vi,
                 "title": vol.title,
@@ -273,7 +375,6 @@ async def import_persist(
                 "chapters": [],
             }
             for ci, ch in enumerate(vol.chapters, start=1):
-                ch_slug = slugify(ch.title)
                 ch_data = {
                     "volume": vi,
                     "chapter": ci,
@@ -284,7 +385,7 @@ async def import_persist(
                 vol_data["chapters"].append(ch_data)
 
                 # ── 3. Write chapter file ────────────────────────────
-                ch_ref = f"{vol_slug}-{ch_slug}"
+                ch_ref = f"vol-{vi}-ch-{ci}"
                 await storage.write_yaml(
                     root_path, f"chapters/{ch_ref}.yaml", ch_data
                 )
@@ -310,7 +411,7 @@ async def import_persist(
 
             # Write volume file
             await storage.write_yaml(
-                root_path, f"volumes/{vol_slug}.yaml", vol_data
+                root_path, f"volumes/vol-{vi}.yaml", vol_data
             )
 
         # ── 5. Genre detection & synopsis extraction (free-tier) ─────
@@ -343,12 +444,16 @@ async def import_persist(
             slug=slug,
             root_path=root_path,
             source="import",
+            total_volumes=len(body.volumes),
+            total_chapters=sum(len(v.chapters) for v in body.volumes),
+            # 同 create_project：导入即进入 settings 阶段，避免 init 下建卷 500
+            current_phase="settings",
         )
         db.add(project)
         await db.commit()
         await db.refresh(project)
 
-        return {"novel_id": str(project.id)}
+        return {"id": str(project.id), "name": body.name}
 
     except Exception as e:
         # Clean up on failure
@@ -357,3 +462,12 @@ async def import_persist(
         if os.path.exists(root_path):
             shutil.rmtree(root_path)
         raise HTTPException(500, f"导入持久化失败: {e!s}")
+
+
+@router.get("/import/template")
+async def import_template():
+    """Return the import template markdown for the "下载导入模板" link."""
+    return Response(
+        content=IMPORT_TEMPLATE_MD,
+        media_type="text/markdown; charset=utf-8",
+    )

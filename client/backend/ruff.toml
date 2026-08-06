@@ -8,8 +8,11 @@ ignore = ["B008", "ASYNC230"]
 
 # Per-file: broad exception catches are intentional
 [lint.per-file-ignores]
+"main.py" = ["BLE001", "S110"]
 "auth_local/*.py" = ["BLE001"]
 "settings/*.py" = ["BLE001"]
 "story/*.py" = ["BLE001", "S110"]
 "projects/*.py" = ["BLE001", "S110"]
+"novels/*.py" = ["BLE001", "S110", "S112"]
+"workflow/*.py" = ["BLE001", "S110"]
 "tests/*.py" = ["BLE001", "S112"]

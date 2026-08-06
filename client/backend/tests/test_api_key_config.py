@@ -21,13 +21,13 @@ Requires:
 
 import asyncio
 import hashlib
+import json
 import os
 import tempfile
 import uuid
 
 import pytest
 from fastapi.testclient import TestClient
-from jose import jwt
 from sqlalchemy import select, text
 
 # ── Test environment ───────────────────────────────────────────────────────
@@ -36,15 +36,13 @@ _tmp_db = tempfile.NamedTemporaryFile(suffix="_test_apikey.db", delete=False)  #
 _tmp_db.close()
 _tmp_data_root = tempfile.mkdtemp(prefix="test_apikey_")
 
-os.environ["DEV_MODE"] = "1"
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_tmp_db.name}"
 os.environ["DATA_ROOT"] = _tmp_data_root
 
 # ---------------------------------------------------------------------------
 #  Now import the application
 # ---------------------------------------------------------------------------
-from auth_local.middleware import get_current_user
-from config import JWT_ALGORITHM, JWT_SECRET
+from auth_local.middleware import CONFIG_FILE, get_current_user
 from db import Base, async_session, engine, get_db
 from main import app
 from models.project import Novel
@@ -216,52 +214,11 @@ def _make_current_user_override(user_id: str):
 
 _override_current_user = _make_current_user_override("testuser")
 
-# Track registered user IDs so we don't register twice
-_registered_users: set[str] = set()
-
-
 @pytest.fixture
 def client():
     """Create a TestClient with dependency overrides."""
     with TestClient(app) as c:
         yield c
-
-
-@pytest.fixture
-def user_token(client) -> str:
-    """Register a unique test user and return a JWT token.
-
-    This fixture creates a user via the API, extracts the token, and re-configures
-    the get_current_user dependency to decode from the JWT so that the API
-    sees the real registered user ID.
-    """
-    uid = uuid.uuid4().hex[:12]
-    email = f"apikey_user_{uid}@example.com"
-
-    resp = client.post(
-        "/api/auth/register",
-        json={
-            "email": email,
-            "password": TEST_USER_PASSWORD,
-            "display_name": f"Tester_{uid[:6]}",
-        },
-    )
-    assert resp.status_code in (200, 201), f"Register failed: {resp.text}"
-    data = resp.json()
-    token = data["access_token"]
-    user_id = data["user"]["id"]
-
-    # Override get_current_user to decode from JWT
-    async def _override():
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        return {"id": payload["sub"]}
-
-    app.dependency_overrides[get_current_user] = _override
-
-    yield token
-
-    # Clean up: remove this user's data
-    _run_async(_clean_user_data(user_id))
 
 
 async def _clean_user_configs(user_id: str):
@@ -1781,30 +1738,25 @@ class TestChangeHistory:
 
 
 class TestRealJwtAuth:
-    """Test API endpoints with real JWT tokens via Authorization header.
+    """Test API endpoints with real auth via Authorization header.
 
     Unlike other tests, this class does NOT override get_current_user.
-    It registers a user via the API and sends the JWT in the header,
-    exercising the real auth middleware.
+    新鉴权下 C端 靠 OAuth 会话（config.json 中的 token + username）鉴权，不再
+    接受任意 JWT。因此把 register 返回的 token 写入隔离的 config.json（DATA_ROOT
+    已指向临时目录），模拟 OAuth 授权落盘，再走真实鉴权中间件。
     """
 
     @pytest.fixture(autouse=True)
     def _setup(self, client):
-        """Register user and store token."""
+        """Create user via DB, write OAuth session to isolated config.json."""
         uid = uuid.uuid4().hex[:12]
-        email = f"jwtauth_{uid}@example.com"
-        resp = client.post(
-            "/api/auth/register",
-            json={
-                "email": email,
-                "password": "TestPass123!",
-                "display_name": f"JWT_{uid[:6]}",
-            },
-        )
-        assert resp.status_code in (200, 201)
-        data = resp.json()
-        self.token = data["access_token"]
-        self.user_id = data["user"]["id"]
+        _run_async(_create_user(uid, email=f"jwtauth_{uid}@example.com"))
+        self.token = uid
+        self.user_id = uid
+        # 写入 OAuth 会话（隔离的临时 config.json）
+        cfg_path = CONFIG_FILE
+        with open(cfg_path, "w", encoding="utf-8") as f:
+            json.dump({"token": self.token, "username": self.user_id}, f)
         # Remove the override so real auth runs
         old_override = app.dependency_overrides.pop(get_current_user, None)
         yield

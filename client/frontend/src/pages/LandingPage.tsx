@@ -90,7 +90,7 @@ export default function LandingPage() {
           </p>
 
           <div className="flex gap-4 justify-center flex-wrap">
-            <Link to="/register" className="btn btn-primary btn-lg px-8 text-base">
+            <Link to="/login" className="btn btn-primary btn-lg px-8 text-base">
               免费开始写作
             </Link>
             <button
@@ -227,7 +227,7 @@ export default function LandingPage() {
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
             <Link
-              to="/register"
+              to="/login"
               className="btn btn-primary btn-lg px-10 text-base"
             >
               免费开始 →

@@ -158,7 +158,6 @@ async def ai_backfill_step1(
     project.backfill_status = "step1_running"
     await db.commit()
 
-    storage = get_storage()
     root_path = project.root_path
 
     try:
@@ -191,7 +190,6 @@ async def ai_backfill_step2(
     project.backfill_status = "step2_running"
     await db.commit()
 
-    storage = get_storage()
     root_path = project.root_path
     step1_result = body.get("step1_result", {})
 

@@ -9,6 +9,8 @@ interface OnboardingCardProps {
   source: "ai" | "manual" | "import";
   variant: "empty-novel" | "imported-novel";
   onDismiss: () => void;
+  /** 主按钮「开始设定」的额外行为（默认与 onDismiss 相同） */
+  onStart?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -39,9 +41,11 @@ export default function OnboardingCard({
   source: _source,
   variant,
   onDismiss,
+  onStart,
 }: OnboardingCardProps) {
   const isImported = variant === "imported-novel";
   const steps = isImported ? IMPORTED_NOVEL_STEPS : EMPTY_NOVEL_STEPS;
+  const handleStart = onStart ?? onDismiss;
 
   return (
     <div className="relative border-b border-primary/20 bg-gradient-to-r from-primary/[0.06] to-primary/[0.02] animate-fade-up">
@@ -81,7 +85,7 @@ export default function OnboardingCard({
 
         {/* Actions */}
         <div className="flex items-center gap-3">
-          <button onClick={onDismiss} className="btn btn-primary btn-sm">
+          <button onClick={handleStart} className="btn btn-primary btn-sm">
             {isImported ? "补充设定" : "开始设定"}
           </button>
           <button

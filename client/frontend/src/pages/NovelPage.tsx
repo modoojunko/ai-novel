@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "@/lib/api";
+import { toast } from "@/lib/toast";
 import type { Step1Result } from "@/lib/api";
 import type { TreeNode } from "@/components/novel/StructureTree";
 import StructureTree from "@/components/novel/StructureTree";
@@ -17,7 +18,7 @@ import PromptManagementPage from "@/components/novel/PromptManagementPage";
 import ArchivePage from "@/components/novel/ArchivePage";
 import AiReviewStep1 from "@/components/novel/AiReviewStep1";
 import AiReviewStep2 from "@/components/novel/AiReviewStep2";
-import { Globe, Feather, Shield, Anchor, Users, Brain, Book, FileText, Trash2, ClipboardList, BookOpen, AlertTriangle, RefreshCw, Sparkles } from "lucide-react";
+import { Globe, Feather, Shield, Anchor, Users, Brain, Book, FileText, Trash2, ClipboardList, BookOpen, AlertTriangle, RefreshCw, Sparkles, Pencil } from "lucide-react";
 import { useOutline } from "@/hooks/useOutline";
 import OutlineOverview from "@/components/novel/outline/OutlineOverview";
 import OutlineEditor from "@/components/novel/outline/OutlineEditor";
@@ -92,6 +93,9 @@ export default function NovelPage() {
   const [volumes, setVolumes] = useState<any[]>([]);
   const [tab, setTab] = useState<TabId>("settings");
   const [showDelete, setShowDelete] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const nameSavedRef = useRef(false); // 防 Enter 保存后 blur 再触发双保存
   const [viewState, setViewState] = useState<ViewState>({
     tab: "settings",
     panel: "world",
@@ -100,6 +104,12 @@ export default function NovelPage() {
 
   const { settingsStatus, allConfirmed, isNew, confirmSetting, loading: onboardingLoading } =
     useOnboarding(project?.id, volumes);
+
+  // PRD 3.4 AC-4.3：「仍然继续」会话内旁路——点创建卷/章后不再提示设定未完成
+  const [settingsBypass, setSettingsBypass] = useState(false);
+  useEffect(() => {
+    setSettingsBypass(false);
+  }, [id]);
 
   // ── AI Review flow (for imported projects on paid tier) ────────────────
   const [userTier, setUserTier] = useState<string | null>(null);
@@ -135,6 +145,15 @@ export default function NovelPage() {
 
   const { phaseStatus, warnings, loading: phaseStatusLoading, error: phaseStatusError, refetch: refetchPhaseStatus } =
     useNovelState(id);
+
+  // PRD 3.4：确认设定成功 → 刷新 phase-status（gate 重算 → banner/EmptyState 即时更新）
+  const handleConfirmSetting = useCallback(
+    async (type: string) => {
+      const ok = await confirmSetting(type);
+      if (ok) refetchPhaseStatus();
+    },
+    [confirmSetting, refetchPhaseStatus],
+  );
 
   const [bannerDismissed, setBannerDismissed] = useState(() => {
     if (!id) return false;
@@ -445,6 +464,7 @@ export default function NovelPage() {
 
   const handleCreateVolume = useCallback(async () => {
     if (!project?.id) return;
+    setSettingsBypass(true); // AC-4.3「仍然继续」：作者选择创建卷即旁路设定提示
     try {
       const volNum = volumes.length + 1;
       const result = await api.post(`/novels/${project.id}/volumes`, {
@@ -474,6 +494,7 @@ export default function NovelPage() {
 
   const handleCreateChapter = useCallback(async () => {
     if (!project?.id) return;
+    setSettingsBypass(true); // AC-4.3「仍然继续」：作者选择写第一章即旁路设定提示
     try {
       // If no volumes exist, create one first
       let targetVol = volumes[0];
@@ -528,6 +549,25 @@ export default function NovelPage() {
     }
   }, []);
 
+  // 顶栏书名就地编辑：blur/Enter 保存，Esc 取消（savedRef 防双保存竞态）
+  const saveName = useCallback(async () => {
+    const next = nameDraft.trim();
+    if (nameSavedRef.current) {
+      nameSavedRef.current = false;
+      return;
+    }
+    nameSavedRef.current = true;
+    setEditingName(false);
+    if (!next || next === project.name) return;
+    try {
+      const updated = await api.renameNovel(project.id, next);
+      setProject((p: any) => ({ ...p, name: updated.name }));
+      toast.success(`已更名为《${updated.name}》`);
+    } catch {
+      toast.error("改名失败");
+    }
+  }, [nameDraft, project, toast]);
+
   // -----------------------------------------------------------------------
   // Render right panel content
   // -----------------------------------------------------------------------
@@ -540,7 +580,9 @@ export default function NovelPage() {
             projectId={project.id}
             settingKey={viewState.panel}
             confirmed={settingsStatus?.[viewState.panel] ?? false}
-            onConfirm={() => confirmSetting(viewState.panel)}
+            onConfirm={() => handleConfirmSetting(viewState.panel)}
+            synopsisConfirmed={settingsStatus?.synopsis ?? false}
+            onSynopsisConfirm={() => handleConfirmSetting("synopsis")}
           />
         );
       case "writing":
@@ -552,6 +594,7 @@ export default function NovelPage() {
                 onCreateChapter={handleCreateChapter}
                 onGoSettings={handleGoSettings}
                 settingsComplete={allConfirmed}
+                bypass={settingsBypass}
               />
             );
           case "volume":
@@ -623,6 +666,7 @@ export default function NovelPage() {
                 onCreateChapter={handleCreateChapter}
                 onGoSettings={handleGoSettings}
                 settingsComplete={allConfirmed}
+                bypass={settingsBypass}
               />
             );
         }
@@ -759,9 +803,9 @@ case "prompts":
           />
         );
       default:
-        return <EmptyState settingsComplete={allConfirmed} />;
+        return <EmptyState settingsComplete={allConfirmed} bypass={settingsBypass} />;
     }
-  }, [viewState, outline, project, settingsStatus, confirmSetting, allConfirmed, handleCreateVolume, handleCreateChapter, handleGoSettings, setViewState, loadVolumes, handleAIStateChange, aiState, handleContinue, handlePolish, handleExpand, captureNow, setTab]);
+  }, [viewState, outline, project, settingsStatus, allConfirmed, handleConfirmSetting, settingsBypass, handleCreateVolume, handleCreateChapter, handleGoSettings, setViewState, loadVolumes, handleAIStateChange, aiState, handleContinue, handlePolish, handleExpand, captureNow, setTab]);
 
   // -----------------------------------------------------------------------
   // Loading state
@@ -815,10 +859,43 @@ case "prompts":
     <div className="flex flex-col h-full">
       {/* ── Top bar ─────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-base-300 bg-base-200/50">
-        {/* Project name */}
-        <h1 className="text-lg font-bold font-serif text-base-content">
-          {project.name}
-        </h1>
+        {/* Project name (inline rename) */}
+        <div className="min-w-0 flex items-center">
+          {editingName ? (
+            <input
+              className="input input-sm input-bordered w-36 font-serif text-base-content"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={saveName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveName();
+                if (e.key === "Escape") {
+                  nameSavedRef.current = true;
+                  setNameDraft(project.name);
+                  setEditingName(false);
+                }
+              }}
+              maxLength={60}
+              autoFocus
+              aria-label="小说书名"
+            />
+          ) : (
+            <button
+              className="group/name flex items-center gap-1.5 max-w-full"
+              onClick={() => {
+                setNameDraft(project.name);
+                setEditingName(true);
+              }}
+              title="点击修改书名"
+              aria-label="点击修改书名"
+            >
+              <h1 className="text-lg font-bold font-serif text-base-content truncate max-w-[30vw] group-hover/name:text-primary transition-colors">
+                {project.name}
+              </h1>
+              <Pencil className="w-3.5 h-3.5 text-base-content/30 group-hover/name:text-base-content/70 transition-colors shrink-0" />
+            </button>
+          )}
+        </div>
 
         {/* Tabs: 设定 / 正文 / 细纲 / 提示词 / 归档 */}
         <div className="flex items-center gap-1">
@@ -873,6 +950,19 @@ case "prompts":
         <GateBanner
           warnings={warnings}
           onDismiss={handleDismissBanner}
+          onJump={(key) => {
+            if (key === "synopsis") {
+              handleTabSwitch("settings");
+              // 简介卡在 settings 各面板顶部全局常驻，滚动到它并高亮
+              setTimeout(() => {
+                const el = document.getElementById("synopsis-card");
+                el?.scrollIntoView({ behavior: "smooth", block: "center" });
+              }, 120);
+            } else {
+              handleTabSwitch("settings");
+              setViewState({ tab: "settings", panel: key });
+            }
+          }}
         />
       )}
 
@@ -883,6 +973,10 @@ case "prompts":
           source={project.source}
           variant={project.source === "import" ? "imported-novel" : "empty-novel"}
           onDismiss={handleDismissOnboarding}
+          onStart={() => {
+            handleDismissOnboarding();
+            handleTabSwitch("settings");
+          }}
         />
       )}
 

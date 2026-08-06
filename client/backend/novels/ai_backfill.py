@@ -1,7 +1,6 @@
 """AI 反推编排：步骤 1（并行）+ 步骤 2（大纲）。"""
 
 import asyncio
-import json
 import logging
 from pathlib import Path
 
@@ -32,7 +31,6 @@ def _load_prompt(name: str) -> str:
 async def _collect_prose(root_path: str) -> str:
     """收集所有章节正文，返回拼接文本。"""
     storage = get_storage()
-    chapters_dir = f"{root_path}/chapters"
     try:
         files = await storage.list_dir(root_path, "chapters")
     except FileNotFoundError:
@@ -86,7 +84,7 @@ async def _call_ai(prompt_name: str, context: str) -> str:
             timeout=90.0,
         )
         return result or ""
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("AI backfill call timed out: %s", prompt_name)
         return ""
     except Exception as e:

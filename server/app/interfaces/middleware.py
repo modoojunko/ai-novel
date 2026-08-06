@@ -18,7 +18,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     """基于 IP 的速率限制。"""
 
     SENSITIVE_PATHS = {"/api/authorize", "/api/web/login"}
-    LIMIT = 5
+    # 5→30：吸收 E2E 套件的登录突发（/api/web/login）；C端 轮询走 GET
+    # /api/check-auth 不受限，30/min/IP 仍可防爆破，避免误伤多管理员同网段
+    LIMIT = 30
     WINDOW = 60  # 秒
 
     def __init__(self, app):

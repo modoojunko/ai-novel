@@ -230,10 +230,19 @@ async def get_ai_client_for_user(user_id: str | None = None) -> AIClient:
                 if cfg:
                     plain_key = decrypt_api_key(cfg.api_key)
                     if plain_key:
+                        models_list: list[str] = []
+                        if cfg.models:
+                            try:
+                                parsed = json.loads(cfg.models)
+                                if isinstance(parsed, list):
+                                    models_list = parsed
+                            except (json.JSONDecodeError, TypeError):
+                                pass
+                        model = models_list[0] if models_list else ""
                         return AIClient(
                             api_key=plain_key,
                             base_url=cfg.base_url,
-                            model="",
+                            model=model,
                         )
 
                 # Fallback: any user with old api_key

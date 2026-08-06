@@ -1,6 +1,17 @@
 import { X, AlertTriangle, ArrowRight } from "lucide-react";
 import type { GateWarning } from "@/hooks/useNovelState";
 
+// 后端 gate warning 文案 "尚未完成设定: {label}" → 设定树节点 key（jump）
+const LABEL_TO_KEY: Record<string, string> = {
+  "故事简介": "synopsis",
+  "题材类型": "genre",
+  "世界设定": "world",
+  "写作风格": "style",
+  "AI痕迹控制": "anti-ai",
+  "伏笔管理": "hooks",
+  "角色管理": "characters",
+};
+
 interface GateBannerProps {
   warnings: GateWarning[];
   hardGate?: {
@@ -9,9 +20,11 @@ interface GateBannerProps {
     onAction: () => void;
   };
   onDismiss: () => void;
+  /** 点击「去补充 →」时回调，参数为设定树节点 key（synopsis/genre/world/...） */
+  onJump?: (key: string) => void;
 }
 
-export default function GateBanner({ warnings, hardGate, onDismiss }: GateBannerProps) {
+export default function GateBanner({ warnings, hardGate, onDismiss, onJump }: GateBannerProps) {
   // Nothing to show
   if (hardGate && !hardGate.message && warnings.length === 0) return null;
   if (!hardGate && warnings.length === 0) return null;
@@ -61,7 +74,24 @@ export default function GateBanner({ warnings, hardGate, onDismiss }: GateBanner
               </div>
               <ul className="list-disc list-inside text-sm ml-6 space-y-0.5">
                 {warnings.map((w, i) => (
-                  <li key={i}>{w.message}</li>
+                  <li key={i} className="flex items-center gap-2">
+                    <span>{w.message}</span>
+                    {(() => {
+                      const m = /^尚未完成设定:\s*(.+)$/.exec(w.message);
+                      if (!m || !onJump) return null;
+                      const key = LABEL_TO_KEY[m[1]];
+                      if (!key) return null;
+                      return (
+                        <button
+                          onClick={() => onJump(key)}
+                          className="btn btn-ghost btn-xs px-1 text-warning hover:text-warning/80 gap-0.5"
+                        >
+                          去补充
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+                      );
+                    })()}
+                  </li>
                 ))}
               </ul>
             </>

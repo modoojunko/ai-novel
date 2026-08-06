@@ -11,10 +11,7 @@ import tempfile
 import pytest
 
 from novels.importer import (
-    ChapterData,
-    VolumeData,
-    ParseResult,
-    ParseWarning,
+    IMPORT_TEMPLATE_MD,
     parse_docx,
     parse_file,
     parse_markdown,
@@ -262,7 +259,6 @@ class TestParseFile:
 def _create_test_docx(path: str):
     """Create a minimal .docx fixture with Heading 1 and Heading 2 styles."""
     from docx import Document
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
 
     doc = Document()
 
@@ -298,3 +294,23 @@ def _create_plain_docx(path: str):
     doc.add_paragraph("只有几段文字。")
 
     doc.save(path)
+
+
+# =========================================================================
+#  IMPORT_TEMPLATE_MD 模板往返
+# =========================================================================
+
+
+class TestImportTemplate:
+    """下载模板必须能被解析器正确解析（约定自洽）。"""
+
+    def test_template_parses_to_2vol_4ch(self):
+        result = parse_markdown(IMPORT_TEMPLATE_MD, "import-template.md")
+        assert len(result.volumes) == 2
+        assert [v.title for v in result.volumes] == ["卷一　起点", "卷二　波澜"]
+        assert [len(v.chapters) for v in result.volumes] == [2, 2]
+        # 每章正文应被捕获（不能是空）
+        for vol in result.volumes:
+            for ch in vol.chapters:
+                assert ch.content.strip(), f"{ch.title} 内容为空"
+        assert not result.warnings
