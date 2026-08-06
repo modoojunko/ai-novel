@@ -1,31 +1,6 @@
-"""Tests for AI settings generation endpoints."""
+"""Tests for AI settings JSON helpers (pure unit tests)."""
 
 import re
-
-import httpx
-
-BASE_URL = "http://localhost:8000/api"
-
-
-def random_user():
-    import random
-
-    n = random.randint(10000, 99999)
-    return {
-        "email": f"ai_test_{n}@example.com",
-        "password": "TestPass123!",
-        "display_name": f"AITest_{n}",
-    }
-
-
-def register_user():
-    user = random_user()
-    r = httpx.post(f"{BASE_URL}/auth/register", json=user)
-    assert r.status_code in (200, 201), f"Register failed: {r.text}"
-    data = r.json()
-    token = data.get("access_token") or data["token"]
-    return token, user
-
 
 # ── Inline helpers (mirror settings/ai_router.py) ──────────────────────────
 
@@ -64,54 +39,6 @@ def extract_field(parsed, field):
     if isinstance(parsed, dict) and field in parsed:
         return parsed[field]
     return parsed
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Auth & Validation
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-class TestSettingsAIValidation:
-    def test_generate_no_auth(self):
-        r = httpx.post(
-            f"{BASE_URL}/novels/fake-id/settings/generate", json={"types": ["world"]}
-        )
-        assert r.status_code in (401, 403)
-
-    def test_generate_invalid_project(self):
-        r = httpx.post(
-            f"{BASE_URL}/novels/nonexistent/settings/generate",
-            json={"types": ["world"]},
-            headers={"Authorization": "Bearer fake-token"},
-        )
-        assert r.status_code in (401, 403, 404)
-
-    def test_field_generate_no_auth(self):
-        r = httpx.post(
-            f"{BASE_URL}/novels/fake-id/settings/ai/world/scenes",
-            json={"context": {}},
-        )
-        assert r.status_code in (401, 403)
-
-    def test_field_generate_invalid_type(self):
-        token, _ = register_user()
-        import random
-
-        n = random.randint(10000, 99999)
-        r2 = httpx.post(
-            f"{BASE_URL}/novels",
-            json={"name": f"AINovel_{n}"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert r2.status_code in (200, 201)
-        pid = r2.json()["id"]
-        r = httpx.post(
-            f"{BASE_URL}/novels/{pid}/settings/ai/anti-ai/some-field",
-            json={"context": {}},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert r.status_code == 400
-        assert "not supported" in str(r.json().get("detail", "")).lower()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -170,10 +97,6 @@ class TestJsonCleaning:
     def test_clean_multiple_blocks(self):
         raw_text = 'a\n{"a": 1}\nb\n{"b": 2}\nc'
         result = clean_json(raw_text)
-        assert result.startswith("{")
-        assert result.endswith("}")
-        assert "a" in result
-        assert "b" in result
         assert result.startswith("{")
         assert result.endswith("}")
         assert "a" in result

@@ -4,8 +4,6 @@ require_ai_access(): 检查用户是否有 AI 使用权限
 require_project_limit(): 检查免费用户是否超项目上限
 """
 
-import os
-
 from fastapi import Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,9 +52,6 @@ async def require_ai_access(
     if cfg.get("api_key"):
         return True
 
-    if os.environ.get("DEV_MODE"):
-        return True
-
     perm = check_permission()
     if not perm.get("allowed", False):
         raise HTTPException(403, perm.get("msg", "无使用权限"))
@@ -73,9 +68,6 @@ async def require_project_limit(
     db: AsyncSession = Depends(get_db),
 ):
     """项目上限门控：免费用户最多 1 个项目"""
-    if os.environ.get("DEV_MODE"):
-        return True
-
     perm = check_permission()
     limit = perm.get("project_limit")
     if limit is None:  # 付费用户无上限

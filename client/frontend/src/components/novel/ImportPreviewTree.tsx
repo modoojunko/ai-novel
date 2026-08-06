@@ -28,7 +28,7 @@ function buildTreeNodes(volumes: VolumeImportData[]): TreeNode[] {
       id: `ch-${vi}-${ci}`,
       label: ch.title || `第 ${ci + 1} 章`,
       locked: true,
-      badge: ch.wordCount ? `${ch.wordCount} 字` : undefined,
+      badge: ch.word_count ? `${ch.word_count} 字` : undefined,
     })),
   }));
 }

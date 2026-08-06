@@ -5,7 +5,8 @@ import { toast } from "@/lib/toast";
 import AuthGuard from "@/components/auth/AuthGuard";
 import DeleteConfirmModal from "@/components/novel/DeleteConfirmModal";
 import CreateProjectModal from "@/components/novel/CreateProjectModal";
-import { Plus } from "lucide-react";
+import RenameModal from "@/components/novel/RenameModal";
+import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 
 interface Novel {
   id: string;
@@ -32,6 +33,7 @@ function NovelList() {
   const [trialDays, setTrialDays] = useState<number>(0);
   const [showCreate, setShowCreate] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Novel | null>(null);
+  const [renameTarget, setRenameTarget] = useState<Novel | null>(null);
   const [showKeyHint, setShowKeyHint] = useState(false);
   const navigate = useNavigate();
 
@@ -45,6 +47,20 @@ function NovelList() {
       setDeleteTarget(null);
     } catch {
       toast.error("删除失败");
+    }
+  }
+
+  async function handleRename(next: string) {
+    if (!renameTarget) return;
+    try {
+      const updated = await api.renameNovel(renameTarget.id, next);
+      setNovels((prev: Novel[]) =>
+        prev.map((p) => (p.id === updated.id ? { ...p, name: updated.name } : p)),
+      );
+      toast.success(`已更名为《${updated.name}》`);
+      setRenameTarget(null);
+    } catch {
+      toast.error("改名失败");
     }
   }
 
@@ -136,13 +152,45 @@ function NovelList() {
                         {p.total_chapters}章 · 更新于{new Date(p.updated_at).toLocaleDateString("zh-CN")}
                       </p>
                     </div>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(p); }}
-                      className="opacity-0 group-hover:opacity-100 btn btn-ghost btn-xs text-error/60 hover:text-error transition-all shrink-0"
-                      title="删除小说"
-                    >
-                      🗑
-                    </button>
+                    <div className="dropdown dropdown-end shrink-0">
+                      <button
+                        tabIndex={0}
+                        onClick={(e) => e.stopPropagation()}
+                        className="btn btn-ghost btn-xs btn-square text-base-content/50 hover:text-base-content transition-all"
+                        title="更多操作"
+                        aria-label="更多操作"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                      <ul
+                        tabIndex={0}
+                        className="dropdown-content z-10 menu menu-sm mt-1 w-36 rounded-box bg-base-100 border border-base-300 shadow-lg p-1"
+                      >
+                        <li>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRenameTarget(p);
+                            }}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            重命名
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            className="text-error/70 hover:text-error"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteTarget(p);
+                            }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            删除
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
                   </div>
                   <div className="flex items-center gap-3 mt-3 text-xs text-base-content/50">
                     <span>{p.total_volumes || 0} 卷</span>
@@ -179,6 +227,15 @@ function NovelList() {
           confirmText={deleteTarget.name}
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {/* Rename modal */}
+      {renameTarget && (
+        <RenameModal
+          name={renameTarget.name}
+          onConfirm={handleRename}
+          onCancel={() => setRenameTarget(null)}
         />
       )}
     </main>

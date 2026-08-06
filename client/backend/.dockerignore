@@ -4,3 +4,8 @@ __pycache__
 .git
 *.md
 .DS_Store
+# 本地用户数据与密钥，勿打入镜像
+data/
+ai_config.yaml
+config.json
+server.log

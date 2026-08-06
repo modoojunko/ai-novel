@@ -4,8 +4,6 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import LandingPage from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
-import RegisterPage from "@/pages/RegisterPage";
-import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import ApiKeyConfigPage from "@/pages/ApiKeyConfigPage";
 import NovelListPage from "@/pages/NovelListPage";
 import NovelLayout from "@/pages/NovelLayout";
@@ -27,8 +25,6 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/config" element={<ApiKeyConfigPage />} />
           {/* 301 过渡（一个版本期后删除） */}
           <Route path="/books" element={<Navigate to="/novels" replace />} />
