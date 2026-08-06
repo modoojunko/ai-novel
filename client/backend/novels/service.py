@@ -10,7 +10,9 @@ from models.project import Novel
 
 
 def slugify(name: str) -> str:
-    slug = re.sub(r"[^\w\-]", "-", name.lower()).strip("-")
+    # 保留中文（一-鿿）与 word 字符，其余替换为 '-'。
+    # 若不含中文，全中文名会 slug 成 "untitled"，导致不同项目共享同一 root_path 目录、数据串。
+    slug = re.sub(r"[^\w一-鿿\-]", "-", name.lower()).strip("-")
     return slug or "untitled"
 
 
