@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 
 // =========================================================================
 // 核心创作流程 E2E — 创建小说（书名即创建）→ 设定完成判定（PRD 3.4）→ 大纲 → CRUD
@@ -13,6 +13,10 @@ import { test, expect, type Page } from "@playwright/test";
 // 会话恢复：每个测试独立注册用户 + 独立写会话，测试体用 try/finally 无条件恢复
 // 原始 config.json。即使断言失败（finally 仍执行）也不会污染真实登录态。
 // 前置条件：docker 4 服务已启动（S端 19000 + C端 前端 5174）。
+//
+// 设定完成判定（PRD 3.4）：7 项全确认 → GateBanner 消失。world/hooks 走真实表单
+// （回归 world/hooks readiness checker 与前端保存结构不一致的 bug），其余 5 项
+// API 注入内容 + UI 点「完成设定」。
 
 const S_API = "http://127.0.0.1:19000/api/web";
 const ORIGIN = process.env.E2E_BASE_URL || "http://localhost:5174";
@@ -89,6 +93,76 @@ async function createNovel(page: Page, name: string): Promise<string> {
   const m = page.url().match(/\/novel\/([0-9a-fA-F-]+)/);
   if (!m) throw new Error(`无法解析 novel id: ${page.url()}`);
   return m[1];
+}
+
+/** 带 Bearer token 的 API PUT（docker 生产后端，走 nginx /api 前缀）。 */
+async function apiPutJSON(request: APIRequestContext, token: string, path: string, data: unknown) {
+  const r = await request.put(`${ORIGIN}/api${path}`, {
+    data,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(r.ok()).toBeTruthy();
+}
+
+/** 在设定左侧树点一个设定项（aside 内精确匹配，避开右侧面板标题/横幅文案）。 */
+async function openSetting(page: Page, label: string) {
+  await page.locator("aside").getByText(label, { exact: true }).click();
+}
+
+/**
+ * 填一个设定 Field：label 文本 → 其 wrapper div 内的 textarea。
+ * Field 组件结构：wrapper div > [flex div > label] + hint <p> + <textarea>。
+ */
+async function fillSettingField(page: Page, label: string, value: string) {
+  const wrapper = page
+    .locator("label", { hasText: label })
+    .locator("xpath=ancestor::div[2]");
+  await wrapper.locator("textarea").fill(value);
+}
+
+/**
+ * 点标准设定面板（世界/伏笔/题材/风格/痕迹）的「完成设定」并等待变为「已设定」。
+ * 关键：这些面板的 ConfirmToggle 是同一 React 实例（切换面板不卸载），上一次点击的
+ * animating 动画（500ms「保存中…」）会残留到切换后——若直接 .last() 可能误点到 synopsis
+ * 卡的按钮。因此通过面板标题 h2 定位其容器（h2 与 ConfirmToggle 同属 div.flex.justify-between），
+ * 并先等目标按钮回到「完成设定」态（动画结束）再点击。
+ */
+async function confirmPanel(page: Page, panelTitle: string) {
+  const header = page
+    .locator("main h2", { hasText: panelTitle })
+    .locator("xpath=ancestor::div[2]");
+  const btn = header.getByRole("button", { name: "完成设定" });
+  await expect(btn).toBeVisible({ timeout: 5000 }); // 等共享实例 animating 动画结束
+  await btn.click();
+  await expect(header.getByRole("button", { name: "已设定" })).toBeVisible({
+    timeout: 5000,
+  });
+}
+
+/**
+ * 点角色面板的「完成设定」（CharacterManager 底部 footer，独立实例，无动画残留）。
+ * 角色面板无 h2+ConfirmToggle 的标准头部，用「N 个角色」文案定位 footer。
+ */
+async function confirmCharacters(page: Page) {
+  const footer = page
+    .locator("main")
+    .locator("div.flex", { hasText: /个角色/ })
+    .last();
+  const btn = footer.getByRole("button", { name: "完成设定" });
+  await expect(btn).toBeVisible({ timeout: 5000 });
+  await btn.click();
+  await expect(footer.getByRole("button", { name: "已设定" })).toBeVisible({
+    timeout: 5000,
+  });
+}
+
+/** 点 synopsis 补录卡的「完成设定」并等待变为「已设定」。 */
+async function confirmSynopsisCard(page: Page) {
+  const card = page.locator("#synopsis-card");
+  await card.getByRole("button", { name: "完成设定" }).click();
+  await expect(card.getByRole("button", { name: "已设定" })).toBeVisible({
+    timeout: 5000,
+  });
 }
 
 // -------------------------------------------------------------------------
@@ -188,6 +262,89 @@ test("EmptyState 旁路：设定未完成可继续创作（AC-4.3）", async ({ 
     await page.getByRole("button", { name: "正文" }).click();
     await page.getByRole("button", { name: "直接写第一章" }).click();
     await expect(page.getByText("设定尚未全部完成")).not.toBeVisible({ timeout: 5000 });
+  } finally {
+    restore();
+  }
+});
+
+// -------------------------------------------------------------------------
+// PRD 3.4：设定 7 项全确认 → GateBanner 消失
+// world/hooks 走真实表单（回归 checker 与前端保存结构不一致 bug）；其余 5 项
+// API 注入内容 + UI 完成设定。断言每项「已设定」+ 最终 banner 消失。
+// -------------------------------------------------------------------------
+
+test("设定 7 项全确认后门控横幅消失（world/hooks 真实表单）", async ({ page, request }) => {
+  const { restore, token } = await setupSession(page);
+  try {
+    const pid = await createNovel(page, `全确认${Date.now() % 100000}`);
+    await page.goto(`${ORIGIN}/#/novel/${pid}`);
+
+    // 初始：7 项均未确认 → GateBanner 显示「尚未完成设定」
+    await expect(page.getByText(/尚未完成设定/).first()).toBeVisible({ timeout: 10000 });
+
+    // ── world：真实表单填 ≥4 个子字段（3 地理 + 1 政治）→ 保存 → 完成设定
+    await openSetting(page, "世界设定");
+    await fillSettingField(page, "主要场景", "一座被沙漠包围的边境城邦");
+    await fillSettingField(page, "气候", "昼夜温差极大，夜晚滴水成冰");
+    await fillSettingField(page, "地理限制", "北临黑海，西侧是断崖");
+    await page.getByRole("button", { name: "政治" }).click();
+    await fillSettingField(page, "统治形式", "城主议会制，元老席位世袭");
+    // 保存 PUT 需先落盘，完成设定的内容判定才能读到——等待响应消除竞态
+    const worldSave = page.waitForResponse(
+      (r) => r.request().method() === "PUT" && r.url().includes("/settings/world"),
+    );
+    await page.getByRole("button", { name: "💾 保存" }).click();
+    await worldSave;
+    await confirmPanel(page, "世界设定");
+
+    // ── hooks：真实表单添加伏笔 → 填描述 → 保存 → 完成设定
+    await openSetting(page, "伏笔管理");
+    await page.getByRole("button", { name: /添加伏笔/ }).click();
+    await page.locator('input[placeholder="伏笔描述"]').fill("主角妹妹失踪的真相");
+    const hooksSave = page.waitForResponse(
+      (r) => r.request().method() === "PUT" && r.url().includes("/settings/hooks"),
+    );
+    await page.getByRole("button", { name: "💾 保存" }).click();
+    await hooksSave;
+    await confirmPanel(page, "伏笔管理");
+
+    // ── synopsis：API 注入内容 + 补录卡完成设定
+    await apiPutJSON(request, token, `/novels/${pid}/story`, {
+      synopsis: "一个少年在边境城邦寻找妹妹失踪真相的故事",
+    });
+    await confirmSynopsisCard(page);
+
+    // ── genre：API 注入 + 面板完成设定
+    await apiPutJSON(request, token, `/novels/${pid}/settings/genre`, {
+      genre_id: "urban-romance",
+    });
+    await openSetting(page, "题材设定");
+    await confirmPanel(page, "题材设定");
+
+    // ── style：API 注入 + 面板完成设定
+    await apiPutJSON(request, token, `/novels/${pid}/settings/style`, {
+      role: "克制冷静的第三人称叙事，短句为主",
+    });
+    await openSetting(page, "写作风格");
+    await confirmPanel(page, "写作风格");
+
+    // ── anti-ai：API 注入 + 面板完成设定
+    await apiPutJSON(request, token, `/novels/${pid}/settings/anti-ai`, {
+      blocklists: ["过度修辞", "翻译腔"],
+    });
+    await openSetting(page, "AI痕迹控制");
+    await confirmPanel(page, "AI痕迹控制");
+
+    // ── characters：API 注入角色文件 + 面板完成设定
+    await apiPutJSON(request, token, `/novels/${pid}/settings/character/张三`, {
+      name: "张三",
+    });
+    await openSetting(page, "角色管理");
+    await confirmCharacters(page);
+
+    // 7 项全确认 → gate 重算无警告 → GateBanner 消失
+    await expect(page.getByText(/尚未完成设定/)).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("alert")).not.toBeVisible({ timeout: 5000 });
   } finally {
     restore();
   }

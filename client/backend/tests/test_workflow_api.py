@@ -107,16 +107,15 @@ def _prime_settings(client, pid: str):
         json={
             "name": "Test World",
             "summary": "A test world for workflow testing",
-            "genre": "fantasy",
-            "tone": "serious",
-            "theme": "redemption",
-            "details": {"geography": "", "politics": "", "culture": ""},
+            "geography": {"scenes": "王国", "climate": "温带", "limits": ""},
+            "politics": {"rule": "君主制", "factions": "", "social": "", "cost": ""},
+            "rules": {"world": "", "society": "", "personal": ""},
         },
     )
     client.put(
         f"/api/novels/{pid}/settings/hooks",
         json={
-            "hooks": [
+            "active": [
                 {"id": "hook-1", "description": "First hook", "introduced_in": "1-1", "status": "pending"},
                 {"id": "hook-2", "description": "Second hook", "introduced_in": "1-1", "status": "pending"},
                 {"id": "hook-3", "description": "Third hook", "introduced_in": "1-1", "status": "pending"},

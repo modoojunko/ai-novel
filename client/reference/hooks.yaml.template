@@ -1,8 +1,10 @@
 # hooks.yaml - 伏笔/钩子追踪
 # 基于 InkOS Hook Lifecycle + webnovel-writer Reading Power Taxonomy
 # 追踪跨章节伏笔的全生命周期：pending → mentioned → resolved → abandoned
+#
+# 顶层结构（与前端 HooksSettingForm 保存一致，写作引擎只消费 active 悬而未决伏笔）
 
-hooks:
+active:
   # 每个钩子有完整生命周期状态
   # id: 唯一标识
   # description: 钩子内容描述（一句话）
@@ -30,6 +32,9 @@ hooks:
     last_mentioned_chapter: ""
     resolution_chapter: ""
     notes: ""
+
+resolved: []
+abandoned: []
 
 # 钩子类型说明（扩展自 webnovel-writer Reading Power Taxonomy）
 hook_type_guide:

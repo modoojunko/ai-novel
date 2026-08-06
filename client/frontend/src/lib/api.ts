@@ -59,7 +59,7 @@ export const api = {
   delete: (path: string) => request(path, { method: 'DELETE' }),
   /** Fetch phase status and gate warnings for a novel. */
   fetchPhaseStatus: (novelId: string) =>
-    request(`/novels/${novelId}/phase-status`),
+    request(`/novels/${novelId}/workflow/phase-status`),
   /** Create a new novel. */
   createNovel: (body: { name: string; source?: string; synopsis?: string; genre_profile?: string }): Promise<{ id: string; name: string }> =>
     request('/novels', { method: 'POST', body: JSON.stringify(body) }),
