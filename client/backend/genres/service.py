@@ -95,7 +95,7 @@ async def ensure_seed_genres() -> None:
         for preset in PRESET_GENRES:
             existing = await session.get(Genre, preset["id"])
             if existing is None:
-                session.add(Genre(id=preset["id"], **_def_to_model(preset), is_preset=True))
+                session.add(Genre(**_def_to_model(preset), is_preset=True))
         await session.commit()
 
 
@@ -120,7 +120,7 @@ async def create_genre(db: AsyncSession, data: dict) -> dict:
     existing = await db.get(Genre, data["id"])
     if existing:
         raise ValueError("该题材 id 已存在")
-    row = Genre(id=data["id"], **_def_to_model(data), is_preset=False)
+    row = Genre(**_def_to_model(data), is_preset=False)
     db.add(row)
     await db.commit()
     await db.refresh(row)
