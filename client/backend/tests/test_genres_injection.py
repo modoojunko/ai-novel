@@ -208,7 +208,7 @@ class TestResolveMerge:
         assert ctx is not None
         assert ctx["name"] == "注入测试"
         assert ctx["atmosphere"] == "自定义氛围"
-        assert ctx["pov"] == "第一人称"  # 未覆盖，用定义默认
+        assert ctx["pov"] == ["第一人称"]  # 未覆盖，用定义默认（povOptions 列表）
         assert ctx["fatigue_words"] == ["自定义疲劳词"]
         assert ctx["selected_arc"]["id"] == "arc2"
         assert ctx["selected_arc"]["beats"] == ["b1", "b2"]
