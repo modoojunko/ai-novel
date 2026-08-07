@@ -64,6 +64,20 @@ async def assemble_segment_prompt(
     segments = chapter.get("segments", [])
     seg = segments[seg_idx] if seg_idx < len(segments) else {}
 
+    # 前端大纲编辑器只保存 summary/target_words；写作指引字段做语义回退，
+    # 避免真实数据在组装时被丢弃（goal←summary、字数←target_words、情绪/角色←章级）。
+    what_to_write = seg.get("what_to_write") or seg.get("summary", "")
+    goal = seg.get("goal") or what_to_write
+    emotional_tone = (
+        seg.get("emotional_tone")
+        or chapter.get("emotional_design", {}).get("primary_mood", "")
+    )
+    characters = seg.get("characters") or chapter.get("outline", {}).get(
+        "characters", []
+    )
+    function = seg.get("function", "")
+    word_target = seg.get("word_target") or seg.get("target_words", 500)
+
     vol = chapter.get("volume", "?")
     ch_num = chapter.get("chapter", "?")
     seg_num = seg.get("seg_number", seg_idx + 1)
@@ -86,16 +100,16 @@ async def assemble_segment_prompt(
             root_path, seg.get("characters", [])
         ),
         active_hooks=await inject_active_hooks(root_path, chapter_ref),
-        what_to_write=seg.get("what_to_write", ""),
-        goal=seg.get("goal", ""),
-        emotional_tone=seg.get("emotional_tone", ""),
-        characters=", ".join(seg.get("characters", [])),
-        function=seg.get("function", ""),
+        what_to_write=what_to_write,
+        goal=goal,
+        emotional_tone=emotional_tone,
+        characters=", ".join(characters),
+        function=function,
         prohibitions=_format_prohibitions(
             chapter.get("memo", {}).get("prohibitions", [])
         ),
         depiction_techniques=depiction_techniques_str(style),
-        word_target=seg.get("word_target", 500),
+        word_target=word_target,
     )
     return prompt
 
