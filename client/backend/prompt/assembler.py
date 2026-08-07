@@ -1,4 +1,5 @@
 from filesystem.storage import get_storage
+from genres.service import build_genre_section, resolve_genre_context
 from prompt.context import (
     inject_active_hooks,
     inject_character_snapshots,
@@ -61,6 +62,11 @@ async def assemble_segment_prompt(
     anti_ai = await get_storage().read_yaml(root_path, "settings/anti-ai.yaml")
     threads = await get_storage().read_yaml(root_path, "threads.yaml")
 
+    # 题材定义注入：genre_id 为空或定义缺失时优雅降级（空串 + 无疲劳词）
+    gctx = await resolve_genre_context(root_path)
+    genre_section = build_genre_section(gctx)
+    genre_fatigue = gctx.get("fatigue_words", []) if gctx else []
+
     segments = chapter.get("segments", [])
     seg = segments[seg_idx] if seg_idx < len(segments) else {}
 
@@ -87,7 +93,7 @@ async def assemble_segment_prompt(
         role=style.get("role", "一位小说家"),
         core_principles=style.get("core_principles", ""),
         common_mistakes=style.get("common_mistakes", ""),
-        fatigue_words=", ".join(_flatten_fatigue_words(anti_ai)),
+        fatigue_words=", ".join(_flatten_fatigue_words(anti_ai) + genre_fatigue),
         tic_patterns=", ".join(_extract_tic_patterns(anti_ai)),
         novel_title=novel_title,
         vol=vol,
@@ -110,6 +116,7 @@ async def assemble_segment_prompt(
         ),
         depiction_techniques=depiction_techniques_str(style),
         word_target=word_target,
+        genre_section=genre_section,
     )
     return prompt
 

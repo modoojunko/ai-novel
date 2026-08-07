@@ -1,6 +1,7 @@
 """ChapterContext builder — assembles all writing context into a prompt."""
 
 from filesystem.storage import get_storage
+from genres.service import build_genre_section, resolve_genre_context
 
 
 class ChapterContext:
@@ -17,6 +18,8 @@ class ChapterContext:
         self.characters = []
         self.previous_chapter_recap = ""
         self.novel_title = ""
+        self.genre_section = ""
+        self.genre_fatigue_words: list[str] = []
 
     def to_prompt(self) -> str:
         """Assemble full writing prompt from all context data."""
@@ -29,9 +32,15 @@ class ChapterContext:
         lines.append(f"你是{role}。{' '.join(principles)}")
         lines.append("")
 
+        # Genre section (题材定义注入，紧跟角色定位，先于正文指引生效)
+        if self.genre_section:
+            lines.append(self.genre_section)
+            lines.append("")
+
         # Rules
         mistakes = self.style_setting.get("common_mistakes", [])
         fatigue = self._flatten_fatigue_words(self.anti_ai.get("fatigue_words_zh", {}))
+        fatigue = list(dict.fromkeys(fatigue + self.genre_fatigue_words))
         tic_patterns = [
             r.get("pattern", "") for r in self.anti_ai.get("sentence_rules", [])
         ]
@@ -140,6 +149,12 @@ async def build_chapter_context(
     # Hooks
     hooks_data = await get_storage().read_yaml(root_path, "settings/hooks.yaml") or {}
     ctx.hooks = hooks_data.get("active", [])  # 对应 settings_hooks.prompt 输出
+
+    # Genre（题材定义注入，定义缺失时优雅降级为空）
+    gctx = await resolve_genre_context(root_path)
+    if gctx:
+        ctx.genre_section = build_genre_section(gctx)
+        ctx.genre_fatigue_words = gctx.get("fatigue_words", [])
 
     # Chapter
     chapter = (

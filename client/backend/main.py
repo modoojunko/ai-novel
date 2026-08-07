@@ -22,6 +22,7 @@ from auth_local.router import router as auth_local_router
 from chapters.router import router as chapters_router
 from chapters.versions import router as chapters_versions_router
 from db import Base, async_session, engine
+from genres.router import router as genres_router
 from models.user import User
 from novels.router import ai_router
 from novels.router import router as novels_router
@@ -63,6 +64,16 @@ async def lifespan(app: FastAPI):
             )
     except Exception:
         pass  # 列已存在
+
+    # ── Seed preset genres ──────────────────────────────────────────
+    try:
+        from genres.service import ensure_seed_genres
+
+        await ensure_seed_genres()
+    except Exception as e:
+        import logging
+
+        logging.getLogger("uvicorn.error").warning("Genre seed failed: %s", e)
 
     # ── Migrate: create events table ─────────────────────────────────
     try:
@@ -180,6 +191,9 @@ app.include_router(workflow_backfill_router)
 
 # API Key Config management (v1)
 app.include_router(api_configs_router)
+
+# 全局题材库
+app.include_router(genres_router)
 
 
 @app.get("/api/health")
