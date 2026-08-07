@@ -75,4 +75,12 @@ client/frontend/monitor-cdp.cjs
 client/frontend/live-*.png
 client/frontend/shot-*.png
 shot-*.png
+live-*.png
 .tmp_check_apikey.py
+
+# Local dev tooling
+.reasonix/
+reasonix.toml
+
+# Playwright test reports
+playwright-report/
