@@ -194,6 +194,7 @@ ai-novel/
 - **模板文件**：`reference/` 存放 `.template` 文件。`backend/filesystem/init.py` 在创建新项目骨架时复制它们。
 - **Token 计费**：每次 AI 调用创建 TokenLog 记录，相应扣除用户余额。`billing/service.py` 包含各模型费率。
 - **文件系统访问**：始终使用 `filesystem/storage.py` 中的 `get_storage()`，而非直接文件 I/O，以支持两种存储后端。
+- **非代码不 git 跟踪**：git 只跟踪代码与必要文档。本地工具产物（`.reasonix/`、`reasonix.toml`）、调试截图（`live-*.png` 等）、测试报告（`playwright-report/`）、本地配置（`.claude/settings.json`）一律不入库——新增此类文件时加入 `.gitignore`，而不是提交。
 
 ## 当前状态
 
