@@ -1,8 +1,9 @@
 // ── GenreSettingForm ──────────────────────────────────────────────────────
 // Settings tree node for genre/trope configuration.
 // Follows the same pattern as WorldSettingForm / StyleSettingForm.
-// Collapsible sections for: narrator role, tone blueprint, taboos,
-// prompt injection, genre config, and story arc templates.
+// Collapsible sections for: taboos, prompt injection, genre config,
+// and story arc templates.
+// ADR-007：叙事者角色/文风蓝图已移出——归文风表单（writing-style tone）。
 
 import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
@@ -13,7 +14,6 @@ import {
   ChevronUp,
   RefreshCw,
   BookOpen,
-  Palette,
   Ban,
   Terminal,
   Settings2,
@@ -33,11 +33,6 @@ interface GenreSettingFormProps {
 
 interface GenreConfigData {
   genre_id: string;
-  tone_overrides?: {
-    atmosphere?: string;
-    pov?: string;
-    techniques?: string[];
-  };
   prompt_injection_enabled?: boolean;
   config_overrides?: {
     fulfillment_types?: string[];
@@ -97,21 +92,6 @@ function CollapsibleSection({
       >
         <div className="px-4 pb-4 pt-1">{children}</div>
       </div>
-    </div>
-  );
-}
-
-// ── ReadonlyField ────────────────────────────────────────────────────────
-
-function ReadonlyField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <label className="text-[11px] text-base-content/50 font-medium block mb-1 tracking-wide">
-        {label}
-      </label>
-      <p className="text-sm text-base-content/70 leading-relaxed bg-base-200/30 rounded-lg px-3.5 py-2.5 border border-base-300/30">
-        {value}
-      </p>
     </div>
   );
 }
@@ -228,36 +208,6 @@ function SelectableArcCard({
   );
 }
 
-// ── Atmosphere / POV selector (pill buttons) ─────────────────────────────
-
-function PillSelector<T extends string>({
-  options,
-  value,
-  onChange,
-}: {
-  options: T[];
-  value: T;
-  onChange: (v: T) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map((opt) => (
-        <button
-          key={opt}
-          onClick={() => onChange(opt)}
-          className={`px-2.5 py-1 text-xs rounded-lg border transition-colors ${
-            value === opt
-              ? "border-primary/40 bg-primary/10 text-primary"
-              : "border-base-300/50 text-base-content/50 hover:border-base-300/80 hover:text-base-content/70"
-          }`}
-        >
-          {opt}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 // ── Main component ───────────────────────────────────────────────────────
 
 export default function GenreSettingForm({ projectId, settingKey }: GenreSettingFormProps) {
@@ -271,10 +221,7 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
   /** genre_id 已设定但定义缺失（被删/未知）→ 降级可用态，不整块空屏 */
   const [definitionMissing, setDefinitionMissing] = useState(false);
 
-  // Editable fields
-  const [atmosphere, setAtmosphere] = useState("");
-  const [pov, setPov] = useState("");
-  const [techniques, setTechniques] = useState<string[]>([""]);
+  // Editable fields（ADR-007：氛围/视角/技法归文风表单，题材只保留配置与弧线）
   const [promptInjectionEnabled, setPromptInjectionEnabled] = useState(true);
   const [fulfillmentTypes, setFulfillmentTypes] = useState<string[]>([""]);
   const [chapterTypes, setChapterTypes] = useState<string[]>([""]);
@@ -288,9 +235,6 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
   const applyGenre = useCallback((g: GenreDefinition) => {
     setGenre(g);
     setGenreId(g.id);
-    setAtmosphere(g.toneBlueprint.atmosphereOptions[0] ?? "");
-    setPov(g.toneBlueprint.povOptions[0] ?? "");
-    setTechniques([...g.toneBlueprint.techniqueTags]);
     setFulfillmentTypes([...g.genreConfig.fulfillmentTypes]);
     setChapterTypes([...g.genreConfig.chapterTypes]);
     setPacingRules([...g.genreConfig.pacingRules]);
@@ -302,11 +246,6 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
   const buildPayload = useCallback(
     (g: GenreDefinition): GenreConfigData => ({
       genre_id: g.id,
-      tone_overrides: {
-        atmosphere,
-        pov,
-        techniques: techniques.filter(Boolean),
-      },
       prompt_injection_enabled: promptInjectionEnabled,
       config_overrides: {
         fulfillment_types: fulfillmentTypes.filter(Boolean),
@@ -316,7 +255,7 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
       },
       selected_arc_id: selectedArcId,
     }),
-    [atmosphere, pov, techniques, promptInjectionEnabled, fulfillmentTypes, chapterTypes, pacingRules, fatigueWords, selectedArcId],
+    [promptInjectionEnabled, fulfillmentTypes, chapterTypes, pacingRules, fatigueWords, selectedArcId],
   );
 
   // ── Load from API ─────────────────────────────────────────────────
@@ -346,11 +285,6 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
             }),
           );
           setDefinitionMissing(true);
-          setAtmosphere(d.tone_overrides?.atmosphere ?? "");
-          setPov(d.tone_overrides?.pov ?? "");
-          setTechniques(
-            d.tone_overrides?.techniques?.length ? d.tone_overrides.techniques : [""],
-          );
           setPromptInjectionEnabled(d.prompt_injection_enabled ?? true);
           setFulfillmentTypes(
             d.config_overrides?.fulfillment_types?.length
@@ -378,13 +312,7 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
         setGenre(g);
         setDefinitionMissing(false);
 
-        // Apply overrides or defaults
-        setAtmosphere(d.tone_overrides?.atmosphere ?? g.toneBlueprint.atmosphereOptions[0] ?? "");
-        setPov(d.tone_overrides?.pov ?? g.toneBlueprint.povOptions[0] ?? "");
-        setTechniques(d.tone_overrides?.techniques?.length
-          ? d.tone_overrides.techniques
-          : [...g.toneBlueprint.techniqueTags],
-        );
+        // Apply overrides or defaults（ADR-007：氛围/视角/技法归文风表单，不在此处加载）
         setPromptInjectionEnabled(d.prompt_injection_enabled ?? true);
         setFulfillmentTypes(d.config_overrides?.fulfillment_types?.length
           ? d.config_overrides.fulfillment_types
@@ -540,60 +468,7 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
 
       {/* ── Collapsible sections ─────────────────────────────────── */}
       <div className="space-y-3">
-        {/* 1. 叙事者角色 (read-only preview) — 定义缺失时隐藏 */}
-        {!definitionMissing && (
-          <CollapsibleSection icon={<BookOpen className="w-3.5 h-3.5" />} title="叙事者角色">
-            <ReadonlyField label="叙事者角色" value={genre.narratorRole} />
-            <div className="mt-3">
-              <label className="text-[11px] text-base-content/50 font-medium block mb-1 tracking-wide">
-                典型故事弧
-              </label>
-              <p className="text-sm text-base-content/70 leading-relaxed bg-base-200/30 rounded-lg px-3.5 py-2.5 border border-base-300/30">
-                {genre.typicalArc}
-              </p>
-            </div>
-          </CollapsibleSection>
-        )}
-
-        {/* 2. 文风蓝图 — 定义缺失时隐藏（氛围/视角来自定义选项） */}
-        {!definitionMissing && (
-          <CollapsibleSection icon={<Palette className="w-3.5 h-3.5" />} title="文风蓝图" defaultOpen={false}>
-            <div className="space-y-3">
-              <ReadonlyField label="基调" value={genre.toneBlueprint.defaultTone} />
-
-              <div>
-                <label className="text-[11px] text-base-content/50 font-medium block mb-1.5 tracking-wide">
-                  氛围选项
-                </label>
-                <PillSelector
-                  options={genre.toneBlueprint.atmosphereOptions}
-                  value={atmosphere}
-                  onChange={setAtmosphere}
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] text-base-content/50 font-medium block mb-1.5 tracking-wide">
-                  叙事视角（POV）
-                </label>
-                <PillSelector
-                  options={genre.toneBlueprint.povOptions}
-                  value={pov}
-                  onChange={setPov}
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] text-base-content/50 font-medium block mb-1.5 tracking-wide">
-                  描写技法
-                </label>
-                <ListInput items={techniques} onChange={setTechniques} placeholder="添加描写技法" />
-              </div>
-            </div>
-          </CollapsibleSection>
-        )}
-
-        {/* 3. 类型禁忌 */}
+        {/* 1. 类型禁忌 */}
         {genre.taboos.length > 0 && (
           <CollapsibleSection icon={<Ban className="w-3.5 h-3.5" />} title="类型禁忌" defaultOpen={false}>
             <div>
@@ -608,7 +483,7 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
           </CollapsibleSection>
         )}
 
-        {/* 4. 提示词注入段 */}
+        {/* 2. 提示词注入段 */}
         <CollapsibleSection icon={<Terminal className="w-3.5 h-3.5" />} title="提示词注入段" defaultOpen={false}>
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -638,7 +513,7 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
           </div>
         </CollapsibleSection>
 
-        {/* 5. 题材配置 (editable) */}
+        {/* 3. 题材配置 (editable) */}
         <CollapsibleSection icon={<Settings2 className="w-3.5 h-3.5" />} title="题材配置">
           <div className="space-y-4">
             <div>
@@ -668,7 +543,7 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
           </div>
         </CollapsibleSection>
 
-        {/* 6. 故事弧模板 — 定义缺失时隐藏 */}
+        {/* 4. 故事弧模板 — 定义缺失时隐藏 */}
         {!definitionMissing && (
           <CollapsibleSection icon={<LayoutList className="w-3.5 h-3.5" />} title="故事弧模板" defaultOpen={false}>
             <div className="space-y-2">

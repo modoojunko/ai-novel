@@ -85,6 +85,16 @@ async def lifespan(app: FastAPI):
 
         logging.getLogger("uvicorn.error").warning("Genre seed failed: %s", e)
 
+    # ── Migrate: 题材 tone_overrides → 文风 tone（ADR-007，seed 之后保证预置行存在）─
+    try:
+        from filesystem.migrate import backfill_tone_overrides
+
+        await backfill_tone_overrides()
+    except Exception as e:
+        import logging
+
+        logging.getLogger("uvicorn.error").warning("Tone backfill failed: %s", e)
+
     # ── Migrate: create events table ─────────────────────────────────
     try:
         async with engine.begin() as conn:

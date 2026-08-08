@@ -5,7 +5,12 @@ from prompt.context import (
     inject_character_snapshots,
     inject_story_context,
 )
-from settings.render import depiction_techniques_str, flatten_principles, fmt_mistakes
+from settings.render import (
+    build_tone_section,
+    depiction_techniques_str,
+    flatten_principles,
+    fmt_mistakes,
+)
 
 
 def _validate_ref(ref: str) -> str:
@@ -106,6 +111,7 @@ async def assemble_segment_prompt(
         depiction_techniques=depiction_techniques_str(style),
         word_target=word_target,
         genre_section=genre_section,
+        tone_section=build_tone_section(style),
     )
     return prompt
 

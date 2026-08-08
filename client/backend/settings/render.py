@@ -63,3 +63,40 @@ def depiction_techniques_str(style) -> str:
     if isinstance(techniques, dict):
         return "\n".join(f"- {k}：{v}" for k, v in techniques.items() if v)
     return ""
+
+
+def _fmt_list(v) -> str:
+    """字符串或字符串列表 → "、"连接字符串。"""
+    if isinstance(v, str):
+        return v
+    if isinstance(v, list):
+        return "、".join(str(x) for x in v if str(x).strip())
+    return ""
+
+
+def build_tone_section(style) -> str:
+    """writing-style tone → 「## 叙事基调」markdown 块（ADR-007）。
+
+    从 style.narrator_role + style.tone{default_tone, atmosphere, pov, techniques}
+    渲染。tone 与 narrator_role 都缺失/为空 → ""（不注入空块）。
+    题材库不再注入基调（见 genres/service.resolve_genre_context 停用）。
+    """
+    if not isinstance(style, dict):
+        return ""
+    narrator_role = style.get("narrator_role", "")
+    tone = style.get("tone")
+    if not narrator_role and not isinstance(tone, dict):
+        return ""
+    lines = ["## 叙事基调"]
+    if narrator_role:
+        lines.append(f"叙事者角色：{narrator_role}")
+    if isinstance(tone, dict):
+        if tone.get("default_tone"):
+            lines.append(f"默认基调：{tone['default_tone']}")
+        if tone.get("atmosphere"):
+            lines.append(f"氛围：{_fmt_list(tone['atmosphere'])}")
+        if tone.get("pov"):
+            lines.append(f"叙事视角：{_fmt_list(tone['pov'])}")
+        if tone.get("techniques"):
+            lines.append(f"描写技法：{_fmt_list(tone['techniques'])}")
+    return "\n".join(lines)

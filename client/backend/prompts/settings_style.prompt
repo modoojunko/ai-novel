@@ -15,5 +15,12 @@
       "description": "手法说明",
       "example": "示例句子"
     }}
-  ]
+  ],
+  "narrator_role": "叙事者角色（如：第三人称有限视角叙述者；空串则不注入）",
+  "tone": {{
+    "default_tone": "默认基调（整部作品的整体语气）",
+    "atmosphere": ["氛围关键词"],
+    "pov": ["叙事视角选项"],
+    "techniques": ["描写技法偏好"]
+  }}
 }}

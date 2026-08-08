@@ -2,7 +2,12 @@
 
 from filesystem.storage import get_storage
 from genres.service import build_genre_section, resolve_genre_context
-from settings.render import depiction_techniques_str, flatten_principles, fmt_mistakes
+from settings.render import (
+    build_tone_section,
+    depiction_techniques_str,
+    flatten_principles,
+    fmt_mistakes,
+)
 
 
 class ChapterContext:
@@ -36,6 +41,12 @@ class ChapterContext:
         # Genre section (题材定义注入，紧跟角色定位，先于正文指引生效)
         if self.genre_section:
             lines.append(self.genre_section)
+            lines.append("")
+
+        # Tone section (ADR-007：文风基调归文风表单，题材库不再注入)
+        tone_section = build_tone_section(self.style_setting)
+        if tone_section:
+            lines.append(tone_section)
             lines.append("")
 
         # Rules

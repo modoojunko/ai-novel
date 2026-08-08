@@ -187,9 +187,7 @@ async def resolve_genre_context(root_path: str) -> dict | None:
         return None
 
     definition = _model_to_def(row)
-    tone = definition.get("toneBlueprint", {})
     gcfg = definition.get("genreConfig", {})
-    tone_overrides = genre_cfg.get("tone_overrides", {}) or {}
     cfg_overrides = genre_cfg.get("config_overrides", {}) or {}
     prompt_enabled = genre_cfg.get("prompt_injection_enabled", True)
     selected_arc_id = genre_cfg.get("selected_arc_id")
@@ -201,18 +199,14 @@ async def resolve_genre_context(root_path: str) -> dict | None:
     if selected_arc is None and arcs:
         selected_arc = arcs[0]
 
+    # ADR-007：基调/叙事者归文风表单（writing-style tone），题材 ctx 不再携带。
     return {
         "id": genre_id,
         "name": definition.get("name", genre_id),
         "category": definition.get("category", ""),
         "description": definition.get("description", ""),
-        "narrator_role": definition.get("narratorRole", ""),
         "typical_arc": definition.get("typicalArc", ""),
         "taboos": definition.get("taboos", []),
-        "default_tone": tone.get("defaultTone", ""),
-        "atmosphere": tone_overrides.get("atmosphere") or tone.get("atmosphereOptions", []),
-        "pov": tone_overrides.get("pov") or tone.get("povOptions", []),
-        "techniques": tone_overrides.get("techniques") or tone.get("techniqueTags", []),
         "prompt_injection": (
             definition.get("promptInjection", "") if prompt_enabled else None
         ),
@@ -252,21 +246,8 @@ def build_genre_section(ctx: dict | None) -> str:
     lines.append(f"题材：{ctx.get('name', '')}")
     if ctx.get("description"):
         lines.append(ctx["description"])
-    if ctx.get("narrator_role"):
-        lines.append(f"叙事者角色：{ctx['narrator_role']}")
 
-    tone_parts = []
-    if ctx.get("default_tone"):
-        tone_parts.append(f"默认基调：{ctx['default_tone']}")
-    if ctx.get("atmosphere"):
-        tone_parts.append(f"氛围：{_fmt(ctx['atmosphere'])}")
-    if ctx.get("pov"):
-        tone_parts.append(f"叙事视角：{_fmt(ctx['pov'])}")
-    if ctx.get("techniques"):
-        tone_parts.append(f"描写技法：{_fmt(ctx['techniques'])}")
-    if tone_parts:
-        lines.append("；".join(tone_parts))
-
+    # ADR-007：基调/叙事者归文风表单（写作链路经 build_tone_section 注入），题材块不再渲染。
     if ctx.get("typical_arc"):
         lines.append(f"典型结构：{ctx['typical_arc']}")
     if ctx.get("taboos"):

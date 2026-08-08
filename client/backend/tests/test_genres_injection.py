@@ -207,8 +207,10 @@ class TestResolveMerge:
         ctx = _run_async(resolve_genre_context(root))
         assert ctx is not None
         assert ctx["name"] == "注入测试"
-        assert ctx["atmosphere"] == "自定义氛围"
-        assert ctx["pov"] == ["第一人称"]  # 未覆盖，用定义默认（povOptions 列表）
+        # ADR-007：题材 ctx 不再携带基调/叙事者（归文风表单 tone）
+        assert "atmosphere" not in ctx
+        assert "pov" not in ctx
+        assert "narrator_role" not in ctx
         assert ctx["fatigue_words"] == ["自定义疲劳词"]
         assert ctx["selected_arc"]["id"] == "arc2"
         assert ctx["selected_arc"]["beats"] == ["b1", "b2"]
@@ -239,9 +241,11 @@ class TestBuildGenreSection:
                 "name": "测试题材",
                 "category": "urban",
                 "description": "一段说明",
-                "narrator_role": "叙事者",
                 "typical_arc": "典型弧",
                 "taboos": ["忌一", "忌二"],
+                # ADR-007：narrator_role/default_tone/atmosphere/pov/techniques
+                # 已停用（归文风表单 tone）——传入也应被忽略
+                "narrator_role": "叙事者",
                 "default_tone": "温暖",
                 "atmosphere": "温馨",
                 "pov": "第一人称",
@@ -256,7 +260,11 @@ class TestBuildGenreSection:
         assert "## 题材设定" in section
         assert "题材：测试题材" in section
         assert "一段说明" in section
-        assert "叙事者角色：叙事者" in section
+        assert "叙事者角色" not in section
+        assert "默认基调" not in section
+        assert "氛围" not in section
+        assert "叙事视角" not in section
+        assert "描写技法" not in section
         assert "题材禁忌：忌一；忌二" in section
         assert "[注入段]" in section
         assert "章节类型：日常" in section

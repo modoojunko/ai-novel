@@ -10,6 +10,7 @@ const TABS = [
   { id: "principles", label: "核心原则" },
   { id: "mistakes", label: "常见错误" },
   { id: "techniques", label: "描写技法" },
+  { id: "tone", label: "叙事基调" },
 ];
 
 // 模板盘文件与前端保存存在 dict/list 双态（ADR-006）：core_principles 为分类
@@ -25,6 +26,8 @@ function toFlatList(v: unknown): string[] {
     }
     return out.filter(Boolean);
   }
+  // 非空字符串（AI 生成/存量单值）视为单元素列表，避免编辑时被丢弃
+  if (typeof v === "string" && v.trim()) return [v];
   return [];
 }
 
@@ -55,6 +58,12 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
   const [principles, setPrinciples] = useState<string[]>([""]);
   const [mistakes, setMistakes] = useState<string[]>([""]);
   const [techniques, setTechniques] = useState<string[]>([""]);
+  // 叙事基调（ADR-007）：narrator_role + tone{default_tone, atmosphere, pov, techniques}
+  const [narratorRole, setNarratorRole] = useState("");
+  const [defaultTone, setDefaultTone] = useState("");
+  const [atmosphere, setAtmosphere] = useState<string[]>([""]);
+  const [pov, setPov] = useState<string[]>([""]);
+  const [toneTechniques, setToneTechniques] = useState<string[]>([""]);
 
   // AI modal state
   const [aiField, setAiField] = useState<string | null>(null);
@@ -77,6 +86,15 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
         setPrinciples(p.length ? p : [""]);
         setMistakes(m.length ? m : [""]);
         setTechniques(t.length ? t : [""]);
+        const tone = d.tone && typeof d.tone === "object" ? (d.tone as Record<string, unknown>) : {};
+        setNarratorRole(d.narrator_role || "");
+        setDefaultTone((tone.default_tone as string) || "");
+        const a = toFlatList(tone.atmosphere);
+        const v = toFlatList(tone.pov);
+        const tt = toFlatList(tone.techniques);
+        setAtmosphere(a.length ? a : [""]);
+        setPov(v.length ? v : [""]);
+        setToneTechniques(tt.length ? tt : [""]);
       })
       .catch(() => setError("加载失败"))
       .finally(() => setLoading(false));
@@ -91,6 +109,15 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
         core_principles: principles.filter(Boolean),
         possible_mistakes: mistakes.filter(Boolean),
         depiction_techniques: techniques.filter(Boolean),
+        narrator_role: narratorRole,
+        // tone 子键逐项合并，保留既有 tone 里的其他键（若有）
+        tone: {
+          ...(existing?.tone as Record<string, unknown> | undefined),
+          default_tone: defaultTone,
+          atmosphere: atmosphere.filter(Boolean),
+          pov: pov.filter(Boolean),
+          techniques: toneTechniques.filter(Boolean),
+        },
       };
       await api.put(`/novels/${projectId}/settings/${settingKey}`, { ...existing, ...edited });
     } catch (e: any) { setError(e.message || "保存失败"); }
@@ -175,6 +202,15 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
       {tab === "techniques" && (
         <ListEditor items={techniques} onChange={setTechniques} placeholder="例如：情绪通过动作表现 — 紧张=抠指甲"
           aiGeneratable aiLoading={aiPendingField === "depiction_techniques"} onAIGenerate={() => handleAIGenerate("depiction_techniques")} />
+      )}
+      {tab === "tone" && (
+        <div className="space-y-4">
+          <Field label="叙事者角色" hint="如：第三人称有限视角叙述者；留空则不注入叙事者定位" value={narratorRole} onChange={setNarratorRole} />
+          <Field label="默认基调" hint="整部作品的整体语气/口吻，如：克制冷静、情绪靠细节外化" value={defaultTone} onChange={setDefaultTone} />
+          <ListEditor items={atmosphere} onChange={setAtmosphere} placeholder='氛围关键词，如："压抑"' />
+          <ListEditor items={pov} onChange={setPov} placeholder='叙事视角，如："第三人称有限视角"' />
+          <ListEditor items={toneTechniques} onChange={setToneTechniques} placeholder="描写技法偏好，如：动作外化情绪" />
+        </div>
       )}
 
       {error && <p className="text-sm text-error/80 mt-3">{error}</p>}
