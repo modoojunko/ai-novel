@@ -5,6 +5,7 @@ import json
 from ai_client import get_ai_client
 from filesystem.storage import get_storage
 from prompts import load as load_prompt
+from settings.render import depiction_techniques_str, flatten_principles
 from workflow.engine import load_chapter, save_chapter
 
 
@@ -14,14 +15,12 @@ def _format_style(style: dict) -> str:
     role = style.get("role", "")
     if role:
         parts.append(f"叙事角色：{role}")
-    principles = style.get("core_principles", [])
+    principles = flatten_principles(style.get("core_principles"))
     if principles:
         parts.append(f"写作原则：{'；'.join(principles[:3])}")
-    techniques = style.get("depiction_techniques", {})
-    if isinstance(techniques, dict):
-        for k, v in techniques.items():
-            if isinstance(v, str) and v:
-                parts.append(f"{k}：{v}")
+    techniques = depiction_techniques_str(style)
+    if techniques:
+        parts.append(techniques)
     return "\n".join(parts)
 
 
@@ -35,9 +34,9 @@ def _format_anti_ai(rules: dict) -> str:
             words.extend(category)
     if words:
         parts.append(f"禁止词汇：{'、'.join(words[:15])}")
-    sentence_rules = rules.get("sentence_rules", [])
-    if sentence_rules:
-        patterns = [r.get("pattern", "") for r in sentence_rules if isinstance(r, dict)]
+    tic_patterns = rules.get("structural_tic_patterns", [])
+    if tic_patterns:
+        patterns = [r.get("pattern", "") for r in tic_patterns if isinstance(r, dict)]
         if patterns:
             parts.append(f"禁止句式：{'；'.join(patterns[:5])}")
     return "\n".join(parts)

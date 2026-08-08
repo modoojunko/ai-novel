@@ -5,6 +5,7 @@ from prompt.context import (
     inject_character_snapshots,
     inject_story_context,
 )
+from settings.render import depiction_techniques_str, flatten_principles, fmt_mistakes
 
 
 def _validate_ref(ref: str) -> str:
@@ -34,18 +35,6 @@ def _format_prohibitions(prohibitions: list) -> str:
     if not prohibitions:
         return "（无特别限制）"
     return "；".join(str(p) for p in prohibitions)
-
-
-def depiction_techniques_str(style: dict) -> str:
-    """Format depiction_techniques into a prompt-friendly string."""
-    techniques = style.get("depiction_techniques", [])
-    if not techniques:
-        return style.get("depiction_techniques", "")
-    lines = []
-    for t in techniques:
-        if isinstance(t, dict):
-            lines.append(f"- {t.get('name', '')}: {t.get('description', '')}")
-    return "\n".join(lines) if lines else ""
 
 
 async def assemble_segment_prompt(
@@ -91,8 +80,8 @@ async def assemble_segment_prompt(
     template = load_prompt("chapter_segment")
     prompt = template.format(
         role=style.get("role", "一位小说家"),
-        core_principles=style.get("core_principles", ""),
-        common_mistakes=style.get("common_mistakes", ""),
+        core_principles="；".join(flatten_principles(style.get("core_principles"))),
+        common_mistakes=fmt_mistakes(style.get("possible_mistakes")),
         fatigue_words=", ".join(_flatten_fatigue_words(anti_ai) + genre_fatigue),
         tic_patterns=", ".join(_extract_tic_patterns(anti_ai)),
         novel_title=novel_title,

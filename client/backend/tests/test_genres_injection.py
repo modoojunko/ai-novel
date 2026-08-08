@@ -99,7 +99,7 @@ def _seed_assembler(root: str):
         get_storage().write_yaml(
             root,
             "settings/writing-style.yaml",
-            {"role": "一位小说家", "core_principles": "", "common_mistakes": ""},
+            {"role": "一位小说家", "core_principles": "", "possible_mistakes": ""},
         )
     )
     _run_async(
@@ -135,14 +135,14 @@ def _seed_writer(root: str):
         get_storage().write_yaml(
             root,
             "settings/writing-style.yaml",
-            {"role": "一位小说家", "core_principles": [], "common_mistakes": []},
+            {"role": "一位小说家", "core_principles": [], "possible_mistakes": []},
         )
     )
     _run_async(
         get_storage().write_yaml(
             root,
             "settings/anti-ai.yaml",
-            {"fatigue_words_zh": {}, "sentence_rules": []},
+            {"fatigue_words_zh": {}, "structural_tic_patterns": []},
         )
     )
     _run_async(get_storage().write_yaml(root, "settings/hooks.yaml", {"active": []}))

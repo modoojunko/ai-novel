@@ -35,7 +35,7 @@ def _seed(root: str):
         get_storage().write_yaml(
             root,
             "settings/writing-style.yaml",
-            {"role": "一位小说家", "core_principles": "", "common_mistakes": ""},
+            {"role": "一位小说家", "core_principles": "", "possible_mistakes": ""},
         )
     )
     _run_async(

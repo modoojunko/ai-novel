@@ -2,6 +2,7 @@
 
 from filesystem.storage import get_storage
 from genres.service import build_genre_section, resolve_genre_context
+from settings.render import depiction_techniques_str, flatten_principles, fmt_mistakes
 
 
 class ChapterContext:
@@ -27,7 +28,7 @@ class ChapterContext:
 
         # Role
         role = self.style_setting.get("role", "一位小说家")
-        principles = self.style_setting.get("core_principles", [])
+        principles = flatten_principles(self.style_setting.get("core_principles"))
         lines.append("## 角色定位")
         lines.append(f"你是{role}。{' '.join(principles)}")
         lines.append("")
@@ -38,15 +39,16 @@ class ChapterContext:
             lines.append("")
 
         # Rules
-        mistakes = self.style_setting.get("common_mistakes", [])
+        mistakes = fmt_mistakes(self.style_setting.get("possible_mistakes"))
         fatigue = self._flatten_fatigue_words(self.anti_ai.get("fatigue_words_zh", {}))
         fatigue = list(dict.fromkeys(fatigue + self.genre_fatigue_words))
         tic_patterns = [
-            r.get("pattern", "") for r in self.anti_ai.get("sentence_rules", [])
+            r.get("pattern", "")
+            for r in self.anti_ai.get("structural_tic_patterns", [])
         ]
         lines.append("## 原则与禁忌")
         if mistakes:
-            lines.append(f"注意避免：{', '.join(mistakes)}")
+            lines.append(f"注意避免：{mistakes}")
         if fatigue:
             lines.append(f"禁止使用以下词汇：{', '.join(fatigue)}")
         if tic_patterns:
@@ -104,12 +106,10 @@ class ChapterContext:
             lines.append("")
 
         # Writing requirements
-        techniques = self.style_setting.get("depiction_techniques", {})
+        techniques_str = depiction_techniques_str(self.style_setting)
         lines.append("## 写作要求")
-        if isinstance(techniques, dict):
-            for k, v in techniques.items():
-                if isinstance(v, str) and v:
-                    lines.append(f"- {k}：{v}")
+        if techniques_str:
+            lines.append(techniques_str)
         lines.append("输出长度：约 2500 字。")
         lines.append("语言：中文。")
         lines.append("写正文，不写章节标题，不写总结。")
