@@ -140,21 +140,22 @@ SSE 用于 C端 流式生成正文。
 ai-novel/
 ├── client/                    # C端 — 用户本地桌面应用
 │   ├── backend/              FastAPI 后端
-│   │   ├── main.py           FastAPI 应用，lifespan（自动建表），路由注册
+│   │   ├── main.py           FastAPI 应用，lifespan（自动建表 + 启动迁移），路由注册
 │   │   ├── config.py         本地配置 (DATA_ROOT, JWT_SECRET, SERVER_API_BASE)
 │   │   ├── db.py             SQLAlchemy + SQLite
 │   │   ├── ai_client.py      动态 API Key 的 AI 客户端
 │   │   ├── api_configs/      API Key 多配置管理（厂商检测/连接测试/CRUD/用量统计）
-│   │   ├── models/           SQLAlchemy ORM: User, Project, TokenLog, NovelFile
+│   │   ├── models/           SQLAlchemy ORM: User, Project, TokenLog, NovelFile, ProjectSetting, Genre
 │   │   ├── auth_local/       License 验证模块（S端通信 + 离线缓存）
 │   │   ├── projects/         项目 CRUD
-│   │   ├── settings/         设定管理 + AI 生成
+│   │   ├── settings/         设定管理 + AI 生成 + 渲染（render.py）
+│   │   ├── genres/           全局题材库（CRUD/种子/写作链路注入）
 │   │   ├── chapters/         卷章 CRUD
 │   │   ├── workflow/         阶段机 + gate 验证
 │   │   ├── prompt/           提示词组装
 │   │   ├── write/            SSE 流式写作
 │   │   ├── archive/          归档
-│   │   ├── filesystem/       本地文件存储
+│   │   ├── filesystem/       存储后端（Local/Database/Composite 组合路由 + 启动迁移）
 │   │   └── story/            剧情推演
 │   ├── frontend/             React 19 SPA (Vite + daisyUI)
 │   └── packaging/            PyInstaller + pywebview 打包
@@ -182,13 +183,16 @@ ai-novel/
 - **阶段门控机（Phase gate machine）**：每个工作流流转（`init→settings`、`settings→outline` 等）都有验证门。门控失败 → 流转被拒绝，API 返回缺少的内容。
 - **六阶段工作流**：init → settings → outline → prompt → write → archive。write→outline 是唯一的反向流转（开始下一章）。
 - **双存储后端**：小说内容可通过 `STORAGE_BACKEND` 环境变量存储在本地文件系统或数据库中。通过 `filesystem/storage.py` 中的 `StorageBackend` 协议抽象。
+- **设定存数据库（组合路由后端）**：项目设定（story/world/style/anti-ai/hooks/genre/ai-model/status + characters）经 `filesystem/composite_storage.py` 的 `PATH_TO_KEY` 路由到 `project_settings` KV 表（ADR-001/002），其余路径路由 LocalFileBackend。**每路径唯一属主非镜像**。写作链路只经 `get_storage()` 协议读写，调用方零感知切换。章节/卷/正文/提示词/归档仍走文件。
+- **设定渲染收敛 settings/render.py**：文风/反AI → 提示词字符串统一经 render.py（flatten_principles / fmt_mistakes / depiction_techniques_str / build_tone_section），容忍模板盘文件与前端/AI 保存的 dict/list 双态。前端两表单 merge-on-save（`{...existing, ...edited}`），因后端 PUT = 整体替换。
+- **题材/文风分离**：叙事者角色与叙事基调归文风表单（writing-style `narrator_role` + `tone{default_tone, atmosphere, pov, techniques}`），题材库的 toneBlueprint/narratorRole 数据保留但不注入提示词。存量项目经启动回填 `backfill_tone_overrides` 一次性迁入文风 tone。
 - **SSE 流式传输**：第五阶段写作期间每个段落一个 SSE 连接。前端可打开多个并行流，支持每个段落的暂停/停止。
 - **Token 计费**：每次 AI 调用记录到 `token_log` 并从用户余额中扣除。按模型计价（haiku：输入/输出每百万 $0.80/$4.00；sonnet：$3/$15）。
 - **多租户隔离**：文件系统路径 `/data/{user_id}/`，数据库查询通过 JWT 中的 user_id 限定范围，v1 不支持项目共享。
 
 ## 关键约定
 
-- **小说数据存储在文件系统或数据库**：本地后端使用 `/data/projects/{user_id}/{project_slug}/` 下的 YAML/MD 文件，数据库后端使用 `novel_files` 表。PostgreSQL 仅存储用户、项目和计费元数据。
+- **设定存 DB、正文存文件**：本地后端 9 类设定（含字符目录）经组合路由后端存 `project_settings` 表；章节/卷/提示词/归档/threads/md 存 `/data/projects/{user_id}/{project_slug}/` 下文件。SQLite 存储用户、项目、题材库与设定 KV。
 - **流转前必须通过阶段门控**：`backend/workflow/gates.py` 中的函数验证前置条件。门控失败 → 返回 400 及缺失项列表。
 - **项目所有权**：所有 API 端点从 JWT 提取 user_id，在任何文件或数据库操作前交叉校验 `project.user_id`。
 - **模板文件**：`reference/` 存放 `.template` 文件。`backend/filesystem/init.py` 在创建新项目骨架时复制它们。
