@@ -9,7 +9,9 @@ from workflow.readiness import READINESS_CHECKERS, READINESS_KEYS
 
 router = APIRouter(prefix="/api/novels/{project_id}/settings", tags=["settings"])
 
-VALID_TYPES = {"world", "style", "anti-ai", "hooks", "characters", "ai-model", "genre", "synopsis"}
+# 可确认完成的设定类型 = readiness 判定集 ∪ ai-model（ai-model 可确认但不判定内容）。
+# 从 READINESS_KEYS 推导，避免与 readiness.py 重复维护。
+VALID_TYPES = READINESS_KEYS | {"ai-model"}
 STATUS_FILE = "settings/settings-status.yaml"
 
 

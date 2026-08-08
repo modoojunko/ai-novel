@@ -301,3 +301,76 @@ class TestGateSettingsWarnings:
             assert r.status_code == 200, f"confirm {t} failed: {r.text}"
         msgs = _settings_warnings(client, pid)
         assert msgs == [], msgs
+
+
+# ── 泛化 /settings/{type} 端点：目录型明确拒绝（500 回归）─────────────────
+
+
+class TestGenericSettingsTypes:
+    """`/settings/characters` 是多文件目录型（character-setting/{name}.yaml），
+    无单文件端点 → 应返回 400 + 指引，而非 500（FILE_MAP KeyError 回归）。"""
+
+    def test_get_characters_directory_type_rejected(self, client):
+        pid = _create_project(client)
+        r = client.get(f"/api/novels/{pid}/settings/characters")
+        assert r.status_code == 400, r.text
+        assert "/character/" in r.json()["detail"]
+
+    def test_put_characters_directory_type_rejected(self, client):
+        pid = _create_project(client)
+        r = client.put(
+            f"/api/novels/{pid}/settings/characters",
+            json={"characters": [{"name": "张三"}]},
+        )
+        assert r.status_code == 400, r.text
+        assert "/character/" in r.json()["detail"]
+
+    def test_get_invalid_type_400(self, client):
+        pid = _create_project(client)
+        r = client.get(f"/api/novels/{pid}/settings/bogus")
+        assert r.status_code == 400, r.text
+
+    def test_get_single_file_type_still_works(self, client):
+        """推导（KEY_TO_PATH）不能破坏正常单文件路径。"""
+        pid = _create_project(client)
+        r = client.get(f"/api/novels/{pid}/settings/world")
+        assert r.status_code == 200, r.text
+        assert "geography" in r.json()
+
+    def test_put_single_file_type_still_works(self, client):
+        pid = _create_project(client)
+        r = client.put(
+            f"/api/novels/{pid}/settings/hooks",
+            json={"active": [{"id": "h1", "description": "一个钩子"}]},
+        )
+        assert r.status_code == 200, r.text
+        r = client.get(f"/api/novels/{pid}/settings/hooks")
+        assert r.json()["active"][0]["id"] == "h1"
+
+
+class TestCharactersEndpoints:
+    """characters 专用端点端到端（HTTP 层）。"""
+
+    def test_character_roundtrip(self, client):
+        pid = _create_project(client)
+        payload = {"name": "张三", "role": "protagonist", "values": "重情义"}
+        r = client.put(f"/api/novels/{pid}/settings/character/张三", json=payload)
+        assert r.status_code == 200, r.text
+        r = client.get(f"/api/novels/{pid}/settings/character/张三")
+        assert r.status_code == 200, r.text
+        assert r.json()["values"] == "重情义"
+
+    def test_character_list_and_delete(self, client):
+        pid = _create_project(client)
+        # 新项目无角色
+        r = client.get(f"/api/novels/{pid}/settings/characters/list")
+        assert r.json() == []
+        # 写入 → list 含张三
+        client.put(f"/api/novels/{pid}/settings/character/张三", json={"name": "张三"})
+        r = client.get(f"/api/novels/{pid}/settings/characters/list")
+        assert "张三" in r.json()
+        # 删除 → list 空
+        r = client.delete(f"/api/novels/{pid}/settings/character/张三")
+        assert r.status_code == 200, r.text
+        r = client.get(f"/api/novels/{pid}/settings/characters/list")
+        assert "张三" not in r.json()

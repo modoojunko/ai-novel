@@ -1,7 +1,7 @@
 """settings 相对路径 ↔ project_settings 表 key 的路由映射（纯函数零 IO）。
 
 组合后端（ADR-001）按此映射把 settings 9 类路由到 DB，其余路径路由 LocalFileBackend。
-key 用语义短名（与 settings/router.py FILE_MAP 一致）；字符目录按前缀 `character:`。
+key 用语义短名；字符目录按前缀 `character:`。
 """
 
 # 8 类单文件设定：相对路径 → DB key
@@ -18,6 +18,9 @@ PATH_TO_KEY = {
 
 CHARACTER_DIR = "settings/character-setting"
 CHARACTER_PREFIX = "character:"  # DB key 前缀：character:{filename.yaml}
+
+# 目录型设定：无单文件端点，/settings/{type} 泛化端点应拒绝（指引走 /character/{name} 等）
+MULTI_FILE_SETTING_KEYS = {"characters"}
 
 KEY_TO_PATH = {v: k for k, v in PATH_TO_KEY.items()}
 

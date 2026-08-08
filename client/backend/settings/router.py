@@ -3,20 +3,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_local.middleware import get_current_user
 from db import get_db
+from filesystem.paths import KEY_TO_PATH, MULTI_FILE_SETTING_KEYS
 from filesystem.storage import get_storage
 from novels.service import get_novel
 
 router = APIRouter(prefix="/api/novels/{project_id}/settings", tags=["settings"])
 
-VALID_TYPES = {"world", "style", "anti-ai", "hooks", "characters", "ai-model", "genre"}
-FILE_MAP = {
-    "world": "settings/world-setting.yaml",
-    "style": "settings/writing-style.yaml",
-    "anti-ai": "settings/anti-ai.yaml",
-    "hooks": "settings/hooks.yaml",
-    "ai-model": "settings/ai-model.yaml",
-    "genre": "settings/genre.yaml",
-}
+# 单文件设定 CRUD 类型：从 PATH_TO_KEY 推导（story 走 /story、status 走 /settings/status，
+# 均非通用 CRUD；characters 是目录型，天然不在 KEY_TO_PATH）。KEY_TO_PATH 是唯一来源，
+# 不重复维护 FILE_MAP。
+SINGLE_FILE_TYPES = set(KEY_TO_PATH) - {"story", "status"}
 
 
 @router.get("/character/{name}")
@@ -64,9 +60,15 @@ async def get_settings(
     project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    if type not in VALID_TYPES:
+    if type in MULTI_FILE_SETTING_KEYS:
+        raise HTTPException(
+            400,
+            f"「{type}」是目录型设定，无 /settings/{type} 单文件端点；"
+            f"角色设定请用 GET/PUT/DELETE /character/{{name}} 与 GET /characters/list",
+        )
+    if type not in SINGLE_FILE_TYPES:
         raise HTTPException(400, f"Invalid settings type: {type}")
-    return await get_storage().read_yaml(project.root_path, FILE_MAP[type])
+    return await get_storage().read_yaml(project.root_path, KEY_TO_PATH[type])
 
 
 @router.put("/{type}")
@@ -80,9 +82,15 @@ async def update_settings(
     project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    if type not in VALID_TYPES:
+    if type in MULTI_FILE_SETTING_KEYS:
+        raise HTTPException(
+            400,
+            f"「{type}」是目录型设定，无 /settings/{type} 单文件端点；"
+            f"角色设定请用 GET/PUT/DELETE /character/{{name}} 与 GET /characters/list",
+        )
+    if type not in SINGLE_FILE_TYPES:
         raise HTTPException(400, f"Invalid settings type: {type}")
-    await get_storage().write_yaml(project.root_path, FILE_MAP[type], body)
+    await get_storage().write_yaml(project.root_path, KEY_TO_PATH[type], body)
 
     if project.current_phase == "init":
         project.current_phase = "settings"

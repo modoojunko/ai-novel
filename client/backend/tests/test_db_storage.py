@@ -49,6 +49,34 @@ def test_paths_routing():
     assert set(KEY_TO_PATH) == set(PATH_TO_KEY.values())
 
 
+def test_single_file_types_derivation():
+    """settings/router.py SINGLE_FILE_TYPES 推导来源契约（去 story/status 后的 6 项单文件 CRUD）。"""
+    from settings.router import SINGLE_FILE_TYPES
+
+    assert set(KEY_TO_PATH) - {"story", "status"} == {
+        "world", "style", "anti-ai", "hooks", "genre", "ai-model",
+    }
+    assert SINGLE_FILE_TYPES == set(KEY_TO_PATH) - {"story", "status"}
+    assert "characters" not in SINGLE_FILE_TYPES
+
+
+def test_multi_file_setting_keys():
+    """目录型设定与单文件 key 不相交；characters 是唯一目录型。"""
+    from filesystem.paths import MULTI_FILE_SETTING_KEYS
+
+    assert MULTI_FILE_SETTING_KEYS == {"characters"}
+    assert not (MULTI_FILE_SETTING_KEYS & set(KEY_TO_PATH))
+
+
+def test_status_valid_types_derivation():
+    """settings/status.py VALID_TYPES = readiness 集 ∪ ai-model（与现 8 项逐项相等）。"""
+    from settings.status import VALID_TYPES
+    from workflow.readiness import READINESS_KEYS
+
+    assert VALID_TYPES == READINESS_KEYS | {"ai-model"}
+    assert VALID_TYPES == {"synopsis", "genre", "world", "style", "anti-ai", "hooks", "characters", "ai-model"}
+
+
 # ── DatabaseFileBackend KV ─────────────────────────────────────────────────
 
 
