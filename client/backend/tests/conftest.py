@@ -61,7 +61,13 @@ os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{os.path.join(_TMP_DATA_ROOT,
 
 @pytest.fixture(scope="session", autouse=True)
 def _session_test_db():
-    """建表基座：任何测试触碰 DB 前，表已建好（含后续 project_settings）。"""
+    """建表基座：任何测试触碰 DB 前，表已建好（含 project_settings）。
+
+    import models 注册全部表——否则纯文件测试单独跑时 Base.metadata 为空，
+    create_all 建不出 project_settings，组合后端写 DB 报 no such table。
+    """
+    import models  # noqa: F401
+
     from db import Base, engine
 
     async def _create_tables():

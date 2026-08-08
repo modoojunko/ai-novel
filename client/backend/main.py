@@ -47,6 +47,16 @@ async def lifespan(app: FastAPI):
 
         logging.getLogger("uvicorn.error").warning("Failed to create tables: %s", e)
 
+    # ── Migrate: settings 盘→DB（行缺失才迁，幂等，ADR-004）─────────────
+    try:
+        from filesystem.migrate import migrate_settings_to_db
+
+        await migrate_settings_to_db()
+    except Exception as e:
+        import logging
+
+        logging.getLogger("uvicorn.error").warning("Settings migration failed: %s", e)
+
     # ── Migrate: add source column to projects ───────────────────────
     try:
         async with engine.begin() as conn:
