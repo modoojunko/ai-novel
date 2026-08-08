@@ -66,9 +66,8 @@ def _session_test_db():
     import models 注册全部表——否则纯文件测试单独跑时 Base.metadata 为空，
     create_all 建不出 project_settings，组合后端写 DB 报 no such table。
     """
-    import models  # noqa: F401
-
     from db import Base, engine
+    import models  # noqa: F401
 
     async def _create_tables():
         async with engine.begin() as conn:

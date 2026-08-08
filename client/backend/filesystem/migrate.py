@@ -50,7 +50,7 @@ async def export_settings_to_files(root_path: str) -> None:
     """回滚工具：DB settings 全量写回磁盘（不删 DB 行）。"""
     local = LocalFileBackend()
     db = DatabaseFileBackend()
-    for relative_path, _key in PATH_TO_KEY.items():
+    for relative_path in PATH_TO_KEY:
         data = await db.read_yaml(root_path, relative_path)
         if data:
             await local.write_yaml(root_path, relative_path, data)
