@@ -108,19 +108,19 @@ def test_migrate_no_projects_no_error():
 
 
 async def _insert_genre(**kwargs) -> None:
-    defaults = dict(
-        id="backfill-genre",
-        name="回填题材",
-        description="",
-        category="urban",
-        narrator_role="",
-        tone_blueprint="{}",
-        taboos="[]",
-        prompt_injection="",
-        genre_config="{}",
-        story_arc_templates="[]",
-        is_preset=False,
-    )
+    defaults = {
+        "id": "backfill-genre",
+        "name": "回填题材",
+        "description": "",
+        "category": "urban",
+        "narrator_role": "",
+        "tone_blueprint": "{}",
+        "taboos": "[]",
+        "prompt_injection": "",
+        "genre_config": "{}",
+        "story_arc_templates": "[]",
+        "is_preset": False,
+    }
     defaults.update(kwargs)
     async with async_session() as session:
         session.add(Genre(**defaults))
