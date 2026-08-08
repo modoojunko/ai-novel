@@ -99,4 +99,6 @@ def build_tone_section(style) -> str:
             lines.append(f"叙事视角：{_fmt_list(tone['pov'])}")
         if tone.get("techniques"):
             lines.append(f"描写技法：{_fmt_list(tone['techniques'])}")
+    if len(lines) == 1:
+        return ""  # 全空（仅标题无内容）不注入空块
     return "\n".join(lines)
