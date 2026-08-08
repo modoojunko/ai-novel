@@ -37,9 +37,10 @@ def fmt_mistakes(mistakes) -> str:
 
 
 def depiction_techniques_str(style) -> str:
-    """depiction_techniques → 逐行 "- name：description" 字符串。
+    """depiction_techniques → 逐行 "- ..." 字符串。
 
-    list（模板：{name/description/example}）→ 逐条 "- name：description"；
+    list[{name/description/example}]（模板）→ 逐条 "- name：description"；
+    list[str]（前端表单归一保存）→ 逐行 "- item"；
     dict（旧数据/AI 生成：{category: desc}）→ 逐行 "- category：desc"；
     缺失/空 → ""。
     """
@@ -49,14 +50,15 @@ def depiction_techniques_str(style) -> str:
     if isinstance(techniques, list):
         lines = []
         for t in techniques:
-            if not isinstance(t, dict):
-                continue
-            name = t.get("name", "")
-            description = t.get("description", "")
-            if name and description:
-                lines.append(f"- {name}：{description}")
-            elif description:
-                lines.append(description)
+            if isinstance(t, dict):
+                name = t.get("name", "")
+                description = t.get("description", "")
+                if name and description:
+                    lines.append(f"- {name}：{description}")
+                elif description:
+                    lines.append(description)
+            elif isinstance(t, str) and t.strip():
+                lines.append(f"- {t.strip()}")
         return "\n".join(lines)
     if isinstance(techniques, dict):
         return "\n".join(f"- {k}：{v}" for k, v in techniques.items() if v)

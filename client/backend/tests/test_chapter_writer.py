@@ -72,6 +72,16 @@ class TestChapterContext:
         assert "动作描写：通过身体动作展示情感" in prompt
         assert "微表情捕捉：通过细微表情变化展示内心" in prompt
 
+    def test_with_string_list_depiction_techniques(self):
+        """前端表单归一保存的纯字符串列表也能渲染（ADR-006 双态）。"""
+        ctx = ChapterContext()
+        ctx.style_setting = {
+            "depiction_techniques": ["动作描写：通过动作展示情感", "对话展示：贴近真人"]
+        }
+        prompt = ctx.to_prompt()
+        assert "动作描写：通过动作展示情感" in prompt
+        assert "对话展示：贴近真人" in prompt
+
     def test_with_hooks(self):
         ctx = ChapterContext()
         ctx.hooks = [{"description": "神秘信件"}, {"description": "失踪的钥匙"}]

@@ -12,11 +12,45 @@ const TABS = [
   { id: "techniques", label: "描写技法" },
 ];
 
+// 模板盘文件与前端保存存在 dict/list 双态（ADR-006）：core_principles 为分类
+// dict 或 list；depiction_techniques 为 {name/description/example} 对象列表或
+// 纯字符串列表。表单统一归一为可编辑的扁平字符串列表；保存走 merge-on-save，
+// 只覆盖编辑过的字段，保留模板其余键（personality/workflow/...）。
+function toFlatList(v: unknown): string[] {
+  if (Array.isArray(v)) return v.map(String).filter(Boolean);
+  if (v && typeof v === "object") {
+    const out: string[] = [];
+    for (const val of Object.values(v as Record<string, unknown>)) {
+      if (Array.isArray(val)) out.push(...val.map(String));
+    }
+    return out.filter(Boolean);
+  }
+  return [];
+}
+
+function toTechniqueStrings(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((t) => {
+      if (typeof t === "string") return t;
+      if (t && typeof t === "object") {
+        const obj = t as { name?: string; description?: string };
+        const name = obj.name || "";
+        const desc = obj.description || "";
+        if (name && desc) return `${name}：${desc}`;
+        return name || desc;
+      }
+      return String(t);
+    })
+    .filter(Boolean);
+}
+
 export default function StyleSettingForm({ projectId, settingKey }: Props) {
   const [tab, setTab] = useState("role");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [existing, setExisting] = useState<Record<string, unknown> | null>(null);
   const [role, setRole] = useState("");
   const [principles, setPrinciples] = useState<string[]>([""]);
   const [mistakes, setMistakes] = useState<string[]>([""]);
@@ -35,10 +69,14 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
     api.get(`/novels/${projectId}/settings/${settingKey}`)
       .then((d: any) => {
         if (!d) return;
+        setExisting(d);
+        const p = toFlatList(d.core_principles);
+        const m = toFlatList(d.possible_mistakes);
+        const t = toTechniqueStrings(d.depiction_techniques);
         setRole(d.role || "");
-        setPrinciples(d.core_principles?.length ? d.core_principles : [""]);
-        setMistakes(d.possible_mistakes?.length ? d.possible_mistakes : [""]);
-        setTechniques(d.depiction_techniques?.length ? d.depiction_techniques : [""]);
+        setPrinciples(p.length ? p : [""]);
+        setMistakes(m.length ? m : [""]);
+        setTechniques(t.length ? t : [""]);
       })
       .catch(() => setError("加载失败"))
       .finally(() => setLoading(false));
@@ -47,22 +85,24 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
   async function handleSave() {
     setSaving(true); setError("");
     try {
-      await api.put(`/novels/${projectId}/settings/${settingKey}`, {
+      // merge-on-save：只覆盖表单编辑的字段，保留模板其余键不被整表替换冲掉
+      const edited = {
         role,
         core_principles: principles.filter(Boolean),
         possible_mistakes: mistakes.filter(Boolean),
         depiction_techniques: techniques.filter(Boolean),
-      });
+      };
+      await api.put(`/novels/${projectId}/settings/${settingKey}`, { ...existing, ...edited });
     } catch (e: any) { setError(e.message || "保存失败"); }
     finally { setSaving(false); }
   }
 
   async function handleAIGenerate(field: string, forceApi: boolean = false) {
     // If field has content already, show it directly (skip API call)
-    const existing = !forceApi ? getCurrentFieldValue(field) : null;
-    if (existing) {
+    const existingField = !forceApi ? getCurrentFieldValue(field) : null;
+    if (existingField) {
       setAiField(field);
-      setAiContent(typeof existing === "string" ? existing : JSON.stringify(existing, null, 2));
+      setAiContent(typeof existingField === "string" ? existingField : JSON.stringify(existingField, null, 2));
       return;
     }
     setAiPendingField(field);
@@ -85,7 +125,7 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
   function getCurrentFieldValue(field: string): string | string[] | null {
     if (field === "role") return role || null;
     if (field === "core_principles") return principles.length > 0 && principles[0] !== "" ? principles : null;
-    if (field === "common_mistakes") return mistakes.length > 0 && mistakes[0] !== "" ? mistakes : null;
+    if (field === "possible_mistakes") return mistakes.length > 0 && mistakes[0] !== "" ? mistakes : null;
     if (field === "depiction_techniques") return techniques.length > 0 && techniques[0] !== "" ? techniques : null;
     return null;
   }
@@ -93,7 +133,7 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
   function handleAIAccept() {
     if (!aiField) return;
     // Try JSON.parse first (AI may return a JSON array)
-    let parsed: string | string[] = aiContent;
+    let parsed: any = aiContent;
     try {
       const v = JSON.parse(aiContent);
       if (Array.isArray(v)) parsed = v;
@@ -102,11 +142,11 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
     if (aiField === "role") {
       setRole(aiContent);
     } else if (aiField === "core_principles") {
-      setPrinciples(Array.isArray(parsed) ? parsed : aiContent.split("\n").filter(Boolean));
-    } else if (aiField === "common_mistakes") {
-      setMistakes(Array.isArray(parsed) ? parsed : aiContent.split("\n").filter(Boolean));
+      setPrinciples(Array.isArray(parsed) ? parsed.map(String) : aiContent.split("\n").filter(Boolean));
+    } else if (aiField === "possible_mistakes") {
+      setMistakes(Array.isArray(parsed) ? parsed.map(String) : aiContent.split("\n").filter(Boolean));
     } else if (aiField === "depiction_techniques") {
-      setTechniques(Array.isArray(parsed) ? parsed : aiContent.split("\n").filter(Boolean));
+      setTechniques(Array.isArray(parsed) ? toTechniqueStrings(parsed) : aiContent.split("\n").filter(Boolean));
     }
     setAiField(null);
     setAiContent("");
@@ -130,7 +170,7 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
       )}
       {tab === "mistakes" && (
         <ListEditor items={mistakes} onChange={setMistakes} placeholder='例如：过度使用"他皱了皱眉"类表情描写'
-          aiGeneratable aiLoading={aiPendingField === "common_mistakes"} onAIGenerate={() => handleAIGenerate("common_mistakes")} />
+          aiGeneratable aiLoading={aiPendingField === "possible_mistakes"} onAIGenerate={() => handleAIGenerate("possible_mistakes")} />
       )}
       {tab === "techniques" && (
         <ListEditor items={techniques} onChange={setTechniques} placeholder="例如：情绪通过动作表现 — 紧张=抠指甲"
