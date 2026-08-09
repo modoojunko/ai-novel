@@ -53,6 +53,7 @@ client/backend/
 ├── write/               SSE 流式写作
 ├── archive/             归档
 ├── filesystem/          本地文件存储
+├── genres/              全局题材库（预置 seed + CRUD + 写作链路注入）
 ├── story/               剧情推演
 ├── api_configs/         API Key 多配置管理
 ├── billing/             Token 计费
@@ -62,6 +63,7 @@ client/backend/
 ## 关键设计
 
 - **六阶段工作流**：init → settings → outline → prompt → write → archive
+- **全局题材库**：题材定义存 SQLite `genres` 表（24 预置只读 + 自定义增删改，全局共享），写作时注入分段/整章两条路径。与 `GENRE_CORPUS_NAMES`（`novels/router.py` 死代码）、`reference/genre-corpus/`、`story.yaml.genre`、`writing-style.yaml.genre_profile`（旧独立体系，未接入）不混用。
 - **文件系统存储**：小说内容（卷章/设定/正文/版本快照）存本地文件系统 YAML/MD，SQLite 存元数据（用户/项目/计费）
 - **SSE 流式传输**：写作阶段每段一个 SSE 连接，支持并行流
 - **Token 计费**：每次 AI 调用记录到 token_log，按模型单价扣除

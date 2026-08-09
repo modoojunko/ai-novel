@@ -25,7 +25,7 @@ export function useNovelState(novelId: string | undefined) {
     setLoading(true);
     setError(false);
     try {
-      const res = await api.get(`/novels/${novelId}/phase-status`);
+      const res = await api.get(`/novels/${novelId}/workflow/phase-status`);
       setPhaseStatus(res.phases);
       setWarnings(res.warnings || []);
     } catch {

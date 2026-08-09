@@ -107,16 +107,15 @@ def _prime_settings(client, pid: str):
         json={
             "name": "Test World",
             "summary": "A test world for workflow testing",
-            "genre": "fantasy",
-            "tone": "serious",
-            "theme": "redemption",
-            "details": {"geography": "", "politics": "", "culture": ""},
+            "geography": {"scenes": "王国", "climate": "温带", "limits": ""},
+            "politics": {"rule": "君主制", "factions": "", "social": "", "cost": ""},
+            "rules": {"world": "", "society": "", "personal": ""},
         },
     )
     client.put(
         f"/api/novels/{pid}/settings/hooks",
         json={
-            "hooks": [
+            "active": [
                 {"id": "hook-1", "description": "First hook", "introduced_in": "1-1", "status": "pending"},
                 {"id": "hook-2", "description": "Second hook", "introduced_in": "1-1", "status": "pending"},
                 {"id": "hook-3", "description": "Third hook", "introduced_in": "1-1", "status": "pending"},
@@ -364,3 +363,41 @@ class TestNovelQueries:
         r3 = client.get("/api/novels")
         assert r3.status_code == 200
         assert all(p["id"] != pid for p in r3.json())
+
+
+# ── update_phase 幂等性（阶段机 self-transition）────────────────────────
+
+
+class TestUpdatePhaseIdempotency:
+    def test_self_transition_is_noop(self):
+        """重新生成提示词等操作类场景：prompt→prompt 不抛错、状态不变。"""
+        import types
+
+        from workflow.engine import update_phase
+
+        project = types.SimpleNamespace(current_phase="prompt")
+        update_phase(project, "prompt")  # 不应抛 ValueError
+        assert project.current_phase == "prompt"
+
+    def test_illegal_transition_still_rejected(self):
+        """真正的非法流转（init→write）仍被阶段机拒绝。"""
+        import types
+
+        import pytest
+
+        from workflow.engine import update_phase
+
+        project = types.SimpleNamespace(current_phase="init")
+        with pytest.raises(ValueError):
+            update_phase(project, "write")
+        assert project.current_phase == "init"
+
+    def test_legal_transition_still_works(self):
+        """合法流转（outline→prompt）不受幂等化影响。"""
+        import types
+
+        from workflow.engine import update_phase
+
+        project = types.SimpleNamespace(current_phase="outline")
+        update_phase(project, "prompt")
+        assert project.current_phase == "prompt"

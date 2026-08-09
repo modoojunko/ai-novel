@@ -36,10 +36,14 @@ async def _check_genre(root_path: str) -> bool:
 
 async def _check_world(root_path: str) -> bool:
     world = await get_storage().read_yaml(root_path, "settings/world-setting.yaml") or {}
-    details = world.get("details")
-    if not isinstance(details, dict):
-        return False
-    filled = sum(1 for v in details.values() if str(v).strip())
+    # 前端保存顶层 geography/politics/rules 三组对象（与写正文引擎一致），
+    # 统计子字段非空数达到阈值即可确认。旧 details 结构是过时模板。
+    filled = 0
+    for section in ("geography", "politics", "rules"):
+        sub = world.get(section)
+        if not isinstance(sub, dict):
+            continue
+        filled += sum(1 for v in sub.values() if str(v).strip())
     return filled >= WORLD_DETAILS_THRESHOLD
 
 
@@ -55,14 +59,12 @@ async def _check_anti_ai(root_path: str) -> bool:
 
 async def _check_hooks(root_path: str) -> bool:
     hooks = await get_storage().read_yaml(root_path, "settings/hooks.yaml") or {}
-    hook_list = hooks.get("hooks")
+    # 前端保存 active/resolved/abandoned 三表（写作引擎只消费 active 悬而未决伏笔）。
+    hook_list = hooks.get("active")
     if not isinstance(hook_list, list):
         return False
     return any(
-        bool(
-            (h.get("description") or h.get("seed_text") or h.get("id"))
-            and str(h.get("description", "") or h.get("seed_text", "") or h.get("id", "")).strip()
-        )
+        bool(str(h.get("description", "") or h.get("seed_text", "") or h.get("id", "")).strip())
         for h in hook_list
         if isinstance(h, dict)
     )

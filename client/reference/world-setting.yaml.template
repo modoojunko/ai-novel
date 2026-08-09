@@ -2,12 +2,17 @@
 name: ""
 summary: ""
 
-details:
-  geography: ""
-  politics: ""
-  culture: ""
-  history: ""
-  rules: ""
-  physics: ""
-  biology: ""
-  sociology: ""
+# 顶层结构（与前端 WorldSettingForm 保存一致，写正文引擎按此消费）
+geography:
+  scenes: ""
+  climate: ""
+  limits: ""
+politics:
+  rule: ""
+  factions: ""
+  social: ""
+  cost: ""
+rules:
+  world: ""
+  society: ""
+  personal: ""

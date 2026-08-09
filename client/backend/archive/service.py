@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime
 
 from ai_client import get_ai_client
@@ -7,6 +8,17 @@ from filesystem.storage import get_storage
 def _validate_ref(ref: str) -> str:
     if ".." in ref or "/" in ref:
         raise ValueError("Invalid chapter reference")
+    return ref
+
+
+def _canonical_chapter_ref(ref: str) -> str:
+    """把伏笔引入章节归一为规范 vol-N-ch-M 格式（兼容模板短格式 '1-1'）。"""
+    ref = (ref or "").strip()
+    if re.match(r"^vol-\d+-ch-\d+$", ref):
+        return ref
+    m = re.match(r"^(\d+)-(\d+)$", ref)
+    if m:
+        return f"vol-{m.group(1)}-ch-{m.group(2)}"
     return ref
 
 
@@ -66,8 +78,9 @@ async def update_thread_state(root_path: str, chapter: dict, summary: str):
     t["emotional_temperature"] = chapter.get("memo", {}).get("emotion_curve", "medium")
 
     hooks = await get_storage().read_yaml(root_path, "settings/hooks.yaml")
-    for hook in hooks.get("hooks", []):
-        if hook.get("introduced_in") == t["last_chapter"]:
+    for hook in hooks.get("active", []):
+        # 前端 active 项无 status；introduced_in 兼容短格式 "1-1"
+        if _canonical_chapter_ref(hook.get("introduced_in", "")) == t["last_chapter"]:
             hook["status"] = "mentioned"
     await get_storage().write_yaml(root_path, "settings/hooks.yaml", hooks)
 

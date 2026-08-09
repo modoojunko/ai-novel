@@ -22,6 +22,7 @@ from auth_local.router import router as auth_local_router
 from chapters.router import router as chapters_router
 from chapters.versions import router as chapters_versions_router
 from db import Base, async_session, engine
+from genres.router import router as genres_router
 from models.user import User
 from novels.router import ai_router
 from novels.router import router as novels_router
@@ -46,6 +47,16 @@ async def lifespan(app: FastAPI):
 
         logging.getLogger("uvicorn.error").warning("Failed to create tables: %s", e)
 
+    # ── Migrate: settings 盘→DB（行缺失才迁，幂等，ADR-004）─────────────
+    try:
+        from filesystem.migrate import migrate_settings_to_db
+
+        await migrate_settings_to_db()
+    except Exception as e:
+        import logging
+
+        logging.getLogger("uvicorn.error").warning("Settings migration failed: %s", e)
+
     # ── Migrate: add source column to projects ───────────────────────
     try:
         async with engine.begin() as conn:
@@ -63,6 +74,26 @@ async def lifespan(app: FastAPI):
             )
     except Exception:
         pass  # 列已存在
+
+    # ── Seed preset genres ──────────────────────────────────────────
+    try:
+        from genres.service import ensure_seed_genres
+
+        await ensure_seed_genres()
+    except Exception as e:
+        import logging
+
+        logging.getLogger("uvicorn.error").warning("Genre seed failed: %s", e)
+
+    # ── Migrate: 题材 tone_overrides → 文风 tone（ADR-007，seed 之后保证预置行存在）─
+    try:
+        from filesystem.migrate import backfill_tone_overrides
+
+        await backfill_tone_overrides()
+    except Exception as e:
+        import logging
+
+        logging.getLogger("uvicorn.error").warning("Tone backfill failed: %s", e)
 
     # ── Migrate: create events table ─────────────────────────────────
     try:
@@ -180,6 +211,9 @@ app.include_router(workflow_backfill_router)
 
 # API Key Config management (v1)
 app.include_router(api_configs_router)
+
+# 全局题材库
+app.include_router(genres_router)
 
 
 @app.get("/api/health")

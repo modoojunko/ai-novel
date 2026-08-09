@@ -45,7 +45,16 @@ export async function request(path: string, options?: { method?: string; body?: 
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || res.statusText);
+    // detail 可能是对象（如删除题材 409 的 { message, projects }），透传 projects 供 UI 提示引用项目
+    const message =
+      typeof err.detail === "string"
+        ? err.detail
+        : err.detail?.message || res.statusText;
+    const e = new Error(message) as Error & { projects?: string[] };
+    if (typeof err.detail === "object" && Array.isArray(err.detail.projects)) {
+      e.projects = err.detail.projects;
+    }
+    throw e;
   }
 
   return res.json();
@@ -59,7 +68,7 @@ export const api = {
   delete: (path: string) => request(path, { method: 'DELETE' }),
   /** Fetch phase status and gate warnings for a novel. */
   fetchPhaseStatus: (novelId: string) =>
-    request(`/novels/${novelId}/phase-status`),
+    request(`/novels/${novelId}/workflow/phase-status`),
   /** Create a new novel. */
   createNovel: (body: { name: string; source?: string; synopsis?: string; genre_profile?: string }): Promise<{ id: string; name: string }> =>
     request('/novels', { method: 'POST', body: JSON.stringify(body) }),

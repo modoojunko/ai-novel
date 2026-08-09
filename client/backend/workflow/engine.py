@@ -24,6 +24,9 @@ def can_transition(current_phase: str, target_phase: str) -> bool:
 
 
 def update_phase(project, new_phase: str):
+    if project.current_phase == new_phase:
+        # 幂等：操作类接口（重新生成提示词/重复写入/连建章节）可能已处于目标阶段
+        return
     if not can_transition(project.current_phase, new_phase):
         raise ValueError(
             f"Cannot transition from {project.current_phase} to {new_phase}"

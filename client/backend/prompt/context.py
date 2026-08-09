@@ -1,5 +1,7 @@
 """Context injection for prompt assembly — sliding window + cross-thread."""
 
+import re
+
 from filesystem.storage import get_storage
 
 
@@ -47,17 +49,35 @@ async def inject_character_snapshots(root_path: str, character_names: list[str])
     return "\n\n".join(parts)
 
 
+def _canonical_chapter_ref(ref: str) -> str:
+    """把伏笔引入章节归一为规范 vol-N-ch-M 格式（兼容模板短格式 '1-1'）。"""
+    ref = (ref or "").strip()
+    if re.match(r"^vol-\d+-ch-\d+$", ref):
+        return ref
+    m = re.match(r"^(\d+)-(\d+)$", ref)
+    if m:
+        return f"vol-{m.group(1)}-ch-{m.group(2)}"
+    return ref
+
+
 async def inject_active_hooks(root_path: str, current_chapter_ref: str) -> str:
     hooks_data = await get_storage().read_yaml(root_path, "settings/hooks.yaml")
     hooks = [
         h
-        for h in hooks_data.get("hooks", [])
-        if h.get("status") in ("pending", "mentioned")
-        and h.get("introduced_in") != current_chapter_ref
+        for h in hooks_data.get("active", [])
+        # 前端 active 项无 status 字段 → 默认 pending；resolved/abandoned 不在 active，天然排除
+        if h.get("status", "pending") in ("pending", "mentioned")
+        and _canonical_chapter_ref(h.get("introduced_in", "")) != current_chapter_ref
     ]
     if not hooks:
         return ""
     lines = ["## 当前悬而未决的伏笔"]
     for h in hooks[:8]:
-        lines.append(f"- [{h['id']}] {h['description']}（状态：{h['status']}）")
+        desc = h.get("description", "").strip()
+        status = h.get("status", "待定")
+        # 前端项无 id，用描述作为标识；旧格式有 id 保留 [id] 前缀
+        if h.get("id"):
+            lines.append(f"- [{h['id']}] {desc}（状态：{status}）")
+        else:
+            lines.append(f"- {desc}（状态：{status}）")
     return "\n".join(lines)
