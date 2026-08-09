@@ -8,10 +8,19 @@
 {{
   "role": "根据故事前提定制的叙事角色定位",
   "core_principles": ["根据前提提炼的具体写作原则"],
-  "common_mistakes": ["根据前提预判的常见错误"],
-  "depiction_techniques": {{
-    "environment": "环境描写手法",
-    "action": "动作描写手法",
-    "emotion": "情感描写手法"
+  "possible_mistakes": ["根据前提预判的常见错误"],
+  "depiction_techniques": [
+    {{
+      "name": "手法名称",
+      "description": "手法说明",
+      "example": "示例句子"
+    }}
+  ],
+  "narrator_role": "叙事者角色（如：第三人称有限视角叙述者；空串则不注入）",
+  "tone": {{
+    "default_tone": "默认基调（整部作品的整体语气）",
+    "atmosphere": ["氛围关键词"],
+    "pov": ["叙事视角选项"],
+    "techniques": ["描写技法偏好"]
   }}
 }}

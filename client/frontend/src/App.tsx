@@ -38,8 +38,6 @@ export default function App() {
             <Route path="settings/style" element={<Navigate to=".." replace />} />
             <Route path="settings/anti-ai" element={<Navigate to=".." replace />} />
             <Route path="settings/hooks" element={<Navigate to=".." replace />} />
-            <Route path="settings/characters" element={<Navigate to=".." replace />} />
-            <Route path="settings/characters/:name" element={<Navigate to=".." replace />} />
             <Route path="outline" element={<Navigate to=".." replace />} />
             <Route path="prompts" element={<Navigate to=".." replace />} />
             <Route path="write" element={<Navigate to=".." replace />} />

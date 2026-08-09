@@ -99,5 +99,7 @@ _storage: StorageBackend | None = None
 def get_storage() -> StorageBackend:
     global _storage
     if _storage is None:
-        _storage = LocalFileBackend()
+        from filesystem.composite_storage import CompositeStorageBackend
+
+        _storage = CompositeStorageBackend()
     return _storage

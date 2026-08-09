@@ -13,7 +13,7 @@ def _flatten_fatigue_words(anti_ai: dict) -> list[str]:
     return words
 
 
-async def run_quality_checks(root_path: str, chapter: dict, full_text: str) -> dict:
+async def run_quality_checks(root_path: str, full_text: str) -> dict:
     anti_ai = await get_storage().read_yaml(root_path, "settings/anti-ai.yaml")
 
     results = {"passed": True, "checks": {}}
@@ -66,22 +66,7 @@ async def run_quality_checks(root_path: str, chapter: dict, full_text: str) -> d
         "value": round(desc_estimate, 3),
     }
 
-    # 5. Hook mention check
-    hooks_data = await get_storage().read_yaml(root_path, "settings/hooks.yaml")
-    chapter_ref = f"vol-{chapter.get('volume')}-ch-{chapter.get('chapter')}"
-    chapter_hooks = [
-        h for h in hooks_data.get("hooks", []) if h.get("resolve_plan") == chapter_ref
-    ]
-    hooks_mentioned = sum(
-        1 for h in chapter_hooks if h.get("description", "")[:10] in full_text
-    )
-    results["checks"]["hook_mentions"] = {
-        "passed": (hooks_mentioned == len(chapter_hooks) if chapter_hooks else True),
-        "expected": len(chapter_hooks),
-        "found": hooks_mentioned,
-    }
-
-    # 6. Continuity — placeholder
+    # 5. Continuity — placeholder
     results["checks"]["continuity"] = {
         "passed": True,
         "note": "skipped in v1",

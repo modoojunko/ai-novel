@@ -37,12 +37,50 @@ class TestChapterContext:
         ctx.style_setting = {
             "role": "冷峻的叙事者",
             "core_principles": ["简洁", "有力"],
-            "common_mistakes": ["不要滥用形容词"],
+            "possible_mistakes": ["不要滥用形容词"],
             "depiction_techniques": {"action": "快速剪辑"},
         }
         prompt = ctx.to_prompt()
         assert "冷峻的叙事者" in prompt
         assert "快速剪辑" in prompt
+
+    def test_with_template_dict_structure(self):
+        """模板盘文件 dict 结构（分类分组）不崩溃、内容进提示词（ADR-006 双态）。"""
+        ctx = ChapterContext()
+        ctx.style_setting = {
+            "core_principles": {
+                "global_rules": ["规则一"],
+                "natural_expression": ["原则二"],
+            },
+            "possible_mistakes": ["错误一", "错误二"],
+        }
+        prompt = ctx.to_prompt()
+        assert "规则一" in prompt
+        assert "原则二" in prompt
+        assert "错误一" in prompt
+
+    def test_with_list_depiction_techniques(self):
+        """模板 list 结构（{name/description/example}）也能渲染（ADR-006 双态）。"""
+        ctx = ChapterContext()
+        ctx.style_setting = {
+            "depiction_techniques": [
+                {"name": "动作描写", "description": "通过身体动作展示情感"},
+                {"name": "微表情捕捉", "description": "通过细微表情变化展示内心"},
+            ]
+        }
+        prompt = ctx.to_prompt()
+        assert "动作描写：通过身体动作展示情感" in prompt
+        assert "微表情捕捉：通过细微表情变化展示内心" in prompt
+
+    def test_with_string_list_depiction_techniques(self):
+        """前端表单归一保存的纯字符串列表也能渲染（ADR-006 双态）。"""
+        ctx = ChapterContext()
+        ctx.style_setting = {
+            "depiction_techniques": ["动作描写：通过动作展示情感", "对话展示：贴近真人"]
+        }
+        prompt = ctx.to_prompt()
+        assert "动作描写：通过动作展示情感" in prompt
+        assert "对话展示：贴近真人" in prompt
 
     def test_with_hooks(self):
         ctx = ChapterContext()

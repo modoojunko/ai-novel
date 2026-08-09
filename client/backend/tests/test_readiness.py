@@ -98,15 +98,19 @@ def _create_project(client) -> str:
     return r.json()["id"]
 
 
+_WORLD_FIELDS = [
+    ("geography", "scenes"), ("geography", "climate"), ("geography", "limits"),
+    ("politics", "rule"), ("politics", "factions"), ("politics", "social"), ("politics", "cost"),
+    ("rules", "world"), ("rules", "society"), ("rules", "personal"),
+]
+
+
 def _fill_world(client, pid: str, filled: int = 4):
-    details = {
-        "geography": "g", "politics": "p", "culture": "c", "history": "h",
-        "rules": "r", "physics": "f", "biology": "b", "sociology": "s",
-    }
-    for i, k in enumerate(details):
-        if i >= filled:
-            details[k] = ""
-    client.put(f"/api/novels/{pid}/settings/world", json={"details": details})
+    """按前端 WorldSettingForm payload 填充（顶层 geography/politics/rules 三组对象）。"""
+    world = {"geography": {}, "politics": {}, "rules": {}}
+    for i, (section, field) in enumerate(_WORLD_FIELDS):
+        world[section][field] = "有内容" if i < filled else ""
+    client.put(f"/api/novels/{pid}/settings/world", json=world)
 
 
 # ── GET /readiness ────────────────────────────────────────────────────────
@@ -135,7 +139,7 @@ class TestReadiness:
         client.put(f"/api/novels/{pid}/story", json={"synopsis": "一个关于稻田的故事"})
         client.put(f"/api/novels/{pid}/settings/genre", json={"genre_id": "urban-romance"})
         _fill_world(client, pid, filled=4)
-        client.put(f"/api/novels/{pid}/settings/hooks", json={"hooks": [{"id": "h1", "description": "一个钩子"}]})
+        client.put(f"/api/novels/{pid}/settings/hooks", json={"active": [{"id": "h1", "description": "一个钩子"}]})
         client.put(f"/api/novels/{pid}/settings/character/张三", json={"name": "张三"})
         # style/anti-ai 模板默认已通过
         r = client.get(f"/api/novels/{pid}/readiness")
@@ -145,7 +149,7 @@ class TestReadiness:
         assert data["warning"] == ""
 
     def test_world_details_threshold(self, client):
-        """world 判定回归：details 子字段 <4 不通过（修复顶层计数 bug）。"""
+        """world 判定回归：顶层三组对象子字段 <4 不通过（修复计数 bug）。"""
         pid = _create_project(client)
         _fill_world(client, pid, filled=3)
         r = client.get(f"/api/novels/{pid}/readiness")
@@ -240,7 +244,7 @@ class TestConfirmToggle:
         pid = _create_project(client)
         r = client.put(f"/api/novels/{pid}/settings/status/hooks")
         assert r.status_code == 400
-        client.put(f"/api/novels/{pid}/settings/hooks", json={"hooks": [{"id": "h1", "description": "一个钩子"}]})
+        client.put(f"/api/novels/{pid}/settings/hooks", json={"active": [{"id": "h1", "description": "一个钩子"}]})
         r = client.put(f"/api/novels/{pid}/settings/status/hooks")
         assert r.status_code == 200, r.text
         assert r.json()["confirmed"] is True
@@ -254,7 +258,7 @@ def _create_project_with_chapter(client) -> str:
     pid = _create_project(client)
     # PUT /settings/{type} 会把 phase 从 init 推进到 settings（settings/router.py:87）。
     # 必须先推进，否则 create_volume 的 update_phase("outline") 从 init 直接转 outline 被 engine 拒绝。
-    client.put(f"/api/novels/{pid}/settings/world", json={"details": {"geography": "g"}})
+    client.put(f"/api/novels/{pid}/settings/world", json={"geography": {"scenes": "g"}, "politics": {}, "rules": {}})
     client.post(f"/api/novels/{pid}/volumes", json={"vol_num": 1, "title": "第一卷"})
     r = client.post(f"/api/novels/{pid}/chapters", json={"volume": 1, "chapter": 1, "title": "第1章"})
     assert r.status_code in (200, 201), r.text
@@ -289,7 +293,7 @@ class TestGateSettingsWarnings:
         client.put(f"/api/novels/{pid}/story", json={"synopsis": "一个关于稻田的故事"})
         client.put(f"/api/novels/{pid}/settings/genre", json={"genre_id": "urban-romance"})
         _fill_world(client, pid, filled=4)
-        client.put(f"/api/novels/{pid}/settings/hooks", json={"hooks": [{"id": "h1", "description": "一个钩子"}]})
+        client.put(f"/api/novels/{pid}/settings/hooks", json={"active": [{"id": "h1", "description": "一个钩子"}]})
         client.put(f"/api/novels/{pid}/settings/character/张三", json={"name": "张三"})
         # style/anti-ai 模板默认已通过内容判定
         for t in ["synopsis", "genre", "world", "style", "anti-ai", "hooks", "characters"]:
@@ -297,3 +301,76 @@ class TestGateSettingsWarnings:
             assert r.status_code == 200, f"confirm {t} failed: {r.text}"
         msgs = _settings_warnings(client, pid)
         assert msgs == [], msgs
+
+
+# ── 泛化 /settings/{type} 端点：目录型明确拒绝（500 回归）─────────────────
+
+
+class TestGenericSettingsTypes:
+    """`/settings/characters` 是多文件目录型（character-setting/{name}.yaml），
+    无单文件端点 → 应返回 400 + 指引，而非 500（FILE_MAP KeyError 回归）。"""
+
+    def test_get_characters_directory_type_rejected(self, client):
+        pid = _create_project(client)
+        r = client.get(f"/api/novels/{pid}/settings/characters")
+        assert r.status_code == 400, r.text
+        assert "/character/" in r.json()["detail"]
+
+    def test_put_characters_directory_type_rejected(self, client):
+        pid = _create_project(client)
+        r = client.put(
+            f"/api/novels/{pid}/settings/characters",
+            json={"characters": [{"name": "张三"}]},
+        )
+        assert r.status_code == 400, r.text
+        assert "/character/" in r.json()["detail"]
+
+    def test_get_invalid_type_400(self, client):
+        pid = _create_project(client)
+        r = client.get(f"/api/novels/{pid}/settings/bogus")
+        assert r.status_code == 400, r.text
+
+    def test_get_single_file_type_still_works(self, client):
+        """推导（KEY_TO_PATH）不能破坏正常单文件路径。"""
+        pid = _create_project(client)
+        r = client.get(f"/api/novels/{pid}/settings/world")
+        assert r.status_code == 200, r.text
+        assert "geography" in r.json()
+
+    def test_put_single_file_type_still_works(self, client):
+        pid = _create_project(client)
+        r = client.put(
+            f"/api/novels/{pid}/settings/hooks",
+            json={"active": [{"id": "h1", "description": "一个钩子"}]},
+        )
+        assert r.status_code == 200, r.text
+        r = client.get(f"/api/novels/{pid}/settings/hooks")
+        assert r.json()["active"][0]["id"] == "h1"
+
+
+class TestCharactersEndpoints:
+    """characters 专用端点端到端（HTTP 层）。"""
+
+    def test_character_roundtrip(self, client):
+        pid = _create_project(client)
+        payload = {"name": "张三", "role": "protagonist", "values": "重情义"}
+        r = client.put(f"/api/novels/{pid}/settings/character/张三", json=payload)
+        assert r.status_code == 200, r.text
+        r = client.get(f"/api/novels/{pid}/settings/character/张三")
+        assert r.status_code == 200, r.text
+        assert r.json()["values"] == "重情义"
+
+    def test_character_list_and_delete(self, client):
+        pid = _create_project(client)
+        # 新项目无角色
+        r = client.get(f"/api/novels/{pid}/settings/characters/list")
+        assert r.json() == []
+        # 写入 → list 含张三
+        client.put(f"/api/novels/{pid}/settings/character/张三", json={"name": "张三"})
+        r = client.get(f"/api/novels/{pid}/settings/characters/list")
+        assert "张三" in r.json()
+        # 删除 → list 空
+        r = client.delete(f"/api/novels/{pid}/settings/character/张三")
+        assert r.status_code == 200, r.text
+        r = client.get(f"/api/novels/{pid}/settings/characters/list")
+        assert "张三" not in r.json()

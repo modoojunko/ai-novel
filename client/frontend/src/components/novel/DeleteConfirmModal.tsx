@@ -3,11 +3,12 @@ import { useState } from "react";
 interface DeleteConfirmModalProps {
   title: string;
   confirmText: string;   // 用户需要敲的字
+  description?: string;  // 覆盖默认删除说明（默认面向删除小说）
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export default function DeleteConfirmModal({ title, confirmText, onConfirm, onCancel }: DeleteConfirmModalProps) {
+export default function DeleteConfirmModal({ title, confirmText, description, onConfirm, onCancel }: DeleteConfirmModalProps) {
   const [input, setInput] = useState("");
 
   return (
@@ -18,7 +19,7 @@ export default function DeleteConfirmModal({ title, confirmText, onConfirm, onCa
       >
         <h3 className="text-lg font-bold font-serif text-base-content mb-2">删除{title}</h3>
         <p className="text-sm text-base-content/60 leading-relaxed mb-1">
-          此操作不可撤销。所有卷、章节和设定将被永久删除。
+          {description ?? "此操作不可撤销。所有卷、章节和设定将被永久删除。"}
         </p>
         <p className="text-sm text-base-content/60 mb-4">
           请输入 <strong className="text-base-content">{confirmText}</strong> 确认删除：

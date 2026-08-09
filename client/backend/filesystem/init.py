@@ -18,24 +18,24 @@ SKELETON_DIRS = [
     "archives",
 ]
 
+# 非设定文件：仍在本地骨架（author-intent / current-focus / threads）
 TEMPLATE_FILES = {
-    "story.yaml.template": "story.yaml",
     "author-intent.md.template": "author-intent.md",
     "current-focus.md.template": "current-focus.md",
-    "world-setting.yaml.template": "settings/world-setting.yaml",
-    "writing-style.yaml.template": "settings/writing-style.yaml",
-    "anti-ai.yaml.template": "settings/anti-ai.yaml",
-    "hooks.yaml.template": "settings/hooks.yaml",
+}
+
+# settings 模板 → (相对路径, DB key)：只进 DB 不进盘（ADR-003）
+SETTINGS_TEMPLATES = {
+    "story.yaml.template": ("story.yaml", "story"),
+    "world-setting.yaml.template": ("settings/world-setting.yaml", "world"),
+    "writing-style.yaml.template": ("settings/writing-style.yaml", "style"),
+    "anti-ai.yaml.template": ("settings/anti-ai.yaml", "anti-ai"),
+    "hooks.yaml.template": ("settings/hooks.yaml", "hooks"),
 }
 
 SKELETON_FILES = [
-    ("story.yaml", "yaml"),
     ("author-intent.md", "md"),
     ("current-focus.md", "md"),
-    ("settings/world-setting.yaml", "yaml"),
-    ("settings/writing-style.yaml", "yaml"),
-    ("settings/anti-ai.yaml", "yaml"),
-    ("settings/hooks.yaml", "yaml"),
     ("threads.yaml", "yaml"),
 ]
 
