@@ -47,6 +47,8 @@ interface VolumeInfo {
 
 interface PromptManagementPageProps {
   projectId: string;
+  /** 传入时 overview 只渲染该章的手风琴卡片（工作台「提示词」子 label 按当前章过滤，011） */
+  chapterRef?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -97,6 +99,7 @@ async function fetchPromptText(
 
 export default function PromptManagementPage({
   projectId,
+  chapterRef,
 }: PromptManagementPageProps) {
   // ── Internal view state ────────────────────────────────────────────
   const [view, setView] = useState<"overview" | "viewer" | "editor">(
@@ -115,6 +118,20 @@ export default function PromptManagementPage({
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(
     new Set(),
   );
+
+  // 当前可见章节：传入 chapterRef 时只保留该章（工作台子 label 按当前章过滤）
+  const visibleChapters = useMemo(
+    () =>
+      chapterRef
+        ? volumes.flatMap((v) => v.chapters).filter((ch) => ch.ref === chapterRef)
+        : volumes.flatMap((v) => v.chapters),
+    [volumes, chapterRef],
+  );
+
+  // 传入 chapterRef 时自动展开该章，直达提示词列表
+  useEffect(() => {
+    if (chapterRef) setExpandedChapters(new Set([chapterRef]));
+  }, [chapterRef]);
 
   // ── Viewer / editor state ──────────────────────────────────────────
   const [viewerChapterRef, setViewerChapterRef] = useState("");
@@ -169,13 +186,13 @@ export default function PromptManagementPage({
     };
   }, [projectId]);
 
-  // Fetch prompt files for chapters
+  // Fetch prompt files for chapters（chapterRef 时仅拉该章）
   useEffect(() => {
     if (volumes.length === 0) return;
     let cancelled = false;
 
     async function loadAllPrompts() {
-      const allChapters = volumes.flatMap((v) => v.chapters);
+      const allChapters = visibleChapters;
 
       const newMap: Record<string, ChapterPromptInfo> = {};
       for (const ch of allChapters) {
@@ -226,7 +243,7 @@ export default function PromptManagementPage({
     return () => {
       cancelled = true;
     };
-  }, [volumes, projectId, modifiedSegs]);
+  }, [visibleChapters, projectId, modifiedSegs]);
 
   // =====================================================================
   // Actions
@@ -453,18 +470,20 @@ export default function PromptManagementPage({
       );
     }
 
-    if (volumes.length === 0) {
+    const allChapters = visibleChapters;
+
+    if (allChapters.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <FileText className="w-12 h-12 opacity-30 text-base-content/40" />
           <p className="text-base text-base-content/40">
-            暂无章节，请先在"正文"中创建章节
+            {volumes.length > 0
+              ? "未找到当前章节的提示词"
+              : '暂无章节，请先在"正文"中创建章节'}
           </p>
         </div>
       );
     }
-
-    const allChapters = volumes.flatMap((v) => v.chapters);
 
     return (
       <div className="space-y-3">

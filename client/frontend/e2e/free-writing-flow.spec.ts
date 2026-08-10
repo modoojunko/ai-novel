@@ -8,7 +8,7 @@ import { test, expect, type Page } from "@playwright/test";
 //   免费 = 完整手动写作（限 1 部作品）；PRO = 同一界面 + AI 解锁。
 //   覆盖：① 建书直达正文工作台可写 ② 树常驻「+新建卷/章」→ 新建第一章即达编辑器
 //   ③ 树 CRUD + hover 重命名/删除 + 空章「未写」弱化 ⑤ 自动保存 + 实时字数
-//   ⑥ 归档只读 + 树 📦 同步 + 免费归档不 500 ⑦ 高级配置 ▾ +「可选」标注
+//   ⑥ 归档只读 + 树 📦 同步 + 免费归档不 500 ⑦ 3 label 导航（编辑设定/编辑正文/预览小说）
 //   ⑧ 全程无阶段催促 UI、无 AI 字段、免费零 phase-status 请求
 // =========================================================================
 // 与 creation-flow.spec.ts 共享鉴权手法：S端 真实注册登录 → 写 docker 容器的
@@ -86,15 +86,6 @@ async function createNovel(page: Page, name: string): Promise<string> {
   return m[1];
 }
 
-/** 打开 NovelBar「高级配置 ▾」下拉并点菜单项（免费/PRO 同入口）。 */
-async function openAdvanced(page: Page, label: "设定" | "大纲" | "归档") {
-  await page.getByRole("button", { name: "高级配置", exact: true }).click();
-  await page
-    .locator(".dropdown-content")
-    .getByRole("button", { name: label })
-    .click();
-}
-
 /** 直接写第一章 → 编辑器就绪。 */
 async function writeFirstChapter(page: Page) {
   await page.getByRole("button", { name: /直接写第一章/ }).click();
@@ -104,10 +95,10 @@ async function writeFirstChapter(page: Page) {
 }
 
 // -------------------------------------------------------------------------
-// ①⑦⑧ 免费建书直达正文工作台：无阶段催促、无 AI 字段、高级配置「可选」
+// ①⑦⑧ 免费建书直达正文工作台：无阶段催促、无 AI 字段、3 label 导航
 // -------------------------------------------------------------------------
 
-test("免费建书直达正文工作台：零 phase-status，无阶段催促，高级配置「可选」", async ({
+test("免费建书直达正文工作台：零 phase-status，无阶段催促，3 label 导航", async ({
   page,
 }) => {
   const { restore } = await setupFreeSession(page);
@@ -128,11 +119,12 @@ test("免费建书直达正文工作台：零 phase-status，无阶段催促，�
     await expect(
       page.getByText("免费 · 完整人工写作（限 1 部作品）"),
     ).toBeVisible();
-    // ⑦ 高级配置 ▾ 带「可选」标注（NovelBar）
-    const advancedBtn = page.getByRole("button", { name: "高级配置", exact: true });
-    await expect(advancedBtn).toBeVisible();
-    await expect(advancedBtn.getByText("可选")).toBeVisible();
-    // ⑧ 无 PRO 阶段 tab（设定/大纲/正文/归档）——「正文」仅存在于 TabProgressButton
+    // ⑦ 3 label 纯导航（两态共用）：编辑设定 / 编辑正文 / 预览小说，无「高级配置」按钮
+    await expect(page.getByRole("button", { name: "编辑设定" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "编辑正文" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "预览小说" })).toBeVisible();
+    await expect(page.getByTitle("高级配置（设定/大纲）")).toHaveCount(0);
+    // ⑧ 无 PRO 阶段 tab；空项目无章 → 无章子 label「正文」
     await expect(page.getByRole("button", { name: "正文" })).toHaveCount(0);
     // ⑧ 无阶段催促 UI（GateBanner/软门控文案）
     await expect(page.getByText(/尚未完成设定/)).toHaveCount(0);
@@ -140,8 +132,8 @@ test("免费建书直达正文工作台：零 phase-status，无阶段催促，�
     // ⑧ 全程零 phase-status 请求
     expect(phaseReqs.length).toBe(0);
 
-    // ⑦ 高级配置 ▾ 免费可进设定视图 → 返回正文
-    await openAdvanced(page, "设定");
+    // ⑦ 3 label 免费可进设定视图 → 返回正文
+    await page.getByRole("button", { name: "编辑设定" }).click();
     await expect(page.getByRole("button", { name: "返回正文" })).toBeVisible({
       timeout: 5000,
     });
@@ -173,11 +165,13 @@ test("直接写第一章：即达编辑器，实时字数 + 自动保存，空�
     await expect(tree.getByText("第一卷")).toBeVisible();
     await expect(tree.getByText("第一章")).toBeVisible();
 
-    // ③ 空章「未写」弱化徽标可见（N1 不硬过滤）——点卷节点取消章选中
+    // ③ 空章「未写」弱化徽标可见（N1 不硬过滤）——点卷节点取消章选中并弹卷抽屉（011）
     await tree.getByText("第一卷").click();
     await expect(tree.getByText("未写")).toBeVisible();
+    await expect(page.getByRole("button", { name: "关闭" })).toBeVisible();
 
-    // 点回第一章 → 编辑器恢复 → ⑤ 输入实时字数 + 自动保存
+    // 关闭抽屉（Esc）→ 点回第一章 → 编辑器恢复 → ⑤ 输入实时字数 + 自动保存
+    await page.keyboard.press("Escape");
     await tree.getByText("第一章").click();
     const editor = page.getByPlaceholder("正文（在此撰写小说内容）");
     await expect(editor).toBeVisible({ timeout: 5000 });

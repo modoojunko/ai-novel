@@ -10,7 +10,6 @@ import type { TreeNode } from "@/components/novel/StructureTree";
 export type WorkspaceView =
   | "workbench"
   | "advanced-settings"
-  | "advanced-outline"
   | "archives";
 
 export interface WorkbenchChapter {

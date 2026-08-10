@@ -89,19 +89,6 @@ async function setupSession(
   return { restore, token };
 }
 
-/**
- * 打开 NovelBar「高级配置 ▾」下拉并点菜单项。
- * 新落点：默认正文工作台，设定/大纲/归档经高级配置下拉进入（免费/PRO 同入口）。
- * 注意：dropdown-content 需先聚焦（点「高级配置」）才可见可点。
- */
-async function openAdvanced(page: Page, label: "设定" | "大纲" | "归档") {
-  await page.getByRole("button", { name: "高级配置", exact: true }).click();
-  await page
-    .locator(".dropdown-content")
-    .getByRole("button", { name: label })
-    .click();
-}
-
 /** 通过真实 UI 创建小说（书名即创建），返回 project id。 */
 async function createNovel(page: Page, name: string): Promise<string> {
   await page.goto(`${ORIGIN}/#/novels`);
@@ -226,8 +213,8 @@ test("简介空不可完成设定，保存后可确认（AC-4.2）", async ({ pa
     const pid = await createNovel(page, `简介${Date.now() % 100000}`);
     await page.goto(`${ORIGIN}/#/novel/${pid}`);
 
-    // 新落点：默认正文工作台。简介卡在设定视图内，经高级配置 ▾ → 设定进入。
-    await openAdvanced(page, "设定");
+    // 新落点：默认正文工作台。简介卡在设定视图内，经顶部「编辑设定」label 进入（两态共用，011）。
+    await page.getByRole("button", { name: "编辑设定" }).click();
 
     // 简介卡全局常驻（设定视图内每面板可见）
     const synCard = page.locator("#synopsis-card");
@@ -298,8 +285,8 @@ test("设定 7 项全确认后门控横幅消失（world/hooks 真实表单）",
     // 初始：7 项均未确认 → GateBanner 显示「尚未完成设定」
     await expect(page.getByText(/尚未完成设定/).first()).toBeVisible({ timeout: 10000 });
 
-    // 新落点：默认正文工作台。设定面板经高级配置 ▾ → 设定进入（PRO 亦可点阶段 tab）。
-    await openAdvanced(page, "设定");
+    // 新落点：默认正文工作台。设定面板经顶部「编辑设定」label 进入（两态共用，011）。
+    await page.getByRole("button", { name: "编辑设定" }).click();
 
     // ── world：真实表单填 ≥4 个子字段（3 地理 + 1 政治）→ 保存 → 完成设定
     await openSetting(page, "世界设定");

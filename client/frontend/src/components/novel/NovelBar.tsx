@@ -2,29 +2,14 @@ import { useCallback, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { useTier } from "@/hooks/useTier";
-import {
-  Archive,
-  ChevronDown,
-  Pencil,
-  Settings,
-  ListTree,
-  Trash2,
-} from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useProject } from "@/hooks/useProject";
 
 interface NovelBarProps {
-  onGoAdvancedSettings: () => void;
-  onGoAdvancedOutline: () => void;
-  onGoArchives: () => void;
   onDelete: () => void;
 }
 
-export default function NovelBar({
-  onGoAdvancedSettings,
-  onGoAdvancedOutline,
-  onGoArchives,
-  onDelete,
-}: NovelBarProps) {
+export default function NovelBar({ onDelete }: NovelBarProps) {
   const { project, updateProject } = useProject();
   const { tier, isFree } = useTier();
 
@@ -107,63 +92,6 @@ export default function NovelBar({
         ) : (
           <span className="badge badge-primary badge-sm">PRO · {tier}</span>
         )}
-      </div>
-
-      {/* 高级配置 ▾ + 归档 + 删除 */}
-      <div className="flex items-center gap-1">
-        <div className="dropdown dropdown-end">
-          <button
-            tabIndex={0}
-            className="btn btn-ghost btn-sm gap-1 text-base-content/70 hover:text-base-content"
-            title="高级配置（设定/大纲）"
-            aria-label="高级配置"
-          >
-            <Settings className="w-4 h-4" />
-            高级配置
-            <ChevronDown className="w-3 h-3" />
-            {isFree && (
-              <span className="badge badge-warning badge-xs font-normal">可选</span>
-            )}
-          </button>
-          <ul
-            tabIndex={0}
-            className="dropdown-content z-10 menu menu-sm mt-1 w-40 rounded-box bg-base-100 border border-base-300 shadow-lg p-1"
-          >
-            <li>
-              <button
-                onClick={(e) => {
-                  e.currentTarget.blur();
-                  onGoAdvancedSettings();
-                }}
-              >
-                <Settings className="w-3.5 h-3.5" />
-                设定
-              </button>
-            </li>
-            <li>
-              <button
-                onClick={(e) => {
-                  e.currentTarget.blur();
-                  onGoAdvancedOutline();
-                }}
-              >
-                <ListTree className="w-3.5 h-3.5" />
-                大纲
-              </button>
-            </li>
-            <li>
-              <button
-                onClick={(e) => {
-                  e.currentTarget.blur();
-                  onGoArchives();
-                }}
-              >
-                <Archive className="w-3.5 h-3.5" />
-                归档
-              </button>
-            </li>
-          </ul>
-        </div>
 
         <button
           onClick={onDelete}

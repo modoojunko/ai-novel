@@ -1,21 +1,17 @@
 import {
   Book,
   PenLine,
-  Settings,
   Lightbulb,
 } from "lucide-react";
 
 interface EmptyStateProps {
   onCreateVolume?: () => void;
   onCreateChapter?: () => void;
-  /** 高级配置（设定/大纲）入口 —— N3：免费可进 + 「可选」标注 */
-  onGoAdvanced?: () => void;
 }
 
 export default function EmptyState({
   onCreateVolume,
   onCreateChapter,
-  onGoAdvanced,
 }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-6 px-4">
@@ -41,20 +37,11 @@ export default function EmptyState({
           <PenLine className="w-4 h-4" />
           直接写第一章
         </button>
-        <button
-          onClick={onGoAdvanced}
-          className="px-5 py-3 rounded-lg border bg-base-200 border-base-300 text-base-content/70 hover:bg-base-300 transition-colors inline-flex items-center gap-2"
-          title="设定/大纲（可选）"
-        >
-          <Settings className="w-4 h-4" />
-          高级配置
-          <span className="badge badge-warning badge-xs font-normal">可选</span>
-        </button>
       </div>
       <div className="w-full max-w-md border-t border-base-300" />
       <p className="text-sm text-base-content/40 max-w-md text-center leading-relaxed flex items-center gap-2 justify-center">
         <Lightbulb className="w-3.5 h-3.5 flex-shrink-0" />
-        先写正文不受任何前置限制；想先铺设定或大纲，随时可从「高级配置」进入。
+        先写正文不受任何前置限制；想先铺设定或大纲，随时可从顶部「编辑设定」进入。
       </p>
     </div>
   );
