@@ -12,6 +12,7 @@ import asyncio
 import os
 import tempfile
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -29,6 +30,12 @@ from auth_local.middleware import get_current_user
 from db import Base, async_session, engine, get_db
 from main import app
 from models.user import User
+
+# Change 002：无 config 默认免费旁路，phase-status 直接返回 tier_bypass（warnings 空）。
+# 本模块断言 settings 真实 gate 警告，故显式以付费套餐运行。
+import auth_local.service as _auth_service  # noqa: E402
+
+_PRO_CFG_PATH = os.path.join(_tmp_data_root, "config.json")
 
 
 def _run_async(coro):
@@ -83,6 +90,22 @@ def _setup_overrides():
     app.dependency_overrides[require_project_limit] = lambda: True
     yield
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def _pro_tier():
+    """Change 002 适配：写付费套餐 config.json，使 phase-status 走真实 gate 警告。"""
+    _auth_service.CONFIG_FILE = _PRO_CFG_PATH
+    _auth_service.save_local_config(
+        {
+            "tier": "monthly",
+            "expires_at": (datetime.now(UTC) + timedelta(days=30)).date().isoformat(),
+            "api_key": "",
+        }
+    )
+    yield
+    if os.path.exists(_PRO_CFG_PATH):
+        os.remove(_PRO_CFG_PATH)
 
 
 @pytest.fixture
@@ -260,7 +283,7 @@ def _create_project_with_chapter(client) -> str:
     # 必须先推进，否则 create_volume 的 update_phase("outline") 从 init 直接转 outline 被 engine 拒绝。
     client.put(f"/api/novels/{pid}/settings/world", json={"geography": {"scenes": "g"}, "politics": {}, "rules": {}})
     client.post(f"/api/novels/{pid}/volumes", json={"vol_num": 1, "title": "第一卷"})
-    r = client.post(f"/api/novels/{pid}/chapters", json={"volume": 1, "chapter": 1, "title": "第1章"})
+    r = client.post(f"/api/novels/{pid}/volumes/vol-1/chapters", json={"title": "第1章"})
     assert r.status_code in (200, 201), r.text
     return pid
 

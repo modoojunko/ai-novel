@@ -7,7 +7,7 @@ import LoginPage from "@/pages/LoginPage";
 import ApiKeyConfigPage from "@/pages/ApiKeyConfigPage";
 import NovelListPage from "@/pages/NovelListPage";
 import NovelLayout from "@/pages/NovelLayout";
-import NovelPage from "@/pages/NovelPage";
+import NovelWorkspace from "@/components/novel/NovelWorkspace";
 
 /** 301 过渡：旧路由 /project/:id → /novel/:id */
 function RedirectToNovel() {
@@ -32,17 +32,7 @@ export default function App() {
           {/* 新路由 */}
           <Route path="/novels" element={<NovelListPage />} />
           <Route path="/novel/:id" element={<NovelLayout />}>
-            <Route index element={<NovelPage />} />
-            <Route path="settings" element={<Navigate to=".." replace />} />
-            <Route path="settings/world" element={<Navigate to=".." replace />} />
-            <Route path="settings/style" element={<Navigate to=".." replace />} />
-            <Route path="settings/anti-ai" element={<Navigate to=".." replace />} />
-            <Route path="settings/hooks" element={<Navigate to=".." replace />} />
-            <Route path="outline" element={<Navigate to=".." replace />} />
-            <Route path="prompts" element={<Navigate to=".." replace />} />
-            <Route path="write" element={<Navigate to=".." replace />} />
-            <Route path="archives" element={<Navigate to=".." replace />} />
-            <Route path="threads" element={<Navigate to=".." replace />} />
+            <Route index element={<NovelWorkspace />} />
           </Route>
         </Routes>
       </div>

@@ -7,13 +7,14 @@ from filesystem.storage import get_storage
 from novels.ai_backfill import step1_backfill, step2_backfill
 from novels.events import log_event
 from novels.service import get_novel
-from workflow.engine import update_phase
 from workflow.gates import (
+    PHASE_ORDER,
     gate_chapter_ready,
     gate_prompts_exist,
     gate_settings_complete,
     get_phase_status,
 )
+from workflow.tier import tier_bypass, tier_or_gate, tier_phase_transition
 
 router = APIRouter(prefix="/api/novels/{project_id}/workflow", tags=["workflow"])
 
@@ -34,8 +35,10 @@ async def transition_workflow(
         raise HTTPException(400, "target is required")
 
     if target == "outline":
-        # Soft gate: check settings but do not block
-        result = await gate_settings_complete(project.root_path)
+        # Soft gate: check settings but do not block (tier_or_gate: free 恒过)
+        result = await tier_or_gate(
+            db, project, gate_settings_complete, project.root_path
+        )
         # hard_block is False for settings, so this always passes through
         if result.hard_block and not result.valid:
             raise HTTPException(
@@ -46,7 +49,7 @@ async def transition_workflow(
                 },
             )
 
-        update_phase(project, "outline")
+        tier_phase_transition(project, "outline")
         await db.commit()
         return {
             "ok": True,
@@ -67,7 +70,7 @@ async def transition_workflow(
             )
             if not chapter:
                 continue
-            result = gate_chapter_ready(chapter)
+            result = await tier_or_gate(db, project, gate_chapter_ready, chapter)
             if result.hard_block and not result.valid:
                 failures.append({"chapter_ref": ref, "missing": result.warnings})
 
@@ -80,7 +83,7 @@ async def transition_workflow(
                 },
             )
 
-        update_phase(project, "prompt")
+        tier_phase_transition(project, "prompt")
         await db.commit()
         return {"ok": True, "phase": project.current_phase}
 
@@ -92,7 +95,9 @@ async def transition_workflow(
             if not f.endswith(".yaml"):
                 continue
             ref = f.replace(".yaml", "")
-            result = await gate_prompts_exist(project.root_path, ref)
+            result = await tier_or_gate(
+                db, project, gate_prompts_exist, project.root_path, ref
+            )
             if result.hard_block and not result.valid:
                 failures.append({"chapter_ref": ref, "missing": result.warnings})
 
@@ -105,7 +110,7 @@ async def transition_workflow(
                 },
             )
 
-        update_phase(project, "write")
+        tier_phase_transition(project, "write")
         await db.commit()
         return {"ok": True, "phase": project.current_phase}
 
@@ -122,6 +127,13 @@ async def phase_status_endpoint(
     project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Novel not found")
+    if tier_bypass():
+        # 免费态：不展示阶段、不催促（N14），phases 全 complete + tier_bypass 标记
+        return {
+            "phases": {p: "complete" for p in PHASE_ORDER},
+            "warnings": [],
+            "tier_bypass": True,
+        }
     status = await get_phase_status(
         project.root_path, project.current_phase, project
     )

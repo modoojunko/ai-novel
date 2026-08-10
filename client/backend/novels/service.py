@@ -16,6 +16,14 @@ def slugify(name: str) -> str:
     return slug or "untitled"
 
 
+def count_chars(text: str | None) -> int:
+    """去空白中文字符数（B5 同口径）—— 与前端 countChars（text.replace(/\\s/g, "").length）一致。
+
+    供幂等回填 word_count 使用；change 006 起 save_prose/树/novel_to_dict 共用。
+    """
+    return len(re.sub(r"\s+", "", text or ""))
+
+
 async def create_project(
     db: AsyncSession,
     user_id: str,
@@ -144,11 +152,26 @@ def novel_to_dict(p) -> dict:
 # ── Project Tree ────────────────────────────────────────────────────────────
 
 
-async def build_project_tree(project_id: str, root_path: str) -> dict:
-    """Build the full project tree: settings + volumes + chapters with status."""
-    storage = get_storage()
+async def build_project_tree(db, project) -> dict:
+    """Build the full project tree: settings + volumes + chapters with status.
 
-    # Volumes
+    读路径强制切 DB（change 006，写路径停写内嵌列表后 YAML 内嵌 chapters 已不可信）；
+    DB 无行（回填未跑）降级现状文件扫描，防 404/空树。响应形状与 list_volumes 一致。
+    """
+    from volumes.service import list_volumes
+
+    volumes = await list_volumes(db, project)
+    if not volumes:
+        volumes = await _scan_tree_from_files(project.root_path)
+    return {
+        "project_id": str(project.id),
+        "volumes": volumes,
+    }
+
+
+async def _scan_tree_from_files(root_path: str) -> list[dict]:
+    """降级路径：回填未跑（DB 无行）时读 vol YAML 内嵌列表构建树。"""
+    storage = get_storage()
     files = await storage.list_dir(root_path, "volumes")
     volumes = []
     for f in sorted(files):
@@ -163,7 +186,7 @@ async def build_project_tree(project_id: str, root_path: str) -> dict:
                         "chapter": ch.get("chapter"),
                         "title": ch.get("title", ""),
                         "status": ch.get("status", "outline"),
-                        "word_count": len(ch.get("prose", "")),
+                        "word_count": count_chars(ch.get("prose", "")),
                     }
                 )
             volumes.append(
@@ -175,8 +198,4 @@ async def build_project_tree(project_id: str, root_path: str) -> dict:
                     "chapters": chapters,
                 }
             )
-
-    return {
-        "project_id": project_id,
-        "volumes": volumes,
-    }
+    return volumes

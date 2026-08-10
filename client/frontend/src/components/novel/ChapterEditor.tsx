@@ -17,8 +17,6 @@ import {
   Copy,
   Eye,
   EyeOff,
-  Maximize2,
-  Minimize2,
   Search,
   Sparkles,
 } from "lucide-react";
@@ -27,6 +25,9 @@ import { renderMarkdown } from "@/lib/markdown";
 import { useSelectionCapture } from "@/lib/selection";
 import type { SelectionCapture } from "@/lib/selection";
 import ContrastPreviewModal from "./ContrastPreviewModal";
+import { useChapterData } from "@/hooks/useChapterData";
+import { useTier } from "@/hooks/useTier";
+import { TierGate } from "./license/FeatureTier";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,19 +38,8 @@ interface ChapterEditorProps {
   chapterRef: string;
   onShowVersion: () => void;
   onAIStateChange?: (state: AIWritingState) => void;
-}
-
-interface ChapterData {
-  volume: number;
-  chapter: number;
-  title: string;
-  status: string;
-  outline?: {
-    summary?: string;
-    [key: string]: any;
-  };
-  prose?: string;
-  [key: string]: any;
+  /** 专注模式由 Workbench 持有（FE-10）：隐藏章纲/工具栏，仅正文居中 */
+  focusMode?: boolean;
 }
 
 export interface AIWritingState {
@@ -85,32 +75,39 @@ const STATUS_OPTIONS = [
 ];
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function countChars(text: string): number {
-  if (!text) return 0;
-  return text.replace(/\s/g, "").length;
-}
-
-// ---------------------------------------------------------------------------
 // ChapterEditor
 // ---------------------------------------------------------------------------
 
 const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
   function ChapterEditor(
-    { projectId, chapterRef, onShowVersion, onAIStateChange },
+    { projectId, chapterRef, onShowVersion, onAIStateChange, focusMode = false },
     ref,
   ) {
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [chapter, setChapter] = useState<ChapterData | null>(null);
-    const [outline, setOutline] = useState("");
-    const [prose, setProse] = useState("");
-    const [status, setStatus] = useState("outline");
-    const [saving, setSaving] = useState(false);
+    const { isFree } = useTier();
+
+    const {
+      chapter,
+      prose,
+      summary,
+      status,
+      isDirty,
+      saveState,
+      wordCount,
+      targetWords,
+      setTargetWords,
+      save,
+      setProse,
+      setSummary,
+      setStatus,
+      retry,
+      archive,
+      reload,
+      loading,
+      error,
+      setError,
+    } = useChapterData(projectId, chapterRef);
+
     const [previewMode, setPreviewMode] = useState(false);
-    const [focusMode, setFocusMode] = useState(false);
 
     // View tabs + AI writing state
     const [viewTab, setViewTab] = useState<"prose" | "prompt">("prose");
@@ -118,16 +115,6 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
     const [streamedText, setStreamedText] = useState("");
     const [promptText, setPromptText] = useState("");
     const streamControllerRef = useRef<AbortController | null>(null);
-
-    // Dirty tracking
-    const [initialOutline, setInitialOutline] = useState("");
-    const [initialProse, setInitialProse] = useState("");
-    const [initialStatus, setInitialStatus] = useState("outline");
-
-    const isDirty =
-      outline !== initialOutline ||
-      prose !== initialProse ||
-      status !== initialStatus;
 
     // Quality check + archive state
     const [qcLoading, setQcLoading] = useState(false);
@@ -165,7 +152,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
       }
     }, []);
 
-    // Sync AI state to parent for RightToolbar mediation
+    // Sync AI state to parent for RightToolbar mediation (免费态不接线)
     const prevAIStateRef = useRef<AIWritingState>({
       hasSelection: false,
       selectedText: "",
@@ -175,6 +162,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
     });
 
     useEffect(() => {
+      if (isFree) return; // N14：免费态不向上传播 AI 状态
       const next: AIWritingState = {
         hasSelection,
         selectedText,
@@ -193,98 +181,34 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
         prevAIStateRef.current = next;
         onAIStateChange?.(next);
       }
-    }, [hasSelection, selectedText, continueLoading, polishLoading, expandLoading, onAIStateChange]);
+    }, [hasSelection, selectedText, continueLoading, polishLoading, expandLoading, onAIStateChange, isFree]);
 
-    // -----------------------------------------------------------------------
     // Clear QC results when prose changes (user edited after check)
-    // -----------------------------------------------------------------------
-
     useEffect(() => {
       if (qcResults) setQcResults(null);
     }, [prose]);
 
-    // Refs for auto-save (avoid stale closures in timer callbacks)
-    const savingRef = useRef(false);
-    const proseRef = useRef(prose);
-    const outlineRef = useRef(outline);
-    const statusRef = useRef(status);
-    const chapterDataRef = useRef<ChapterData | null>(chapter);
-
-    // Keep refs in sync
-    useEffect(() => { savingRef.current = saving; }, [saving]);
-    useEffect(() => { proseRef.current = prose; }, [prose]);
-    useEffect(() => { outlineRef.current = outline; }, [outline]);
-    useEffect(() => { statusRef.current = status; }, [status]);
-    useEffect(() => { chapterDataRef.current = chapter; }, [chapter]);
-
-    // Save status for UI display
-    const saveStatusLabel = saving
-      ? "自动保存中…"
-      : error
-        ? "保存失败"
-        : isDirty
-          ? "未保存"
-          : "已保存";
-
-    const saveStatusColor = saving
-      ? "text-primary"
-      : error
-        ? "text-error"
-        : isDirty
-          ? "text-warning"
-          : "text-success/70";
-
-    const wordCount = countChars(prose);
-
     // -----------------------------------------------------------------------
-    // Core save logic via ref (always has access to latest state)
+    // Save status for UI display（四态 → 文案/颜色）
     // -----------------------------------------------------------------------
 
-    const saveFnRef = useRef<(() => Promise<void>) | null>(null);
-    saveFnRef.current = async () => {
-      if (savingRef.current) return;
-      const ch = chapterDataRef.current;
-      if (!ch) return;
-      setSaving(true);
-      setError(null);
-      try {
-        const updated: ChapterData = {
-          ...ch,
-          outline: { ...(ch.outline || {}), summary: outlineRef.current },
-          prose: proseRef.current,
-          status: statusRef.current,
-        };
-        await api.put(
-          `/novels/${projectId}/chapters/${chapterRef}`,
-          updated,
-        );
-        setInitialOutline(outlineRef.current);
-        setInitialProse(proseRef.current);
-        setInitialStatus(statusRef.current);
-      } catch (e: any) {
-        setError(e.message || "保存失败");
-      } finally {
-        setSaving(false);
-      }
-    };
+    const saveStatusLabel =
+      saveState === "autosaving"
+        ? "自动保存中…"
+        : saveState === "failed"
+          ? "保存失败"
+          : saveState === "unsaved"
+            ? "未保存"
+            : "已保存";
 
-    // -----------------------------------------------------------------------
-    // Auto-save: debounce 3s after content change
-    // -----------------------------------------------------------------------
-
-    useEffect(() => {
-      if (!isDirty) return;
-      const timer = setTimeout(() => saveFnRef.current?.(), 3000);
-      return () => clearTimeout(timer);
-    }, [outline, prose, status, isDirty]);
-
-    // -----------------------------------------------------------------------
-    // Manual save handler
-    // -----------------------------------------------------------------------
-
-    const handleSave = useCallback(() => {
-      saveFnRef.current?.();
-    }, []);
+    const saveStatusColor =
+      saveState === "autosaving"
+        ? "text-primary"
+        : saveState === "failed"
+          ? "text-error"
+          : saveState === "unsaved"
+            ? "text-warning"
+            : "text-success/70";
 
     // -----------------------------------------------------------------------
     // AI writing: start full-chapter streaming
@@ -300,15 +224,13 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
         },
         onDone: (fullText: string) => {
           setStreaming(false);
-          setProse(fullText);
-          setInitialProse(fullText);
+          setProse?.(fullText);
           setStreamedText("");
-          // Auto-save after AI completes
-          saveFnRef.current?.();
+          save();
         },
-        onError: (error: string) => {
+        onError: (err: string) => {
           setStreaming(false);
-          setError(error);
+          setError?.(err);
         },
       });
 
@@ -330,6 +252,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
     // -----------------------------------------------------------------------
 
     const handleContinueWriting = useCallback(() => {
+      if (isFree) return; // 免费降级 no-op
       // Toggle: if already loading, stop instead
       if (continueLoading) {
         handleStopWriting();
@@ -347,20 +270,19 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
         },
         onDone: (fullText: string) => {
           setContinueLoading(false);
-          setProse(fullText);
-          setInitialProse(fullText);
+          setProse?.(fullText);
           setStreamedText("");
-          saveFnRef.current?.();
+          save();
         },
         onError: (err: string) => {
           setContinueLoading(false);
-          setError(err);
+          setError?.(err);
           setStreamedText("");
         },
       });
 
       streamControllerRef.current = ctrl;
-    }, [continueLoading, projectId, chapterRef, prose]);
+    }, [isFree, continueLoading, projectId, chapterRef, prose]);
 
     // -----------------------------------------------------------------------
     // AI auxiliary: polish selected text
@@ -368,6 +290,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
 
     const handlePolish = useCallback(
       (capture: SelectionCapture) => {
+        if (isFree) return;
         const { start, end, text, fullText } = capture;
         const contextBefore = fullText.slice(Math.max(0, start - 200), start);
         const contextAfter = fullText.slice(end, end + 200);
@@ -388,7 +311,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
             setPolishLoading(false);
           });
       },
-      [projectId, chapterRef],
+      [isFree, projectId, chapterRef],
     );
 
     // -----------------------------------------------------------------------
@@ -397,6 +320,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
 
     const handleExpand = useCallback(
       (capture: SelectionCapture) => {
+        if (isFree) return;
         const { start, end, text, fullText } = capture;
         const contextBefore = fullText.slice(Math.max(0, start - 200), start);
         const contextAfter = fullText.slice(end, end + 200);
@@ -417,7 +341,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
             setExpandLoading(false);
           });
       },
-      [projectId, chapterRef],
+      [isFree, projectId, chapterRef],
     );
 
     // -----------------------------------------------------------------------
@@ -429,7 +353,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
       const { start, end, fullText } = contrastCapture;
       const originalFullText = fullText;
       const newProse = fullText.slice(0, start) + modifiedText + fullText.slice(end);
-      setProse(newProse);
+      setProse?.(newProse);
       setContrastMode(null);
       setContrastCapture(null);
       setModifiedText(null);
@@ -437,7 +361,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
         action: {
           label: "撤销",
           onClick: () => {
-            setProse(originalFullText);
+            setProse?.(originalFullText);
           },
         },
       });
@@ -486,33 +410,33 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
     }, [contrastCapture, contrastMode, projectId, chapterRef]);
 
     // -----------------------------------------------------------------------
-    // Imperative handle for parent (NovelPage) access
+    // Imperative handle（AI 方法免费降级 no-op）
     // -----------------------------------------------------------------------
 
     useImperativeHandle(
       ref,
       () => ({
         get hasSelection() {
-          return hasSelection;
+          return isFree ? false : hasSelection;
         },
         get selectedText() {
-          return selectedText;
+          return isFree ? "" : selectedText;
         },
         get continueLoading() {
-          return continueLoading;
+          return isFree ? false : continueLoading;
         },
         get polishLoading() {
-          return polishLoading;
+          return isFree ? false : polishLoading;
         },
         get expandLoading() {
-          return expandLoading;
+          return isFree ? false : expandLoading;
         },
-        captureNow,
+        captureNow: () => (isFree ? null : captureNow()),
         handleContinueWriting,
         handlePolish,
         handleExpand,
       }),
-      [hasSelection, selectedText, continueLoading, polishLoading, expandLoading, captureNow, handleContinueWriting, handlePolish, handleExpand],
+      [isFree, hasSelection, selectedText, continueLoading, polishLoading, expandLoading, captureNow, handleContinueWriting, handlePolish, handleExpand],
     );
 
     // -----------------------------------------------------------------------
@@ -538,7 +462,6 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
         const token = getToken();
         const base = getApiBaseUrl();
 
-        // List prompt files for this chapter
         const listRes = await fetch(
           `${base}/api/novels/${projectId}/chapters/${chapterRef}/prompts`,
           { headers: { Authorization: `Bearer ${token}` } },
@@ -553,7 +476,6 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
           return;
         }
 
-        // Fetch each segment's prompt content
         const prefix = `${chapterRef}-`;
         const suffix = "-prompt.md";
         const contents: string[] = [];
@@ -584,42 +506,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
     }, [viewTab, loadPrompt]);
 
     // -----------------------------------------------------------------------
-    // Load chapter data
-    // -----------------------------------------------------------------------
-
-    const loadChapter = useCallback(async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data: ChapterData = await api.get(
-          `/novels/${projectId}/chapters/${chapterRef}`,
-        );
-        setChapter(data);
-        const summary = data.outline?.summary || "";
-        const proseText = data.prose || "";
-        const chStatus = data.status || "outline";
-        setOutline(summary);
-        setProse(proseText);
-        setStatus(chStatus);
-        setInitialOutline(summary);
-        setInitialProse(proseText);
-        setInitialStatus(chStatus);
-      } catch (e: any) {
-        setError(e.message || "加载章节失败");
-      } finally {
-        setLoading(false);
-      }
-    }, [projectId, chapterRef]);
-
-    useEffect(() => {
-      loadChapter();
-    }, [loadChapter]);
-
-    // Preview HTML (memoized)
-    const previewHtml = useMemo(() => renderMarkdown(prose), [prose]);
-
-    // -----------------------------------------------------------------------
-    // Quality check handler
+    // Quality check handler（PRO 专属，免费隐藏）
     // -----------------------------------------------------------------------
 
     const handleQualityCheck = useCallback(async () => {
@@ -632,7 +519,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
         });
         setQcResults(res);
       } catch (e: any) {
-        setError(e.message || "质量检查失败");
+        setError?.(e.message || "质量检查失败");
       } finally {
         setQcLoading(false);
       }
@@ -646,19 +533,12 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
       if (!prose.trim()) return;
       if (!window.confirm("确认归档本章？归档后正文将锁定为只读状态。")) return;
       setArchiving(true);
-      try {
-        await api.post(`/novels/${projectId}/chapters/${chapterRef}/archive`, {
-          full_text: prose,
-        });
-        setStatus("archived");
-        setError(null);
-        toast.success("归档成功");
-      } catch (e: any) {
-        setError(e.message || "归档失败");
-      } finally {
-        setArchiving(false);
-      }
-    }, [projectId, chapterRef, prose]);
+      await archive();
+      setArchiving(false);
+    }, [prose, archive]);
+
+    // 归档只读：status === "archived" 时 textarea readOnly + 顶部提示条
+    const isArchived = status === "archived";
 
     // -----------------------------------------------------------------------
     // Compute cursor-split text for continue streaming display
@@ -667,6 +547,9 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
     const cursorPos = cursorPositionRef.current;
     const proseBeforeCursor = cursorPos !== null ? prose.slice(0, cursorPos) : "";
     const proseAfterCursor = cursorPos !== null ? prose.slice(cursorPos) : "";
+
+    // Preview HTML (memoized)
+    const previewHtml = useMemo(() => renderMarkdown(prose), [prose]);
 
     // -----------------------------------------------------------------------
     // Loading state
@@ -688,41 +571,29 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
       return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <p className="text-error text-sm">{error}</p>
-          <button onClick={loadChapter} className="btn btn-ghost btn-sm">
+          <button onClick={() => void reload()} className="btn btn-ghost btn-sm">
             重试
           </button>
         </div>
       );
     }
 
-    // -----------------------------------------------------------------------
     // No data
-    // -----------------------------------------------------------------------
-
     if (!chapter) return null;
 
     // -----------------------------------------------------------------------
-    // Focus mode — minimal writing environment
+    // Focus mode — minimal writing environment（Workbench 持有，FE-10）
     // -----------------------------------------------------------------------
 
     if (focusMode) {
       return (
         <div className="h-full flex flex-col bg-base-100">
-          {/* Slim focus bar */}
-          <div className="flex items-center justify-between px-4 py-2 border-b border-base-300 bg-base-200/50">
-            <button
-              onClick={() => setFocusMode(false)}
-              className="btn btn-ghost btn-xs gap-1.5 text-base-content/60 hover:text-base-content"
-            >
-              <Minimize2 className="w-3.5 h-3.5" />
-              退出专注
-            </button>
-
-            <div className="flex items-center gap-4 text-xs text-base-content/50">
-              <span className="tabular-nums">{wordCount} 字</span>
-              <span className={saveStatusColor}>{saveStatusLabel}</span>
+          {/* Archived 提示条 */}
+          {isArchived && (
+            <div className="px-4 py-1.5 text-xs bg-info/10 text-info border-b border-info/20">
+              📦 本章已归档，正文为只读状态
             </div>
-          </div>
+          )}
 
           {/* Prose area */}
           <div className="flex-1 p-6 lg:p-10 overflow-y-auto">
@@ -735,9 +606,10 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
               <textarea
                 ref={textareaRef}
                 value={prose}
-                onChange={(e) => setProse(e.target.value)}
+                onChange={(e) => setProse?.(e.target.value)}
                 onMouseUp={updateCursorPosition}
                 onKeyUp={updateCursorPosition}
+                readOnly={isArchived}
                 className="w-full h-full max-w-3xl mx-auto block font-serif text-base leading-[2] resize-none bg-transparent border-none outline-none placeholder:text-base-content/20"
                 placeholder="开始写作……"
                 autoFocus
@@ -754,6 +626,13 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
 
     return (
       <div className="max-w-3xl mx-auto space-y-5">
+        {/* ── Archived 提示条 ──────────────────────────────────────── */}
+        {isArchived && (
+          <div className="px-3 py-1.5 text-xs bg-info/10 text-info border border-info/20 rounded-lg">
+            📦 本章已归档，正文为只读状态
+          </div>
+        )}
+
         {/* ── Chapter title + ref badge ──────────────────────────────── */}
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-serif font-semibold text-base-content">
@@ -766,7 +645,8 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
         <div className="flex items-center gap-4 text-sm">
           <select
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            onChange={(e) => setStatus?.(e.target.value)}
+            disabled={isArchived}
             className="select select-bordered select-sm max-w-[140px]"
           >
             {STATUS_OPTIONS.map((opt) => (
@@ -803,8 +683,8 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
             章纲
           </label>
           <textarea
-            value={outline}
-            onChange={(e) => setOutline(e.target.value)}
+            value={summary}
+            onChange={(e) => setSummary?.(e.target.value)}
             className="textarea textarea-bordered w-full min-h-[100px] text-sm leading-relaxed"
             placeholder="章纲（概述本章情节走向）"
           />
@@ -842,31 +722,25 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
                   )}
                   {previewMode ? "编辑" : "预览"}
                 </button>
-                <button
-                  onClick={() => setFocusMode(true)}
-                  className="btn btn-ghost btn-xs gap-1 text-base-content/50 hover:text-base-content"
-                  title="专注模式"
-                >
-                  <Maximize2 className="w-3.5 h-3.5" />
-                  专注
-                </button>
               </div>
             )}
           </TabBar>
 
           {viewTab === "prose" && (
             <div className="space-y-3">
-              {!streaming && !continueLoading && (
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={handleStartWriting}
-                    className="btn btn-primary btn-sm gap-1.5"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    AI 写本章
-                  </button>
-                </div>
-              )}
+              <TierGate feature="ai-generate">
+                {!streaming && !continueLoading && (
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleStartWriting}
+                      className="btn btn-primary btn-sm gap-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      AI 写本章
+                    </button>
+                  </div>
+                )}
+              </TierGate>
 
               {streaming || continueLoading ? (
                 <div className="space-y-3">
@@ -903,9 +777,10 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
                 <textarea
                   ref={textareaRef}
                   value={prose}
-                  onChange={(e) => setProse(e.target.value)}
+                  onChange={(e) => setProse?.(e.target.value)}
                   onMouseUp={updateCursorPosition}
                   onKeyUp={updateCursorPosition}
+                  readOnly={isArchived}
                   className="textarea textarea-bordered w-full font-serif text-base leading-[2] min-h-[300px] resize-y"
                   placeholder="正文（在此撰写小说内容）"
                 />
@@ -935,16 +810,21 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
         <div className="flex items-center justify-between pt-4 border-t border-base-300">
           <div className="flex items-center gap-3">
             <button
-              onClick={handleSave}
-              disabled={saving || !isDirty}
+              onClick={save}
+              disabled={saveState === "autosaving" || !isDirty || isArchived}
               className="btn btn-primary btn-sm min-w-[72px]"
             >
-              {saving && <span className="loading loading-spinner loading-xs" />}
-              {saving ? "保存中…" : "保存"}
+              {saveState === "autosaving" && <span className="loading loading-spinner loading-xs" />}
+              {saveState === "autosaving" ? "保存中…" : "保存"}
             </button>
             <span className={`text-xs ${saveStatusColor}`}>
               {saveStatusLabel}
             </span>
+            {saveState === "failed" && (
+              <button onClick={retry} className="btn btn-ghost btn-xs text-error">
+                重试
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2 text-xs text-base-content/50">
@@ -952,19 +832,21 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
           </div>
         </div>
 
-        {/* ── Quality Check + Archive ──────────────────────── */}
+        {/* ── Quality Check + Archive（质量检查 PRO 专属） ───────────── */}
         <div className="flex items-center gap-3 pt-3">
-          <button
-            onClick={handleQualityCheck}
-            disabled={qcLoading || !prose.trim()}
-            className="btn btn-ghost btn-xs gap-1.5 text-base-content/50 hover:text-base-content disabled:opacity-30"
-          >
-            {qcLoading ? <span className="loading loading-spinner loading-xs" /> : <Search className="w-3.5 h-3.5" />}
-            质量检查
-          </button>
+          <TierGate feature="ai-generate">
+            <button
+              onClick={handleQualityCheck}
+              disabled={qcLoading || !prose.trim()}
+              className="btn btn-ghost btn-xs gap-1.5 text-base-content/50 hover:text-base-content disabled:opacity-30"
+            >
+              {qcLoading ? <span className="loading loading-spinner loading-xs" /> : <Search className="w-3.5 h-3.5" />}
+              质量检查
+            </button>
+          </TierGate>
           <button
             onClick={handleArchive}
-            disabled={archiving || !prose.trim()}
+            disabled={archiving || !prose.trim() || isArchived}
             className="btn btn-ghost btn-xs gap-1.5 text-base-content/50 hover:text-base-content disabled:opacity-30"
           >
             {archiving ? <span className="loading loading-spinner loading-xs" /> : <Archive className="w-3.5 h-3.5" />}

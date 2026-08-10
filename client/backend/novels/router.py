@@ -149,7 +149,36 @@ async def get_one(
     project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Novel not found")
-    return novel_to_dict(project)
+    data = novel_to_dict(project)
+    # BE-04：详情端点合并题材（project_settings KV + 全局 genres 表）；
+    # KV 缺失/损坏 → genre/genre_name None，不 500（NovelBar 以 genre 优先于 type 展示）
+    data["genre"] = None
+    data["genre_name"] = None
+    try:
+        from models.genre import Genre
+        from models.project_setting import ProjectSetting
+
+        row = (
+            await db.execute(
+                select(ProjectSetting).where(
+                    ProjectSetting.root_path == project.root_path,
+                    ProjectSetting.key == "genre",
+                )
+            )
+        ).scalar_one_or_none()
+        if row is not None:
+            cfg = json.loads(row.content)
+            genre_id = cfg.get("genre_id")
+            data["genre"] = genre_id
+            if genre_id:
+                g = (
+                    await db.execute(select(Genre).where(Genre.id == genre_id))
+                ).scalar_one_or_none()
+                if g is not None:
+                    data["genre_name"] = g.name
+    except Exception:
+        pass  # KV 缺失/损坏不 500
+    return data
 
 
 @router.patch("/{project_id}")
@@ -227,7 +256,7 @@ async def get_project_tree(
     project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Novel not found")
-    tree = await build_project_tree(project_id, project.root_path)
+    tree = await build_project_tree(db, project)
     return tree
 
 
@@ -452,6 +481,18 @@ async def import_persist(
         db.add(project)
         await db.commit()
         await db.refresh(project)
+
+        # ── 7. 卷/章入 DB 索引（导入即列表可用，不必等下次重启）──────
+        try:
+            from filesystem.index_volumes_chapters import reindex_project
+
+            await reindex_project(str(project.id))
+        except Exception as e:
+            import logging
+
+            logging.getLogger("uvicorn.error").warning(
+                "reindex_project failed after import: %s", e
+            )
 
         return {"id": str(project.id), "name": body.name}
 

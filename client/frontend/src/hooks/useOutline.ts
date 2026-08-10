@@ -61,6 +61,9 @@ export interface ChapterMetaEntry {
   title: string;
   status: string;
   word_count: number;
+  /** DB-backed 全量树（change 005）缺省时降级本地推断（N1） */
+  has_prose?: boolean;
+  archived?: boolean;
 }
 
 export interface VolumeEntry {
@@ -69,6 +72,9 @@ export interface VolumeEntry {
   summary: string;
   chapter_count: number;
   chapters: ChapterMetaEntry[];
+  /** DB-backed 全量树（change 005）缺省时降级本地推断（N1） */
+  has_prose?: boolean;
+  archived?: boolean;
 }
 
 interface TreeResponse {

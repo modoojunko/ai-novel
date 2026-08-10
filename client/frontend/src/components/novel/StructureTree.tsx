@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Lock, Trash2 } from "lucide-react";
+import { Lock, Plus, Trash2 } from "lucide-react";
 
 export type TreeNodeAction = {
   icon: React.ReactNode;
@@ -36,6 +36,8 @@ interface TreeProps extends TreeCallbacks {
   onTitleChange?: (nodeId: string, newTitle: string) => void;
   /** Called when a node delete is confirmed */
   onDelete?: (nodeId: string) => void;
+  /** 行内新建插槽（FE-11）：卷节点 hover 渲染「+」 */
+  onAddChild?: (node: TreeNode) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -64,6 +66,7 @@ interface TreeNodeItemProps extends TreeCallbacks {
   editable?: boolean;
   treeLocked?: boolean;
   onDelete?: (nodeId: string) => void;
+  onAddChild?: (node: TreeNode) => void;
   editingId: string | null;
   editingValue: string;
   onStartEdit: (id: string, label: string) => void;
@@ -86,6 +89,7 @@ function TreeNodeItem({
   editable,
   treeLocked,
   onDelete,
+  onAddChild,
   editingId,
   editingValue,
   onStartEdit,
@@ -125,7 +129,8 @@ function TreeNodeItem({
 
   const showRightSide =
     (!isEditing && onDelete && !hasChildren) ||
-    (node.actions && node.actions.length > 0);
+    (node.actions && node.actions.length > 0) ||
+    (!isEditing && onAddChild && hasChildren);
 
   return (
     <div>
@@ -203,6 +208,20 @@ function TreeNodeItem({
         {/* Right side group (delete + existing actions) */}
         {showRightSide && (
           <div className="flex items-center gap-0.5 ml-auto flex-shrink-0">
+            {/* 行内新建插槽（FE-11）：卷节点 hover「+」 */}
+            {onAddChild && hasChildren && (
+              <button
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-base-content/40 hover:text-primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddChild(node);
+                }}
+                title="在卷下新建章节"
+              >
+                <Plus className="w-3 h-3" />
+              </button>
+            )}
+
             {/* Delete button with inline confirmation */}
             {!isEditing && onDelete && !hasChildren &&
               (isConfirmingDelete ? (
@@ -276,6 +295,7 @@ function TreeNodeItem({
               editable={editable}
               treeLocked={treeLocked}
               onDelete={onDelete}
+              onAddChild={onAddChild}
               editingId={editingId}
               editingValue={editingValue}
               onStartEdit={onStartEdit}
@@ -308,6 +328,7 @@ export default function StructureTree({
   locked: treeLocked,
   onTitleChange,
   onDelete,
+  onAddChild,
 }: TreeProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState("");
@@ -380,6 +401,7 @@ export default function StructureTree({
           editable={editable}
           treeLocked={treeLocked}
           onDelete={onDelete}
+          onAddChild={onAddChild}
           editingId={editingId}
           editingValue={editingValue}
           onStartEdit={handleStartEdit}

@@ -75,6 +75,15 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass  # 列已存在
 
+    # ── Migrate: add index_status column ─────────────────────────────
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE projects ADD COLUMN index_status TEXT DEFAULT 'none'")
+            )
+    except Exception:
+        pass  # 列已存在
+
     # ── Seed preset genres ──────────────────────────────────────────
     try:
         from genres.service import ensure_seed_genres
@@ -94,6 +103,18 @@ async def lifespan(app: FastAPI):
         import logging
 
         logging.getLogger("uvicorn.error").warning("Tone backfill failed: %s", e)
+
+    # ── Migrate: 卷/章数据底座回填（change 005，幂等 run-once）────────
+    try:
+        from filesystem.index_volumes_chapters import index_volumes_chapters
+
+        await index_volumes_chapters()
+    except Exception as e:
+        import logging
+
+        logging.getLogger("uvicorn.error").warning(
+            "volumes/chapters backfill failed: %s", e
+        )
 
     # ── Migrate: create events table ─────────────────────────────────
     try:

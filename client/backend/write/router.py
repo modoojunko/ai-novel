@@ -79,9 +79,10 @@ async def quality_check(
     return results
 
 
-async def _stream_chapter(root_path: str, chapter_ref: str, ctx, prompt: str):
-    """Generate chapter text via AI streaming, save on completion."""
+async def _stream_chapter(db, project, root_path: str, chapter_ref: str, ctx, prompt: str):
+    """Generate chapter text via AI streaming, save on completion (BE-01: 写完刷新 DB 元数据)."""
     from ai_client import get_ai_client
+    from chapters.service import refresh_chapter_meta
     from workflow.engine import load_chapter
 
     client = await get_ai_client()
@@ -112,6 +113,8 @@ async def _stream_chapter(root_path: str, chapter_ref: str, ctx, prompt: str):
             await get_storage().write_yaml(
                 root_path, f"chapters/{chapter_ref}.yaml", chapter
             )
+            # 双写第二步：以 YAML 为准刷新 DB 元数据（word_count/has_prose/outline_status）
+            await refresh_chapter_meta(db, project, chapter_ref, chapter)
             yield f"data: {json.dumps({'type': 'done', 'full_text': full_text, 'tokens': event.tokens}, ensure_ascii=False)}\n\n"
         elif event.error:
             yield f"data: {json.dumps({'type': 'error', 'error': event.error}, ensure_ascii=False)}\n\n"
@@ -145,7 +148,7 @@ async def write_chapter(
     await db.commit()
 
     return StreamingResponse(
-        _stream_chapter(project.root_path, chapter_ref, ctx, prompt),
+        _stream_chapter(db, project, project.root_path, chapter_ref, ctx, prompt),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -174,7 +177,7 @@ async def continue_writing(
         raise HTTPException(400, "cursor_position is required and must be >= 0")
 
     return StreamingResponse(
-        stream_continue(project.root_path, chapter_ref, cursor_position),
+        stream_continue(db, project, project.root_path, chapter_ref, cursor_position),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

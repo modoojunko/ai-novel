@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { renderMarkdown } from "@/lib/markdown";
-import { ArrowLeft, BookOpen, ExternalLink } from "lucide-react";
+import { ArrowLeft, BookOpen, ExternalLink, RotateCcw } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -20,6 +20,7 @@ interface ArchiveReaderProps {
   onNext: () => void;
   onBack: () => void;
   onEdit: (chapterRef: string) => void;
+  onRestore: (chapterRef: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -39,6 +40,7 @@ export default function ArchiveReader({
   onNext,
   onBack,
   onEdit,
+  onRestore,
 }: ArchiveReaderProps) {
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -175,14 +177,24 @@ export default function ArchiveReader({
           {[displayVolume, displayTitle].filter(Boolean).join(" · ")}
         </div>
 
-        <button
-          onClick={() => onEdit(chapterRef)}
-          className="btn btn-ghost btn-xs gap-1 text-base-content/50 hover:text-base-content flex-shrink-0"
-          title="在编辑器中打开"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-          编辑
-        </button>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={() => onRestore(chapterRef)}
+            className="btn btn-ghost btn-xs gap-1 text-base-content/50 hover:text-base-content"
+            title="恢复为可编辑章节"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            恢复
+          </button>
+          <button
+            onClick={() => onEdit(chapterRef)}
+            className="btn btn-ghost btn-xs gap-1 text-base-content/50 hover:text-base-content"
+            title="在编辑器中打开"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            编辑
+          </button>
+        </div>
       </div>
 
       {/* ── Progress bar ─────────────────────────────────────────── */}

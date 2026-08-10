@@ -1,13 +1,15 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from archive.service import archive_chapter
-from auth_local.deps import require_ai_access
 from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
 from novels.service import get_novel
-from workflow.engine import _validate_ref, update_phase
+from workflow.engine import _validate_ref
+from workflow.tier import tier_phase_transition
 
 router = APIRouter(
     prefix="/api/novels/{project_id}/chapters/{chapter_ref}/archive",
@@ -26,7 +28,6 @@ async def archive(
     chapter_ref: str,
     body: dict,
     user: dict = Depends(get_current_user),
-    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
     project = await get_novel(db, project_id, user["id"])
@@ -39,11 +40,23 @@ async def archive(
         raise HTTPException(400, "Text too short to archive")
 
     result = await archive_chapter(project.root_path, chapter_ref, full_text)
-    update_phase(project, "archive")
+    tier_phase_transition(project, "archive")
     project.total_archives += 1
 
-    # C/S: Token tracking removed — user brings own API key
-    await db.commit()
+    # 双写第二步：以 YAML（status=archived）为准刷新 DB 章行；archived_at 为 DB-only 字段显式置
+    from chapters.service import refresh_chapter_meta
+
+    await refresh_chapter_meta(db, project, chapter_ref)
+    try:
+        from repositories import chapter_repo
+
+        row = await chapter_repo.get_by_ref(db, project.id, chapter_ref)
+        if row is not None:
+            row.status = "archived"
+            row.archived_at = datetime.now(UTC).replace(tzinfo=None)
+        await db.commit()
+    except Exception:
+        pass  # DB 失败不 500（YAML 已 archived，读路径自愈）
 
     return result
 
@@ -52,7 +65,6 @@ async def archive(
 async def list_archives(
     project_id: str,
     user: dict = Depends(get_current_user),
-    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
     project = await get_novel(db, project_id, user["id"])
@@ -70,7 +82,6 @@ async def get_archive(
     project_id: str,
     filename: str,
     user: dict = Depends(get_current_user),
-    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
     project = await get_novel(db, project_id, user["id"])

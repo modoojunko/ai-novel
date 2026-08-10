@@ -33,25 +33,34 @@ async def archive_chapter(root_path: str, chapter_ref: str, full_text: str) -> d
     archive_path = f"archives/vol-{vol}-ch-{ch}-{slug}.md"
     await get_storage().write_md(root_path, archive_path, full_text)
 
-    # Generate 200-char summary via AI
-    client = await get_ai_client()
-    summary_text = await client.chat(
-        model="haiku",
-        system="",
-        messages=[
-            {
-                "role": "user",
-                "content": f"用200字以内总结本章核心事件，只陈述事实不评论：\n\n{full_text[:3000]}",
-            }
-        ],
-        max_tokens=200,
-    )
-    summary = summary_text[:200]
+    # Generate 200-char summary via AI; degrade to first 200 chars when unavailable
+    # (no API key → get_ai_client raises ValueError; chat failures also caught).
+    summary = full_text[:200]
+    try:
+        client = await get_ai_client()
+        summary_text = await client.chat(
+            model="haiku",
+            system="",
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"用200字以内总结本章核心事件，只陈述事实不评论：\n\n{full_text[:3000]}",
+                }
+            ],
+            max_tokens=200,
+        )
+        if summary_text:
+            summary = summary_text[:200]
+    except Exception:  # noqa: BLE001 — AI 摘要可选，失败降级为正文前 200 字
+        pass
 
     chapter["archive_summary"] = summary
     chapter["archive_path"] = archive_path
     chapter["status"] = "archived"
     await get_storage().write_yaml(root_path, f"chapters/{chapter_ref}.yaml", chapter)
+
+    # 树读已切 DB（change 006）：不再写 vol YAML 内嵌 chapters 列表（§4.3 唯一属主非镜像）；
+    # 归档的 DB 章行 archived 态由 archive/router.py 同步（BE-03）。
 
     await update_thread_state(root_path, chapter, summary)
     await update_character_states(root_path, chapter, full_text)

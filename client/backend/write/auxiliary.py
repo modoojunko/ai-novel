@@ -119,6 +119,8 @@ async def build_auxiliary_context(
 
 
 async def stream_continue(
+    db,
+    project,
     root_path: str,
     chapter_ref: str,
     cursor_position: int,
@@ -129,7 +131,7 @@ async def stream_continue(
 
     Builds context, formats the continue_writing prompt, and streams
     AI-generated prose. On completion, saves the updated prose into
-    the chapter and creates a version snapshot.
+    the chapter and creates a version snapshot (BE-02: 续写后刷新 DB 元数据).
 
     Yields JSON-encoded SSE events: chunk, done, error.
     """
@@ -169,6 +171,10 @@ async def stream_continue(
             new_prose = existing_prose[:cursor_position] + generated_text
             chapter["prose"] = new_prose
             await save_chapter(root_path, chapter_ref, chapter)
+            # 双写第二步：刷新 DB 元数据（word_count/has_prose/outline_status）
+            from chapters.service import refresh_chapter_meta
+
+            await refresh_chapter_meta(db, project, chapter_ref, chapter)
 
             yield f"data: {json.dumps({'type': 'done', 'full_text': generated_text, 'tokens': event.tokens}, ensure_ascii=False)}\n\n"
         elif event.error:

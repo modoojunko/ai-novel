@@ -60,13 +60,16 @@ async function sRegisterAndLogin() {
   return { token: loginBody.data.token as string, username: name };
 }
 
-/** 把 S端 会话写入 docker 容器的 config.json，返回恢复函数。 */
-function writeOAuthSession(t: string, u: string) {
+/**
+ * 把 S端 会话写入 docker 容器的 config.json，返回恢复函数。
+ * tier：trial（PRO，无 project_limit）/ none（免费，限 1 部作品）。
+ */
+function writeOAuthSession(t: string, u: string, tier = "trial") {
   const original = fs.readFileSync(CONFIG_PATH, "utf-8");
   const cfg = JSON.parse(original);
   cfg.token = t;
   cfg.username = u;
-  cfg.tier = "trial"; // trial 无 project_limit，测试内可建多本
+  cfg.tier = tier;
   cfg.last_login_at = new Date().toISOString();
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
   return () => fs.writeFileSync(CONFIG_PATH, original);
@@ -76,11 +79,27 @@ function writeOAuthSession(t: string, u: string) {
  * 每测试独立会话：S端 注册登录 → 写 config.json → 注入 localStorage。
  * 返回 restore 与 token；调用方须在 try/finally 中恢复 config.json。
  */
-async function setupSession(page: Page): Promise<{ restore: () => void; token: string }> {
+async function setupSession(
+  page: Page,
+  tier = "trial",
+): Promise<{ restore: () => void; token: string }> {
   const { token, username } = await sRegisterAndLogin();
-  const restore = writeOAuthSession(token, username);
+  const restore = writeOAuthSession(token, username, tier);
   await page.addInitScript((t) => localStorage.setItem("auth_token", t), token);
   return { restore, token };
+}
+
+/**
+ * 打开 NovelBar「高级配置 ▾」下拉并点菜单项。
+ * 新落点：默认正文工作台，设定/大纲/归档经高级配置下拉进入（免费/PRO 同入口）。
+ * 注意：dropdown-content 需先聚焦（点「高级配置」）才可见可点。
+ */
+async function openAdvanced(page: Page, label: "设定" | "大纲" | "归档") {
+  await page.getByRole("button", { name: "高级配置", exact: true }).click();
+  await page
+    .locator(".dropdown-content")
+    .getByRole("button", { name: label })
+    .click();
 }
 
 /** 通过真实 UI 创建小说（书名即创建），返回 project id。 */
@@ -207,7 +226,10 @@ test("简介空不可完成设定，保存后可确认（AC-4.2）", async ({ pa
     const pid = await createNovel(page, `简介${Date.now() % 100000}`);
     await page.goto(`${ORIGIN}/#/novel/${pid}`);
 
-    // 简介卡全局常驻
+    // 新落点：默认正文工作台。简介卡在设定视图内，经高级配置 ▾ → 设定进入。
+    await openAdvanced(page, "设定");
+
+    // 简介卡全局常驻（设定视图内每面板可见）
     const synCard = page.locator("#synopsis-card");
     await expect(synCard).toBeVisible({ timeout: 10000 });
 
@@ -231,37 +253,31 @@ test("简介空不可完成设定，保存后可确认（AC-4.2）", async ({ pa
 });
 
 // -------------------------------------------------------------------------
-// PRD 3.4 AC-4.3：EmptyState 软门控双选项 + 「仍然继续」旁路
+// change 004：EmptyState 无门控（AC-4.3 替代）——建书即写，直接写第一章，
+// 全程无「设定未完成」阶段催促（P0 断点 1 第 8 条）
 // -------------------------------------------------------------------------
 
-test("EmptyState 旁路：设定未完成可继续创作（AC-4.3）", async ({ page, request }) => {
-  const { restore, token } = await setupSession(page);
+test("EmptyState 无门控：建书即写，直接写第一章即达编辑器", async ({ page }) => {
+  const { restore } = await setupSession(page);
   try {
-    const pid = await createNovel(page, `旁路${Date.now() % 100000}`);
+    const pid = await createNovel(page, `直接写${Date.now() % 100000}`);
 
-    // 用 API 预建一卷（isNew=false），设定仍未确认 → 正文 tab 出现软门控 EmptyState
-    const r = await request.post(`${ORIGIN}/api/novels/${pid}/volumes`, {
-      data: { vol_num: 1, title: "第一卷" },
-      headers: { Authorization: `Bearer ${token}` },
+    // 落点即正文工作台（非设定页），EmptyState 三入口无门控
+    await expect(page.getByText("开始写你的第一部小说")).toBeVisible({
+      timeout: 10000,
     });
-    expect(r.ok()).toBeTruthy();
+    await expect(page.getByRole("button", { name: /创建第一卷/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /直接写第一章/ })).toBeVisible();
 
-    await page.reload();
-    await page.getByRole("button", { name: "正文" }).click();
+    // 全程无阶段催促 UI（软门控已移除）
+    await expect(page.getByText("设定尚未全部完成")).toHaveCount(0);
+    await expect(page.getByText(/尚未完成设定/)).toHaveCount(0);
 
-    // 设定未完成 → 提示 + 双选项
-    await expect(page.getByText("设定尚未全部完成")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole("button", { name: "先去设定" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "直接写第一章" })).toBeVisible();
-
-    // 「先去设定」→ 回到设定 tab
-    await page.getByRole("button", { name: "先去设定" }).click();
-    await expect(page.locator("#synopsis-card")).toBeVisible({ timeout: 5000 });
-
-    // 再切正文 → 点「直接写第一章」（=「仍然继续」）→ 旁路生效，不再提示
-    await page.getByRole("button", { name: "正文" }).click();
-    await page.getByRole("button", { name: "直接写第一章" }).click();
-    await expect(page.getByText("设定尚未全部完成")).not.toBeVisible({ timeout: 5000 });
+    // 「直接写第一章」→ 即达编辑器
+    await page.getByRole("button", { name: /直接写第一章/ }).click();
+    await expect(
+      page.getByPlaceholder("正文（在此撰写小说内容）"),
+    ).toBeVisible({ timeout: 10000 });
   } finally {
     restore();
   }
@@ -281,6 +297,9 @@ test("设定 7 项全确认后门控横幅消失（world/hooks 真实表单）",
 
     // 初始：7 项均未确认 → GateBanner 显示「尚未完成设定」
     await expect(page.getByText(/尚未完成设定/).first()).toBeVisible({ timeout: 10000 });
+
+    // 新落点：默认正文工作台。设定面板经高级配置 ▾ → 设定进入（PRO 亦可点阶段 tab）。
+    await openAdvanced(page, "设定");
 
     // ── world：真实表单填 ≥4 个子字段（3 地理 + 1 政治）→ 保存 → 完成设定
     await openSetting(page, "世界设定");

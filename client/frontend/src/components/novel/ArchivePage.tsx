@@ -308,6 +308,25 @@ export default function ArchivePage({
     setCurrentFilename(null);
   }, []);
 
+  const handleRestore = useCallback(
+    async (ref: string) => {
+      try {
+        await api.post(`/novels/${projectId}/chapters/${ref}/unarchive`);
+        // 通知工作台树刷新（复用归档事件通道）→ 卷章列表恢复非归档态
+        window.dispatchEvent(
+          new CustomEvent("chapter:archived", { detail: { projectId, ref } }),
+        );
+        // 归档 .md 已删，回到列表后该项消失
+        setPanel("browser");
+        setCurrentFilename(null);
+        await loadArchives();
+      } catch {
+        // 恢复失败，停留阅读器
+      }
+    },
+    [projectId, loadArchives],
+  );
+
   const sortedForNav = useMemo(() => sortArchives(archives), [archives]);
 
   const currentIndex = useMemo(() => {
@@ -362,6 +381,7 @@ export default function ArchivePage({
         onNext={handleNext}
         onBack={handleBackToBrowser}
         onEdit={onNavigateToEditor}
+        onRestore={handleRestore}
       />
     );
   }

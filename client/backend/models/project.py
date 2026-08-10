@@ -24,6 +24,7 @@ class Novel(Base):
     total_archives: Mapped[int] = mapped_column(Integer, default=0)
     source: Mapped[str] = mapped_column(String(10), default="ai")
     backfill_status: Mapped[str] = mapped_column(String(20), default="none")
+    index_status: Mapped[str] = mapped_column(String(20), default="none")  # none/done（卷章回填）
     ai_config_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("api_configs.id", ondelete="SET NULL"), nullable=True
     )
@@ -37,3 +38,9 @@ class Novel(Base):
 
     # Relationships
     ai_config = relationship("ApiConfig", back_populates="projects")
+    volumes = relationship(
+        "Volume", cascade="all, delete-orphan", back_populates="project"
+    )
+    chapters = relationship(
+        "Chapter", cascade="all, delete-orphan", back_populates="project"
+    )

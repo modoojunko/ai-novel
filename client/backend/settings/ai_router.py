@@ -83,6 +83,7 @@ async def generate_field(
     field: str,
     body: dict,
     user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
     """Generate a single settings field."""

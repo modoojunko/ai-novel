@@ -114,6 +114,10 @@ async def restore_version(
         chapter["status"] = snapshot["status"]
 
     await save_chapter(project.root_path, chapter_ref, chapter)
+    # restore 后刷新 DB 元数据（BE-13）：回滚 prose/status 后 word_count/outline_status 需同步
+    from chapters.service import refresh_chapter_meta
+
+    await refresh_chapter_meta(db, project, chapter_ref, chapter)
     return {"ok": True, "restored": version_id}
 
 

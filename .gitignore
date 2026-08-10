@@ -19,6 +19,9 @@ venv/
 .DS_Store
 Thumbs.db
 
+# Node
+node_modules/
+
 # IDE
 .vscode/
 .idea/

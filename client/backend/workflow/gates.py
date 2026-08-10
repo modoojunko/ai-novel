@@ -164,7 +164,7 @@ async def gate_archived(root_path: str) -> GateResult:
     Soft gate — reminds progress.
     """
     files = await get_storage().list_dir(root_path, "archives")
-    archive_files = [f for f in files if f.endswith(".yaml")]
+    archive_files = [f for f in files if f.endswith(".md")]
     if not archive_files:
         return GateResult(
             valid=True,

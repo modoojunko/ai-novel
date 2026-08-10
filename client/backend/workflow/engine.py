@@ -9,6 +9,11 @@ def _validate_ref(ref: str) -> str:
     return ref
 
 
+def strip_suffix(ref: str, suffix: str = ".yaml") -> str:
+    """剥 `.yaml` 尾缀：`vol-1.yaml` → `vol-1`（旧前端调用零断裂，BE-07）。"""
+    return ref[: -len(suffix)] if ref.endswith(suffix) else ref
+
+
 ALLOWED_TRANSITIONS = {
     "init": ["settings"],
     "settings": ["outline"],

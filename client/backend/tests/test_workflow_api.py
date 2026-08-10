@@ -13,6 +13,7 @@ import asyncio
 import os
 import tempfile
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -30,6 +31,12 @@ from auth_local.middleware import get_current_user
 from db import Base, async_session, engine, get_db
 from main import app
 from models.user import User
+
+# Change 002：无 config 默认免费旁路。本模块断言真实 gate 拦截（不完整章节 400），
+# 故显式以付费套餐运行（gate 拦截仅在 tier_bypass=False 时生效）。
+import auth_local.service as _auth_service  # noqa: E402
+
+_PRO_CFG_PATH = os.path.join(_tmp_data_root, "config.json")
 
 # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -92,6 +99,22 @@ def _setup_overrides():
     app.dependency_overrides.clear()
 
 
+@pytest.fixture(autouse=True)
+def _pro_tier():
+    """Change 002 适配：写付费套餐 config.json，使真实 gate 拦截生效。"""
+    _auth_service.CONFIG_FILE = _PRO_CFG_PATH
+    _auth_service.save_local_config(
+        {
+            "tier": "monthly",
+            "expires_at": (datetime.now(UTC) + timedelta(days=30)).date().isoformat(),
+            "api_key": "",
+        }
+    )
+    yield
+    if os.path.exists(_PRO_CFG_PATH):
+        os.remove(_PRO_CFG_PATH)
+
+
 @pytest.fixture
 def client():
     with TestClient(app) as c:
@@ -143,8 +166,8 @@ def _create_project_and_chapter(client) -> tuple[str, str]:
     assert r2.status_code in (200, 201), f"Create volume failed: {r2.text}"
 
     r3 = client.post(
-        f"/api/novels/{pid}/chapters",
-        json={"volume": 1, "chapter": 1, "title": "第1章"},
+        f"/api/novels/{pid}/volumes/{r2.json()['ref']}/chapters",
+        json={"title": "第1章"},
     )
     assert r3.status_code in (200, 201), f"Create chapter failed: {r3.text}"
     chapter_ref = r3.json()["chapter_ref"]
@@ -194,10 +217,12 @@ class TestChapterConfirm:
         assert r.status_code in (200, 201)
         pid = r.json()["id"]
         _prime_settings(client, pid)
-        client.post(f"/api/novels/{pid}/volumes", json={"vol_num": 1, "title": "Volume 1"})
+        vol_res = client.post(
+            f"/api/novels/{pid}/volumes", json={"vol_num": 1, "title": "Volume 1"}
+        )
         r2 = client.post(
-            f"/api/novels/{pid}/chapters",
-            json={"volume": 1, "chapter": 1, "title": "第1章"},
+            f"/api/novels/{pid}/volumes/{vol_res.json()['ref']}/chapters",
+            json={"title": "第1章"},
         )
         assert r2.status_code in (200, 201)
         chapter_ref = r2.json()["chapter_ref"]
@@ -232,8 +257,8 @@ class TestWorkflowTransition:
         pid, _ = _create_project_and_chapter(client)
         # 第二个章节不填充必填字段
         r = client.post(
-            f"/api/novels/{pid}/chapters",
-            json={"volume": 1, "chapter": 2, "title": "第2章"},
+            f"/api/novels/{pid}/volumes/vol-1/chapters",
+            json={"title": "第2章"},
         )
         assert r.status_code in (200, 201)
         r2 = client.post(f"/api/novels/{pid}/workflow/transition", json={"target": "prompt"})
