@@ -25,6 +25,7 @@ Thumbs.db
 # Claude Code / AI agent config
 .claude/
 .agents/
+.codex/
 skills-lock.json
 frontend/node_modules/
 frontend/out/
