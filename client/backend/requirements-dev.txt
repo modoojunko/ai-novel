@@ -1,0 +1,4 @@
+# 测试依赖（与 requirements.txt 分开，运行时不需要）
+# 安装：python -m pip install -r requirements-dev.txt
+pytest>=9.0
+pytest-asyncio>=1.4

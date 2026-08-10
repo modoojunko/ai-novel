@@ -108,7 +108,11 @@ export default function PromptManagementPage({
   const [chapterPrompts, setChapterPrompts] = useState<
     Record<string, ChapterPromptInfo>
   >({});
+  const [chapterPromptErrors, setChapterPromptErrors] = useState<
+    Record<string, string>
+  >({});
   const [overviewLoading, setOverviewLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
   const [generatingChapters, setGeneratingChapters] = useState<Set<string>>(
     new Set(),
   );
@@ -134,40 +138,87 @@ export default function PromptManagementPage({
   // =====================================================================
 
   // Load volumes & chapters
-  useEffect(() => {
+  const loadOverview = useCallback(async () => {
     if (!projectId) return;
-    let cancelled = false;
-
-    async function load() {
-      setOverviewLoading(true);
-      try {
-        const vols: any[] = await api.get(`/novels/${projectId}/volumes`);
-        const result: VolumeInfo[] = [];
-        for (const v of vols) {
-          const volNum =
-            parseInt((v.name || "").replace("vol-", ""), 10) || 0;
-          const data = await api.get(
-            `/novels/${projectId}/volumes/${v.filename}`,
-          );
-          const chapters = (data?.chapters || []).map((ch: any) => ({
-            ref: `vol-${volNum}-ch-${ch.chapter}`,
-            title: ch.title || `ch-${ch.chapter}`,
-          }));
-          result.push({ name: v.name, volNum, chapters });
-        }
-        if (!cancelled) setVolumes(result);
-      } catch {
-        // volumes may not exist yet
-      } finally {
-        if (!cancelled) setOverviewLoading(false);
+    setOverviewLoading(true);
+    setOverviewError(null);
+    try {
+      const vols: any[] = await api.get(`/novels/${projectId}/volumes`);
+      const result: VolumeInfo[] = [];
+      for (const v of vols) {
+        const volNum =
+          parseInt((v.name || "").replace("vol-", ""), 10) || 0;
+        const data = await api.get(
+          `/novels/${projectId}/volumes/${v.filename}`,
+        );
+        const chapters = (data?.chapters || []).map((ch: any) => ({
+          ref: `vol-${volNum}-ch-${ch.chapter}`,
+          title: ch.title || `ch-${ch.chapter}`,
+        }));
+        result.push({ name: v.name, volNum, chapters });
       }
+      setVolumes(result);
+    } catch {
+      setOverviewError("提示词列表加载失败，网络好像开了个小差，请稍后重试。");
+    } finally {
+      setOverviewLoading(false);
     }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
   }, [projectId]);
+
+  useEffect(() => {
+    loadOverview();
+  }, [loadOverview]);
+
+  // 加载单个章节的提示词文件；成功清除错误，失败记录错误
+  const loadChapterPrompt = useCallback(
+    async (ch: { ref: string; title: string }): Promise<void> => {
+      try {
+        const files: string[] = await api.get(
+          `/novels/${projectId}/chapters/${ch.ref}/prompts`,
+        );
+        const segments: PromptFile[] = files
+          .map((f) => {
+            const parsed = parsePromptFilename(ch.ref, f);
+            if (!parsed) return null;
+            return {
+              filename: f,
+              seg: parsed.segNum,
+              title: `段落 ${parsed.segNum}`,
+            };
+          })
+          .filter((s): s is PromptFile => s !== null);
+
+        let status: ChapterPromptInfo["status"] = "none";
+        if (segments.length > 0) {
+          const anyModified = segments.some((s) =>
+            modifiedSegs.has(`${ch.ref}-${s.seg}`),
+          );
+          status = anyModified ? "modified" : "generated";
+        }
+
+        setChapterPrompts((prev) => ({
+          ...prev,
+          [ch.ref]: {
+            chapterRef: ch.ref,
+            chapterTitle: ch.title,
+            segments,
+            status,
+          },
+        }));
+        setChapterPromptErrors((prev) => {
+          const next = { ...prev };
+          delete next[ch.ref];
+          return next;
+        });
+      } catch {
+        setChapterPromptErrors((prev) => ({
+          ...prev,
+          [ch.ref]: "提示词加载失败",
+        }));
+      }
+    },
+    [projectId, modifiedSegs],
+  );
 
   // Fetch prompt files for chapters
   useEffect(() => {
@@ -176,57 +227,17 @@ export default function PromptManagementPage({
 
     async function loadAllPrompts() {
       const allChapters = volumes.flatMap((v) => v.chapters);
-
-      const newMap: Record<string, ChapterPromptInfo> = {};
       for (const ch of allChapters) {
-        try {
-          const files: string[] = await api.get(
-            `/novels/${projectId}/chapters/${ch.ref}/prompts`,
-          );
-          const segments: PromptFile[] = files
-            .map((f) => {
-              const parsed = parsePromptFilename(ch.ref, f);
-              if (!parsed) return null;
-              return {
-                filename: f,
-                seg: parsed.segNum,
-                title: `段落 ${parsed.segNum}`,
-              };
-            })
-            .filter((s): s is PromptFile => s !== null);
-
-          let status: ChapterPromptInfo["status"] = "none";
-          if (segments.length > 0) {
-            const anyModified = segments.some((s) =>
-              modifiedSegs.has(`${ch.ref}-${s.seg}`),
-            );
-            status = anyModified ? "modified" : "generated";
-          }
-
-          newMap[ch.ref] = {
-            chapterRef: ch.ref,
-            chapterTitle: ch.title,
-            segments,
-            status,
-          };
-        } catch {
-          newMap[ch.ref] = {
-            chapterRef: ch.ref,
-            chapterTitle: ch.title,
-            segments: [],
-            status: "none",
-          };
-        }
+        if (cancelled) return;
+        await loadChapterPrompt(ch);
       }
-
-      if (!cancelled) setChapterPrompts(newMap);
     }
 
     loadAllPrompts();
     return () => {
       cancelled = true;
     };
-  }, [volumes, projectId, modifiedSegs]);
+  }, [volumes, projectId, loadChapterPrompt]);
 
   // =====================================================================
   // Actions
@@ -453,6 +464,21 @@ export default function PromptManagementPage({
       );
     }
 
+    if (overviewError) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 gap-3">
+          <p className="text-sm text-error/80">{overviewError}</p>
+          <button
+            onClick={loadOverview}
+            className="btn btn-ghost btn-sm gap-1.5"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            重试
+          </button>
+        </div>
+      );
+    }
+
     if (volumes.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -535,6 +561,20 @@ export default function PromptManagementPage({
                 </span>
                 {statusBadge}
               </button>
+
+              {/* 单章加载失败：轻量提示 + 重试（不放 header 内避免嵌套 button） */}
+              {chapterPromptErrors[ch.ref] && (
+                <div className="flex items-center gap-2 px-4 py-2 border-t border-error/20 bg-error/5 text-error/90">
+                  <span className="text-xs">{chapterPromptErrors[ch.ref]}</span>
+                  <button
+                    onClick={() => loadChapterPrompt(ch)}
+                    className="btn btn-ghost btn-xs gap-1 text-error"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    重试
+                  </button>
+                </div>
+              )}
 
               {/* Expanded content */}
               {isExpanded && (

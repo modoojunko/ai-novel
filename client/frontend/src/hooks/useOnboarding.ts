@@ -9,21 +9,32 @@ const SETTINGS_TYPES = ["synopsis", "genre", "world", "style", "anti-ai", "hooks
 export function useOnboarding(projectId: string | undefined, volumes: any[]) {
   const [settingsStatus, setSettingsStatus] = useState<Record<string, boolean> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadStatus = useCallback(async () => {
     if (!projectId) return;
     setLoading(true);
-    api
-      .get(`/novels/${projectId}/settings/status`)
-      .then((data: any) => setSettingsStatus(data))
-      .catch(() => setSettingsStatus(null))
-      .finally(() => setLoading(false));
+    setError(null);
+    try {
+      const data = await api.get(`/novels/${projectId}/settings/status`);
+      setSettingsStatus(data);
+    } catch {
+      setSettingsStatus(null);
+      setError("设定状态加载失败，请稍后重试。");
+    } finally {
+      setLoading(false);
+    }
   }, [projectId]);
+
+  useEffect(() => {
+    loadStatus();
+  }, [loadStatus]);
 
   const hasVolumes = volumes.length > 0;
   const allConfirmed =
     settingsStatus !== null && SETTINGS_TYPES.every((t) => settingsStatus[t] === true);
-  const isNew = !hasVolumes && !allConfirmed;
+  // 状态拉取失败时不误判为"新作品"（避免把用户错误拉回设定页）
+  const isNew = settingsStatus !== null && !hasVolumes && !allConfirmed;
 
   const confirmSetting = useCallback(
     async (type: string): Promise<boolean> => {
@@ -45,5 +56,5 @@ export function useOnboarding(projectId: string | undefined, volumes: any[]) {
     [projectId],
   );
 
-  return { settingsStatus, allConfirmed, isNew, confirmSetting, loading };
+  return { settingsStatus, allConfirmed, isNew, confirmSetting, loading, error, loadStatus };
 }

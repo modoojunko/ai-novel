@@ -6,7 +6,7 @@ import AuthGuard from "@/components/auth/AuthGuard";
 import DeleteConfirmModal from "@/components/novel/DeleteConfirmModal";
 import CreateProjectModal from "@/components/novel/CreateProjectModal";
 import RenameModal from "@/components/novel/RenameModal";
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 
 interface Novel {
   id: string;
@@ -140,7 +140,7 @@ function NovelList() {
 
       {showKeyHint && (
         <div className="alert alert-info mb-4 shadow-sm">
-          <span>💡 还没配置 API Key，</span>
+          <span>💡 想用 AI 写作？先配置 API Key（手工创作不需要）。</span>
           <a href="/#/config" className="link link-primary">去配置</a>
         </div>
       )}
@@ -254,6 +254,18 @@ function NovelList() {
                     <span>·</span>
                     <span>{p.total_chapters || 0} 章</span>
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/novel/${p.id}`, {
+                        state: { initialTab: PHASE_TO_TAB[p.current_phase] || "settings" },
+                      });
+                    }}
+                    className="btn btn-primary btn-xs mt-3 w-full"
+                  >
+                    继续创作
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
             );

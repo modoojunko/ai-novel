@@ -72,15 +72,9 @@ const TAB_PHASE_MAP: Record<string, "settings" | "outline" | "prompt" | "write" 
   archives: "archive",
 };
 
-// 后端 current_phase → 作品列表「继续创作」直达的默认 Tab
-const PHASE_TO_TAB: Record<string, TabId> = {
-  init: "settings",
-  settings: "settings",
-  outline: "volume",
-  prompt: "prompts",
-  write: "writing",
-  archive: "archives",
-};
+// 注意：作品列表（NovelListPage）已把后端 current_phase 映射为 Tab 值
+// （如 outline → "volume"）并通过 location.state.initialTab 传入，
+// 这里直接信任传入值，不要再做第二次阶段映射。
 
 function initialViewState(tab: TabId): ViewState {
   switch (tab) {
@@ -118,12 +112,13 @@ export default function NovelPage() {
   const location = useLocation();
   const initialTab = useMemo<TabId>(() => {
     const candidate = (location.state as { initialTab?: TabId } | null)?.initialTab;
-    return PHASE_TO_TAB[candidate ?? ""] || "settings";
+    return candidate || "settings";
   }, [location.state]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [project, setProject] = useState<any>(null);
   const [volumes, setVolumes] = useState<any[]>([]);
+  const [volumesError, setVolumesError] = useState(false);
   const [tab, setTab] = useState<TabId>(initialTab);
   const [showDelete, setShowDelete] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -132,8 +127,15 @@ export default function NovelPage() {
   const [viewState, setViewState] = useState<ViewState>(() => initialViewState(initialTab));
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
-  const { settingsStatus, allConfirmed, isNew, confirmSetting, loading: onboardingLoading } =
-    useOnboarding(project?.id, volumes);
+  const {
+    settingsStatus,
+    allConfirmed,
+    isNew,
+    confirmSetting,
+    loading: onboardingLoading,
+    error: onboardingError,
+    loadStatus: reloadOnboarding,
+  } = useOnboarding(project?.id, volumes);
 
   // PRD 3.4 AC-4.3：「仍然继续」会话内旁路——点创建卷/章后不再提示设定未完成
   const [settingsBypass, setSettingsBypass] = useState(false);
@@ -235,11 +237,10 @@ export default function NovelPage() {
     localStorage.removeItem(`onboarding-dismissed-${id}`);
   }, [id]);
 
-  const allPhasesPending =
-    phaseStatus !== null &&
-    Object.values(phaseStatus).every((s) => s === "pending");
-
-  const showOnboarding = allPhasesPending && !onboardingDismissed;
+  // 引导卡：新作品（尚无卷、设定未全部确认）时显示；
+  // 不要用"所有阶段 pending"判断——新项目 current_phase 已是 settings，
+  // phase-status 会返回 in_progress，导致引导卡永不出现。
+  const showOnboarding = isNew && !onboardingDismissed;
 
   const outline = useOutline(project?.id ?? "");
 
@@ -321,6 +322,7 @@ export default function NovelPage() {
 
   const loadVolumes = useCallback(async () => {
     if (!project?.id) return;
+    setVolumesError(false);
     try {
       const vols = await api.get(`/novels/${project.id}/volumes`);
       const withChapters: any[] = [];
@@ -332,7 +334,8 @@ export default function NovelPage() {
       }
       setVolumes(withChapters);
     } catch {
-      // volumes might not be available yet
+      // 加载失败：标记错误态，避免把"有内容的书"伪装成空作品
+      setVolumesError(true);
     }
   }, [project?.id]);
 
@@ -656,6 +659,23 @@ export default function NovelPage() {
       case "writing":
         switch (viewState.panel) {
           case "empty":
+            if (volumesError) {
+              return (
+                <div className="flex flex-col items-center justify-center h-full gap-3 px-4">
+                  <AlertTriangle className="w-8 h-8 text-warning" />
+                  <p className="text-sm text-base-content/70">
+                    正文卷加载失败，网络好像开了个小差。
+                  </p>
+                  <button
+                    className="btn btn-primary btn-sm gap-1.5"
+                    onClick={loadVolumes}
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    重新加载
+                  </button>
+                </div>
+              );
+            }
             return (
               <EmptyState
                 onCreateVolume={handleCreateVolume}
@@ -728,6 +748,23 @@ export default function NovelPage() {
               />
             );
           default:
+            if (volumesError) {
+              return (
+                <div className="flex flex-col items-center justify-center h-full gap-3 px-4">
+                  <AlertTriangle className="w-8 h-8 text-warning" />
+                  <p className="text-sm text-base-content/70">
+                    正文卷加载失败，网络好像开了个小差。
+                  </p>
+                  <button
+                    className="btn btn-primary btn-sm gap-1.5"
+                    onClick={loadVolumes}
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    重新加载
+                  </button>
+                </div>
+              );
+            }
             return (
               <EmptyState
                 onCreateVolume={handleCreateVolume}
@@ -973,8 +1010,8 @@ case "prompts":
           )}
         </div>
 
-        {/* Tabs: 设定 / 正文 / 细纲 / 提示词 / 归档 */}
-        <div className="flex items-center gap-1">
+        {/* Tabs: 设定 / 卷纲 / 章纲 / 提示词 / 正文 / 归档 */}
+        <div className="flex items-center gap-1 flex-wrap">
           {phaseStatusLoading && (
             <div className="skeleton h-5 w-24 rounded shrink-0" />
           )}
@@ -985,6 +1022,16 @@ case "prompts":
               title="阶段状态加载失败，点击重试"
             >
               <AlertTriangle className="w-3 h-3" />
+            </button>
+          )}
+          {onboardingError && (
+            <button
+              onClick={reloadOnboarding}
+              className="btn btn-ghost btn-xs px-1 text-warning"
+              title="设定状态加载失败，点击重试"
+              aria-label="设定状态加载失败，点击重试"
+            >
+              <RefreshCw className="w-3 h-3" />
             </button>
           )}
           {TABS.map((t) => (

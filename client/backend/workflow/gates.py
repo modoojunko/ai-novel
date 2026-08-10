@@ -62,21 +62,21 @@ def gate_chapter_ready(chapter_data: dict) -> GateResult:
     memo = chapter_data.get("memo", {})
 
     if not memo.get("current_task"):
-        missing.append("memo.current_task is empty")
+        missing.append("当前任务尚未填写")
     rexp = memo.get("reader_expectation", {})
     if not rexp.get("state"):
-        missing.append("memo.reader_expectation.state is empty")
+        missing.append("读者预期状态未设置")
     if not rexp.get("strategy"):
-        missing.append("memo.reader_expectation.strategy is empty")
+        missing.append("读者预期策略未设置")
     changes = memo.get("required_changes", [])
     if not changes:
-        missing.append("memo.required_changes is empty")
+        missing.append("必要修改尚未填写")
     ed = chapter_data.get("emotional_design", {})
     if not ed.get("primary_mood"):
-        missing.append("emotional_design.primary_mood is empty")
+        missing.append("情感基调尚未设置")
     segments = chapter_data.get("segments", [])
     if not segments:
-        missing.append("segments is empty")
+        missing.append("段落拆分尚未完成")
 
     return GateResult(
         valid=len(missing) == 0,
@@ -94,7 +94,7 @@ async def gate_prompts_exist(root_path: str, chapter_ref: str) -> GateResult:
     exists = any(f.startswith(chapter_ref) for f in files)
     return GateResult(
         valid=exists,
-        warnings=[] if exists else [f"prompt for {chapter_ref} not generated yet"],
+        warnings=[] if exists else [f"本章提示词尚未生成"],
         hard_block=True,
     )
 
@@ -104,7 +104,7 @@ def gate_quality_passed(chapter_data: dict) -> GateResult:
     passed = chapter_data.get("quality_check", {}).get("passed", False)
     return GateResult(
         valid=passed,
-        warnings=[] if passed else ["quality check not passed"],
+        warnings=[] if passed else ["质量检查未通过"],
         hard_block=True,
     )
 
@@ -119,7 +119,7 @@ async def gate_outline_exists(root_path: str) -> GateResult:
     if not vol_files:
         return GateResult(
             valid=True,
-            warnings=["no volumes created yet"],
+            warnings=["尚未创建卷"],
             hard_block=False,
         )
     return GateResult(valid=True, warnings=[])
@@ -146,13 +146,13 @@ async def gate_prose_written(root_path: str) -> GateResult:
     if total == 0:
         return GateResult(
             valid=True,
-            warnings=["no chapters created yet"],
+            warnings=["尚未创建章节"],
             hard_block=False,
         )
     if written < total:
         return GateResult(
             valid=True,
-            warnings=[f"prose written for {written}/{total} chapters"],
+            warnings=[f"已写正文 {written}/{total} 章"],
             hard_block=False,
         )
     return GateResult(valid=True, warnings=[])
@@ -168,7 +168,7 @@ async def gate_archived(root_path: str) -> GateResult:
     if not archive_files:
         return GateResult(
             valid=True,
-            warnings=["no chapters archived yet"],
+            warnings=["尚未归档章节"],
             hard_block=False,
         )
     return GateResult(valid=True, warnings=[])

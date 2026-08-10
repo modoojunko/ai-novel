@@ -250,9 +250,9 @@ test("EmptyState 旁路：设定未完成可继续创作（AC-4.3）", async ({ 
     await page.getByRole("button", { name: "正文" }).click();
 
     // 设定未完成 → 提示 + 双选项
-    await expect(page.getByText("设定尚未全部完成")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("建议先完成设定（可跳过）")).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole("button", { name: "先去设定" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "直接写第一章" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "仍然继续：直接写第一章" })).toBeVisible();
 
     // 「先去设定」→ 回到设定 tab
     await page.getByRole("button", { name: "先去设定" }).click();
@@ -260,8 +260,8 @@ test("EmptyState 旁路：设定未完成可继续创作（AC-4.3）", async ({ 
 
     // 再切正文 → 点「直接写第一章」（=「仍然继续」）→ 旁路生效，不再提示
     await page.getByRole("button", { name: "正文" }).click();
-    await page.getByRole("button", { name: "直接写第一章" }).click();
-    await expect(page.getByText("设定尚未全部完成")).not.toBeVisible({ timeout: 5000 });
+    await page.getByRole("button", { name: "仍然继续：直接写第一章" }).click();
+    await expect(page.getByText("建议先完成设定（可跳过）")).not.toBeVisible({ timeout: 5000 });
   } finally {
     restore();
   }

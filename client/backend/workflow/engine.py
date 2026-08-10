@@ -29,7 +29,7 @@ def update_phase(project, new_phase: str):
         return
     if not can_transition(project.current_phase, new_phase):
         raise ValueError(
-            f"Cannot transition from {project.current_phase} to {new_phase}"
+            f"无法从 {project.current_phase} 阶段推进到 {new_phase} 阶段"
         )
     project.current_phase = new_phase
 

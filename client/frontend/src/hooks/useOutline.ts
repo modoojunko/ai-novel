@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { toast } from "@/lib/toast";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -250,22 +251,31 @@ export function useOutline(projectId: string): UseOutlineReturn {
 
   const confirmChapter = useCallback(
     async (ref: string) => {
-      await api.post(`/novels/${projectId}/chapters/${ref}/confirm`);
+      try {
+        await api.post(`/novels/${projectId}/chapters/${ref}/confirm`);
 
-      // Optimistically update local state
-      const updatedVolumes = volumes.map((v) => ({
-        ...v,
-        chapters: v.chapters.map((c) =>
-          c.ref === ref ? { ...c, status: "confirmed" as const } : c,
-        ),
-      }));
-      setVolumes(updatedVolumes);
+        // Optimistically update local state
+        const updatedVolumes = volumes.map((v) => ({
+          ...v,
+          chapters: v.chapters.map((c) =>
+            c.ref === ref ? { ...c, status: "confirmed" as const } : c,
+          ),
+        }));
+        setVolumes(updatedVolumes);
 
-      setChapterStatuses((prev) => {
-        const next = new Map(prev);
-        next.set(ref, "confirmed");
-        return next;
-      });
+        setChapterStatuses((prev) => {
+          const next = new Map(prev);
+          next.set(ref, "confirmed");
+          return next;
+        });
+      } catch (e) {
+        const msg = (e as Error).message;
+        toast.error(
+          msg && msg !== "Failed to fetch"
+            ? msg
+            : "确认失败，请检查章节内容是否完整",
+        );
+      }
     },
     [projectId, volumes],
   );
@@ -275,9 +285,18 @@ export function useOutline(projectId: string): UseOutlineReturn {
   // -----------------------------------------------------------------------
 
   const transitionToPrompt = useCallback(async () => {
-    await api.post(`/novels/${projectId}/workflow/transition`, {
-      target: "prompt",
-    });
+    try {
+      await api.post(`/novels/${projectId}/workflow/transition`, {
+        target: "prompt",
+      });
+    } catch (e) {
+      const msg = (e as Error).message;
+      toast.error(
+        msg && msg !== "Failed to fetch"
+          ? msg
+          : "确认全部章纲失败，请检查是否还有未完成的章节",
+      );
+    }
   }, [projectId]);
 
   // -----------------------------------------------------------------------

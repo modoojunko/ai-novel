@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [authUrl, setAuthUrl] = useState<string | null>(null);
   const cancelledRef = useRef(false);
+  const pollingRef = useRef(false);
   const { refreshStatus, showToast } = useDeviceActivation();
 
   /** 单次探测 S端 授权状态；成功则写入 token 并跳转 */
@@ -35,17 +36,24 @@ export default function LoginPage() {
 
   /** 轮询授权状态，最长 120 秒；供「打开浏览器登录」与「重新检测」共用 */
   const startPolling = useCallback(async () => {
+    // 防重入：同一时间只允许一个轮询循环，避免取消标志互相覆盖
+    if (pollingRef.current) return;
+    pollingRef.current = true;
     setLoading(true);
     setError('');
     cancelledRef.current = false;
-    for (let i = 0; i < 60; i++) {
-      if (cancelledRef.current) return;
-      await new Promise((r) => setTimeout(r, 2000));
-      if (cancelledRef.current) return;
-      if (await checkAuthorized()) return;
-    }
-    if (!cancelledRef.current) {
-      setError('授权超时：请确认已在浏览器中完成登录，然后点击「重新检测」。');
+    try {
+      for (let i = 0; i < 60; i++) {
+        if (cancelledRef.current) return;
+        await new Promise((r) => setTimeout(r, 2000));
+        if (cancelledRef.current) return;
+        if (await checkAuthorized()) return;
+      }
+      if (!cancelledRef.current) {
+        setError('授权超时：请确认已在浏览器中完成登录，然后点击「重新检测」。');
+      }
+    } finally {
+      pollingRef.current = false;
       setLoading(false);
     }
   }, [checkAuthorized]);

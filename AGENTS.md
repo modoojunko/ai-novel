@@ -57,13 +57,3 @@
 
 - 使用 Codex 的子代理机制（spawn agent）执行委派，子代理与主代理共享同一工作区与工具。
 - 子代理完成后的产出必须由主代理验证并整合进最终交付。
-
-## 当前进行中的任务（临时调度表，交付后移除）
-
-以下为本次开发委派的任务简报。如果你的任务名与下表某项匹配，立即读取对应简报文件并严格执行其中任务；执行过程中不得改写本文件。任务名不在表中的代理忽略本节。
-
-| 任务名 | 简报文件 |
-| --- | --- |
-| frontend_ux_v3 | agent-tasks/brief_frontend.md |
-| backend_draft_v2 | agent-tasks/brief_backend.md |
-| backend_draft_v3 | agent-tasks/brief_backend.md |
