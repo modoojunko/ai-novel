@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import ThemeToggle from "@/components/novel/ThemeToggle";
 import { isLoggedIn } from "@/lib/auth";
 
@@ -9,6 +10,7 @@ const SECTIONS = [
   { id: "pain-points", label: "创作之痛" },
   { id: "how", label: "工作流" },
   { id: "features", label: "特色" },
+  { id: "pricing", label: "套餐" },
 ];
 
 function scrollTo(id: string) {
@@ -16,6 +18,17 @@ function scrollTo(id: string) {
 }
 
 export default function LandingPage() {
+  const location = useLocation();
+
+  // 从作品列表「了解套餐」等入口跳转过来时，滚动到套餐区块
+  useEffect(() => {
+    const target = (location.state as { scrollTo?: string } | null)?.scrollTo;
+    if (target) {
+      const timer = setTimeout(() => scrollTo(target), 80);
+      return () => clearTimeout(timer);
+    }
+  }, [location.state]);
+
   return (
     <div className="min-h-screen bg-base-100 text-base-content">
       {/* Nav */}
@@ -209,6 +222,49 @@ export default function LandingPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ───── Pricing / 套餐 ───── */}
+      <section id="pricing" className="py-20 lg:py-28 bg-base-200/30">
+        <div className="max-w-6xl mx-auto px-6 lg:px-8">
+          <div className="mb-14 text-center animate-fade-up">
+            <span className="text-xs tracking-[0.25em] text-primary font-medium">套餐与权益</span>
+            <h2 className="text-3xl lg:text-4xl font-bold font-serif mt-3 mb-4">
+              免费也能写完一本小说
+            </h2>
+            <p className="text-base text-base-content/50 max-w-lg mx-auto">
+              先免费开始创作，按需再解锁 AI 辅助能力。
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            <div className="rounded-2xl p-8 bg-base-100 border border-primary/25 shadow-sm relative">
+              <span className="absolute top-4 right-4 badge badge-ghost badge-sm">当前可用</span>
+              <h3 className="text-lg font-semibold font-serif mb-2">免费版</h3>
+              <p className="text-sm text-base-content/50 leading-relaxed mb-5">
+                手工创作 1 本小说：设定、卷纲、章纲、正文、归档全流程可用，不依赖任何 AI 配置。
+              </p>
+              <ul className="text-sm space-y-2 text-base-content/70">
+                <li>✓ 六阶段创作流程完整可用</li>
+                <li>✓ 卷 / 章管理、版本回溯</li>
+                <li>✓ 不配置 API Key 也能开始</li>
+              </ul>
+            </div>
+
+            <div className="rounded-2xl p-8 bg-base-100 border border-base-300 shadow-sm relative">
+              <span className="absolute top-4 right-4 badge badge-primary badge-sm">即将开放</span>
+              <h3 className="text-lg font-semibold font-serif mb-2">付费版</h3>
+              <p className="text-sm text-base-content/50 leading-relaxed mb-5">
+                解锁 AI 辅助与更多作品额度：AI 草稿、设定反推、续写润色等能力随套餐开放。
+              </p>
+              <ul className="text-sm space-y-2 text-base-content/70">
+                <li>✓ 更多作品数量</li>
+                <li>✓ AI 草稿 + 人工审核</li>
+                <li>✓ 优先体验新能力</li>
+              </ul>
+            </div>
           </div>
         </div>
       </section>

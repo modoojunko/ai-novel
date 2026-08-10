@@ -26,7 +26,7 @@ export default function ApiKeyConfigPage() {
       navigate("/login", { replace: true });
     }
   }, [navigate]);
-  const { configs, loading, error, addConfig, updateConfig, deleteConfig, refreshStatus, testConfig, testRawConfig } = useApiConfigs();
+  const { configs, loading, error, addConfig, updateConfig, deleteConfig, refreshStatus, testConfig, testRawConfig, refresh } = useApiConfigs();
   const [showForm, setShowForm] = useState(false);
   const [editConfig, setEditConfig] = useState<ApiConfig | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApiConfig | null>(null);
@@ -136,6 +136,17 @@ export default function ApiKeyConfigPage() {
           <h2 className="text-lg font-semibold mb-4">
             {editConfig ? "编辑配置" : "添加 API Key"}
           </h2>
+          {!editConfig && (
+            <div className="alert alert-info text-sm mb-4 shadow-sm">
+              <div>
+                <span className="font-medium">新手提示</span>
+                <p className="text-xs text-base-content/60 mt-0.5">
+                  不配置也能先开始手动创作，随时可以回来添加。本地模型（如 Ollama）不需要 API Key；
+                  云端模型请选择对应供应商并填入 Base URL 与 Key。
+                </p>
+              </div>
+            </div>
+          )}
           <ApiConfigForm
             config={editConfig ?? undefined}
             onSubmit={handleFormSubmit}
@@ -152,17 +163,35 @@ export default function ApiKeyConfigPage() {
             {[1, 2, 3].map((i) => <ApiConfigCardSkeleton key={i} />)}
           </div>
         ) : error ? (
-          <div className="alert alert-error">{error}</div>
+          <div className="alert alert-error flex-col sm:flex-row">
+            <div className="flex-1">
+              <span className="font-medium">配置加载失败</span>
+              <p className="text-xs mt-0.5">网络好像开了个小差，请稍后重试。</p>
+            </div>
+            <button className="btn btn-sm btn-ghost" onClick={refresh}>
+              重新加载
+            </button>
+          </div>
         ) : configs.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-4xl mb-3">🔑</div>
             <h3 className="text-lg font-semibold">还没有 API Key 配置</h3>
             <p className="text-sm text-base-content/50 mt-1 mb-4">
-              添加你的第一个 API Key 来开始使用 AI 写作
+              添加 API Key 后可解锁 AI 写作能力
             </p>
             <button className="btn btn-primary" onClick={() => setShowForm(true)}>
               添加 API Key
             </button>
+            <div className="mx-auto mt-6 max-w-md text-left bg-base-200/50 border border-base-300/40 rounded-xl p-5">
+              <h4 className="text-sm font-semibold text-base-content mb-2">
+                没有 API Key 也能开始
+              </h4>
+              <ul className="text-xs text-base-content/60 space-y-1.5 leading-relaxed">
+                <li>✓ 手动写作、卷章管理、版本回溯完全可用，不依赖 AI 配置</li>
+                <li>✓ 想用 AI 辅助时再回来添加配置即可，支持 OpenAI / DeepSeek / 本地 Ollama 等</li>
+                <li>✓ 配置后可随时修改或删除，不影响已写内容</li>
+              </ul>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

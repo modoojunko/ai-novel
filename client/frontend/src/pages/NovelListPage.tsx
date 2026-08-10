@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import AuthGuard from "@/components/auth/AuthGuard";
@@ -18,6 +18,24 @@ interface Novel {
   updated_at: string;
 }
 
+// 阶段 → 进入作品后默认打开的 Tab（「继续创作」直达未完成阶段）
+const PHASE_TO_TAB: Record<string, string> = {
+  init: "settings",
+  settings: "settings",
+  outline: "volume",
+  prompt: "prompts",
+  write: "writing",
+  archive: "archives",
+};
+
+const PHASE_LABELS: Record<string, string> = {
+  settings: "设定",
+  outline: "卷纲 / 章纲",
+  prompt: "提示词",
+  write: "正文",
+  archive: "归档",
+};
+
 export default function NovelListPage() {
   return (
     <AuthGuard>
@@ -29,6 +47,7 @@ export default function NovelListPage() {
 function NovelList() {
   const [novels, setNovels] = useState<Novel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [tier, setTier] = useState<string>('');
   const [trialDays, setTrialDays] = useState<number>(0);
   const [showCreate, setShowCreate] = useState(false);
@@ -64,8 +83,20 @@ function NovelList() {
     }
   }
 
+  const fetchNovels = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      setNovels(await api.get("/novels"));
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    api.get("/novels").then(setNovels).catch(() => toast.error("加载失败")).finally(() => setLoading(false));
+    fetchNovels();
     api.post("/auth/verify").then((r: any) => {
       if (r.tier) setTier(r.tier);
       if (r.trial_remaining_days !== undefined) setTrialDays(r.trial_remaining_days);
@@ -74,7 +105,7 @@ function NovelList() {
     api.get("/auth/config").then((cfg: any) => {
       if (!cfg.has_api_key) setShowKeyHint(true);
     }).catch(() => {});
-  }, []);
+  }, [fetchNovels]);
 
   function handleCreated(novelId: string) {
     setShowCreate(false);
@@ -97,7 +128,13 @@ function NovelList() {
               }
             </span>
           </div>
-          <a href="https://taobao.com" target="_blank" className="btn btn-primary btn-sm">了解套餐</a>
+          <Link
+            to="/"
+            state={{ scrollTo: "pricing" }}
+            className="btn btn-primary btn-sm"
+          >
+            了解套餐
+          </Link>
         </div>
       )}
 
@@ -129,6 +166,16 @@ function NovelList() {
             </div>
           ))}
         </div>
+      ) : loadError ? (
+        <div className="text-center py-20">
+          <p className="text-lg mb-2 text-base-content/70">作品加载失败</p>
+          <p className="text-sm text-base-content/50 mb-6">
+            网络好像开了个小差，请稍后重试。
+          </p>
+          <button className="btn btn-primary btn-sm" onClick={fetchNovels}>
+            重新加载
+          </button>
+        </div>
       ) : novels.length === 0 ? (
         <div className="text-center py-20 text-base-content/60">
           <p className="text-lg mb-2 font-serif">暂无小说</p>
@@ -144,11 +191,21 @@ function NovelList() {
                           hover:bg-base-200 hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5
                           transition-all duration-300 group"
               >
-                <div className="card-body py-5" onClick={() => navigate(`/novel/${p.id}`)}>
+                <div
+                  className="card-body py-5"
+                  onClick={() =>
+                    navigate(`/novel/${p.id}`, {
+                      state: { initialTab: PHASE_TO_TAB[p.current_phase] || "settings" },
+                    })
+                  }
+                >
                   <div className="flex items-start justify-between">
                     <div className="min-w-0">
                       <h3 className="font-serif text-base truncate group-hover:text-primary transition-colors">{p.name}</h3>
                       <p className="text-xs text-base-content/50 mt-1">
+                        {PHASE_LABELS[p.current_phase]
+                          ? `进行中：${PHASE_LABELS[p.current_phase]} · `
+                          : ""}
                         {p.total_chapters}章 · 更新于{new Date(p.updated_at).toLocaleDateString("zh-CN")}
                       </p>
                     </div>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import type { Step1Result } from "@/lib/api";
@@ -18,7 +18,7 @@ import PromptManagementPage from "@/components/novel/PromptManagementPage";
 import ArchivePage from "@/components/novel/ArchivePage";
 import AiReviewStep1 from "@/components/novel/AiReviewStep1";
 import AiReviewStep2 from "@/components/novel/AiReviewStep2";
-import { Globe, Feather, Shield, Anchor, Users, Brain, Book, FileText, Trash2, ClipboardList, BookOpen, AlertTriangle, RefreshCw, Sparkles, Pencil } from "lucide-react";
+import { Globe, Feather, Shield, Anchor, Users, Brain, Book, FileText, Trash2, ClipboardList, BookOpen, AlertTriangle, RefreshCw, Sparkles, Pencil, LifeBuoy } from "lucide-react";
 import { useOutline } from "@/hooks/useOutline";
 import OutlineOverview from "@/components/novel/outline/OutlineOverview";
 import OutlineEditor from "@/components/novel/outline/OutlineEditor";
@@ -72,6 +72,33 @@ const TAB_PHASE_MAP: Record<string, "settings" | "outline" | "prompt" | "write" 
   archives: "archive",
 };
 
+// 后端 current_phase → 作品列表「继续创作」直达的默认 Tab
+const PHASE_TO_TAB: Record<string, TabId> = {
+  init: "settings",
+  settings: "settings",
+  outline: "volume",
+  prompt: "prompts",
+  write: "writing",
+  archive: "archives",
+};
+
+function initialViewState(tab: TabId): ViewState {
+  switch (tab) {
+    case "settings":
+      return { tab: "settings", panel: "world" };
+    case "volume":
+      return { tab: "volume", panel: "overview" };
+    case "chapter":
+      return { tab: "chapter", panel: "overview" };
+    case "prompts":
+      return { tab: "prompts" };
+    case "writing":
+      return { tab: "writing", panel: "empty" };
+    case "archives":
+      return { tab: "archives", panel: "browser" };
+  }
+}
+
 const SETTINGS_TREE_ITEMS: { id: string; icon: React.ReactNode; label: string }[] = [
   { id: "genre", icon: <BookOpen className="w-3.5 h-3.5" />, label: "题材设定" },
   { id: "world", icon: <Globe className="w-3.5 h-3.5" />, label: "世界设定" },
@@ -88,18 +115,21 @@ const SETTINGS_TREE_ITEMS: { id: string; icon: React.ReactNode; label: string }[
 
 export default function NovelPage() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+  const initialTab = useMemo<TabId>(() => {
+    const candidate = (location.state as { initialTab?: TabId } | null)?.initialTab;
+    return PHASE_TO_TAB[candidate ?? ""] || "settings";
+  }, [location.state]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [project, setProject] = useState<any>(null);
   const [volumes, setVolumes] = useState<any[]>([]);
-  const [tab, setTab] = useState<TabId>("settings");
+  const [tab, setTab] = useState<TabId>(initialTab);
   const [showDelete, setShowDelete] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const nameSavedRef = useRef(false); // 防 Enter 保存后 blur 再触发双保存
-  const [viewState, setViewState] = useState<ViewState>({
-    tab: "settings",
-    panel: "world",
-  });
+  const [viewState, setViewState] = useState<ViewState>(() => initialViewState(initialTab));
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const { settingsStatus, allConfirmed, isNew, confirmSetting, loading: onboardingLoading } =
@@ -157,26 +187,52 @@ export default function NovelPage() {
 
   const [bannerDismissed, setBannerDismissed] = useState(() => {
     if (!id) return false;
-    return localStorage.getItem(`gate-banner-dismissed-${id}`) === 'true';
+    return (
+      sessionStorage.getItem(`gate-banner-dismissed-${id}`) === 'true' ||
+      localStorage.getItem(`gate-banner-dismissed-${id}`) === 'true'
+    );
   });
 
   const handleDismissBanner = useCallback(() => {
     if (!id) return;
     setBannerDismissed(true);
-    localStorage.setItem(`gate-banner-dismissed-${id}`, 'true');
+    // 轻关闭：仅本次会话隐藏，重启应用后恢复提醒
+    sessionStorage.setItem(`gate-banner-dismissed-${id}`, 'true');
   }, [id]);
 
   // ── Onboarding card ──────────────────────────────────────────────────────
 
   const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
     if (!id) return true;
-    return localStorage.getItem(`onboarding-dismissed-${id}`) === 'true';
+    return (
+      sessionStorage.getItem(`onboarding-dismissed-${id}`) === 'true' ||
+      localStorage.getItem(`onboarding-dismissed-${id}`) === 'true'
+    );
   });
 
+  /** 「知道了」轻关闭：仅本次会话隐藏 */
   const handleDismissOnboarding = useCallback(() => {
     if (!id) return;
     setOnboardingDismissed(true);
+    sessionStorage.setItem(`onboarding-dismissed-${id}`, 'true');
+  }, [id]);
+
+  /** 「开始设定」主路径：用户已真正开始创作，之后不再打扰 */
+  const handleStartOnboarding = useCallback(() => {
+    if (!id) return;
+    setOnboardingDismissed(true);
     localStorage.setItem(`onboarding-dismissed-${id}`, 'true');
+  }, [id]);
+
+  /** 重新打开已关闭的阶段引导（GateBanner / OnboardingCard） */
+  const handleReopenGuides = useCallback(() => {
+    if (!id) return;
+    setBannerDismissed(false);
+    setOnboardingDismissed(false);
+    sessionStorage.removeItem(`gate-banner-dismissed-${id}`);
+    sessionStorage.removeItem(`onboarding-dismissed-${id}`);
+    localStorage.removeItem(`gate-banner-dismissed-${id}`);
+    localStorage.removeItem(`onboarding-dismissed-${id}`);
   }, [id]);
 
   const allPhasesPending =
@@ -240,19 +296,24 @@ export default function NovelPage() {
   // Fetch project by id
   // -----------------------------------------------------------------------
 
-  useEffect(() => {
+  const loadProject = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    api
-      .get(`/novels/${id}`)
-      .then((p: any) => {
-        setProject(p);
-      })
-      .catch(() => {
-        setProject(null);
-      })
-      .finally(() => setLoading(false));
+    setLoadError(false);
+    try {
+      const p = await api.get(`/novels/${id}`);
+      setProject(p);
+    } catch {
+      setProject(null);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    loadProject();
+  }, [loadProject]);
 
   // -----------------------------------------------------------------------
   // Load volumes when project is available
@@ -302,6 +363,7 @@ export default function NovelPage() {
           id: ref,
           icon: <FileText className="w-3.5 h-3.5" />,
           label: ch.title || `ch-${ch.chapter}`,
+          group: "正文",
           badge: isDone ? "done" : undefined,
           badgeColor: isDone ? "var(--su)" : undefined,
           data: { type: "chapter", ref, volume: ch.volume, chapter: ch.chapter },
@@ -325,6 +387,7 @@ export default function NovelPage() {
         id: v.name || `vol-${volNum}`,
         icon: <Book className="w-3.5 h-3.5" />,
         label: `第${volNum}卷`,
+        group: "卷纲",
         badge: `${chapterNodes.length}章`,
         children: chapterNodes,
         data: { type: "volume", name: v.name, volNum },
@@ -345,6 +408,7 @@ export default function NovelPage() {
           id: ch.ref,
           icon: <FileText className="w-3.5 h-3.5" />,
           label: ch.title || ch.ref,
+          group: "章纲",
           badge: isDone ? "done" : status === "in_progress" ? "进行中" : undefined,
           badgeColor: isDone ? "var(--su)" : status === "in_progress" ? "var(--wa)" : undefined,
           data: { type: "outline-chapter", ref: ch.ref },
@@ -355,6 +419,7 @@ export default function NovelPage() {
         id: v.ref,
         icon: <Book className="w-3.5 h-3.5" />,
         label: v.title,
+        group: "卷纲",
         badge: `${chapterNodes.length}章`,
         children: chapterNodes,
         data: { type: "outline-volume", ref: v.ref },
@@ -396,6 +461,18 @@ export default function NovelPage() {
           ? viewState.chapterRef
           : undefined;
 
+  const handleToggle = useCallback((id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
   const handleSelect = useCallback(
     (node: TreeNode) => {
       const data = node.data as Record<string, any> | undefined;
@@ -404,7 +481,10 @@ export default function NovelPage() {
       if (tab === "settings") {
         setViewState({ tab: "settings", panel: data.key as string });
       } else if (tab === "volume" || tab === "chapter") {
-        if (data.type === "outline-chapter") {
+        if (data.type === "outline-volume") {
+          // 卷纲节点：点击展开/收起该卷下的章纲
+          handleToggle(node.id);
+        } else if (data.type === "outline-chapter") {
           outline.loadChapterData(data.ref as string);
           setViewState({
             tab: "chapter",
@@ -432,20 +512,8 @@ export default function NovelPage() {
         }
       }
     },
-    [tab, outline]
+    [tab, outline, handleToggle]
   );
-
-  const handleToggle = useCallback((id: string) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
 
   // -----------------------------------------------------------------------
   // Tab switching
@@ -844,8 +912,16 @@ case "prompts":
 
   if (!project) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh] text-base-content/40">
-        项目不存在或无权访问
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-base-content/60">
+        <p className="text-base">
+          {loadError ? "作品加载失败，网络好像开了个小差" : "项目不存在或无权访问"}
+        </p>
+        {loadError && (
+          <button className="btn btn-primary btn-sm" onClick={loadProject}>
+            <RefreshCw className="w-4 h-4" />
+            重新加载
+          </button>
+        )}
       </div>
     );
   }
@@ -931,6 +1007,14 @@ case "prompts":
         {/* Actions */}
         <div className="flex items-center gap-2">
           <button
+            onClick={handleReopenGuides}
+            className="text-base-content/30 hover:text-primary transition-colors p-1.5 rounded-md hover:bg-primary/10"
+            title="重新打开阶段引导"
+            aria-label="重新打开阶段引导"
+          >
+            <LifeBuoy className="w-4 h-4" />
+          </button>
+          <button
             onClick={() => setShowDelete(true)}
             className="text-base-content/30 hover:text-error transition-colors p-1.5 rounded-md hover:bg-error/10"
             title="删除小说"
@@ -974,7 +1058,7 @@ case "prompts":
           variant={project.source === "import" ? "imported-novel" : "empty-novel"}
           onDismiss={handleDismissOnboarding}
           onStart={() => {
-            handleDismissOnboarding();
+            handleStartOnboarding();
             handleTabSwitch("settings");
           }}
         />
@@ -985,6 +1069,10 @@ case "prompts":
         {/* Left tree panel — hidden on prompts, archives tabs, or AI review flow */}
         {tab !== "prompts" && tab !== "archives" && !aiReviewStep && (
           <aside className="w-56 flex-shrink-0 overflow-y-auto border-r border-base-300 bg-base-200/30 p-2">
+            <div className="px-2 pt-1.5 pb-1.5 text-[10px] font-medium tracking-wider text-base-content/40 flex items-center gap-2">
+              {tab === "settings" ? "设定" : tab === "volume" || tab === "chapter" ? "卷纲 · 章纲" : "正文"}
+              <span className="flex-1 h-px bg-base-300/40" />
+            </div>
             <StructureTree
               nodes={activeNodes}
               selectedId={selectedId}

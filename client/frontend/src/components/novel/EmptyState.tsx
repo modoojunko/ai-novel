@@ -27,11 +27,10 @@ export default function EmptyState({
       <div className="flex flex-col items-center justify-center h-full gap-6 px-4">
         <ClipboardList className="w-16 h-16 opacity-30 text-base-content/40" />
         <h2 className="text-2xl font-serif font-semibold text-base-content">
-          设定尚未全部完成
+          设定尚未全部完成（可跳过）
         </h2>
         <p className="text-base text-base-content/50 max-w-sm text-center leading-relaxed">
-          请先完成所有设定项的确认，再开始创建卷和章节。
-          设定确认后可以随时回来修改。
+          建议先补完设定，让后续写作更有依据；也可以直接跳过继续创作，设定随时可以回来补充。
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
           <button
@@ -39,21 +38,21 @@ export default function EmptyState({
             className="px-5 py-3 rounded-lg border bg-primary/10 border-primary/30 text-primary font-medium hover:bg-primary/20 transition-colors inline-flex items-center gap-2"
           >
             <ClipboardList className="w-4 h-4" />
-            先去设定
+            先去补设定
           </button>
           <button
             onClick={onCreateVolume}
             className="px-5 py-3 rounded-lg border bg-base-200 border-base-300 text-base-content/50 hover:bg-base-300 transition-colors inline-flex items-center gap-2"
           >
             <Book className="w-4 h-4" />
-            创建第一卷
+            仍然继续：创建第一卷
           </button>
           <button
             onClick={onCreateChapter}
             className="px-5 py-3 rounded-lg border bg-base-200 border-base-300 text-base-content/50 hover:bg-base-300 transition-colors inline-flex items-center gap-2"
           >
             <PenLine className="w-4 h-4" />
-            直接写第一章
+            仍然继续：直接写第一章
           </button>
         </div>
       </div>

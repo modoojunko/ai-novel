@@ -11,6 +11,8 @@ export type TreeNode = {
   id: string;
   icon?: React.ReactNode;
   label?: string;
+  /** 分组标题：同一组只显示一次，用于区分卷纲/章纲/正文等不同层级 */
+  group?: string;
   badge?: string;
   badgeColor?: string;
   actions?: TreeNodeAction[];
@@ -74,6 +76,7 @@ interface TreeNodeItemProps extends TreeCallbacks {
   onStartDelete: (id: string) => void;
   onCommitDelete: (id: string) => void;
   onCancelDelete: () => void;
+  group?: string;
 }
 
 function TreeNodeItem({
@@ -96,6 +99,7 @@ function TreeNodeItem({
   onStartDelete,
   onCommitDelete,
   onCancelDelete,
+  group,
 }: TreeNodeItemProps) {
   const isExpanded = expandedIds.has(node.id);
   const isSelected = selectedId === node.id;
@@ -129,6 +133,12 @@ function TreeNodeItem({
 
   return (
     <div>
+      {node.group && node.group !== group && (
+        <div className="px-2 pt-2.5 pb-1 text-[10px] font-medium tracking-wider text-base-content/35 flex items-center gap-2">
+          {node.group}
+          <span className="flex-1 h-px bg-base-300/40" />
+        </div>
+      )}
       <div
         className={`group flex items-center gap-1 w-full px-2 py-1.5 rounded transition-colors cursor-pointer
           ${isSelected
@@ -286,6 +296,7 @@ function TreeNodeItem({
               onStartDelete={onStartDelete}
               onCommitDelete={onCommitDelete}
               onCancelDelete={onCancelDelete}
+              group={node.group ?? group}
             />
           ))}
         </div>
