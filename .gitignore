@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 *.pyo
 venv/
+.venv/
 *.egg-info/
 
 # Database
@@ -25,6 +26,7 @@ Thumbs.db
 # Claude Code / AI agent config
 .claude/
 .agents/
+.codex/
 skills-lock.json
 frontend/node_modules/
 frontend/out/
@@ -62,7 +64,13 @@ server/logs
 server/.pytest_cache
 server/license.db-shm
 server/license.db-wal
+server/data/*.db-shm
+server/data/*.db-wal
 server/frontend/.vite/
+
+# 意外生成的包管理器产物（项目用 npm）
+server/frontend/pnpm-lock.yaml
+server/frontend/pnpm-workspace.yaml
 
 # CDP 调试 Chrome profile 与检查脚本
 .chrome-cdp-profile/
