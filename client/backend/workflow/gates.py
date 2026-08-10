@@ -94,7 +94,7 @@ async def gate_prompts_exist(root_path: str, chapter_ref: str) -> GateResult:
     exists = any(f.startswith(chapter_ref) for f in files)
     return GateResult(
         valid=exists,
-        warnings=[] if exists else [f"本章提示词尚未生成"],
+        warnings=[] if exists else ["本章提示词尚未生成"],
         hard_block=True,
     )
 
