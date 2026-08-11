@@ -1,0 +1,344 @@
+import fs from "fs";
+import path from "path";
+import { randomUUID } from "crypto";
+import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
+
+// =========================================================================
+// 工作台非 AI 功能 E2E（补测 011：章纲 / 卷抽屉 / 聚焦模式 / 提示词面板）
+//   ① 章纲：选中章 → 章纲子 label → OutlineEditor 真实表单编辑 + 保存
+//   ② 卷抽屉：点卷节点 → 右侧覆盖面板 → 卷名/卷纲编辑 + 保存 + Esc 关闭
+//   ③ 聚焦模式：专注隐藏左树 + Esc 退出
+//   ④ 提示词面板：PRO-only 子 label；当前章过滤 + 空态 + API 种子后查看/编辑（非 AI 链路）
+//   ⑤ 免费态提示词子 label 不可见（TierGate feature="prompt-panel"）
+// =========================================================================
+// 与 creation-flow.spec.ts 共享鉴权手法：S端 真实注册登录 → 写 docker 容器的
+// config.json（tier="trial" 为 PRO）→ localStorage 注入 auth_token。
+// 提示词后端接口经 require_ai_access 门控（需存在 active ApiConfig）：
+// ④ 内先 POST /api/v1/api-configs 注入假配置（仅过门控，不测真实连接）。
+
+const S_API = "http://127.0.0.1:19000/api/web";
+const ORIGIN = process.env.E2E_BASE_URL || "http://localhost:5174";
+// docker C端 后端的 config.json（bind mount .docker-data/client → /app/data）
+const CONFIG_PATH = path.join(
+  process.cwd(),
+  "..",
+  "..",
+  ".docker-data",
+  "client",
+  "config.json",
+);
+
+/** S端 注册并登录，返回 JWT（免费用户，套餐 none）。 */
+async function sRegisterAndLogin() {
+  const name = `e2e_wb_${Date.now()}_${randomUUID().slice(0, 8)}`;
+  const password = "TestPass789!";
+  const reg = await fetch(`${S_API}/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username: name,
+      password,
+      security_question: "最喜欢的颜色",
+      security_answer: "蓝色",
+    }),
+  });
+  const regBody = await reg.json();
+  if (regBody.code !== 0) {
+    throw new Error(`S端 register 失败: ${JSON.stringify(regBody)}`);
+  }
+  const login = await fetch(`${S_API}/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: name, password }),
+  });
+  const loginBody = await login.json();
+  if (loginBody.code !== 0) {
+    throw new Error(`S端 login 失败: ${JSON.stringify(loginBody)}`);
+  }
+  return { token: loginBody.data.token as string, username: name };
+}
+
+/** 把 S端 会话写入 config.json，返回恢复函数。tier：trial（PRO）/ none（免费）。 */
+function writeOAuthSession(t: string, u: string, tier = "trial") {
+  const original = fs.readFileSync(CONFIG_PATH, "utf-8");
+  const cfg = JSON.parse(original);
+  cfg.token = t;
+  cfg.username = u;
+  cfg.tier = tier;
+  cfg.last_login_at = new Date().toISOString();
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
+  return () => fs.writeFileSync(CONFIG_PATH, original);
+}
+
+/** 每测试独立会话：S端 注册登录 → 写 config.json → 注入 localStorage。 */
+async function setupSession(
+  page: Page,
+  tier = "trial",
+): Promise<{ restore: () => void; token: string }> {
+  const { token, username } = await sRegisterAndLogin();
+  const restore = writeOAuthSession(token, username, tier);
+  await page.addInitScript((t) => localStorage.setItem("auth_token", t), token);
+  return { restore, token };
+}
+
+/** 通过真实 UI 创建小说，返回 project id。 */
+async function createNovel(page: Page, name: string): Promise<string> {
+  await page.goto(`${ORIGIN}/#/novels`);
+  await page.getByRole("button", { name: "开始新小说" }).click();
+  await page.locator("input#novel-name").fill(name);
+  await page.getByRole("button", { name: "创建小说" }).click();
+  await page.waitForURL(/#\/novel\/[0-9a-fA-F-]+/);
+  const m = page.url().match(/\/novel\/([0-9a-fA-F-]+)/);
+  if (!m) throw new Error(`无法解析 novel id: ${page.url()}`);
+  return m[1];
+}
+
+/** 直接写第一章 → 编辑器就绪（选中章 → 上下文行出现 正文/章纲/提示词 子 label）。 */
+async function writeFirstChapter(page: Page) {
+  await page.getByRole("button", { name: /直接写第一章/ }).click();
+  const editor = page.getByPlaceholder("正文（在此撰写小说内容）");
+  await expect(editor).toBeVisible({ timeout: 10000 });
+  return editor;
+}
+
+/** 带 Bearer token 的 API GET。 */
+async function apiGetJSON(request: APIRequestContext, token: string, path: string) {
+  const r = await request.get(`${ORIGIN}/api${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(r.ok()).toBeTruthy();
+  return r.json();
+}
+
+/** 注入一条 active ApiConfig，使 require_ai_access 门控放行（不测真实连接）。 */
+async function ensurePromptAccess(request: APIRequestContext, token: string) {
+  const r = await request.post(`${ORIGIN}/api/v1/api-configs`, {
+    data: {
+      name: `e2e-prompt-${Date.now()}`,
+      vendor_id: "openai-compat",
+      base_url: "http://127.0.0.1:1",
+      api_key: "sk-e2e-not-real",
+    },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(r.ok()).toBeTruthy();
+}
+
+/** 填一个表单 Field：label 文本 → 其 wrapper div 内的 textarea。 */
+async function fillSettingField(page: Page, label: string, value: string) {
+  const wrapper = page
+    .locator("label", { hasText: label })
+    .locator("xpath=ancestor::div[2]");
+  await wrapper.locator("textarea").fill(value);
+}
+
+// -------------------------------------------------------------------------
+// ① 章纲：OutlineEditor 真实表单（tab 切换 + 关键事件 + 主情绪）→ 保存
+// -------------------------------------------------------------------------
+
+test("章纲：OutlineEditor 真实表单编辑 + 保存（tab 切换 + 列表项 + 主情绪）", async ({
+  page,
+  request,
+}) => {
+  const { restore, token } = await setupSession(page);
+  try {
+    const pid = await createNovel(page, `章纲${Date.now() % 100000}`);
+    await writeFirstChapter(page);
+
+    // 进入章纲子 label
+    await page.getByRole("button", { name: "章纲" }).click();
+    await expect(page.getByText(/细化章节细纲/)).toBeVisible({ timeout: 10000 });
+
+    // 章纲概要 tab（默认）：填概要 + 关键事件列表
+    await fillSettingField(page, "章纲概要", "主角在边境城邦发现妹妹失踪的线索");
+    // 新章 key_points 为空数组 → ListEditor 渲染零输入行 → 先「添加一项」
+    const keyEvents = page
+      .locator("label", { hasText: "关键事件" })
+      .locator("xpath=ancestor::div[1]");
+    await keyEvents.getByRole("button", { name: "添加一项" }).click();
+    await keyEvents.getByPlaceholder("一个关键事件").first().fill("收到匿名信");
+
+    // 核心任务 tab：填核心任务
+    await page.getByRole("button", { name: "核心任务", exact: true }).click();
+    await fillSettingField(page, "核心任务", "查明妹妹失踪的真相");
+
+    // 情绪设计 tab：选主情绪（作用域到含「悬疑」option 的 select）
+    await page.getByRole("button", { name: "情绪设计", exact: true }).click();
+    await page
+      .locator("select")
+      .filter({ has: page.locator("option", { hasText: "悬疑" }) })
+      .selectOption({ label: "悬疑" });
+
+    // 手动保存 → PUT /chapters/vol-1-ch-1 落盘
+    const save = page.waitForResponse(
+      (r) =>
+        r.request().method() === "PUT" &&
+        r.url().includes(`/chapters/vol-1-ch-1`),
+    );
+    await page.getByRole("button", { name: "💾 保存" }).click();
+    await save;
+    await expect(page.getByText("已保存").first()).toBeVisible({ timeout: 5000 });
+
+    // 后端直查：outline / memo / emotional_design 均已落盘
+    const ch = await apiGetJSON(request, token, `/novels/${pid}/chapters/vol-1-ch-1`);
+    expect(ch.outline.summary).toContain("妹妹失踪");
+    expect(ch.outline.key_points).toContain("收到匿名信");
+    expect(ch.memo.current_task).toContain("真相");
+    expect(ch.emotional_design.primary_mood).toBe("悬疑");
+  } finally {
+    restore();
+  }
+});
+
+// -------------------------------------------------------------------------
+// ② 卷抽屉：点卷节点 → 右侧覆盖面板 → 卷名/卷纲编辑 + 保存 + Esc 关闭
+// -------------------------------------------------------------------------
+
+test("卷抽屉：点卷节点弹抽屉 → 卷名/卷纲编辑 + 保存 + Esc 关闭", async ({
+  page,
+  request,
+}) => {
+  const { restore, token } = await setupSession(page);
+  try {
+    const pid = await createNovel(page, `卷抽屉${Date.now() % 100000}`);
+    await writeFirstChapter(page);
+
+    // 点卷节点 → 右侧抽屉弹出（含「卷纲」头部与「关闭」按钮）
+    await page.locator("aside").getByText("第一卷").click();
+    const drawer = page.locator('aside[class*="w-[400px]"]');
+    await expect(drawer).toBeVisible();
+    await expect(drawer.getByText("卷纲").first()).toBeVisible();
+    await expect(drawer.getByRole("button", { name: "关闭" })).toBeVisible();
+
+    // 编辑卷名 + 卷纲
+    await drawer.getByPlaceholder("卷名").fill("第一卷·风起");
+    await drawer
+      .getByPlaceholder("卷纲（概述本卷情节走向）")
+      .fill("第一卷铺垫主角妹妹失踪的悬念，收尾进入边城。");
+
+    // 保存 → PUT /volumes/vol-1.yaml
+    const volSave = page.waitForResponse(
+      (r) =>
+        r.request().method() === "PUT" &&
+        r.url().includes("/volumes/vol-1.yaml"),
+    );
+    await drawer.getByRole("button", { name: "保存", exact: true }).click();
+    await volSave;
+
+    // Esc 关闭抽屉
+    await page.keyboard.press("Escape");
+    await expect(drawer).toHaveCount(0);
+
+    // 后端直查
+    const vol = await apiGetJSON(request, token, `/novels/${pid}/volumes/vol-1.yaml`);
+    expect(vol.title).toBe("第一卷·风起");
+    expect(vol.summary).toContain("妹妹失踪");
+  } finally {
+    restore();
+  }
+});
+
+// -------------------------------------------------------------------------
+// ③ 聚焦模式：专注隐藏左树 + Esc 退出
+// -------------------------------------------------------------------------
+
+test("聚焦模式：专注隐藏左树 + Esc 退出", async ({ page }) => {
+  const { restore } = await setupSession(page);
+  try {
+    await createNovel(page, `聚焦${Date.now() % 100000}`);
+    await writeFirstChapter(page);
+
+    // 初始左树可见
+    await expect(page.locator("aside").getByText("第一卷")).toBeVisible();
+
+    // 专注 → 左树（新建卷/章）卸载，按钮变「退出专注」
+    await page.getByRole("button", { name: "专注", exact: true }).click();
+    await expect(page.getByTitle("新建卷")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "退出专注", exact: true })).toBeVisible();
+
+    // Esc → 退出专注，左树恢复
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "专注", exact: true })).toBeVisible();
+    await expect(page.locator("aside").getByText("第一卷")).toBeVisible();
+  } finally {
+    restore();
+  }
+});
+
+// -------------------------------------------------------------------------
+// ④ 提示词面板：当前章过滤 + API 种子后查看/编辑/已修改徽标（非 AI 链路）
+// -------------------------------------------------------------------------
+
+test("提示词面板：当前章过滤 + 种子提示词查看/编辑/已修改徽标", async ({
+  page,
+  request,
+}) => {
+  const { restore, token } = await setupSession(page);
+  try {
+    const pid = await createNovel(page, `提示词${Date.now() % 100000}`);
+    await writeFirstChapter(page);
+
+    // 提示词后端接口需过 require_ai_access 门控：先注入 active ApiConfig（不测连接）
+    await ensurePromptAccess(request, token);
+
+    // API 种子 seg-1 提示词（手动保存路径，非 AI 生成）
+    const seed = await request.put(
+      `${ORIGIN}/api/novels/${pid}/chapters/vol-1-ch-1/prompts/seg-1`,
+      {
+        data: { content: "# 段落任务\n\n描写主角收到匿名信的场景。" },
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+    expect(seed.ok()).toBeTruthy();
+
+    // 进入提示词子 label → 当前章自动展开，显示种子段落
+    await page.getByRole("button", { name: "提示词" }).click();
+    await expect(page.getByText("提示词管理")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("段落 1")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("1 段")).toBeVisible();
+
+    // 查看 → 内容可见
+    await page.getByText("段落 1").click();
+    await expect(page.getByText("描写主角收到匿名信的场景。")).toBeVisible({
+      timeout: 5000,
+    });
+
+    // 编辑 → 修改 → 保存 → 已修改
+    // （3 label 顶栏含「编辑设定/编辑正文」→ 必须 exact 命中提示词编辑器「编辑」）
+    await page.getByRole("button", { name: "编辑", exact: true }).click();
+    await page.locator("textarea").last().fill("# 段落任务\n\n描写主角收到匿名信后追出城门的场景。");
+    const save = page.waitForResponse(
+      (r) => r.request().method() === "PUT" && r.url().includes("/prompts/seg-1"),
+    );
+    await page.locator("main").getByRole("button", { name: "保存", exact: true }).click();
+    await save;
+    await expect(page.getByText("保存成功")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("button", { name: "恢复原始" })).toBeVisible();
+
+    // 返回概览 → 章节徽标「已修改」
+    await page.getByRole("button", { name: "返回" }).click();
+    await expect(page.getByText("已修改").first()).toBeVisible({ timeout: 5000 });
+  } finally {
+    restore();
+  }
+});
+
+// -------------------------------------------------------------------------
+// ⑤ 免费态提示词子 label 不可见（TierGate feature="prompt-panel" PRO-only）
+// -------------------------------------------------------------------------
+
+test("免费态：提示词子 label 不可见，正文/章纲可见（TierGate PRO-only）", async ({
+  page,
+}) => {
+  const { restore } = await setupSession(page, "none");
+  try {
+    await createNovel(page, `免费提示词${Date.now() % 100000}`);
+    await writeFirstChapter(page);
+
+    await expect(page.getByRole("button", { name: "正文", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "章纲" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "提示词" })).toHaveCount(0);
+  } finally {
+    restore();
+  }
+});

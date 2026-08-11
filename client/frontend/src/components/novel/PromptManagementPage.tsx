@@ -158,20 +158,19 @@ export default function PromptManagementPage({
     async function load() {
       setOverviewLoading(true);
       try {
+        // change 006：GET /volumes 返回 DB 全量树（卷含 ref + chapters 元数据），
+        // 卷章一次到位，无需逐卷二次请求。旧形状按 v.name/v.filename 读 →
+        // filename 为 undefined → /volumes/undefined 404 → 空态「暂无章节」。
         const vols: any[] = await api.get(`/novels/${projectId}/volumes`);
-        const result: VolumeInfo[] = [];
-        for (const v of vols) {
+        const result: VolumeInfo[] = vols.map((v) => {
           const volNum =
-            parseInt((v.name || "").replace("vol-", ""), 10) || 0;
-          const data = await api.get(
-            `/novels/${projectId}/volumes/${v.filename}`,
-          );
-          const chapters = (data?.chapters || []).map((ch: any) => ({
-            ref: `vol-${volNum}-ch-${ch.chapter}`,
+            parseInt((v.ref || "").replace("vol-", ""), 10) || 0;
+          const chapters = (v.chapters || []).map((ch: any) => ({
+            ref: ch.ref,
             title: ch.title || `ch-${ch.chapter}`,
           }));
-          result.push({ name: v.name, volNum, chapters });
-        }
+          return { name: v.ref, volNum, chapters };
+        });
         if (!cancelled) setVolumes(result);
       } catch {
         // volumes may not exist yet
