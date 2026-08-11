@@ -125,7 +125,8 @@ test("免费建书直达正文工作台：零 phase-status，无阶段催促，3
     await expect(page.getByRole("button", { name: "预览小说" })).toBeVisible();
     await expect(page.getByTitle("高级配置（设定/大纲）")).toHaveCount(0);
     // ⑧ 无 PRO 阶段 tab；空项目无章 → 无章子 label「正文」
-    await expect(page.getByRole("button", { name: "正文" })).toHaveCount(0);
+    // （Playwright name 为子串匹配：需 exact 避开顶栏「编辑正文」label）
+    await expect(page.getByRole("button", { name: "正文", exact: true })).toHaveCount(0);
     // ⑧ 无阶段催促 UI（GateBanner/软门控文案）
     await expect(page.getByText(/尚未完成设定/)).toHaveCount(0);
     await expect(page.getByText("设定尚未全部完成")).toHaveCount(0);

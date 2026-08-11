@@ -313,9 +313,10 @@ test("设定 7 项全确认（settings-status 全绿）", async ({ page, request
     await confirmPanel(page, "世界设定");
 
     // ── hooks：真实表单添加伏笔 → 填描述 → 保存 → 完成设定
+    // 模板自带 1 个空伏笔行 + 点「添加伏笔」新增 1 行 → 取 .first() 填默认行（readiness 只要任一非空）
     await openSetting(page, "伏笔管理");
     await page.getByRole("button", { name: /添加伏笔/ }).click();
-    await page.locator('input[placeholder="伏笔描述"]').fill("主角妹妹失踪的真相");
+    await page.locator('input[placeholder="伏笔描述"]').first().fill("主角妹妹失踪的真相");
     const hooksSave = page.waitForResponse(
       (r) => r.request().method() === "PUT" && r.url().includes("/settings/hooks"),
     );
