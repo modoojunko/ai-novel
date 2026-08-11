@@ -65,7 +65,6 @@ describe("载入与字数", () => {
     const { result } = await mountHook();
     expect(result.current.loading).toBe(false);
     expect(result.current.prose).toBe("你好 世界");
-    expect(result.current.summary).toBe("概要");
     expect(result.current.wordCount).toBe(4);
     expect(result.current.saveState).toBe("saved");
     expect(result.current.isDirty).toBe(false);

@@ -84,7 +84,6 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
     const {
       chapter,
       prose,
-      summary,
       status,
       isDirty,
       saveState,
@@ -93,7 +92,6 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
       setTargetWords,
       save,
       setProse,
-      setSummary,
       setStatus,
       retry,
       archive,
@@ -605,20 +603,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
           </button>
         </div>
 
-        {/* ── 章纲 (outline) ──────────────────────────────────────────── */}
-        <div className="space-y-1.5">
-          <label className="label-text font-medium text-base-content/80">
-            章纲
-          </label>
-          <textarea
-            value={summary}
-            onChange={(e) => setSummary?.(e.target.value)}
-            className="textarea textarea-bordered w-full min-h-[100px] text-sm leading-relaxed"
-            placeholder="章纲（概述本章情节走向）"
-          />
-        </div>
-
-        {/* ── 正文（提示词子 label 由 Workbench 承担，011） ───────────── */}
+        {/* ── 正文（章纲归「章纲」子 label → OutlineEditor，011 后续） ──── */}
         <style>{`
           @keyframes blink-cursor {
             0%, 50% { opacity: 1; }

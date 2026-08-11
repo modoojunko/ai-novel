@@ -24,10 +24,8 @@ export interface ChapterPayload {
 export interface UseChapterDataReturn {
   chapter: ChapterPayload | null;
   prose: string;
-  summary: string;
   status: string;
   setProse: (v: string) => void;
-  setSummary: (v: string) => void;
   setStatus: (v: string) => void;
   isDirty: boolean;
   saveState: SaveState;
@@ -73,11 +71,10 @@ export function useChapterData(
   const [chapter, setChapter] = useState<ChapterPayload | null>(null);
 
   const [prose, setProse] = useState("");
-  const [summary, setSummary] = useState("");
   const [status, setStatus] = useState("outline");
 
-  // 初始快照 → isDirty 三源比较
-  const [initial, setInitial] = useState({ prose: "", summary: "", status: "outline" });
+  // 初始快照 → isDirty 两源比较（章纲归 useOutline 单一属主，011 后续）
+  const [initial, setInitial] = useState({ prose: "", status: "outline" });
   const [saveState, setSaveState] = useState<SaveState>("saved");
 
   const [targetWords, setTargetWordsState] = useState<number>(() => {
@@ -88,14 +85,13 @@ export function useChapterData(
 
   const isDirty =
     prose !== initial.prose ||
-    summary !== initial.summary ||
     status !== initial.status;
 
   const wordCount = useMemo(() => countChars(prose), [prose]);
 
   // Refs to avoid stale closures in timers / flush callbacks
-  const stateRef = useRef({ prose, summary, status, chapter });
-  stateRef.current = { prose, summary, status, chapter };
+  const stateRef = useRef({ prose, status, chapter });
+  stateRef.current = { prose, status, chapter };
   const initialRef = useRef(initial);
   initialRef.current = initial;
   const dirtyRef = useRef(isDirty);
@@ -114,13 +110,11 @@ export function useChapterData(
         `/novels/${projectId}/chapters/${ref}`,
       );
       setChapter(data);
-      const s = data.outline?.summary || "";
       const p = data.prose || "";
       const st = data.status || "outline";
       setProse(p);
-      setSummary(s);
       setStatus(st);
-      setInitial({ prose: p, summary: s, status: st });
+      setInitial({ prose: p, status: st });
       setSaveState("saved");
     } catch (e: any) {
       setError(e.message || "加载章节失败");
@@ -139,26 +133,25 @@ export function useChapterData(
 
   const doSave = useCallback(async (): Promise<void> => {
     if (savingRef.current) return;
-    const { prose: p, summary: sum, status: st, chapter: ch } = stateRef.current;
+    const { prose: p, status: st, chapter: ch } = stateRef.current;
     if (!ch) return;
     savingRef.current = true;
     setSaveState("autosaving");
     try {
-      // 优先 PUT .../prose（后端 #12）；未就位降级 PUT /chapters/{ref} 全量
+      // 优先 PUT .../prose（后端 #12）；未就位降级 PUT /chapters/{ref} 全量（outline 原样保留，属主 useOutline）
       try {
         await api.put(`/novels/${projectId}/chapters/${ref}/prose`, { prose: p });
       } catch {
         const updated: ChapterPayload = {
           ...ch,
-          outline: { ...(ch.outline || {}), summary: sum },
           prose: p,
           status: st,
         };
         await api.put(`/novels/${projectId}/chapters/${ref}`, updated);
         setChapter(updated);
       }
-      initialRef.current = { prose: p, summary: sum, status: st };
-      setInitial({ prose: p, summary: sum, status: st });
+      initialRef.current = { prose: p, status: st };
+      setInitial({ prose: p, status: st });
       setSaveState("saved");
     } catch (e: any) {
       setSaveState("failed");
@@ -192,7 +185,7 @@ export function useChapterData(
       void saveFnRef.current();
     }, 1500);
     return () => clearTimeout(timer);
-  }, [prose, summary, status, isDirty]);
+  }, [prose, status, isDirty]);
 
   // -----------------------------------------------------------------------
   // Flush on unmount / chapter switch（防丢窗口）
@@ -244,7 +237,7 @@ export function useChapterData(
         full_text: p,
       });
       setStatus("archived");
-      setInitial({ prose: p, summary: stateRef.current.summary, status: "archived" });
+      setInitial({ prose: p, status: "archived" });
       setSaveState("saved");
       // 通知工作台树刷新 → 卷章列表 status 已置 archived → 📦 即时同步
       window.dispatchEvent(
@@ -259,10 +252,8 @@ export function useChapterData(
   return {
     chapter,
     prose,
-    summary,
     status,
     setProse,
-    setSummary,
     setStatus,
     isDirty,
     saveState,
