@@ -50,6 +50,7 @@ client/backend/server.log
 # Build output
 client/packaging/build/dist/
 client/packaging/build/build/
+client/packaging/build/build_py/
 client/packaging/dist/
 client/frontend/dist/
 

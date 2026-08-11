@@ -43,15 +43,16 @@ a = Analysis(
         'main', 'config', 'db', 'ai_client',
         'aiosqlite', 'sqlalchemy.ext.asyncio',
         'anthropic', 'openai',
-        'yaml', 'httpx', 'passlib', 'bcrypt', 'jose', 'multipart',
+        'yaml', 'httpx', 'jose', 'multipart',
         'auth_local', 'auth_local.middleware', 'auth_local.models',
         'auth_local.router', 'auth_local.service',
-        'projects', 'settings', 'chapters', 'prompt', 'write', 'archive',
-        'workflow.engine', 'workflow.gates',
-        'filesystem', 'filesystem.storage', 'filesystem.init',
+        'settings', 'chapters', 'prompt', 'write', 'archive',
+        'api_configs', 'genres', 'workflow', 'workflow.engine', 'workflow.gates', 'workflow.tier',
+        'filesystem', 'filesystem.storage', 'filesystem.init', 'filesystem.composite_storage',
+        'settings.render',
         'story', 'story.engine', 'story.character_agent', 'story.models',
-        'threads', 'novel',
-        'models', 'models.user', 'models.project', 'models.token_log', 'models.novel_file',
+        'threads', 'novels',
+        'models', 'models.user', 'models.project', 'models.token_log', 'models.chapter', 'models.volume',
     ],
     hookspath=[str(spec_dir / "hooks")],
     hooksconfig={},
@@ -66,13 +67,7 @@ a = Analysis(
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 # ── 可执行文件 ──
-exe = EXE(
-    pyz,
-    a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    [],
+_exe_kwargs = dict(
     name='AI Novel',
     debug=False,
     bootloader_ignore_signals=False,
@@ -89,8 +84,13 @@ exe = EXE(
     icon='icon.ico',
 )
 
-# ── onedir 模式：收集所有文件到输出目录 ──
-if not is_onefile:
+if is_onefile:
+    exe = EXE(pyz, a.scripts, a.binaries, a.zipfiles, a.datas, [], **_exe_kwargs)
+else:
+    # onedir：EXE 只打包启动器，binaries/zipfiles/datas 由 COLLECT 收集。
+    # （若 EXE 与 COLLECT 同时接收 a.binaries，macOS 构建会报
+    #   “Resource 'dist/AI Novel' is not a valid file” —— 输出与收集循环引用。）
+    exe = EXE(pyz, a.scripts, [], exclude_binaries=True, **_exe_kwargs)
     coll = COLLECT(
         exe,
         a.binaries,

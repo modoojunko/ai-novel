@@ -52,12 +52,19 @@ jobs:
 
       - name: Build installer
         shell: bash
+        env:
+          # Git Bash(MSYS2) 会把 /DMyAppVersion=... 转换成 Windows 路径，
+          # iscc 于是看到两个脚本文件而报错 → 关闭参数路径转换
+          MSYS2_ARG_CONV_EXCL: "*"
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          # 手动 dispatch 到 feature 分支时 ref_name 可能含 / 等文件名非法字符，
+          # 清洗进版本号（tag v1.2.3 → 1.2.3 不受影响）
+          VERSION="$(printf '%s' "$VERSION" | tr -c 'A-Za-z0-9._-' '-')"
           cd client/packaging/build
           rm -rf dist build_py
           python -m PyInstaller build.spec --clean --noconfirm --workpath build_py
-          iscc installer.iss /DMyAppVersion=$VERSION
+          iscc /DMyAppVersion=$VERSION installer.iss
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
