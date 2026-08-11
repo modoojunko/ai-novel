@@ -66,7 +66,7 @@ export const api = {
   put: (path: string, body?: unknown) => request(path, { method: 'PUT', body: body !== undefined ? JSON.stringify(body) : undefined }),
   patch: (path: string, body?: unknown) => request(path, { method: 'PATCH', body: body !== undefined ? JSON.stringify(body) : undefined }),
   delete: (path: string) => request(path, { method: 'DELETE' }),
-  /** Fetch phase status and gate warnings for a novel. */
+  /** Fetch phase status for a novel. */
   fetchPhaseStatus: (novelId: string) =>
     request(`/novels/${novelId}/workflow/phase-status`),
   /** Create a new novel. */

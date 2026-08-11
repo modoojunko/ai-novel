@@ -14,9 +14,9 @@ import { test, expect, type Page, type APIRequestContext } from "@playwright/tes
 // 原始 config.json。即使断言失败（finally 仍执行）也不会污染真实登录态。
 // 前置条件：docker 4 服务已启动（S端 19000 + C端 前端 5174）。
 //
-// 设定完成判定（PRD 3.4）：7 项全确认 → GateBanner 消失。world/hooks 走真实表单
-// （回归 world/hooks readiness checker 与前端保存结构不一致的 bug），其余 5 项
-// API 注入内容 + UI 点「完成设定」。
+// 设定完成判定（PRD 3.4）：7 项全确认 → /settings/status 全 true（013：断言机制
+// 由 GateBanner 消失改为后端状态直查）。world/hooks 走真实表单（回归 world/hooks
+// readiness checker 与前端保存结构不一致的 bug），其余 5 项 API 注入内容 + UI 点「完成设定」。
 
 const S_API = "http://127.0.0.1:19000/api/web";
 const ORIGIN = process.env.E2E_BASE_URL || "http://localhost:5174";
@@ -108,6 +108,15 @@ async function apiPutJSON(request: APIRequestContext, token: string, path: strin
     headers: { Authorization: `Bearer ${token}` },
   });
   expect(r.ok()).toBeTruthy();
+}
+
+/** 带 Bearer token 的 API GET 并解析 JSON（013：settings/status 直查）。 */
+async function apiGetJSON(request: APIRequestContext, token: string, path: string) {
+  const r = await request.get(`${ORIGIN}/api${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(r.ok()).toBeTruthy();
+  return r.json();
 }
 
 /** 在设定左侧树点一个设定项（aside 内精确匹配，避开右侧面板标题/横幅文案）。 */
@@ -271,19 +280,19 @@ test("EmptyState 无门控：建书即写，直接写第一章即达编辑器", 
 });
 
 // -------------------------------------------------------------------------
-// PRD 3.4：设定 7 项全确认 → GateBanner 消失
+// PRD 3.4：设定 7 项全确认 → settings-status 全 true（013：GateBanner 已移除）
 // world/hooks 走真实表单（回归 checker 与前端保存结构不一致 bug）；其余 5 项
-// API 注入内容 + UI 完成设定。断言每项「已设定」+ 最终 banner 消失。
+// API 注入内容 + UI 完成设定。断言每项「已设定」+ 最终 status 7 键全绿。
 // -------------------------------------------------------------------------
 
-test("设定 7 项全确认后门控横幅消失（world/hooks 真实表单）", async ({ page, request }) => {
+test("设定 7 项全确认（settings-status 全绿）", async ({ page, request }) => {
   const { restore, token } = await setupSession(page);
   try {
     const pid = await createNovel(page, `全确认${Date.now() % 100000}`);
     await page.goto(`${ORIGIN}/#/novel/${pid}`);
 
-    // 初始：7 项均未确认 → GateBanner 显示「尚未完成设定」
-    await expect(page.getByText(/尚未完成设定/).first()).toBeVisible({ timeout: 10000 });
+    // 013：设定未确认也不渲染「以下阶段尚未就绪」门控横幅（GateBanner 已移除）
+    await expect(page.getByText(/尚未完成设定/)).toHaveCount(0);
 
     // 新落点：默认正文工作台。设定面板经顶部「编辑设定」label 进入（两态共用，011）。
     await page.getByRole("button", { name: "编辑设定" }).click();
@@ -348,9 +357,11 @@ test("设定 7 项全确认后门控横幅消失（world/hooks 真实表单）",
     await openSetting(page, "角色管理");
     await confirmCharacters(page);
 
-    // 7 项全确认 → gate 重算无警告 → GateBanner 消失
-    await expect(page.getByText(/尚未完成设定/)).not.toBeVisible({ timeout: 5000 });
-    await expect(page.getByRole("alert")).not.toBeVisible({ timeout: 5000 });
+    // 7 项全确认 → /settings/status 全 true（PRD 3.4；013：观察点从 GateBanner 消失改为后端直查）
+    const status = await apiGetJSON(request, token, `/novels/${pid}/settings/status`);
+    for (const k of ["synopsis", "genre", "world", "style", "anti-ai", "hooks", "characters"]) {
+      expect(status[k]).toBe(true);
+    }
   } finally {
     restore();
   }

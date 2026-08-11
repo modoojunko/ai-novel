@@ -9,14 +9,8 @@ export interface PhaseStatusMap {
   archive: 'complete' | 'in_progress' | 'skipped' | 'pending';
 }
 
-export interface GateWarning {
-  phase: string;
-  message: string;
-}
-
 export function useNovelState(novelId: string | undefined) {
   const [phaseStatus, setPhaseStatus] = useState<PhaseStatusMap | null>(null);
-  const [warnings, setWarnings] = useState<GateWarning[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -27,7 +21,6 @@ export function useNovelState(novelId: string | undefined) {
     try {
       const res = await api.get(`/novels/${novelId}/workflow/phase-status`);
       setPhaseStatus(res.phases);
-      setWarnings(res.warnings || []);
     } catch {
       setError(true);
     } finally {
@@ -37,5 +30,5 @@ export function useNovelState(novelId: string | undefined) {
 
   useEffect(() => { fetchPhaseStatus(); }, [fetchPhaseStatus]);
 
-  return { phaseStatus, warnings, loading, error, refetch: fetchPhaseStatus };
+  return { phaseStatus, loading, error, refetch: fetchPhaseStatus };
 }

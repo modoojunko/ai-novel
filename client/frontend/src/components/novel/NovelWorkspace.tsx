@@ -8,7 +8,6 @@ import DeleteConfirmModal from "@/components/novel/DeleteConfirmModal";
 import StructureTree from "@/components/novel/StructureTree";
 import SettingsFormField from "@/components/novel/SettingsFormField";
 import ArchivePage from "@/components/novel/ArchivePage";
-import GateBanner from "@/components/novel/GateBanner";
 import OnboardingCard from "@/components/novel/OnboardingCard";
 import { useWorkbench } from "@/hooks/useWorkbench";
 import { useNovelState } from "@/hooks/useNovelState";
@@ -74,7 +73,6 @@ export default function NovelWorkspace() {
           projectId={project?.id ?? ""}
           source={project?.source}
           onGoSettings={() => go("advanced-settings")}
-          onGoAdvanced={(key) => go("advanced-settings", { panel: key })}
           registerRefetch={registerPhaseRefetch}
         />
       </ProContainer>
@@ -122,7 +120,7 @@ export default function NovelWorkspace() {
 }
 
 // ---------------------------------------------------------------------------
-// ProPhaseSurface — PRO 阶段催促子树（GateBanner + OnboardingCard）
+// ProPhaseSurface — PRO 阶段催促子树（OnboardingCard；GateBanner 已移除 013）
 //   位于 ProContainer 内部：免费态不挂载 → useNovelState 零请求
 //   3 label 导航已上移至 ProContainer 外（011），此处不再渲染 TABS
 // ---------------------------------------------------------------------------
@@ -131,31 +129,19 @@ function ProPhaseSurface({
   projectId,
   source,
   onGoSettings,
-  onGoAdvanced,
   registerRefetch,
 }: {
   projectId: string;
   source: string | undefined;
   onGoSettings: () => void;
-  onGoAdvanced: (key: string) => void;
   registerRefetch: (fn: () => void) => void;
 }) {
-  const { phaseStatus, warnings, refetch } = useNovelState(projectId || undefined);
+  const { phaseStatus, refetch } = useNovelState(projectId || undefined);
 
   useEffect(() => {
     registerRefetch(refetch);
     return () => registerRefetch(() => {});
   }, [refetch, registerRefetch]);
-
-  const [bannerDismissed, setBannerDismissed] = useState(() => {
-    if (!projectId) return false;
-    return localStorage.getItem(`gate-banner-dismissed-${projectId}`) === "true";
-  });
-  const handleDismissBanner = useCallback(() => {
-    if (!projectId) return;
-    setBannerDismissed(true);
-    localStorage.setItem(`gate-banner-dismissed-${projectId}`, "true");
-  }, [projectId]);
 
   const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
     if (!projectId) return true;
@@ -173,10 +159,6 @@ function ProPhaseSurface({
 
   return (
     <>
-      {!bannerDismissed && (
-        <GateBanner warnings={warnings} onDismiss={handleDismissBanner} onJump={onGoAdvanced} />
-      )}
-
       {showOnboarding && (
         <OnboardingCard
           novelId={projectId}
@@ -206,24 +188,13 @@ function AdvancedSettingsView({
   initialPanel?: string;
   onSettingConfirmed: () => void;
 }) {
-  const [panel, setPanel] = useState<string>(
-    initialPanel && initialPanel !== "synopsis" ? initialPanel : "world",
-  );
+  const [panel, setPanel] = useState<string>(initialPanel ?? "world");
   const { settingsStatus, confirmSetting } = useOnboarding(projectId, []);
 
-  // GateBanner 跳转（synopsis → 简介卡 / 设定 key → 对应面板）；已挂载时响应 payload 变化
+  // 初始面板来自导航 payload；已挂载时响应 payload 变化（013：synopsis 跳转已随 GateBanner 移除）
   useEffect(() => {
-    if (initialPanel && initialPanel !== "synopsis") setPanel(initialPanel);
+    if (initialPanel) setPanel(initialPanel);
   }, [initialPanel]);
-  useEffect(() => {
-    if (initialPanel === "synopsis") {
-      setTimeout(() => {
-        const el = document.getElementById("synopsis-card");
-        el?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 120);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const handleConfirm = useCallback(
     async (type: string) => {
