@@ -43,7 +43,9 @@ Uninstallable=yes
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Languages]
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+; ChineseSimplified.isl 为 Inno Setup 非官方语言包，Inno Setup 安装器默认不提供 →
+; 仓库 vendor（languages/ChineseSimplified.isl，源自 jrsoftware/issrc），相对路径引用
+Name: "chinesesimplified"; MessagesFile: "languages\ChineseSimplified.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
