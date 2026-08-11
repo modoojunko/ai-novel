@@ -29,15 +29,28 @@ is_onefile = "--onefile" in sys.argv
 mode_name = "onefile" if is_onefile else "onedir"
 print(f"Building in {mode_name} mode")
 
+# ═══ 可配置：应用图标 ═══
+# 换图标 = 替换 client/packaging/build/ 下对应文件（或用 make_icns.sh 从源重生成）：
+#   icon.ico  → Windows 应用 + Inno Setup 安装器共用
+#   icon.icns → macOS Dock / .app 图标
+# 若改名，只需同步改这里两个变量。
+APP_ICON_ICO = 'icon.ico'
+APP_ICON_ICNS = 'icon.icns'
+APP_ICON = APP_ICON_ICNS if sys.platform == "darwin" else APP_ICON_ICO
+
 # ── Analysis ──
 a = Analysis(
     ['pywebview_app.py'],  # 与 build.spec 同目录
     pathex=[str(root_dir), str(backend_dir)],
     binaries=[],
     datas=[
-        (str(frontend_dist / "index.html"), "frontend"),
-        (str(frontend_dist / "assets"), "frontend/assets"),
+        # 前端整份 dist：index.html + assets/ + env.js + public/*.svg
+        # （只收 index.html + assets 会漏 env.js，index.html 用 <script src="./env.js"> 引用 → 冻结包 404）
+        (str(frontend_dist), "frontend"),
         (str(root_dir / "client" / "reference"), "reference"),
+        # AI 提示词模板：prompts/*.prompt 是运行时数据（prompts/__init__.py 靠 __file__ 定位），
+        # 不打包进 datas 则冻结包内 load_prompt() 抛 FileNotFoundError → 所有 AI 功能崩
+        (str(backend_dir / "prompts"), "prompts"),
     ],
     hiddenimports=[
         'main', 'config', 'db', 'ai_client',
@@ -81,7 +94,7 @@ _exe_kwargs = dict(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='icon.ico',
+    icon=APP_ICON,
 )
 
 if is_onefile:
@@ -101,3 +114,11 @@ else:
         upx_exclude=[],
         name='AI Novel',
     )
+    # macOS: 把 COLLECT 包成 .app（仅 darwin 且 onedir；Windows CI 走不到这里）
+    if sys.platform == "darwin":
+        app = BUNDLE(
+            coll,
+            name='AI Novel.app',
+            icon=APP_ICON_ICNS,
+            bundle_identifier='com.ainovel.desktop',
+        )

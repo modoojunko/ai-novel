@@ -51,6 +51,8 @@ client/backend/server.log
 client/packaging/build/dist/
 client/packaging/build/build/
 client/packaging/build/build_py/
+client/packaging/build/.icns_tmp/
+client/packaging/build/.dmg_stage/
 client/packaging/dist/
 client/frontend/dist/
 

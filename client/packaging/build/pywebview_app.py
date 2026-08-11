@@ -17,12 +17,37 @@ def get_base_dir() -> Path:
     return Path(__file__).parent.parent.parent
 
 
+def get_appdata() -> Path:
+    """运行时数据目录（日志/端口文件等）— 跨平台。
+    Windows: %APPDATA%\AI Novel；macOS: ~/Library/Application Support/AI Novel。"""
+    if sys.platform == "darwin":
+        base = Path.home() / "Library" / "Application Support"
+    else:
+        base = Path(os.environ.get("APPDATA", "."))
+    return base / "AI Novel"
+
+
 def get_install_dir() -> Path:
-    """打包后安装目录（exe 所在目录），便携式便携的关键。"""
+    """数据目录（DATA_ROOT）。Windows 便携式：exe 同目录；macOS：不写进 .app bundle，
+    数据放 Application Support（与运行时目录一致）。"""
     if getattr(sys, 'frozen', False):
+        if sys.platform == "darwin":
+            return get_appdata()
         return Path(sys.executable).parent
     # Dev 模式: 项目根目录
     return Path(__file__).parent.parent.parent
+
+
+def get_resource_root() -> Path:
+    """打包内前端 dist 与 reference 模板所在目录。
+    onedir(Windows): _MEIPASS=_internal；.app(macOS): Contents/Frameworks(_MEIPASS)
+    或 Contents/Resources(PyInstaller 把 datas 放这里，按实际布局探测)。"""
+    base = get_base_dir()
+    candidates = [base, base.parent / "Resources"]
+    for cand in candidates:
+        if (cand / "frontend").exists() and (cand / "reference").exists():
+            return cand
+    return base
 
 
 def start_server():
@@ -35,9 +60,12 @@ def start_server():
     # 安装目录: 数据就跟着 exe 走
     install_dir = get_install_dir()
     install_dir.mkdir(parents=True, exist_ok=True)
-    # 运行时目录（日志等临时文件）仍在 %APPDATA% 避免权限问题
-    appdata = Path(os.environ.get("APPDATA", ".")) / "AI Novel"
+    # 运行时目录（日志等临时文件）— 跨平台取 appdata
+    appdata = get_appdata()
     appdata.mkdir(parents=True, exist_ok=True)
+    # 数据目录（DATA_ROOT）— 全新机器上 data/ 不存在，不建的话 sqlite 打不开 DB
+    data_root = install_dir / "data"
+    data_root.mkdir(parents=True, exist_ok=True)
 
     # 写一条启动日志
     log_file = appdata / "startup.log"
@@ -50,14 +78,19 @@ def start_server():
             sys.stderr = open(os.devnull, "w")
 
         # 设置环境变量 — 数据目录在安装目录下（便携）
-        os.environ.setdefault("DATA_ROOT", str(install_dir / "data"))
+        os.environ.setdefault("DATA_ROOT", str(data_root))
         os.environ.setdefault("SERVER_API_BASE",
             os.environ.get("AI_NOVEL_SERVER_API", "https://your-cloudbase-app.com/api"))
 
-        # PyInstaller 打包后，设置前端 dist 路径
-        frontend_dist = base_dir / "frontend"
+        # PyInstaller 打包后，设置前端 dist 与 reference 模板路径（按打包布局探测）
+        res_root = get_resource_root()
+        frontend_dist = res_root / "frontend"
         if frontend_dist.exists():
             os.environ.setdefault("FRONTEND_DIST", str(frontend_dist))
+        ref_dir = res_root / "reference"
+        if ref_dir.exists():
+            # config.py 的 REFERENCE_DIR 靠 __file__ 相对推导，冻结包对不上 datas 位置 → 显式注入
+            os.environ.setdefault("REFERENCE_DIR", str(ref_dir))
 
         # 使用随机端口避免冲突
         port = random.randint(18000, 18999)
@@ -168,16 +201,24 @@ def check_backend_and_navigate(window, appdata):
             f.write(f"[{time.strftime('%H:%M:%S')}] Backend ready, navigating...\n")
         window.load_url(f"http://127.0.0.1:{port}")
     else:
-        # 超时，弹错误
-        import ctypes
+        # 跨平台错误：写 error.html 并加载到窗口（窗口本就是 HTML，免去 Windows MessageBox）
+        import html
         try:
             with open(appdata / "startup.log") as f:
                 logs = f.read()
         except Exception:
             logs = "无日志"
-        ctypes.windll.user32.MessageBoxW(0,
-            f"后端启动超时，请检查日志:\n{appdata / 'startup.log'}\n\n{logs[-500:]}",
-            "AI Novel 错误", 0x10)
+        err_path = appdata / "error.html"
+        err_path.write_text(
+            "<html><head><meta charset='utf-8'></head><body "
+            "style='font-family:-apple-system,sans-serif;padding:40px;"
+            "background:#1a1a2e;color:#e0e0e0'><h2>AI Novel 启动失败</h2>"
+            "<p>后端启动超时，请检查日志:</p><pre "
+            "style='white-space:pre-wrap;background:#0f3460;padding:16px;border-radius:8px'>"
+            + html.escape(logs[-500:]) + "</pre></body></html>",
+            encoding="utf-8",
+        )
+        window.load_url(err_path.as_uri())
 
 
 def ensure_loading_page(appdata: Path) -> str:
@@ -189,25 +230,32 @@ def ensure_loading_page(appdata: Path) -> str:
 
 def main():
     """主入口"""
-    appdata = Path(os.environ.get("APPDATA", ".")) / "AI Novel"
+    appdata = get_appdata()
     appdata.mkdir(parents=True, exist_ok=True)
+
+    # CI 冒烟模式：不起 GUI，直接跑后端（uvicorn.run 阻塞），供打包验证脚本轮询
+    # /api/health + 断言前端被服务。headless runner 上可靠，也方便本地快速验证打包后端。
+    if "--smoke" in sys.argv:
+        start_server()
+        return
 
     # 把加载页写入临时文件
     loading_url = ensure_loading_page(appdata)
 
-    # 自适应屏幕分辨率
+    # 先弹出 pywebview 窗口显示加载动画
+    import webview
+    # 自适应屏幕分辨率（跨平台：webview.screens 而非 ctypes.windll.user32）
     try:
-        import ctypes
-        user32 = ctypes.windll.user32
-        sw = user32.GetSystemMetrics(0)
-        sh = user32.GetSystemMetrics(1)
-        win_w = sw - 80
-        win_h = sh - 60
+        screen = webview.screens[0]
+        if hasattr(screen, "width"):  # pywebview 6.x
+            win_w = screen.width - 80
+            win_h = screen.height - 60
+        else:  # pywebview 5.x 的 Screen 只有 resolution 元组
+            win_w = screen.resolution[0] - 80
+            win_h = screen.resolution[1] - 60
     except Exception:
         win_w, win_h = 1400, 900
 
-    # 先弹出 pywebview 窗口显示加载动画
-    import webview
     window = webview.create_window(
         title="AI Novel",
         url=loading_url,
