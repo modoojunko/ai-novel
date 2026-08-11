@@ -8,7 +8,6 @@ import DeleteConfirmModal from "@/components/novel/DeleteConfirmModal";
 import StructureTree from "@/components/novel/StructureTree";
 import SettingsFormField from "@/components/novel/SettingsFormField";
 import ArchivePage from "@/components/novel/ArchivePage";
-import TabProgressButton from "@/components/novel/TabProgressButton";
 import GateBanner from "@/components/novel/GateBanner";
 import OnboardingCard from "@/components/novel/OnboardingCard";
 import { useWorkbench } from "@/hooks/useWorkbench";
@@ -23,7 +22,6 @@ import {
   Users,
   Brain,
   BookOpen,
-  ArrowLeft,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -67,26 +65,8 @@ export default function NovelWorkspace() {
 
   return (
     <div className="flex flex-col h-full">
-      <NovelBar onDelete={() => setShowDelete(true)} />
-
-      {/* 3 label 导航（011）：编辑设定 / 编辑正文 / 预览小说，两态共用纯导航无徽标 */}
-      <div className="flex items-center gap-1 px-4 py-1 border-b border-base-300 bg-base-200/30 shrink-0">
-        <TabProgressButton
-          label="编辑设定"
-          active={view === "advanced-settings"}
-          onClick={() => go("advanced-settings")}
-        />
-        <TabProgressButton
-          label="编辑正文"
-          active={view === "workbench"}
-          onClick={() => go("workbench")}
-        />
-        <TabProgressButton
-          label="预览小说"
-          active={view === "archives"}
-          onClick={() => go("archives")}
-        />
-      </div>
+      {/* 3 label 导航已并入 NovelBar 顶栏（012） */}
+      <NovelBar view={view} onNavigate={go} onDelete={() => setShowDelete(true)} />
 
       {/* PRO 阶段催促子树：免费态整棵不渲染、零 phase-status 请求（N14 / 4.1-8） */}
       <ProContainer>
@@ -110,7 +90,6 @@ export default function NovelWorkspace() {
           <AdvancedSettingsView
             projectId={project?.id ?? ""}
             initialPanel={wb.viewPayload?.panel as string | undefined}
-            onBack={() => go("workbench")}
             onSettingConfirmed={() => phaseRefetchRef.current()}
           />
         </div>
@@ -221,12 +200,10 @@ function ProPhaseSurface({
 function AdvancedSettingsView({
   projectId,
   initialPanel,
-  onBack,
   onSettingConfirmed,
 }: {
   projectId: string;
   initialPanel?: string;
-  onBack: () => void;
   onSettingConfirmed: () => void;
 }) {
   const [panel, setPanel] = useState<string>(
@@ -268,37 +245,30 @@ function AdvancedSettingsView({
   );
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-1.5 border-b border-base-300 bg-base-200/30 shrink-0">
-        <span className="text-sm font-medium text-base-content/60">设定</span>
-        <button onClick={onBack} className="btn btn-ghost btn-xs gap-1">
-          <ArrowLeft className="w-3.5 h-3.5" /> 返回正文
-        </button>
-      </div>
-      <div className="flex flex-1 overflow-hidden">
-        <aside className="w-56 flex-shrink-0 overflow-y-auto border-r border-base-300 bg-base-200/30 p-2">
-          <StructureTree
-            nodes={nodes}
-            selectedId={panel}
-            onSelect={(node) => {
-              const d = node.data as Record<string, any> | undefined;
-              if (d?.key) setPanel(d.key as string);
-            }}
-            expandedIds={new Set()}
-            onToggle={() => {}}
-          />
-        </aside>
-        <main className="flex-1 overflow-y-auto p-4">
-          <SettingsFormField
-            projectId={projectId}
-            settingKey={panel}
-            confirmed={settingsStatus?.[panel] ?? false}
-            onConfirm={() => void handleConfirm(panel)}
-            synopsisConfirmed={settingsStatus?.synopsis ?? false}
-            onSynopsisConfirm={() => void handleConfirm("synopsis")}
-          />
-        </main>
-      </div>
+    <div className="flex h-full overflow-hidden">
+      {/* 设定头部行已删（012）：返回靠顶栏「编辑正文」label */}
+      <aside className="w-56 flex-shrink-0 overflow-y-auto border-r border-base-300 bg-base-200/30 p-2">
+        <StructureTree
+          nodes={nodes}
+          selectedId={panel}
+          onSelect={(node) => {
+            const d = node.data as Record<string, any> | undefined;
+            if (d?.key) setPanel(d.key as string);
+          }}
+          expandedIds={new Set()}
+          onToggle={() => {}}
+        />
+      </aside>
+      <main className="flex-1 overflow-y-auto p-4">
+        <SettingsFormField
+          projectId={projectId}
+          settingKey={panel}
+          confirmed={settingsStatus?.[panel] ?? false}
+          onConfirm={() => void handleConfirm(panel)}
+          synopsisConfirmed={settingsStatus?.synopsis ?? false}
+          onSynopsisConfirm={() => void handleConfirm("synopsis")}
+        />
+      </main>
     </div>
   );
 }

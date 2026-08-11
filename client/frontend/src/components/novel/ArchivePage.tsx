@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import {
   Archive,
-  ArrowLeft,
   BookMarked,
   BookOpen,
   ChevronDown,
@@ -464,26 +463,11 @@ export default function ArchivePage({
 
   return (
     <div className="max-w-3xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="btn btn-ghost btn-sm gap-1 text-base-content/60 hover:text-base-content"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            返回项目
-          </button>
-        </div>
-        <div className="flex items-center gap-2">
-          <Archive className="w-4 h-4 text-base-content/40" />
-          <h2 className="text-base font-medium text-base-content">
-            归档
-          </h2>
-          <span className="badge badge-ghost badge-sm">
-            {archives.length}章
-          </span>
-        </div>
+      {/* 头部行已删（012）：返回靠顶栏「编辑正文」label，归档计数下沉为内容标题 */}
+      <div className="flex items-center gap-2 mb-4">
+        <Archive className="w-4 h-4 text-base-content/40" />
+        <h2 className="text-base font-medium text-base-content">归档</h2>
+        <span className="badge badge-ghost badge-sm">{archives.length}章</span>
       </div>
 
       {/* Search / filter bar */}

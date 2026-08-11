@@ -4,12 +4,16 @@ import { toast } from "@/lib/toast";
 import { useTier } from "@/hooks/useTier";
 import { Pencil, Trash2 } from "lucide-react";
 import { useProject } from "@/hooks/useProject";
+import TabProgressButton from "./TabProgressButton";
+import type { WorkspaceView } from "@/hooks/useWorkbench";
 
 interface NovelBarProps {
+  view: WorkspaceView;
+  onNavigate: (next: WorkspaceView) => void;
   onDelete: () => void;
 }
 
-export default function NovelBar({ onDelete }: NovelBarProps) {
+export default function NovelBar({ view, onNavigate, onDelete }: NovelBarProps) {
   const { project, updateProject } = useProject();
   const { tier, isFree } = useTier();
 
@@ -39,10 +43,12 @@ export default function NovelBar({ onDelete }: NovelBarProps) {
   const typeLabel = project?.type || project?.genre || "";
 
   return (
-    <div className="flex items-center justify-between px-4 py-2 border-b border-base-300 bg-base-200/50">
-      {/* Project name (inline rename) + type */}
-      <div className="min-w-0 flex items-center gap-2">
-        {editingName ? (
+    <div className="flex items-center gap-2 px-4 py-1.5 border-b border-base-300 bg-base-200/50">
+      {/* 左组：书名（flex-1 吸收剩余 → 右簇靠最右）+ 3 label 导航（012 合并进标题行） */}
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        {/* Project name (inline rename) + type */}
+        <div className="min-w-0 flex items-center gap-2">
+          {editingName ? (
           <input
             className="input input-sm input-bordered w-36 font-serif text-base-content"
             value={nameDraft}
@@ -81,10 +87,30 @@ export default function NovelBar({ onDelete }: NovelBarProps) {
             {typeLabel}
           </span>
         )}
+        </div>
+
+        {/* 3 label 导航（012：并入顶栏，两态共用纯导航无徽标） */}
+        <nav className="flex items-center gap-1 shrink-0" aria-label="小说视图">
+          <TabProgressButton
+            label="编辑设定"
+            active={view === "advanced-settings"}
+            onClick={() => onNavigate("advanced-settings")}
+          />
+          <TabProgressButton
+            label="编辑正文"
+            active={view === "workbench"}
+            onClick={() => onNavigate("workbench")}
+          />
+          <TabProgressButton
+            label="预览小说"
+            active={view === "archives"}
+            onClick={() => onNavigate("archives")}
+          />
+        </nav>
       </div>
 
       {/* Free / PRO hint */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 shrink-0">
         {isFree ? (
           <span className="badge badge-outline badge-sm text-base-content/60">
             免费 · 完整人工写作（限 1 部作品）

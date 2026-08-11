@@ -216,25 +216,24 @@ describe("免费态：无阶段催促 UI、无 AI 字段入口", () => {
 });
 
 describe("advanced-settings 懒挂载 / 离开卸载", () => {
-  it("经「高级配置 ▾ → 设定」进入设定视图，返回正文后卸载", async () => {
+  it("经顶部「编辑设定」进入设定视图，点「编辑正文」返回后卸载", async () => {
     mockEmptyTree();
     renderWorkspace("none");
     await screen.findByText("开始写你的第一部小说");
 
-    // 点顶部「编辑设定」label 进入设定视图
+    // 点顶部「编辑设定」label 进入设定视图（头部行已删：返回靠顶栏「编辑正文」label，012）
     fireEvent.click(screen.getByRole("button", { name: "编辑设定" }));
-    // 设定视图挂载（返回按钮 + 设定树）
-    expect(screen.getByRole("button", { name: "返回正文" })).toBeDefined();
+    // 设定视图挂载（设定树；无「返回正文」按钮）
     await waitFor(() =>
       expect(screen.getAllByText("世界设定").length).toBeGreaterThan(0),
     );
     // workbench 被 hidden 隐藏而非卸载（EmptyState 仍在 DOM 但不可见）
     expect(screen.getByText("开始写你的第一部小说")).not.toBeVisible();
 
-    // 返回正文 → 设定视图卸载
-    fireEvent.click(screen.getByRole("button", { name: "返回正文" }));
+    // 点顶部「编辑正文」label → 设定视图卸载
+    fireEvent.click(screen.getByRole("button", { name: "编辑正文" }));
     await waitFor(() =>
-      expect(screen.queryByRole("button", { name: "返回正文" })).toBeNull(),
+      expect(screen.queryAllByText("世界设定").length).toBe(0),
     );
     expect(screen.getByText("开始写你的第一部小说")).toBeVisible();
   });
@@ -253,12 +252,12 @@ describe("workbench 常驻挂载：切视图 prose 不丢", () => {
     fireEvent.change(textarea, { target: { value: "我在专注写作" } });
     expect(screen.getByDisplayValue("我在专注写作")).toBeDefined();
 
-    // 切到设定 → 返回正文
+    // 切到设定 → 经顶栏「编辑正文」返回
     fireEvent.click(screen.getByRole("button", { name: "编辑设定" }));
     await waitFor(() =>
       expect(screen.getAllByText("世界设定").length).toBeGreaterThan(0),
     );
-    fireEvent.click(screen.getByRole("button", { name: "返回正文" }));
+    fireEvent.click(screen.getByRole("button", { name: "编辑正文" }));
 
     // prose 保留（workbench 未卸载）
     expect(await screen.findByDisplayValue("我在专注写作")).toBeDefined();

@@ -132,12 +132,12 @@ test("免费建书直达正文工作台：零 phase-status，无阶段催促，3
     // ⑧ 全程零 phase-status 请求
     expect(phaseReqs.length).toBe(0);
 
-    // ⑦ 3 label 免费可进设定视图 → 返回正文
+    // ⑦ 3 label 免费可进设定视图 → 经顶栏「编辑正文」返回（012：设定头部行已删）
     await page.getByRole("button", { name: "编辑设定" }).click();
-    await expect(page.getByRole("button", { name: "返回正文" })).toBeVisible({
+    await expect(page.getByText("世界设定").first()).toBeVisible({
       timeout: 5000,
     });
-    await page.getByRole("button", { name: "返回正文" }).click();
+    await page.getByRole("button", { name: "编辑正文" }).click();
     await expect(page.getByText("开始写你的第一部小说")).toBeVisible();
     // 全程仍零 phase-status（设定确认 refetch 免费态为 no-op）
     expect(phaseReqs.length).toBe(0);

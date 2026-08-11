@@ -38,7 +38,7 @@ export default function TabProgressButton({
 
   const statusClass = () => {
     if (active) return '';
-    if (!status || status === 'pending') return 'text-base-content/30';
+    if (!status || status === 'pending') return 'text-base-content/60';
     switch (status) {
       case 'complete': return 'text-success';
       case 'in_progress': return 'text-primary font-bold';
@@ -52,7 +52,7 @@ export default function TabProgressButton({
       onClick={onClick}
       className={`px-3 py-1.5 text-sm rounded-md transition-colors flex items-center gap-1 ${
         active
-          ? "bg-primary text-primary-content font-medium"
+          ? "bg-base-300 text-base-content font-medium"
           : `${statusClass()} hover:text-base-content hover:bg-base-300/40`
       }`}
     >

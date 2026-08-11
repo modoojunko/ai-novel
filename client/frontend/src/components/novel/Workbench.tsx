@@ -169,7 +169,7 @@ export default function Workbench({ wb }: WorkbenchProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* 面包屑（专注模式保留，N17）+ 专注开关 */}
+      {/* 上下文行（012 合并）：面包屑 + 章子 label（正文/章纲/提示词）+ 专注开关 */}
       <div className="flex items-center border-b border-base-300 bg-base-100/60">
         <div className="flex-1 min-w-0">
           <Breadcrumb
@@ -187,16 +187,38 @@ export default function Workbench({ wb }: WorkbenchProps) {
           />
         </div>
         {selectedRef && (
-          <button
-            onClick={() => setFocusMode((v) => !v)}
-            className={`btn btn-ghost btn-xs gap-1 mr-2 ${
-              focusMode ? "text-primary" : "text-base-content/50"
-            }`}
-            title={focusMode ? "退出专注模式 (Esc)" : "专注模式"}
-          >
-            <Maximize2 className="w-3.5 h-3.5" />
-            {focusMode ? "退出专注" : "专注"}
-          </button>
+          <>
+            {/* 章子 label（提示词 PRO-only，011） */}
+            <div className="flex items-center gap-1 px-2 shrink-0">
+              <TabProgressButton
+                label="正文"
+                active={activeTab === "prose"}
+                onClick={() => setActiveTab("prose")}
+              />
+              <TabProgressButton
+                label="章纲"
+                active={activeTab === "outline"}
+                onClick={() => setActiveTab("outline")}
+              />
+              <TierGate feature="prompt-panel">
+                <TabProgressButton
+                  label="提示词"
+                  active={activeTab === "prompt"}
+                  onClick={() => setActiveTab("prompt")}
+                />
+              </TierGate>
+            </div>
+            <button
+              onClick={() => setFocusMode((v) => !v)}
+              className={`btn btn-ghost btn-xs gap-1 mr-2 ${
+                focusMode ? "text-primary" : "text-base-content/50"
+              }`}
+              title={focusMode ? "退出专注模式 (Esc)" : "专注模式"}
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+              {focusMode ? "退出专注" : "专注"}
+            </button>
+          </>
         )}
       </div>
 
@@ -222,29 +244,7 @@ export default function Workbench({ wb }: WorkbenchProps) {
 
         {/* 右编辑器区 */}
         <main className="flex-1 min-w-0 flex flex-col">
-          {/* 章选中中部子 label：正文 / 章纲 / 提示词（提示词 PRO-only，011） */}
-          {selectedRef && (
-            <div className="flex items-center gap-1 px-3 py-1 border-b border-base-300 bg-base-100/60 shrink-0">
-              <TabProgressButton
-                label="正文"
-                active={activeTab === "prose"}
-                onClick={() => setActiveTab("prose")}
-              />
-              <TabProgressButton
-                label="章纲"
-                active={activeTab === "outline"}
-                onClick={() => setActiveTab("outline")}
-              />
-              <TierGate feature="prompt-panel">
-                <TabProgressButton
-                  label="提示词"
-                  active={activeTab === "prompt"}
-                  onClick={() => setActiveTab("prompt")}
-                />
-              </TierGate>
-            </div>
-          )}
-
+          {/* 章子 label 已并入上下文行（012） */}
           <div className={`flex flex-1 min-h-0 ${focusMode ? "" : "overflow-y-auto"}`}>
             {selectedRef ? (
               activeTab === "prose" ? (
