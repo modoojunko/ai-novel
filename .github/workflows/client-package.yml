@@ -1,13 +1,24 @@
 name: C端 打包 (exe + dmg)
 
 on:
-  push:
-    tags:
-      - 'v*'
+  # 每个 PR 做打包验证：改动到 C端/工作流时出双平台安装包（artifact 可下载实测）
+  pull_request:
+    branches:
+      - main
     paths:
       - "client/**"
       - ".github/workflows/client-package.yml"
+  # release：打 v* tag 即出包并发布。
+  # 注意不设 paths 过滤——tag 推送的 paths 判定不可靠，可能静默跳过，保证每个 tag 都跑。
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
+
+# PR 推送新 commit 时取消旧构建，省 CI 分钟
+concurrency:
+  group: package-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
