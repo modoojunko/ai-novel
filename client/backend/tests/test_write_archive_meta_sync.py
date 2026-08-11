@@ -29,7 +29,7 @@ _tmp_data_root = tempfile.mkdtemp(prefix="test_wams_")
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_tmp_db.name}"
 os.environ["DATA_ROOT"] = _tmp_data_root
 
-import auth_local.service as _service  # noqa: E402
+import auth_local.service as _service
 
 _CFG_PATH = os.path.join(_tmp_data_root, "config.json")
 
@@ -39,14 +39,14 @@ def _set_tier(tier: str, api_key: str = ""):
     _service.save_local_config({"tier": tier, "expires_at": "", "api_key": api_key})
 
 
-from auth_local.deps import require_project_limit  # noqa: E402
-from auth_local.middleware import get_current_user  # noqa: E402
-from db import Base, async_session, engine, get_db  # noqa: E402
-from filesystem.storage import get_storage  # noqa: E402
-from main import app  # noqa: E402
-from models import Novel  # noqa: E402
-from models.user import User  # noqa: E402
-from repositories import chapter_repo  # noqa: E402
+from auth_local.deps import require_project_limit
+from auth_local.middleware import get_current_user
+from db import Base, async_session, engine, get_db
+from filesystem.storage import get_storage
+from main import app
+from models import Novel
+from models.user import User
+from repositories import chapter_repo
 
 
 def _run_async(coro):

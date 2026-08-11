@@ -23,16 +23,16 @@ _tmp_data_root = tempfile.mkdtemp(prefix="test_volume_chapter_index_")
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_tmp_db.name}"
 os.environ["DATA_ROOT"] = _tmp_data_root
 
-from db import Base, async_session, engine  # noqa: E402
-from filesystem.index_volumes_chapters import (  # noqa: E402
+from db import Base, async_session, engine
+from filesystem.index_volumes_chapters import (
     _scan_project,
     index_volumes_chapters,
     reindex_project,
 )
-from filesystem.storage import LocalFileBackend  # noqa: E402
-from models import Chapter, Novel, Volume  # noqa: E402
-from novels.service import count_chars  # noqa: E402
-from repositories import chapter_repo, volume_repo  # noqa: E402
+from filesystem.storage import LocalFileBackend
+from models import Chapter, Novel, Volume
+from novels.service import count_chars
+from repositories import chapter_repo, volume_repo
 
 USER_ID = "vi_user"
 
@@ -129,7 +129,7 @@ def test_chapters_table_schema():
     assert "ix_chapters_project_volume_status" in index_names
     # volume_id FK ondelete CASCADE（级联双保险）
     fk = Chapter.__table__.c.volume_id.foreign_keys
-    assert fk and list(fk)[0].ondelete == "CASCADE"
+    assert fk and next(iter(fk)).ondelete == "CASCADE"
 
 
 def test_projects_index_status_column():

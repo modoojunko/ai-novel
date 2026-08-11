@@ -11,10 +11,11 @@
 import logging
 from collections import defaultdict
 
+from sqlalchemy import func, select
+
 from filesystem.storage import get_storage
 from models.chapter import Chapter
 from repositories import chapter_repo, volume_repo
-from sqlalchemy import func, select
 from workflow.engine import strip_suffix, update_phase
 from workflow.gates import gate_settings_complete
 from workflow.tier import tier_or_gate
@@ -76,7 +77,7 @@ async def create_volume(
         {"volume": vol_no, "title": title, "summary": summary, "chapters": []},
     )
     try:
-        vol = await volume_repo.upsert(
+        await volume_repo.upsert(
             db, project.id, vol_no, title=title, summary=summary
         )
         project.total_volumes += 1  # 现状 `= vol_num` 覆盖式是 bug
