@@ -40,7 +40,9 @@ async def archive(
         raise HTTPException(400, "Text too short to archive")
 
     result = await archive_chapter(project.root_path, chapter_ref, full_text)
-    tier_phase_transition(project, "archive")
+    # force：归档是内容驱动操作（≥100 字已校验），phase 仅记账，不再要求 write→archive
+    # 严格流转——直接写第一章的手工路径 phase 停在 outline，严格校验会 500。
+    tier_phase_transition(project, "archive", force=True)
     project.total_archives += 1
 
     # 双写第二步：以 YAML（status=archived）为准刷新 DB 章行；archived_at 为 DB-only 字段显式置

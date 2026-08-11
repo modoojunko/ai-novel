@@ -38,10 +38,13 @@ async def tier_or_gate(db, project, gate_fn, *args) -> GateResult:
     return result
 
 
-def tier_phase_transition(project, new_phase: str):
+def tier_phase_transition(project, new_phase: str, force: bool = False):
     """free 下 `update_phase` 跳过 `can_transition` 校验（force 模式），幂等推进（O3）；
-    PRO 走现状 `update_phase`（非法跳转仍抛 ValueError）。"""
-    if tier_bypass():
+    PRO 走现状 `update_phase`（非法跳转仍抛 ValueError）。
+
+    `force=True` 时两态均直接置位（跳过 can_transition）：供归档等"以操作结果反推阶段"
+    的端点使用——归档前已校验正文 ≥100 字，phase 仅记账，不构成流转约束。"""
+    if force or tier_bypass():
         project.current_phase = new_phase
         return
     update_phase(project, new_phase)

@@ -347,11 +347,9 @@ test("角色：真实创建角色（创建弹窗 → 基本信息 → 保存 →
 test("归档阅读器：预览小说 → 搜索命中/未命中 → 阅读内容 → 编辑回工作台", async ({
   page,
 }) => {
-  // free 态归档为文档化可用路径（tier_phase_transition 对 free force 通过）。
-  // PRO(trial) 手工写第一章后归档会触发 500：项目 phase 停在 outline（直接写第一章
-  // 仅经 POST /volumes 置 outline，手工保存正文不推进 phase），archive 的
-  // update_phase("archive") 要求 phase==write → ValueError。已知缺陷，见注。
-  const { restore } = await setupSession(page, "none");
+  // PRO(trial) 真实用户路径：直接写第一章（phase 停在 outline）→ 归档。
+  // archive 端点为内容驱动（≥100 字已校验），phase 仅记账 force 置 archive，不 500。
+  const { restore } = await setupSession(page, "trial");
   try {
     const pid = await createNovel(page, `归档读${Date.now() % 100000}`);
     const editor = await writeFirstChapter(page);

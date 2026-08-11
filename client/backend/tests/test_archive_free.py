@@ -208,3 +208,23 @@ class TestFreeArchive:
         assert r2.status_code == 200
         warnings = r2.json().get("warnings", [])
         assert not any("no chapters archived yet" in w["message"] for w in warnings)
+
+    def test_pro_manual_first_archive_outline_phase_no_500(self, client):
+        # 用户真实场景：PRO 直接写第一章（建卷建章后 phase 停在 outline，手工保存正文
+        # 不推进 phase）→ 点归档。修复前 tier_phase_transition 走 update_phase 严格校验，
+        # outline→archive 非法 → ValueError → 500。修复后归档内容驱动（≥100 字已校验），
+        # phase 仅记账，force 置 archive。
+        _set_tier("monthly", _future_iso())
+        pid = _create_sparse_project(client)
+        ref = _create_volume_and_chapter(client, pid)
+        r0 = client.get(f"/api/novels/{pid}")
+        assert r0.status_code == 200
+        assert r0.json()["current_phase"] == "outline"
+
+        r = client.post(
+            f"/api/novels/{pid}/chapters/{ref}/archive", json={"full_text": LONG_TEXT}
+        )
+        assert r.status_code == 200, r.text
+
+        r1 = client.get(f"/api/novels/{pid}")
+        assert r1.json()["current_phase"] == "archive"
