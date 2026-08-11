@@ -7,10 +7,8 @@ import { test, expect, type Page } from "@playwright/test";
 // /config API Key 管理 E2E（补测非 AI 功能：CRUD + 连接测试）
 //   ① 空态 + 表单顺序校验（配置名称 → 供应商 → Base URL → API Key）
 //   ② 添加（连接测试网络错误：127.0.0.1:1 立即 ConnectError → network_error）
-//     + 删除 + Undo toast 展示
+//     + 删除 + 撤销真实恢复（后端软删 restore，同 id 复活）
 // =========================================================================
-// 已知缺陷（仅记录不修复）：ApiKeyConfigPage 的 pendingUndo 从未被赋值 →
-// handleUndoDelete 直接 return → 撤销为 no-op。测试只断言 toast 展示，不测撤销恢复。
 
 const S_API = "http://127.0.0.1:19000/api/web";
 const ORIGIN = process.env.E2E_BASE_URL || "http://localhost:5174";
@@ -176,9 +174,11 @@ test("API Key 配置：添加（网络错误）→ 删除 → Undo toast 展示"
       timeout: 5000,
     });
 
-    // Undo toast 展示（pendingUndo 从未赋值 → 撤销为 no-op，仅断言展示）
+    // Undo toast 展示 + 点撤销 → 配置真实恢复（软删 restore 同 id 复活，卡片回来）
     await expect(page.getByText("已删除「e2e测试配置」")).toBeVisible();
-    await expect(page.getByRole("button", { name: "撤销" })).toBeVisible();
+    await page.getByRole("button", { name: "撤销" }).click();
+    await expect(card).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("已删除「e2e测试配置」")).toHaveCount(0);
   } finally {
     restore();
   }
