@@ -58,6 +58,9 @@ jobs:
           MSYS2_ARG_CONV_EXCL: "*"
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          # 手动 dispatch 到 feature 分支时 ref_name 可能含 / 等文件名非法字符，
+          # 清洗进版本号（tag v1.2.3 → 1.2.3 不受影响）
+          VERSION="$(printf '%s' "$VERSION" | tr -c 'A-Za-z0-9._-' '-')"
           cd client/packaging/build
           rm -rf dist build_py
           python -m PyInstaller build.spec --clean --noconfirm --workpath build_py
