@@ -1,4 +1,4 @@
-name: C端 打包 exe
+name: C端 打包 (exe + dmg)
 
 on:
   push:
@@ -14,7 +14,15 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          # macOS: macos-latest = Apple Silicon (arm64)——目标仅 arm64（用户已确认）
+          - os: macos-latest
+            artifact: AI-Novel-Setup-mac
+          - os: windows-latest
+            artifact: AI-Novel-Setup-win
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,10 +40,6 @@ jobs:
           cache: "pip"
           cache-dependency-path: client/backend/requirements.txt
 
-      - name: Install Inno Setup
-        shell: pwsh
-        run: choco install innosetup -y
-
       - name: Build frontend
         shell: bash
         run: |
@@ -43,14 +47,27 @@ jobs:
           npm ci
           npm run build
 
-      - name: Install backend deps
+      - name: Install deps (backend + packaging)
         shell: bash
         run: |
-          cd client/backend
-          pip install -r requirements.txt
-          pip install pyinstaller pywebview
+          pip install -r client/backend/requirements.txt
+          pip install -r client/packaging/build/requirements.txt
 
-      - name: Build installer
+      - name: Build app (PyInstaller)
+        shell: bash
+        run: |
+          cd client/packaging/build
+          rm -rf dist build_py
+          python -m PyInstaller build.spec --clean --noconfirm --workpath build_py
+
+      # ── Windows 专属：Inno Setup 安装包 ──
+      - name: Install Inno Setup
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install innosetup -y
+
+      - name: Build Windows installer
+        if: runner.os == 'Windows'
         shell: bash
         env:
           # Git Bash(MSYS2) 会把 /DMyAppVersion=... 转换成 Windows 路径，
@@ -62,18 +79,53 @@ jobs:
           # 清洗进版本号（tag v1.2.3 → 1.2.3 不受影响）
           VERSION="$(printf '%s' "$VERSION" | tr -c 'A-Za-z0-9._-' '-')"
           cd client/packaging/build
-          rm -rf dist build_py
-          python -m PyInstaller build.spec --clean --noconfirm --workpath build_py
           iscc /DMyAppVersion=$VERSION installer.iss
 
-      - name: Upload artifact
+      - name: Upload Windows installer
+        if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Novel-Setup
+          name: ${{ matrix.artifact }}
           path: client/packaging/dist/AI_Novel_Setup_*.exe
 
-      - name: Release
-        if: startsWith(github.ref, 'refs/tags/')
+      # ── macOS 专属：签名 + DMG ──
+      - name: Codesign app (ad-hoc)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          # arm64 必须签名才能执行；无 Apple Developer 证书用 ad-hoc（-）
+          codesign --force --deep --sign - "client/packaging/build/dist/AI Novel.app"
+
+      - name: Build DMG
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="$(printf '%s' "$VERSION" | tr -c 'A-Za-z0-9._-' '-')"
+          cd client/packaging/build
+          STAGE=.dmg_stage
+          rm -rf "$STAGE"; mkdir -p "$STAGE"
+          cp -R "dist/AI Novel.app" "$STAGE/"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create -volname "AI Novel" -srcfolder "$STAGE" -ov -format UDZO "dist/AI_Novel_mac_$VERSION.dmg"
+          rm -rf "$STAGE"
+
+      - name: Upload macOS DMG
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: client/packaging/build/dist/AI_Novel_mac_*.dmg
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Release (exe + dmg)
         uses: softprops/action-gh-release@v2
         with:
-          files: client/packaging/dist/AI_Novel_Setup_*.exe
+          files: artifacts/**/*
