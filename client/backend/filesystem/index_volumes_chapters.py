@@ -88,7 +88,7 @@ async def _scan_project(root: str, *, force: bool = False) -> None:
         # ── 3. 孤儿章文件兜底（DB 无行且无对应卷行 → 建占位卷 + 章）──
         chapter_files = await storage.list_dir(root, "chapters")
         for f in sorted(chapter_files):
-            parsed = _parse_ref(f[: -len(".yaml")] if f.endswith(".yaml") else f)
+            parsed = _parse_ref(f.removesuffix(".yaml"))
             if parsed is None:
                 continue
             vol_no, chapter = parsed

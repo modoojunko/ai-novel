@@ -28,7 +28,7 @@ os.environ["DATA_ROOT"] = _tmp_data_root
 
 # 每个测试模块独立 config.json；set_tier 在调用时重定向 CONFIG_FILE 到本模块路径，
 # 避免跨模块收集顺序导致读到别的模块写入的套餐状态。
-import auth_local.service as _service  # noqa: E402
+import auth_local.service as _service
 
 _CFG_PATH = os.path.join(_tmp_data_root, "config.json")
 
@@ -52,13 +52,13 @@ def _past_iso(days: int = 1) -> str:
     return (datetime.now(UTC) - timedelta(days=days)).date().isoformat()
 
 
-from auth_local.deps import require_project_limit  # noqa: E402
-from auth_local.middleware import get_current_user  # noqa: E402
-from db import Base, async_session, engine, get_db  # noqa: E402
-from main import app  # noqa: E402
-from models.user import User  # noqa: E402
-from workflow.gates import GateResult  # noqa: E402
-from workflow.tier import tier_bypass, tier_or_gate, tier_phase_transition  # noqa: E402
+from auth_local.deps import require_project_limit
+from auth_local.middleware import get_current_user
+from db import Base, async_session, engine, get_db
+from main import app
+from models.user import User
+from workflow.gates import GateResult
+from workflow.tier import tier_bypass, tier_or_gate, tier_phase_transition
 
 # ── Helpers ───────────────────────────────────────────────────────────────
 

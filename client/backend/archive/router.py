@@ -57,8 +57,8 @@ async def archive(
             row.status = "archived"
             row.archived_at = datetime.now(UTC).replace(tzinfo=None)
         await db.commit()
-    except Exception:
-        pass  # DB 失败不 500（YAML 已 archived，读路径自愈）
+    except Exception:  # noqa: BLE001, S110 — DB 失败不 500（YAML 已 archived，读路径自愈）
+        pass
 
     return result
 

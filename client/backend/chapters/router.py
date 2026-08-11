@@ -208,8 +208,8 @@ async def confirm_chapter(
             row.outline_status = "confirmed"
             row.confirmed_at = datetime.now(UTC).replace(tzinfo=None)
             await db.commit()
-    except Exception:
-        pass  # DB 失败不 500（YAML 已 confirmed）
+    except Exception:  # noqa: BLE001, S110 — DB 失败不 500（YAML 已 confirmed）
+        pass
     return {"ok": True, "status": "confirmed"}
 
 
@@ -260,8 +260,8 @@ async def unarchive_chapter(
             row.status = "draft"
             row.archived_at = None
         await db.commit()
-    except Exception:
-        pass  # DB 失败不 500（YAML 已 draft，读路径自愈）
+    except Exception:  # noqa: BLE001, S110 — DB 失败不 500（YAML 已 draft，读路径自愈）
+        pass
 
     return {"ok": True, "ref": chapter_ref}
 
@@ -303,6 +303,6 @@ async def delete_chapter(
                 vol.chapter_count = max(0, vol.chapter_count - 1)
             project.total_chapters = max(0, (project.total_chapters or 0) - 1)
         await db.commit()
-    except Exception:
-        pass  # DB 失败不 500（YAML 已删，树由读路径自愈）
+    except Exception:  # noqa: BLE001, S110 — DB 失败不 500（YAML 已删，树由读路径自愈）
+        pass
     return {"ok": True}

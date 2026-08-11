@@ -26,15 +26,14 @@ _tmp_data_root = tempfile.mkdtemp(prefix="test_workflow_")
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_tmp_db.name}"
 os.environ["DATA_ROOT"] = _tmp_data_root
 
+# Change 002：无 config 默认免费旁路。本模块断言真实 gate 拦截（不完整章节 400），
+# 故显式以付费套餐运行（gate 拦截仅在 tier_bypass=False 时生效）。
+import auth_local.service as _auth_service
 from auth_local.deps import require_ai_access, require_project_limit
 from auth_local.middleware import get_current_user
 from db import Base, async_session, engine, get_db
 from main import app
 from models.user import User
-
-# Change 002：无 config 默认免费旁路。本模块断言真实 gate 拦截（不完整章节 400），
-# 故显式以付费套餐运行（gate 拦截仅在 tier_bypass=False 时生效）。
-import auth_local.service as _auth_service  # noqa: E402
 
 _PRO_CFG_PATH = os.path.join(_tmp_data_root, "config.json")
 

@@ -29,29 +29,43 @@ is_onefile = "--onefile" in sys.argv
 mode_name = "onefile" if is_onefile else "onedir"
 print(f"Building in {mode_name} mode")
 
+# ═══ 可配置：应用图标 ═══
+# 换图标 = 替换 client/packaging/build/ 下对应文件（或用 make_icns.sh 从源重生成）：
+#   icon.ico  → Windows 应用 + Inno Setup 安装器共用
+#   icon.icns → macOS Dock / .app 图标
+# 若改名，只需同步改这里两个变量。
+APP_ICON_ICO = 'icon.ico'
+APP_ICON_ICNS = 'icon.icns'
+APP_ICON = APP_ICON_ICNS if sys.platform == "darwin" else APP_ICON_ICO
+
 # ── Analysis ──
 a = Analysis(
     ['pywebview_app.py'],  # 与 build.spec 同目录
     pathex=[str(root_dir), str(backend_dir)],
     binaries=[],
     datas=[
-        (str(frontend_dist / "index.html"), "frontend"),
-        (str(frontend_dist / "assets"), "frontend/assets"),
+        # 前端整份 dist：index.html + assets/ + env.js + public/*.svg
+        # （只收 index.html + assets 会漏 env.js，index.html 用 <script src="./env.js"> 引用 → 冻结包 404）
+        (str(frontend_dist), "frontend"),
         (str(root_dir / "client" / "reference"), "reference"),
+        # AI 提示词模板：prompts/*.prompt 是运行时数据（prompts/__init__.py 靠 __file__ 定位），
+        # 不打包进 datas 则冻结包内 load_prompt() 抛 FileNotFoundError → 所有 AI 功能崩
+        (str(backend_dir / "prompts"), "prompts"),
     ],
     hiddenimports=[
         'main', 'config', 'db', 'ai_client',
         'aiosqlite', 'sqlalchemy.ext.asyncio',
         'anthropic', 'openai',
-        'yaml', 'httpx', 'passlib', 'bcrypt', 'jose', 'multipart',
+        'yaml', 'httpx', 'jose', 'multipart',
         'auth_local', 'auth_local.middleware', 'auth_local.models',
         'auth_local.router', 'auth_local.service',
-        'projects', 'settings', 'chapters', 'prompt', 'write', 'archive',
-        'workflow.engine', 'workflow.gates',
-        'filesystem', 'filesystem.storage', 'filesystem.init',
+        'settings', 'chapters', 'prompt', 'write', 'archive',
+        'api_configs', 'genres', 'workflow', 'workflow.engine', 'workflow.gates', 'workflow.tier',
+        'filesystem', 'filesystem.storage', 'filesystem.init', 'filesystem.composite_storage',
+        'settings.render',
         'story', 'story.engine', 'story.character_agent', 'story.models',
-        'threads', 'novel',
-        'models', 'models.user', 'models.project', 'models.token_log', 'models.novel_file',
+        'threads', 'novels',
+        'models', 'models.user', 'models.project', 'models.token_log', 'models.chapter', 'models.volume',
     ],
     hookspath=[str(spec_dir / "hooks")],
     hooksconfig={},
@@ -66,13 +80,7 @@ a = Analysis(
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 # ── 可执行文件 ──
-exe = EXE(
-    pyz,
-    a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    [],
+_exe_kwargs = dict(
     name='AI Novel',
     debug=False,
     bootloader_ignore_signals=False,
@@ -86,11 +94,16 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='icon.ico',
+    icon=APP_ICON,
 )
 
-# ── onedir 模式：收集所有文件到输出目录 ──
-if not is_onefile:
+if is_onefile:
+    exe = EXE(pyz, a.scripts, a.binaries, a.zipfiles, a.datas, [], **_exe_kwargs)
+else:
+    # onedir：EXE 只打包启动器，binaries/zipfiles/datas 由 COLLECT 收集。
+    # （若 EXE 与 COLLECT 同时接收 a.binaries，macOS 构建会报
+    #   “Resource 'dist/AI Novel' is not a valid file” —— 输出与收集循环引用。）
+    exe = EXE(pyz, a.scripts, [], exclude_binaries=True, **_exe_kwargs)
     coll = COLLECT(
         exe,
         a.binaries,
@@ -101,3 +114,11 @@ if not is_onefile:
         upx_exclude=[],
         name='AI Novel',
     )
+    # macOS: 把 COLLECT 包成 .app（仅 darwin 且 onedir；Windows CI 走不到这里）
+    if sys.platform == "darwin":
+        app = BUNDLE(
+            coll,
+            name='AI Novel.app',
+            icon=APP_ICON_ICNS,
+            bundle_identifier='com.ainovel.desktop',
+        )

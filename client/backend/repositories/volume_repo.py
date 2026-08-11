@@ -21,10 +21,8 @@ def _parse_volume_no(ref_or_no) -> int | None:
     if isinstance(ref_or_no, int):
         return ref_or_no
     s = str(ref_or_no)
-    if s.endswith(".yaml"):
-        s = s[: -len(".yaml")]
-    if s.startswith("vol-"):
-        s = s[len("vol-") :]
+    s = s.removesuffix(".yaml")
+    s = s.removeprefix("vol-")
     try:
         return int(s)
     except (TypeError, ValueError):
