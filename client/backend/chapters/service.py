@@ -14,8 +14,8 @@ from fastapi import HTTPException
 from filesystem.storage import get_storage
 from novels.service import count_chars
 from repositories import chapter_repo, volume_repo
-from workflow.engine import load_chapter, save_chapter as engine_save_chapter
-from workflow.engine import strip_suffix
+from workflow.engine import load_chapter, strip_suffix
+from workflow.engine import save_chapter as engine_save_chapter
 
 logger = logging.getLogger("uvicorn.error")
 

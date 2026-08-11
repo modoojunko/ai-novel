@@ -51,7 +51,7 @@ async def archive_chapter(root_path: str, chapter_ref: str, full_text: str) -> d
         )
         if summary_text:
             summary = summary_text[:200]
-    except Exception:  # noqa: BLE001 — AI 摘要可选，失败降级为正文前 200 字
+    except Exception:  # noqa: BLE001, S110 — AI 摘要可选，失败降级为正文前 200 字
         pass
 
     chapter["archive_summary"] = summary
