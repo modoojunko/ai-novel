@@ -13,7 +13,8 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
+# HERE = <repo>/client/packaging/build → 上三级才是仓库根（../.. 只到 client/，脚本 [1/5] cd 会失败）
+ROOT="$(cd "$HERE/../../.." && pwd)"
 DIST_DIR="$HERE/dist"
 STAGE="$HERE/.dmg_stage"
 

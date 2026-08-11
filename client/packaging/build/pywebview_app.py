@@ -233,6 +233,12 @@ def main():
     appdata = get_appdata()
     appdata.mkdir(parents=True, exist_ok=True)
 
+    # CI 冒烟模式：不起 GUI，直接跑后端（uvicorn.run 阻塞），供打包验证脚本轮询
+    # /api/health + 断言前端被服务。headless runner 上可靠，也方便本地快速验证打包后端。
+    if "--smoke" in sys.argv:
+        start_server()
+        return
+
     # 把加载页写入临时文件
     loading_url = ensure_loading_page(appdata)
 

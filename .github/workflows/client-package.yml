@@ -71,6 +71,38 @@ jobs:
           rm -rf dist build_py
           python -m PyInstaller build.spec --clean --noconfirm --workpath build_py
 
+      # 冒烟：跑真实产物（--smoke 无头模式，不起 GUI），轮询 /api/health + 断言前端被服务。
+      # 不跑这步，缺失 datas/hiddenimport 的坏包照样绿（历史上漏过 prompts/env.js）。
+      - name: Smoke test (exe — backend + SPA)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          EXE="client/packaging/build/dist/AI Novel/AI Novel.exe"
+          PORT_JSON="$APPDATA/AI Novel/port.json"
+          "$EXE" --smoke >/tmp/ainovel-smoke.log 2>&1 &
+          APP_PID=$!
+          trap 'kill $APP_PID 2>/dev/null || true' EXIT
+          PORT=""
+          for i in $(seq 1 60); do
+            PORT="$(grep -oE '"port"[[:space:]]*:[[:space:]]*[0-9]+' "$PORT_JSON" 2>/dev/null | grep -oE '[0-9]+' || true)"
+            if [ -n "$PORT" ] && curl -sf "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$PORT" ] || ! curl -sf "http://127.0.0.1:$PORT/api/health" >/dev/null; then
+            echo "::error::SMOKE FAILED — backend not ready"
+            echo "--- app log ---"; cat /tmp/ainovel-smoke.log || true
+            echo "--- startup.log ---"; cat "$APPDATA/AI Novel/startup.log" 2>/dev/null || true
+            echo "--- uvicorn.log ---"; cat "$APPDATA/AI Novel/uvicorn.log" 2>/dev/null || true
+            exit 1
+          fi
+          curl -sf "http://127.0.0.1:$PORT/" | grep -q 'id="root"' || {
+            echo "::error::SMOKE FAILED — SPA index.html not served at /"
+            exit 1
+          }
+          echo "SMOKE OK — health + SPA on port $PORT"
+
       # ── Windows 专属：Inno Setup 安装包 ──
       - name: Install Inno Setup
         if: runner.os == 'Windows'
@@ -106,6 +138,36 @@ jobs:
         run: |
           # arm64 必须签名才能执行；无 Apple Developer 证书用 ad-hoc（-）
           codesign --force --deep --sign - "client/packaging/build/dist/AI Novel.app"
+
+      - name: Smoke test (.app — backend + SPA)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          APP="client/packaging/build/dist/AI Novel.app/Contents/MacOS/AI Novel"
+          PORT_JSON="$HOME/Library/Application Support/AI Novel/port.json"
+          "$APP" --smoke >/tmp/ainovel-smoke.log 2>&1 &
+          APP_PID=$!
+          trap 'kill $APP_PID 2>/dev/null || true' EXIT
+          PORT=""
+          for i in $(seq 1 60); do
+            PORT="$(grep -oE '"port"[[:space:]]*:[[:space:]]*[0-9]+' "$PORT_JSON" 2>/dev/null | grep -oE '[0-9]+' || true)"
+            if [ -n "$PORT" ] && curl -sf "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$PORT" ] || ! curl -sf "http://127.0.0.1:$PORT/api/health" >/dev/null; then
+            echo "::error::SMOKE FAILED — backend not ready"
+            echo "--- app log ---"; cat /tmp/ainovel-smoke.log || true
+            echo "--- startup.log ---"; cat "$HOME/Library/Application Support/AI Novel/startup.log" 2>/dev/null || true
+            echo "--- uvicorn.log ---"; cat "$HOME/Library/Application Support/AI Novel/uvicorn.log" 2>/dev/null || true
+            exit 1
+          fi
+          curl -sf "http://127.0.0.1:$PORT/" | grep -q 'id="root"' || {
+            echo "::error::SMOKE FAILED — SPA index.html not served at /"
+            exit 1
+          }
+          echo "SMOKE OK — health + SPA on port $PORT"
 
       - name: Build DMG
         if: runner.os == 'macOS'
