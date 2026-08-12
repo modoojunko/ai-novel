@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useApiConfigs } from "../hooks/useApiConfigs";
 import type { ApiConfig } from "../types/api-config";
 import { MigrationBanner } from "../components/api-config/MigrationBanner";
@@ -26,7 +26,7 @@ export default function ApiKeyConfigPage() {
       navigate("/login", { replace: true });
     }
   }, [navigate]);
-  const { configs, loading, error, addConfig, updateConfig, deleteConfig, restoreConfig, refreshStatus, testConfig, testRawConfig } = useApiConfigs();
+  const { configs, loading, error, refresh, addConfig, updateConfig, deleteConfig, restoreConfig, refreshStatus, testConfig, testRawConfig } = useApiConfigs();
   const [showForm, setShowForm] = useState(false);
   const [editConfig, setEditConfig] = useState<ApiConfig | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApiConfig | null>(null);
@@ -120,6 +120,14 @@ export default function ApiKeyConfigPage() {
         )}
       </div>
 
+      {/* 新手提示：不配置也能先开始手工创作 */}
+      <div className="alert alert-info text-sm mb-4 shadow-sm">
+        <span className="font-medium">新手提示</span>
+        <p className="text-xs">
+          不配置也能先开始手动创作，随时可以回来添加。本地模型（如 Ollama）不需要 API Key；云端模型请选择对应供应商并填入 Base URL 与 Key。
+        </p>
+      </div>
+
       {/* Migration Banner */}
       {migrationStatus && !migrationStatus.completed && (
         <MigrationBanner migrationCompleted={migrationStatus.completed} />
@@ -150,7 +158,12 @@ export default function ApiKeyConfigPage() {
             {[1, 2, 3].map((i) => <ApiConfigCardSkeleton key={i} />)}
           </div>
         ) : error ? (
-          <div className="alert alert-error">{error}</div>
+          <div className="alert alert-error flex-col items-start gap-3">
+            <span>{error}</span>
+            <button className="btn btn-outline btn-sm" onClick={() => void refresh()}>
+              重新加载
+            </button>
+          </div>
         ) : configs.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-4xl mb-3">🔑</div>
@@ -161,6 +174,11 @@ export default function ApiKeyConfigPage() {
             <button className="btn btn-primary" onClick={() => setShowForm(true)}>
               添加 API Key
             </button>
+            <div className="mt-4">
+              <Link to="/novels" className="btn btn-outline btn-sm">
+                先开始手动创作
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

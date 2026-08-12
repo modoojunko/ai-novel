@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { request } from '../lib/api';
 import { toast } from '../lib/toast';
@@ -9,7 +9,30 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState('');
+  const [authUrl, setAuthUrl] = useState('');
+  const cancelledRef = useRef(false);
+  const pollingRef = useRef(false);
   const { refreshStatus, showToast } = useDeviceActivation();
+
+  // 单次 check-auth：已授权则写入 token 并跳转作品列表；返回是否成功
+  const checkAuthorized = useCallback(async (successMsg: string) => {
+    try {
+      const res = await request('/auth/check-auth');
+      if (res.code === 0 && res.data?.token && res.data.token !== 'dev-token') {
+        localStorage.setItem('auth_token', res.data.token);
+        if (res.data.username) localStorage.setItem('auth_username', res.data.username);
+        toast.success(successMsg);
+        // 获取设备激活状态
+        const devStatus = await refreshStatus();
+        if (devStatus) showToast(devStatus);
+        navigate('/novels', { replace: true });
+        return true;
+      }
+    } catch {
+      // S端 不可用或未登录
+    }
+    return false;
+  }, [navigate, refreshStatus, showToast]);
 
   // 静默检测：当前浏览器在 S端 是否已登录
   useEffect(() => {
@@ -20,23 +43,14 @@ export default function LoginPage() {
       return;
     }
     (async () => {
-      try {
-        const res = await request('/auth/check-auth');
-        if (res.code === 0 && res.data?.token && res.data.token !== 'dev-token') {
-          localStorage.setItem('auth_token', res.data.token);
-          if (res.data.username) localStorage.setItem('auth_username', res.data.username);
-          toast.success('自动登录成功');
-          // 获取设备激活状态
-          const devStatus = await refreshStatus();
-          if (devStatus) showToast(devStatus);
-          navigate('/novels', { replace: true });
-          return;
-        }
-      } catch {
-        // S端 不可用或未登录，用户手动点击按钮
-      }
-      setChecking(false);
+      const ok = await checkAuthorized('自动登录成功');
+      if (!ok) setChecking(false);
     })();
+  }, [checkAuthorized]);
+
+  // 卸载时标记取消，停止进行中的轮询（避免 setState-on-unmounted）
+  useEffect(() => {
+    return () => { cancelledRef.current = true; };
   }, []);
 
   const handleBrowserAuth = async () => {
@@ -54,27 +68,48 @@ export default function LoginPage() {
         navigate('/novels', { replace: true });
         return;
       }
-      const authUrl = res.data?.auth_url;
-      if (authUrl) window.open(authUrl, '_blank');
-
-      // 前端轮询 check-auth 直到授权成功
-      let ok = false;
-      for (let i = 0; i < 60; i++) {
-        await new Promise((r) => setTimeout(r, 2000));
-        const check = await request('/auth/check-auth');
-        if (check.code === 0 && check.data?.token) {
-          localStorage.setItem('auth_token', check.data.token);
-          toast.success('登录成功');
-          const devStatus = await refreshStatus();
-          if (devStatus) showToast(devStatus);
-          navigate('/novels', { replace: true });
-          ok = true;
-          break;
-        }
+      const url = res.data?.auth_url;
+      if (!url) {
+        setError('未能获取授权地址，请稍后重试');
+        return;
       }
-      if (!ok) setError('授权超时，请在浏览器中完成登录');
+      setAuthUrl(url);
+      window.open(url, '_blank');
+
+      // 新一次点击先取消上一轮残留轮询，防重入
+      if (pollingRef.current) cancelledRef.current = true;
+      cancelledRef.current = false;
+      pollingRef.current = true;
+      let ok = false;
+      try {
+        // 前端轮询 check-auth 直到授权成功；每轮检查取消标记
+        for (let i = 0; i < 60; i++) {
+          if (cancelledRef.current) break;
+          await new Promise((r) => setTimeout(r, 2000));
+          if (cancelledRef.current) break;
+          const checked = await checkAuthorized('登录成功');
+          if (checked) { ok = true; break; }
+        }
+      } finally {
+        pollingRef.current = false;
+      }
+      if (!ok && !cancelledRef.current) {
+        setError('授权超时，请在浏览器中完成登录，或点击「重新检测」');
+      }
     } catch {
       setError('登录失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 超时后手动触发单次检测（不重复开浏览器/轮询）
+  const retryCheck = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const ok = await checkAuthorized('登录成功');
+      if (!ok) setError('尚未检测到登录，请确认浏览器已完成后重试');
     } finally {
       setLoading(false);
     }
@@ -99,6 +134,11 @@ export default function LoginPage() {
           {loading ? <span className="loading loading-spinner" /> : '打开浏览器登录'}
         </button>
         {error && <p className="text-error text-sm mt-2">{error}</p>}
+        {authUrl && error && (
+          <button className="btn btn-outline btn-sm mt-3" onClick={retryCheck} disabled={loading}>
+            {loading ? <span className="loading loading-spinner" /> : '重新检测'}
+          </button>
+        )}
         <p className="text-xs text-base-content/40 mt-4">将在系统浏览器中打开登录页面</p>
       </div>
     </div>
