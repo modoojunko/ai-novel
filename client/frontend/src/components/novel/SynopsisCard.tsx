@@ -42,19 +42,30 @@ export default function SynopsisCard({ projectId, confirmed, onConfirm }: Synops
     };
   }, [projectId]);
 
-  const save = useCallback(async () => {
-    if (saving) return;
+  const save = useCallback(async (): Promise<boolean> => {
+    if (saving) return false;
     setSaving(true);
     try {
       const r = await api.updateStory(projectId, synopsis);
       setSynopsis(r.synopsis);
       toast.success("简介已保存");
+      return true;
     } catch {
       toast.error("简介保存失败");
+      return false;
     } finally {
       setSaving(false);
     }
   }, [projectId, synopsis, saving]);
+
+  /** gap3：有未保存修改时先保存再确认（editedRef 由 onChange 置位，P3-4）。 */
+  const handleConfirm = useCallback(async () => {
+    if (editedRef.current) {
+      const ok = await save();
+      if (!ok) return;
+    }
+    onConfirm?.();
+  }, [save, onConfirm]);
 
   return (
     <div
@@ -87,7 +98,7 @@ export default function SynopsisCard({ projectId, confirmed, onConfirm }: Synops
         </p>
         <div className="flex items-center gap-2">
           {onConfirm && (
-            <ConfirmToggle confirmed={!!confirmed} onToggle={onConfirm} />
+            <ConfirmToggle confirmed={!!confirmed} onToggle={() => void handleConfirm()} />
           )}
           <button
             className="btn btn-primary btn-sm"
