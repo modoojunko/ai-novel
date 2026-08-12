@@ -55,11 +55,27 @@ export default function NovelWorkspace() {
     phaseRefetchRef.current = fn;
   }, []);
 
+  // gap2：高级设定视图是否有未保存修改（AdvancedSettingsView 经 onDirtyChange 上提）。
+  // useRef 而非 state：go() 是 useCallback，读写 ref 无需引入依赖、不触发重渲。
+  const settingsDirtyRef = useRef(false);
+  const handleSettingsDirty = useCallback((v: boolean) => {
+    settingsDirtyRef.current = v;
+  }, []);
+
   const go = useCallback(
     (next: "workbench" | "advanced-settings" | "archives", payload?: Record<string, any>) => {
+      // gap2：离开设定视图时若有未保存修改，先确认，避免输入被静默丢弃。
+      if (view === "advanced-settings" && next !== "advanced-settings" && settingsDirtyRef.current) {
+        const ok = window.confirm("当前设定有未保存的修改，离开将丢失这些修改。确定继续吗？");
+        if (!ok) return;
+      }
+      // 进入设定视图前复位残留脏标记（防上次未保存的旧标记污染本次导航）。
+      // 仅真正进入时复位：重复点击已激活的「编辑设定」不卸载/不重挂载，
+      // 若无条件复位会清掉 go() 读到的脏标记，导致离开守卫漏拦截。
+      if (next === "advanced-settings" && view !== "advanced-settings") settingsDirtyRef.current = false;
       setView(next, payload);
     },
-    [setView],
+    [view, setView],
   );
 
   return (
@@ -89,6 +105,7 @@ export default function NovelWorkspace() {
             projectId={project?.id ?? ""}
             initialPanel={wb.viewPayload?.panel as string | undefined}
             onSettingConfirmed={() => phaseRefetchRef.current()}
+            onDirtyChange={handleSettingsDirty}
           />
         </div>
       )}
@@ -183,14 +200,26 @@ function AdvancedSettingsView({
   projectId,
   initialPanel,
   onSettingConfirmed,
+  onDirtyChange,
 }: {
   projectId: string;
   initialPanel?: string;
   onSettingConfirmed: () => void;
+  /** gap2：脏状态上提到 NovelWorkspace（useRef），供 go() 离开拦截 */
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [panel, setPanel] = useState<string>(initialPanel ?? "world");
   // P2-1：当前面板是否有未保存修改（由活动表单经 onDirtyChange 上报）
   const [dirty, setDirty] = useState(false);
+
+  // gap2：同时维护面板切换守卫的本地 dirty 与离开守卫的 ref
+  const handleDirtyChange = useCallback(
+    (v: boolean) => {
+      setDirty(v);
+      onDirtyChange?.(v);
+    },
+    [onDirtyChange],
+  );
   const { settingsStatus, confirmSetting } = useOnboarding(projectId, []);
 
   // 初始面板来自导航 payload；已挂载时响应 payload 变化（013：synopsis 跳转已随 GateBanner 移除）
@@ -206,10 +235,10 @@ function AdvancedSettingsView({
         const ok = window.confirm("当前设定面板有未保存的修改，切换面板将丢失这些修改。确定继续吗？");
         if (!ok) return;
       }
-      setDirty(false);
+      handleDirtyChange(false);
       setPanel(key);
     },
-    [panel, dirty],
+    [panel, dirty, handleDirtyChange],
   );
 
   const handleConfirm = useCallback(
@@ -254,7 +283,7 @@ function AdvancedSettingsView({
           onConfirm={() => void handleConfirm(panel)}
           synopsisConfirmed={settingsStatus?.synopsis ?? false}
           onSynopsisConfirm={() => void handleConfirm("synopsis")}
-          onDirtyChange={setDirty}
+          onDirtyChange={handleDirtyChange}
         />
       </main>
     </div>

@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { api } from "@/lib/api";
 import { useDirtyState } from "@/hooks/useDirtyState";
-import { Field, ListEditor, TabBar, SaveButton } from "./FormField";
+import { Field, ListEditor, SaveButton, SettingSaveHandle, TabBar } from "./FormField";
 import AISuggestionModal from "./AISuggestionModal";
 
 interface Props {
@@ -54,7 +54,10 @@ function toTechniqueStrings(v: unknown): string[] {
     .filter(Boolean);
 }
 
-export default function StyleSettingForm({ projectId, settingKey, onDirtyChange }: Props) {
+const StyleSettingForm = forwardRef<SettingSaveHandle, Props>(function StyleSettingForm(
+  { projectId, settingKey, onDirtyChange },
+  ref,
+) {
   const [tab, setTab] = useState("role");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -146,9 +149,13 @@ export default function StyleSettingForm({ projectId, settingKey, onDirtyChange 
       };
       await api.put(`/novels/${projectId}/settings/${settingKey}`, { ...existing, ...edited });
       markSaved();
-    } catch (e: any) { setError(e.message || "保存失败"); }
+      return true;
+    } catch (e: any) { setError(e.message || "保存失败"); return false; }
     finally { setSaving(false); }
   }
+
+  // gap3：完成设定前先把当前表单内容落库（恒保存，幂等）
+  useImperativeHandle(ref, () => ({ save: handleSave }));
 
   async function handleAIGenerate(field: string, forceApi: boolean = false) {
     // If field has content already, show it directly (skip API call)
@@ -252,4 +259,5 @@ export default function StyleSettingForm({ projectId, settingKey, onDirtyChange 
       />
     </div>
   );
-}
+});
+export default StyleSettingForm;

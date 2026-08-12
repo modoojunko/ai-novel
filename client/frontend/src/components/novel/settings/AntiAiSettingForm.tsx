@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { api } from "@/lib/api";
 import { useDirtyState } from "@/hooks/useDirtyState";
-import { ListEditor, TabBar, SaveButton } from "./FormField";
+import { ListEditor, SaveButton, SettingSaveHandle, TabBar } from "./FormField";
 
 interface Props {
   projectId: string;
@@ -125,7 +125,10 @@ function TicPatternEditor({ items, onChange }: { items: TicPattern[]; onChange: 
   );
 }
 
-export default function AntiAiSettingForm({ projectId, settingKey, onDirtyChange }: Props) {
+const AntiAiSettingForm = forwardRef<SettingSaveHandle, Props>(function AntiAiSettingForm(
+  { projectId, settingKey, onDirtyChange },
+  ref,
+) {
   const [tab, setTab] = useState("fatigue");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -185,9 +188,13 @@ export default function AntiAiSettingForm({ projectId, settingKey, onDirtyChange
       };
       await api.put(`/novels/${projectId}/settings/${settingKey}`, { ...existing, ...edited });
       markSaved();
-    } catch (e: any) { setError(e.message || "保存失败"); }
+      return true;
+    } catch (e: any) { setError(e.message || "保存失败"); return false; }
     finally { setSaving(false); }
   }
+
+  // gap3：完成设定前先把当前表单内容落库（恒保存，幂等）
+  useImperativeHandle(ref, () => ({ save: handleSave }));
 
   if (loading) return <div className="flex justify-center py-12"><span className="loading loading-spinner loading-md text-primary" /></div>;
 
@@ -225,4 +232,5 @@ export default function AntiAiSettingForm({ projectId, settingKey, onDirtyChange
       {error && <p className="text-sm text-error/80 mt-3">{error}</p>}
     </div>
   );
-}
+});
+export default AntiAiSettingForm;

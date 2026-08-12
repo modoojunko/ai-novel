@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { api } from "@/lib/api";
 import { useDirtyState } from "@/hooks/useDirtyState";
-import { Field, TabBar, SaveButton } from "./FormField";
+import { Field, SaveButton, SettingSaveHandle, TabBar } from "./FormField";
 import AISuggestionModal from "./AISuggestionModal";
 
 interface Props {
@@ -17,7 +17,10 @@ const TABS = [
   { id: "rules", label: "规则" },
 ];
 
-export default function WorldSettingForm({ projectId, settingKey, onDirtyChange }: Props) {
+const WorldSettingForm = forwardRef<SettingSaveHandle, Props>(function WorldSettingForm(
+  { projectId, settingKey, onDirtyChange },
+  ref,
+) {
   const [tab, setTab] = useState("geo");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -64,10 +67,14 @@ export default function WorldSettingForm({ projectId, settingKey, onDirtyChange 
     try {
       await api.put(`/novels/${projectId}/settings/${settingKey}`, { geography: geo, politics, rules });
       markSaved();
+      return true;
     }
-    catch (e: any) { setError(e.message || "保存失败"); }
+    catch (e: any) { setError(e.message || "保存失败"); return false; }
     finally { setSaving(false); }
   }
+
+  // gap3：SettingsFormField 经 ref 调 save()，完成设定前先把当前表单内容落库（恒保存，幂等）
+  useImperativeHandle(ref, () => ({ save: handleSave }));
 
   function getFieldValue(fieldName: string): string {
     return (geo as any)[fieldName] ?? (politics as any)[fieldName] ?? (rules as any)[fieldName] ?? "";
@@ -165,4 +172,5 @@ export default function WorldSettingForm({ projectId, settingKey, onDirtyChange 
       />
     </div>
   );
-}
+});
+export default WorldSettingForm;

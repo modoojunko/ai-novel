@@ -14,6 +14,10 @@ interface AIPrefilledProps {
   aiPrefilled?: boolean;
 }
 
+// ── SettingSaveHandle ─────────────────────────────────────────────
+/** 表单保存句柄（gap3）：SettingsFormField 持 ref 调用，完成设定前先把内容落库 */
+export type SettingSaveHandle = { save: () => Promise<boolean> };
+
 // ── Field ─────────────────────────────────────────────────────────
 export function Field({ label, hint, value, onChange, aiGeneratable, onAIGenerate, aiLoading, aiPrefilled }: {
   label: string; hint?: string; value: string; onChange: (v: string) => void

@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { api } from "@/lib/api";
 import { useDirtyState } from "@/hooks/useDirtyState";
-import { TabBar, SaveButton } from "./FormField";
+import { SaveButton, SettingSaveHandle, TabBar } from "./FormField";
 import AISuggestionModal from "./AISuggestionModal";
 import { Sparkles, Loader2 } from "lucide-react";
 
@@ -25,7 +25,10 @@ const HOOK_TYPES = [
   { value: "emotion", label: "情感" }, { value: "choice", label: "选择" }, { value: "desire", label: "欲望" },
 ];
 
-export default function HooksSettingForm({ projectId, settingKey, onDirtyChange }: Props) {
+const HooksSettingForm = forwardRef<SettingSaveHandle, Props>(function HooksSettingForm(
+  { projectId, settingKey, onDirtyChange },
+  ref,
+) {
   const [tab, setTab] = useState("active");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -73,10 +76,14 @@ export default function HooksSettingForm({ projectId, settingKey, onDirtyChange 
     try {
       await api.put(`/novels/${projectId}/settings/${settingKey}`, { active, resolved, abandoned });
       markSaved();
+      return true;
     }
-    catch (e: any) { setError(e.message || "保存失败"); }
+    catch (e: any) { setError(e.message || "保存失败"); return false; }
     finally { setSaving(false); }
   }
+
+  // gap3：完成设定前先把当前表单内容落库（恒保存，幂等）
+  useImperativeHandle(ref, () => ({ save: handleSave }));
 
   async function handleAIGenerate(tabName: string, hookIndex: number) {
     const fieldKey = `${tabName}-${hookIndex}`;
@@ -158,7 +165,9 @@ export default function HooksSettingForm({ projectId, settingKey, onDirtyChange 
       />
     </div>
   );
-}
+});
+
+export default HooksSettingForm;
 
 function HookTable({ hooks, onChange, simple, onAIGenerate, isAiLoading }: {
   hooks: any[]; onChange: (v: any[]) => void; simple: boolean;
