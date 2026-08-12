@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import WorldSettingForm from "./settings/WorldSettingForm";
 import StyleSettingForm from "./settings/StyleSettingForm";
 import AntiAiSettingForm from "./settings/AntiAiSettingForm";
@@ -7,6 +8,7 @@ import ConfirmToggle from "./settings/ConfirmToggle";
 import ModelSettingForm from "./settings/ModelSettingForm";
 import GenreSettingForm from "./settings/GenreSettingForm";
 import SynopsisCard from "./SynopsisCard";
+import type { SettingSaveHandle } from "./settings/FormField";
 
 const TITLE_MAP: Record<string, string> = {
   genre: "📖 题材设定",
@@ -34,6 +36,17 @@ interface SettingsFormFieldProps {
 export default function SettingsFormField({ projectId, settingKey, confirmed, onConfirm, synopsisConfirmed, onSynopsisConfirm, onDirtyChange }: SettingsFormFieldProps) {
   const title = TITLE_MAP[settingKey] || settingKey;
 
+  // gap3：4 个「手动保存」表单的 ref（world/style/anti-ai/hooks）。
+  // genre/ai-model 自动保存、数据恒最新，不暴露 save → ref 为 null，直接确认。
+  const formRef = useRef<SettingSaveHandle>(null);
+
+  /** gap3：完成设定前先把当前表单内容落库（恒保存，幂等）；保存失败则中止确认。 */
+  const handleConfirmToggle = async () => {
+    const saved = await formRef.current?.save();
+    if (saved === false) return;
+    onConfirm?.();
+  };
+
   if (settingKey === "characters") {
     return (
       <div className="p-6">
@@ -58,7 +71,7 @@ export default function SettingsFormField({ projectId, settingKey, confirmed, on
             {confirmed ? "已设定" : "待设定"}
           </span>
         </div>
-        <ConfirmToggle confirmed={!!confirmed} onToggle={() => onConfirm?.()} />
+        <ConfirmToggle confirmed={!!confirmed} onToggle={() => void handleConfirmToggle()} />
       </div>
 
       <div className="flex items-center gap-3 px-4 py-2 bg-base-200/40 border border-base-300/50 rounded-lg text-xs mb-5 max-w-3xl mx-auto">
@@ -69,10 +82,10 @@ export default function SettingsFormField({ projectId, settingKey, confirmed, on
       </div>
 
       <div className={`transition-opacity duration-300 ${confirmed ? "opacity-60" : "opacity-100"}`}>
-        {settingKey === "world" && <WorldSettingForm projectId={projectId} settingKey={settingKey} onDirtyChange={onDirtyChange} />}
-        {settingKey === "style" && <StyleSettingForm projectId={projectId} settingKey={settingKey} onDirtyChange={onDirtyChange} />}
-        {settingKey === "anti-ai" && <AntiAiSettingForm projectId={projectId} settingKey={settingKey} onDirtyChange={onDirtyChange} />}
-        {settingKey === "hooks" && <HooksSettingForm projectId={projectId} settingKey={settingKey} onDirtyChange={onDirtyChange} />}
+        {settingKey === "world" && <WorldSettingForm ref={formRef} projectId={projectId} settingKey={settingKey} onDirtyChange={onDirtyChange} />}
+        {settingKey === "style" && <StyleSettingForm ref={formRef} projectId={projectId} settingKey={settingKey} onDirtyChange={onDirtyChange} />}
+        {settingKey === "anti-ai" && <AntiAiSettingForm ref={formRef} projectId={projectId} settingKey={settingKey} onDirtyChange={onDirtyChange} />}
+        {settingKey === "hooks" && <HooksSettingForm ref={formRef} projectId={projectId} settingKey={settingKey} onDirtyChange={onDirtyChange} />}
         {settingKey === "ai-model" && <ModelSettingForm projectId={projectId} settingKey={settingKey} />}
         {settingKey === "genre" && <GenreSettingForm projectId={projectId} settingKey={settingKey} />}
       </div>
