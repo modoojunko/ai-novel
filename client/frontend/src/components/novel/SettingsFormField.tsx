@@ -27,16 +27,18 @@ interface SettingsFormFieldProps {
   synopsisConfirmed?: boolean;
   /** PRD 3.4：简介卡点「完成设定」回调 */
   onSynopsisConfirm?: () => void;
+  /** P2-1：当前面板脏状态回调（未保存修改时 true），切换面板前确认 */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
-export default function SettingsFormField({ projectId, settingKey, confirmed, onConfirm, synopsisConfirmed, onSynopsisConfirm }: SettingsFormFieldProps) {
+export default function SettingsFormField({ projectId, settingKey, confirmed, onConfirm, synopsisConfirmed, onSynopsisConfirm, onDirtyChange }: SettingsFormFieldProps) {
   const title = TITLE_MAP[settingKey] || settingKey;
 
   if (settingKey === "characters") {
     return (
       <div className="p-6">
         <SynopsisCard projectId={projectId} confirmed={synopsisConfirmed} onConfirm={onSynopsisConfirm} />
-        <CharacterManager projectId={projectId} confirmed={confirmed} onConfirm={onConfirm} />
+        <CharacterManager projectId={projectId} confirmed={confirmed} onConfirm={onConfirm} onDirtyChange={onDirtyChange} />
       </div>
     );
   }
@@ -67,10 +69,10 @@ export default function SettingsFormField({ projectId, settingKey, confirmed, on
       </div>
 
       <div className={`transition-opacity duration-300 ${confirmed ? "opacity-60" : "opacity-100"}`}>
-        {settingKey === "world" && <WorldSettingForm projectId={projectId} settingKey={settingKey} />}
-        {settingKey === "style" && <StyleSettingForm projectId={projectId} settingKey={settingKey} />}
-        {settingKey === "anti-ai" && <AntiAiSettingForm projectId={projectId} settingKey={settingKey} />}
-        {settingKey === "hooks" && <HooksSettingForm projectId={projectId} settingKey={settingKey} />}
+        {settingKey === "world" && <WorldSettingForm projectId={projectId} settingKey={settingKey} onDirtyChange={onDirtyChange} />}
+        {settingKey === "style" && <StyleSettingForm projectId={projectId} settingKey={settingKey} onDirtyChange={onDirtyChange} />}
+        {settingKey === "anti-ai" && <AntiAiSettingForm projectId={projectId} settingKey={settingKey} onDirtyChange={onDirtyChange} />}
+        {settingKey === "hooks" && <HooksSettingForm projectId={projectId} settingKey={settingKey} onDirtyChange={onDirtyChange} />}
         {settingKey === "ai-model" && <ModelSettingForm projectId={projectId} settingKey={settingKey} />}
         {settingKey === "genre" && <GenreSettingForm projectId={projectId} settingKey={settingKey} />}
       </div>

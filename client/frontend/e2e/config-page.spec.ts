@@ -60,6 +60,9 @@ function writeOAuthSession(t: string, u: string) {
   cfg.username = u;
   cfg.tier = "trial";
   cfg.last_login_at = new Date().toISOString();
+  // 关键：随机 pc_hash 使 S端 check-auth 无该设备 grant（返回 code 1），useAuthHeal 不覆盖
+  // config.json，注入 token 保持有效。保留真实 pc_hash 会命中 modoojunko 已授权设备 → 401。
+  cfg.pc_hash = randomUUID().replace(/-/g, "");
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
   return () => fs.writeFileSync(CONFIG_PATH, original);
 }

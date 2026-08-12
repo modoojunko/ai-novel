@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { BookOpen, Loader2 } from "lucide-react";
@@ -21,6 +21,8 @@ export default function SynopsisCard({ projectId, confirmed, onConfirm }: Synops
   const [synopsis, setSynopsis] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  // P3-4：用户已手动输入时，晚到的挂载 fetch 不得覆盖输入
+  const editedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,7 +30,7 @@ export default function SynopsisCard({ projectId, confirmed, onConfirm }: Synops
       .fetchStory(projectId)
       .then((r) => {
         if (!cancelled) {
-          setSynopsis(r.synopsis ?? "");
+          if (!editedRef.current) setSynopsis(r.synopsis ?? "");
           setLoaded(true);
         }
       })
@@ -72,7 +74,10 @@ export default function SynopsisCard({ projectId, confirmed, onConfirm }: Synops
         rows={3}
         maxLength={500}
         value={synopsis}
-        onChange={(e) => setSynopsis(e.target.value)}
+        onChange={(e) => {
+          editedRef.current = true;
+          setSynopsis(e.target.value);
+        }}
         disabled={saving}
         aria-label="故事简介"
       />

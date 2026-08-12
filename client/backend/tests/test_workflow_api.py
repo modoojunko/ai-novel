@@ -228,7 +228,7 @@ class TestChapterConfirm:
         # 不填充必填字段直接 confirm -> 400
         r3 = client.post(f"/api/novels/{pid}/chapters/{chapter_ref}/confirm")
         assert r3.status_code == 400
-        assert "not ready" in r3.text.lower()
+        assert "章纲确认失败" in r3.text
 
     def test_confirm_unauthorized_returns_401(self, client):
         app.dependency_overrides.pop(get_current_user, None)

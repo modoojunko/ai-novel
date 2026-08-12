@@ -64,6 +64,9 @@ function writeOAuthSession(t: string, u: string, tier = "trial") {
   cfg.username = u;
   cfg.tier = tier;
   cfg.last_login_at = new Date().toISOString();
+  // 关键：随机 pc_hash 使 S端 check-auth 无该设备 grant（返回 code 1），useAuthHeal 不覆盖
+  // config.json，注入 token 保持有效。保留真实 pc_hash 会命中 modoojunko 已授权设备 → 401。
+  cfg.pc_hash = randomUUID().replace(/-/g, "");
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
   return () => fs.writeFileSync(CONFIG_PATH, original);
 }
@@ -413,6 +416,52 @@ test("归档阅读器：预览小说 → 搜索命中/未命中 → 阅读内容
       timeout: 10000,
     });
     await expect(page.getByPlaceholder("正文（在此撰写小说内容）")).toBeVisible();
+  } finally {
+    restore();
+  }
+});
+
+// -------------------------------------------------------------------------
+// ⑧ P2-1：设定面板切换脏守卫（未保存修改 → confirm 弹窗；取消保留输入，确认才切换）
+// -------------------------------------------------------------------------
+
+test("P2-1 面板切换守卫：脏表单切换需确认，取消保留输入", async ({ page, request }) => {
+  const { restore, token } = await setupSession(page);
+  try {
+    const pid = await createNovel(page, `守卫${Date.now() % 100000}`);
+    await page.getByRole("button", { name: "编辑设定" }).click();
+
+    // 默认面板=世界设定（地理 tab），等表单加载完成
+    const scene = page
+      .locator("label", { hasText: "主要场景" })
+      .locator("xpath=ancestor::div[2]")
+      .locator("textarea");
+    await expect(scene).toBeVisible({ timeout: 10000 });
+
+    // 输入 → 脏状态
+    await scene.fill("边境城邦：临海要塞，北接荒漠");
+
+    // 取消分支：dismiss 确认框 → 面板不切换、输入保留
+    let dialogShown = false;
+    page.once("dialog", (d) => {
+      dialogShown = true;
+      void d.dismiss();
+    });
+    await openSetting(page, "写作风格");
+    expect(dialogShown).toBe(true);
+    await expect(scene).toBeVisible();
+    await expect(scene).toHaveValue("边境城邦：临海要塞，北接荒漠");
+
+    // 确认分支：接受确认框 → 面板切换
+    page.once("dialog", (d) => void d.accept());
+    await openSetting(page, "写作风格");
+    await expect(
+      page.locator("main h2", { hasText: "写作风格" }),
+    ).toBeVisible({ timeout: 5000 });
+
+    // 后端未写入任何世界设定（脏输入未保存）
+    const world = await apiGetJSON(request, token, `/novels/${pid}/settings/world`);
+    expect(world?.geography?.scenes ?? "").toBe("");
   } finally {
     restore();
   }

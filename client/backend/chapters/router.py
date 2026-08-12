@@ -188,7 +188,9 @@ async def confirm_chapter(
     chapter = await load_chapter(project.root_path, chapter_ref)
     result = await tier_or_gate(db, project, gate_chapter_ready, chapter)
     if not result.valid:
-        raise HTTPException(400, f"Chapter not ready: {result.warnings}")
+        # warnings 为中文缺失项（gate_chapter_ready），前端直接透传展示
+        missing = "、".join(result.warnings)
+        raise HTTPException(400, f"章纲确认失败，请先填写：{missing}")
     chapter["status"] = "confirmed"
     await get_storage().write_yaml(
         project.root_path, f"chapters/{chapter_ref}.yaml", chapter

@@ -259,7 +259,7 @@ class TestFreeWorkflowHttp:
         _set_tier("monthly", _future_iso())
         r = client.post(f"/api/novels/{pid}/chapters/{ref}/confirm")
         assert r.status_code == 400
-        assert "not ready" in r.text.lower()
+        assert "章纲确认失败" in r.text
 
     def test_pro_phase_status_real_gates(self, client):
         _set_tier("none")

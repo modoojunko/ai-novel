@@ -39,6 +39,9 @@ client/frontend/dist/
 # Data
 backend/data/
 client/backend/data/
+# 原生 dev 数据归档（dev 统一走 docker compose，数据在 .docker-data/）
+server/data.legacy/
+client/backend/data.legacy/
 ai_config.yaml
 config.json
 
@@ -77,6 +80,10 @@ server/frontend/.vite/
 # 意外生成的包管理器产物（项目用 npm）
 server/frontend/pnpm-lock.yaml
 server/frontend/pnpm-workspace.yaml
+
+# PM 验收走查脚本与截图（一次性验收产物）
+client/frontend/pm-walkthrough.mjs
+client/frontend/pm-shots/
 
 # CDP 调试 Chrome profile 与检查脚本
 .chrome-cdp-profile/

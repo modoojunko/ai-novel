@@ -62,21 +62,21 @@ def gate_chapter_ready(chapter_data: dict) -> GateResult:
     memo = chapter_data.get("memo", {})
 
     if not memo.get("current_task"):
-        missing.append("memo.current_task is empty")
+        missing.append("核心任务")
     rexp = memo.get("reader_expectation", {})
     if not rexp.get("state"):
-        missing.append("memo.reader_expectation.state is empty")
+        missing.append("读者当前状态")
     if not rexp.get("strategy"):
-        missing.append("memo.reader_expectation.strategy is empty")
+        missing.append("预期策略")
     changes = memo.get("required_changes", [])
     if not changes:
-        missing.append("memo.required_changes is empty")
+        missing.append("必须完成的变化")
     ed = chapter_data.get("emotional_design", {})
     if not ed.get("primary_mood"):
-        missing.append("emotional_design.primary_mood is empty")
+        missing.append("主情绪")
     segments = chapter_data.get("segments", [])
     if not segments:
-        missing.append("segments is empty")
+        missing.append("段落规划")
 
     return GateResult(
         valid=len(missing) == 0,

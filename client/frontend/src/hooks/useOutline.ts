@@ -259,8 +259,9 @@ export function useOutline(projectId: string): UseOutlineReturn {
     async (ref: string) => {
       try {
         await api.post(`/novels/${projectId}/chapters/${ref}/confirm`);
-      } catch {
-        toast.error("确认失败，请检查章节内容是否完整");
+      } catch (e: any) {
+        // 后端 400 detail 含具体缺失项（如"章纲确认失败，请先填写：核心任务、段落规划"）
+        toast.error(e?.message || "确认失败，请检查章节内容是否完整");
         return;
       }
 
