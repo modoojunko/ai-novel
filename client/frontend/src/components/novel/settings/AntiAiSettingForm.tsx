@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useDirtyState } from "@/hooks/useDirtyState";
 import { ListEditor, TabBar, SaveButton } from "./FormField";
 
-interface Props { projectId: string; settingKey: string }
+interface Props {
+  projectId: string;
+  settingKey: string;
+  /** P2-1：脏状态回调（未保存修改时 true），父组件切换面板前据此确认 */
+  onDirtyChange?: (dirty: boolean) => void;
+}
 
 interface TicPattern {
   pattern: string;
@@ -119,7 +125,7 @@ function TicPatternEditor({ items, onChange }: { items: TicPattern[]; onChange: 
   );
 }
 
-export default function AntiAiSettingForm({ projectId, settingKey }: Props) {
+export default function AntiAiSettingForm({ projectId, settingKey, onDirtyChange }: Props) {
   const [tab, setTab] = useState("fatigue");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -128,30 +134,41 @@ export default function AntiAiSettingForm({ projectId, settingKey }: Props) {
   const [fatigueWords, setFatigueWords] = useState<Record<string, string[]>>({});
   const [ticPatterns, setTicPatterns] = useState<TicPattern[]>([]);
   const [rewriteDisplay, setRewriteDisplay] = useState("");
+  const currentShape = { fatigueWords, ticPatterns };
+  const { snapshotLoaded, markSaved } = useDirtyState(currentShape, onDirtyChange);
 
   useEffect(() => {
     setLoading(true);
     api.get(`/novels/${projectId}/settings/${settingKey}`)
       .then((d: any) => {
-        if (!d) return;
+        if (!d) {
+          // 空项目无 KV 行 → 以当前（初始）态为快照基线
+          snapshotLoaded(currentShape);
+          return;
+        }
         setExisting(d);
         const fw: Record<string, string[]> = {};
         for (const cat of FATIGUE_CATEGORIES) {
           fw[cat.key] = toWordList(d.fatigue_words_zh?.[cat.key]);
         }
-        setFatigueWords(fw);
-        setTicPatterns((d.structural_tic_patterns || []).map((p: any) => ({
+        const tics = (d.structural_tic_patterns || []).map((p: any) => ({
           pattern: p.pattern || "",
           name: p.name || "",
           threshold: typeof p.threshold === "number" ? p.threshold : 3,
           severity: p.severity || "medium",
           description: p.description || "",
-        })));
+        }));
+        setFatigueWords(fw);
+        setTicPatterns(tics);
         setRewriteDisplay(formatRewriteRules(d.rewrite_rules));
+        snapshotLoaded({ fatigueWords: fw, ticPatterns: tics });
       })
-      .catch(() => setError("加载失败"))
+      .catch(() => {
+        setError("加载失败");
+        snapshotLoaded(currentShape);
+      })
       .finally(() => setLoading(false));
-  }, [projectId, settingKey]);
+  }, [projectId, settingKey, snapshotLoaded]);
 
   async function handleSave() {
     setSaving(true); setError("");
@@ -167,6 +184,7 @@ export default function AntiAiSettingForm({ projectId, settingKey }: Props) {
         structural_tic_patterns: ticPatterns.filter((p) => p.pattern.trim() !== ""),
       };
       await api.put(`/novels/${projectId}/settings/${settingKey}`, { ...existing, ...edited });
+      markSaved();
     } catch (e: any) { setError(e.message || "保存失败"); }
     finally { setSaving(false); }
   }

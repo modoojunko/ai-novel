@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useDirtyState } from "@/hooks/useDirtyState";
 import { Field, TabBar, SaveButton } from "./FormField";
 import AISuggestionModal from "./AISuggestionModal";
 
-interface Props { projectId: string; settingKey: string }
+interface Props {
+  projectId: string;
+  settingKey: string;
+  /** P2-1：脏状态回调（未保存修改时 true），父组件切换面板前据此确认 */
+  onDirtyChange?: (dirty: boolean) => void;
+}
 
 const TABS = [
   { id: "geo", label: "地理" },
@@ -11,7 +17,7 @@ const TABS = [
   { id: "rules", label: "规则" },
 ];
 
-export default function WorldSettingForm({ projectId, settingKey }: Props) {
+export default function WorldSettingForm({ projectId, settingKey, onDirtyChange }: Props) {
   const [tab, setTab] = useState("geo");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -27,23 +33,38 @@ export default function WorldSettingForm({ projectId, settingKey }: Props) {
   const [aiPendingField, setAiPendingField] = useState<string | null>(null);
 
   const currentValues = { geography: geo, politics, rules };
+  const { snapshotLoaded, markSaved } = useDirtyState(currentValues, onDirtyChange);
 
   useEffect(() => {
     setLoading(true);
     api.get(`/novels/${projectId}/settings/${settingKey}`)
       .then((d: any) => {
-        if (!d) return;
-        setGeo({ scenes: d.geography?.scenes || "", climate: d.geography?.climate || "", limits: d.geography?.limits || "" });
-        setPolitics({ rule: d.politics?.rule || "", factions: d.politics?.factions || "", social: d.politics?.social || "", cost: d.politics?.cost || "" });
-        setRules({ world: d.rules?.world || "", society: d.rules?.society || "", personal: d.rules?.personal || "" });
+        if (!d) {
+          // 空项目无 KV 行 → 以当前（初始）态为快照基线
+          snapshotLoaded(currentValues);
+          return;
+        }
+        const geoN = { scenes: d.geography?.scenes || "", climate: d.geography?.climate || "", limits: d.geography?.limits || "" };
+        const polN = { rule: d.politics?.rule || "", factions: d.politics?.factions || "", social: d.politics?.social || "", cost: d.politics?.cost || "" };
+        const rulN = { world: d.rules?.world || "", society: d.rules?.society || "", personal: d.rules?.personal || "" };
+        setGeo(geoN);
+        setPolitics(polN);
+        setRules(rulN);
+        snapshotLoaded({ geography: geoN, politics: polN, rules: rulN });
       })
-      .catch(() => setError("加载失败"))
+      .catch(() => {
+        setError("加载失败");
+        snapshotLoaded(currentValues);
+      })
       .finally(() => setLoading(false));
-  }, [projectId, settingKey]);
+  }, [projectId, settingKey, snapshotLoaded]);
 
   async function handleSave() {
     setSaving(true); setError("");
-    try { await api.put(`/novels/${projectId}/settings/${settingKey}`, { geography: geo, politics, rules }); }
+    try {
+      await api.put(`/novels/${projectId}/settings/${settingKey}`, { geography: geo, politics, rules });
+      markSaved();
+    }
     catch (e: any) { setError(e.message || "保存失败"); }
     finally { setSaving(false); }
   }

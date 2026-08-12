@@ -1,10 +1,16 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useDirtyState } from "@/hooks/useDirtyState";
 import { TabBar, SaveButton } from "./FormField";
 import AISuggestionModal from "./AISuggestionModal";
 import { Sparkles, Loader2 } from "lucide-react";
 
-interface Props { projectId: string; settingKey: string }
+interface Props {
+  projectId: string;
+  settingKey: string;
+  /** P2-1：脏状态回调（未保存修改时 true），父组件切换面板前据此确认 */
+  onDirtyChange?: (dirty: boolean) => void;
+}
 
 const TABS = [
   { id: "active", label: "活跃伏笔" },
@@ -19,7 +25,7 @@ const HOOK_TYPES = [
   { value: "emotion", label: "情感" }, { value: "choice", label: "选择" }, { value: "desire", label: "欲望" },
 ];
 
-export default function HooksSettingForm({ projectId, settingKey }: Props) {
+export default function HooksSettingForm({ projectId, settingKey, onDirtyChange }: Props) {
   const [tab, setTab] = useState("active");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,22 +41,39 @@ export default function HooksSettingForm({ projectId, settingKey }: Props) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiPendingField, setAiPendingField] = useState<string | null>(null);
 
+  const currentShape = { active, resolved, abandoned };
+  const { snapshotLoaded, markSaved } = useDirtyState(currentShape, onDirtyChange);
+
   useEffect(() => {
     setLoading(true);
     api.get(`/novels/${projectId}/settings/${settingKey}`)
       .then((d: any) => {
-        if (!d) return;
-        setActive(d.active || []);
-        setResolved(d.resolved || []);
-        setAbandoned(d.abandoned || []);
+        if (!d) {
+          // 空项目无 KV 行 → 以当前（初始）态为快照基线
+          snapshotLoaded(currentShape);
+          return;
+        }
+        const activeN = d.active || [];
+        const resolvedN = d.resolved || [];
+        const abandonedN = d.abandoned || [];
+        setActive(activeN);
+        setResolved(resolvedN);
+        setAbandoned(abandonedN);
+        snapshotLoaded({ active: activeN, resolved: resolvedN, abandoned: abandonedN });
       })
-      .catch(() => setError("加载失败"))
+      .catch(() => {
+        setError("加载失败");
+        snapshotLoaded(currentShape);
+      })
       .finally(() => setLoading(false));
-  }, [projectId, settingKey]);
+  }, [projectId, settingKey, snapshotLoaded]);
 
   async function handleSave() {
     setSaving(true); setError("");
-    try { await api.put(`/novels/${projectId}/settings/${settingKey}`, { active, resolved, abandoned }); }
+    try {
+      await api.put(`/novels/${projectId}/settings/${settingKey}`, { active, resolved, abandoned });
+      markSaved();
+    }
     catch (e: any) { setError(e.message || "保存失败"); }
     finally { setSaving(false); }
   }

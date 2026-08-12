@@ -1,11 +1,18 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useDirtyState } from "@/hooks/useDirtyState";
 import CharacterCreateModal from "./CharacterCreateModal";
 import ConfirmToggle from "./ConfirmToggle";
 import DeleteConfirmModal from "../DeleteConfirmModal";
 import { Field, TabBar } from "./FormField";
 
-interface Props { projectId: string; confirmed?: boolean; onConfirm?: () => void }
+interface Props {
+  projectId: string;
+  confirmed?: boolean;
+  onConfirm?: () => void;
+  /** P2-1：脏状态回调（角色编辑表单有未保存修改时 true），父组件切换面板前据此确认 */
+  onDirtyChange?: (dirty: boolean) => void;
+}
 
 interface CharData {
   name: string;
@@ -28,7 +35,7 @@ function emptyChar(name = ""): CharData {
   return { name, role: "supporting", appearance: "", background: "", speech: "", world_view: "", self_image: "", values: "", abilities: "", skills: "", environment: "", possessions: "", relationships: "", experiences: "" };
 }
 
-export default function CharacterManager({ projectId, confirmed, onConfirm }: Props) {
+export default function CharacterManager({ projectId, confirmed, onConfirm, onDirtyChange }: Props) {
   const [names, setNames] = useState<string[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [char, setChar] = useState<CharData>(emptyChar());
@@ -38,6 +45,7 @@ export default function CharacterManager({ projectId, confirmed, onConfirm }: Pr
   const [showCreate, setShowCreate] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [charError, setCharError] = useState("");
+  const { snapshotLoaded, markSaved } = useDirtyState(char, onDirtyChange);
 
   const loadNames = () => {
     api.get(`/novels/${projectId}/settings/characters/list`).then(setNames).catch(() => {});
@@ -51,7 +59,7 @@ export default function CharacterManager({ projectId, confirmed, onConfirm }: Pr
     try {
       const d = await api.get(`/novels/${projectId}/settings/character/${name}`);
       if (d && typeof d === "object") {
-        setChar({
+        const ch = {
           name: d.name || name,
           role: d.role || "supporting",
           appearance: d.appearance || "",
@@ -66,11 +74,19 @@ export default function CharacterManager({ projectId, confirmed, onConfirm }: Pr
           possessions: d.possessions || "",
           relationships: d.relationships || "",
           experiences: d.experiences || "",
-        });
+        };
+        setChar(ch);
+        snapshotLoaded(ch);
       } else {
-        setChar(emptyChar(name));
+        const ch = emptyChar(name);
+        setChar(ch);
+        snapshotLoaded(ch);
       }
-    } catch { setChar(emptyChar(name)); }
+    } catch {
+      const ch = emptyChar(name);
+      setChar(ch);
+      snapshotLoaded(ch);
+    }
   }
 
   async function saveCharacter() {
@@ -78,6 +94,7 @@ export default function CharacterManager({ projectId, confirmed, onConfirm }: Pr
     setSaving(true); setCharError("");
     try {
       await api.put(`/novels/${projectId}/settings/character/${selected}`, char);
+      markSaved();
     } catch (e: any) { setCharError(e.message || "保存失败"); }
     finally { setSaving(false); }
   }
@@ -90,6 +107,7 @@ export default function CharacterManager({ projectId, confirmed, onConfirm }: Pr
       await loadNames();
       setSelected(name);
       setChar(payload);
+      snapshotLoaded(payload);
       setShowCreate(false);
       setCharError("");
     } catch (e: any) {
@@ -102,7 +120,11 @@ export default function CharacterManager({ projectId, confirmed, onConfirm }: Pr
     try {
       await api.delete(`/novels/${projectId}/settings/character/${name}`);
       loadNames();
-      if (selected === name) { setSelected(null); setChar(emptyChar()); }
+      if (selected === name) {
+        setSelected(null);
+        setChar(emptyChar());
+        snapshotLoaded(emptyChar());
+      }
       setDeleteTarget(null);
       setCharError("");
     } catch (e: any) { setCharError(e.message || "删除失败"); }

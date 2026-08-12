@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useDirtyState } from "@/hooks/useDirtyState";
 import { Field, ListEditor, TabBar, SaveButton } from "./FormField";
 import AISuggestionModal from "./AISuggestionModal";
 
-interface Props { projectId: string; settingKey: string }
+interface Props {
+  projectId: string;
+  settingKey: string;
+  /** P2-1：脏状态回调（未保存修改时 true），父组件切换面板前据此确认 */
+  onDirtyChange?: (dirty: boolean) => void;
+}
 
 const TABS = [
   { id: "role", label: "叙事身份" },
@@ -48,7 +54,7 @@ function toTechniqueStrings(v: unknown): string[] {
     .filter(Boolean);
 }
 
-export default function StyleSettingForm({ projectId, settingKey }: Props) {
+export default function StyleSettingForm({ projectId, settingKey, onDirtyChange }: Props) {
   const [tab, setTab] = useState("role");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -72,33 +78,52 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
   const [aiPendingField, setAiPendingField] = useState<string | null>(null);
 
   const currentValues = { role, core_principles: principles, possible_mistakes: mistakes, depiction_techniques: techniques };
+  const currentShape = { role, principles, mistakes, techniques, narratorRole, defaultTone, atmosphere, pov, toneTechniques };
+  const { snapshotLoaded, markSaved } = useDirtyState(currentShape, onDirtyChange);
 
   useEffect(() => {
     setLoading(true);
     api.get(`/novels/${projectId}/settings/${settingKey}`)
       .then((d: any) => {
-        if (!d) return;
+        if (!d) {
+          // 空项目无 KV 行 → 以当前（初始）态为快照基线
+          snapshotLoaded(currentShape);
+          return;
+        }
         setExisting(d);
         const p = toFlatList(d.core_principles);
         const m = toFlatList(d.possible_mistakes);
         const t = toTechniqueStrings(d.depiction_techniques);
-        setRole(d.role || "");
-        setPrinciples(p.length ? p : [""]);
-        setMistakes(m.length ? m : [""]);
-        setTechniques(t.length ? t : [""]);
         const tone = d.tone && typeof d.tone === "object" ? (d.tone as Record<string, unknown>) : {};
-        setNarratorRole(d.narrator_role || "");
-        setDefaultTone((tone.default_tone as string) || "");
         const a = toFlatList(tone.atmosphere);
         const v = toFlatList(tone.pov);
         const tt = toFlatList(tone.techniques);
-        setAtmosphere(a.length ? a : [""]);
-        setPov(v.length ? v : [""]);
-        setToneTechniques(tt.length ? tt : [""]);
+        const roleN = d.role || "";
+        const principlesN = p.length ? p : [""];
+        const mistakesN = m.length ? m : [""];
+        const techniquesN = t.length ? t : [""];
+        const narratorN = d.narrator_role || "";
+        const defaultToneN = (tone.default_tone as string) || "";
+        const atmosphereN = a.length ? a : [""];
+        const povN = v.length ? v : [""];
+        const toneTechniquesN = tt.length ? tt : [""];
+        setRole(roleN);
+        setPrinciples(principlesN);
+        setMistakes(mistakesN);
+        setTechniques(techniquesN);
+        setNarratorRole(narratorN);
+        setDefaultTone(defaultToneN);
+        setAtmosphere(atmosphereN);
+        setPov(povN);
+        setToneTechniques(toneTechniquesN);
+        snapshotLoaded({ role: roleN, principles: principlesN, mistakes: mistakesN, techniques: techniquesN, narratorRole: narratorN, defaultTone: defaultToneN, atmosphere: atmosphereN, pov: povN, toneTechniques: toneTechniquesN });
       })
-      .catch(() => setError("加载失败"))
+      .catch(() => {
+        setError("加载失败");
+        snapshotLoaded(currentShape);
+      })
       .finally(() => setLoading(false));
-  }, [projectId, settingKey]);
+  }, [projectId, settingKey, snapshotLoaded]);
 
   async function handleSave() {
     setSaving(true); setError("");
@@ -120,6 +145,7 @@ export default function StyleSettingForm({ projectId, settingKey }: Props) {
         },
       };
       await api.put(`/novels/${projectId}/settings/${settingKey}`, { ...existing, ...edited });
+      markSaved();
     } catch (e: any) { setError(e.message || "保存失败"); }
     finally { setSaving(false); }
   }

@@ -45,8 +45,8 @@ async function mountHook(projectId = "p1") {
 }
 
 describe("confirmChapter", () => {
-  it("确认失败 → toast.error，吞错不 rethrow", async () => {
-    apiState.post.mockRejectedValue(new Error("内容不完整"));
+  it("确认失败 → toast.error 透传后端具体缺失项，吞错不 rethrow", async () => {
+    apiState.post.mockRejectedValue(new Error("章纲确认失败，请先填写：核心任务、段落规划"));
     const { result } = await mountHook();
 
     let resolved = false;
@@ -56,6 +56,16 @@ describe("confirmChapter", () => {
     });
     expect(resolved).toBe(true);
     expect(apiState.post).toHaveBeenCalledWith("/novels/p1/chapters/vol-1-ch-1/confirm");
+    expect(toastState.error).toHaveBeenCalledWith("章纲确认失败，请先填写：核心任务、段落规划");
+  });
+
+  it("确认失败且无错误详情 → 兜底文案", async () => {
+    apiState.post.mockRejectedValue(new Error(""));
+    const { result } = await mountHook();
+
+    await act(async () => {
+      await result.current.confirmChapter("vol-1-ch-1");
+    });
     expect(toastState.error).toHaveBeenCalledWith("确认失败，请检查章节内容是否完整");
   });
 
