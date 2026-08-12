@@ -26,13 +26,12 @@ export default function ApiKeyConfigPage() {
       navigate("/login", { replace: true });
     }
   }, [navigate]);
-  const { configs, loading, error, addConfig, updateConfig, deleteConfig, refreshStatus, testConfig, testRawConfig } = useApiConfigs();
+  const { configs, loading, error, addConfig, updateConfig, deleteConfig, restoreConfig, refreshStatus, testConfig, testRawConfig } = useApiConfigs();
   const [showForm, setShowForm] = useState(false);
   const [editConfig, setEditConfig] = useState<ApiConfig | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApiConfig | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [undoToast, setUndoToast] = useState<{ config: ApiConfig; data: { affected_projects: number } } | null>(null);
-  const [pendingUndo, setPendingUndo] = useState<ApiConfigFormData | null>(null);
   const [migrationStatus, setMigrationStatus] = useState<{ completed: boolean; configName?: string } | undefined>(undefined);
 
   // Check #add anchor
@@ -81,19 +80,18 @@ export default function ApiKeyConfigPage() {
   }, [deleteTarget, deleteConfig]);
 
   const handleUndoDelete = useCallback(async () => {
-    if (!undoToast || !pendingUndo) return;
+    if (!undoToast) return;
     try {
-      await addConfig(pendingUndo);
+      // 撤销 = 后端软删 restore，恢复同一 id（配置名/key/base_url 原样回来）
+      await restoreConfig(undoToast.config.id);
       setUndoToast(null);
-      setPendingUndo(null);
     } catch {
-      // undo failed silently
+      // undo failed silently（配置已不存在等）
     }
-  }, [undoToast, pendingUndo, addConfig]);
+  }, [undoToast, restoreConfig]);
 
   const handleUndoExpire = useCallback(() => {
     setUndoToast(null);
-    setPendingUndo(null);
   }, []);
 
   // Refresh status when configs change

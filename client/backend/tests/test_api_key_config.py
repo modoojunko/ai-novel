@@ -806,6 +806,101 @@ class TestDeleteCascade:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+#  P0 — Soft delete + restore（前端「撤销删除」后端支撑）
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestSoftDeleteRestore:
+    """删除改为软删（status=deleted，行保留），POST restore 恢复同一 id。
+
+    前端 ApiKeyConfigPage 的「撤销」此前是 no-op（pendingUndo 从未赋值），
+    后端无恢复路径。本 change 让撤销真实生效：删除→软删、restore 复活同 id，
+    配置名/加密 key/base_url 原样回来，AI 路径（status==active 过滤）随之恢复可用。
+    删除仍置空受影响项目的 ai_config_id（既有级联契约不变）。
+    """
+
+    RESTORE_USER_ID = "restore-test-user"
+    _setup_done = False
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, client):
+        if not TestSoftDeleteRestore._setup_done:
+            _run_async(_create_user(user_id=self.RESTORE_USER_ID))
+            TestSoftDeleteRestore._setup_done = True
+        app.dependency_overrides[get_current_user] = _make_current_user_override(
+            self.RESTORE_USER_ID
+        )
+        _run_async(_clean_user_configs(self.RESTORE_USER_ID))
+        yield
+
+    def _create(self, client, name: str) -> str:
+        resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": name,
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-restore",
+            },
+        )
+        assert resp.status_code in (200, 201), resp.text
+        return resp.json()["id"]
+
+    def test_delete_is_soft_row_kept_list_excludes(self, client):
+        """TC-SOFT-01: 删除 → 列表不再返回；DB 行保留且 status=deleted。"""
+        config_id = self._create(client, "软删-1")
+        resp = client.delete(f"/api/v1/api-configs/{config_id}")
+        assert resp.status_code == 200
+
+        listed = client.get("/api/v1/api-configs").json()
+        assert all(c["id"] != config_id for c in listed)
+
+        row = _run_async(_get_config(self.RESTORE_USER_ID, config_id))
+        assert row is not None, "软删应保留 DB 行"
+        assert row.status == "deleted"
+
+    def test_restore_brings_config_back_active(self, client):
+        """TC-SOFT-02: restore → 同 id 复活、status=active、列表可见、名称保留。"""
+        config_id = self._create(client, "软删-恢复")
+        client.delete(f"/api/v1/api-configs/{config_id}")
+
+        resp = client.post(f"/api/v1/api-configs/{config_id}/restore")
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["id"] == config_id
+        assert data["status"] == "active"
+        assert data["name"] == "软删-恢复"
+
+        listed = client.get("/api/v1/api-configs").json()
+        assert any(c["id"] == config_id for c in listed)
+
+    def test_restore_non_deleted_returns_400(self, client):
+        """TC-SOFT-03: 对活跃配置 restore → 400（未删除无需恢复）。"""
+        config_id = self._create(client, "活跃-restore-拒绝")
+        resp = client.post(f"/api/v1/api-configs/{config_id}/restore")
+        assert resp.status_code == 400
+
+    def test_restore_not_found_404(self, client):
+        resp = client.post("/api/v1/api-configs/nonexistent/restore")
+        assert resp.status_code == 404
+
+    def test_same_name_recreate_after_delete_409(self, client):
+        """TC-SOFT-04: 软删后同名重建 → 409（名称被 tombstone 保留，语义与软删一致）。"""
+        config_id = self._create(client, "软删-同名")
+        client.delete(f"/api/v1/api-configs/{config_id}")
+        resp = client.post(
+            "/api/v1/api-configs",
+            json={
+                "name": "软删-同名",
+                "vendor_id": "openai",
+                "base_url": "https://api.openai.com",
+                "api_key": "sk-restore-2",
+            },
+        )
+        assert resp.status_code == 409
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 #  P0 — Model Selection
 # ═══════════════════════════════════════════════════════════════════════════
 

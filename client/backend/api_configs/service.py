@@ -62,10 +62,10 @@ async def create_api_config(
 
 
 async def get_user_api_configs(db: AsyncSession, user_id: str) -> list[dict[str, Any]]:
-    """List all configs for a user."""
+    """List all configs for a user（软删 status=deleted 的行不返回）。"""
     result = await db.execute(
         select(ApiConfig)
-        .where(ApiConfig.user_id == user_id)
+        .where(ApiConfig.user_id == user_id, ApiConfig.status != "deleted")
         .order_by(ApiConfig.created_at.desc())
     )
     return [_config_to_dict(c) for c in result.scalars().all()]
@@ -168,9 +168,13 @@ async def update_api_config(
 async def delete_api_config(
     db: AsyncSession, user_id: str, config_id: str
 ) -> dict[str, Any] | None:
-    """Delete a config. Returns None if not found.
+    """Soft-delete a config. Returns None if not found.
 
     Returns dict with affected_projects count and affected_names list.
+
+    软删（status=deleted，行保留）：前端「撤销删除」可经 restore 复活同一 id——
+    配置名/加密 key/base_url 原样回来，项目引用（已置空）由调用方撤销后另行恢复。
+    项目引用仍置空（既有级联契约），AI 路径按 status==active 过滤，软删行不被使用。
     """
     result = await db.execute(
         select(ApiConfig).where(ApiConfig.id == config_id, ApiConfig.user_id == user_id)
@@ -193,7 +197,7 @@ async def delete_api_config(
         p.ai_config_id = None
         # ai_model is intentionally retained for history display
 
-    await db.delete(config)
+    config.status = "deleted"
     await db.commit()
 
     return {
@@ -203,12 +207,38 @@ async def delete_api_config(
     }
 
 
+async def restore_api_config(
+    db: AsyncSession, user_id: str, config_id: str
+) -> dict[str, Any] | None:
+    """Restore a soft-deleted config (undo delete). Returns None if not found.
+
+    仅对 status=deleted 的行生效；活跃配置 restore 视为非法（由调用方 400）。
+    """
+    result = await db.execute(
+        select(ApiConfig).where(ApiConfig.id == config_id, ApiConfig.user_id == user_id)
+    )
+    config = result.scalar_one_or_none()
+    if not config:
+        return None
+    if config.status != "deleted":
+        raise ValueError("配置未删除，无需恢复")
+
+    config.status = "active"
+    await db.commit()
+    await db.refresh(config)
+    return _config_to_dict(config)
+
+
 # ── Status / Batch ─────────────────────────────────────────────────────────
 
 
 async def get_batch_status(db: AsyncSession, user_id: str) -> list[dict[str, Any]]:
-    """Return current status for all user's configs."""
-    result = await db.execute(select(ApiConfig).where(ApiConfig.user_id == user_id))
+    """Return current status for all user's configs（软删行不返回）。"""
+    result = await db.execute(
+        select(ApiConfig).where(
+            ApiConfig.user_id == user_id, ApiConfig.status != "deleted"
+        )
+    )
     statuses = []
     for c in result.scalars().all():
         models_list: list[str] = []

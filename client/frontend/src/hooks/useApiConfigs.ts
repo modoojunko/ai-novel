@@ -84,6 +84,18 @@ export function useApiConfigs() {
     return result;
   };
 
+  const restoreConfig = async (id: string): Promise<ApiConfig> => {
+    // 撤销删除：后端软删后 restore 复活同一 id
+    const resp = await fetch(`${API_BASE}/api-configs/${id}/restore`, {
+      method: "POST",
+      headers: authHeaders(),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const config = await resp.json();
+    setConfigs((prev) => [config, ...prev]);
+    return config;
+  };
+
   const refresh = fetchConfigs;
 
   const refreshStatus = useCallback(async () => {
@@ -159,6 +171,7 @@ export function useApiConfigs() {
     addConfig,
     updateConfig,
     deleteConfig,
+    restoreConfig,
     refresh,
     refreshStatus,
     refreshModels,

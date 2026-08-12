@@ -47,6 +47,7 @@ from .service import (
     get_project_usage,
     get_usage_summary,
     get_user_api_configs,
+    restore_api_config,
     restore_model_history,
     set_project_model,
     update_api_config,
@@ -222,8 +223,24 @@ async def delete_config(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete an API Key config."""
+    """Delete an API Key config（软删，status=deleted，行保留供撤销恢复）。"""
     result = await delete_api_config(db, _user_id(user), config_id)
+    if not result:
+        raise HTTPException(404, "配置不存在")
+    return result
+
+
+@router.post("/api-configs/{config_id}/restore")
+async def restore_config(
+    config_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """撤销删除：把软删的配置恢复为 active（同一 id，前端「撤销」调用）。"""
+    try:
+        result = await restore_api_config(db, _user_id(user), config_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     if not result:
         raise HTTPException(404, "配置不存在")
     return result
