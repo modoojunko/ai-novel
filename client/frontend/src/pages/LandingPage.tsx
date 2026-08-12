@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import ThemeToggle from "@/components/novel/ThemeToggle";
 import { isLoggedIn } from "@/lib/auth";
 
@@ -9,6 +10,7 @@ const SECTIONS = [
   { id: "pain-points", label: "创作之痛" },
   { id: "how", label: "工作流" },
   { id: "features", label: "特色" },
+  { id: "pricing", label: "套餐" },
 ];
 
 function scrollTo(id: string) {
@@ -16,6 +18,16 @@ function scrollTo(id: string) {
 }
 
 export default function LandingPage() {
+  const location = useLocation();
+
+  // 从作品列表「了解套餐」带 state.scrollTo 进入时，落地后滚到套餐区块
+  useEffect(() => {
+    const target = (location.state as { scrollTo?: string } | null)?.scrollTo;
+    if (target) {
+      requestAnimationFrame(() => scrollTo(target));
+    }
+  }, [location.state]);
+
   return (
     <div className="min-h-screen bg-base-100 text-base-content">
       {/* Nav */}
@@ -209,6 +221,66 @@ export default function LandingPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ───── 套餐 / Pricing ───── */}
+      <section id="pricing" className="py-20 lg:py-28 bg-base-200/30">
+        <div className="max-w-6xl mx-auto px-6 lg:px-8">
+          <div className="mb-14 text-center animate-fade-up">
+            <span className="text-xs tracking-[0.25em] text-primary font-medium">套餐</span>
+            <h2 className="text-3xl lg:text-4xl font-bold font-serif mt-3 mb-4">免费写作，按需升级</h2>
+            <p className="text-base text-base-content/50 max-w-lg mx-auto">
+              手工创作全免费，AI 能力按 Token 计费。用多少，付多少。
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            {/* 免费版 */}
+            <div className="rounded-2xl p-8 bg-base-100 border border-base-300/50 shadow-sm flex flex-col">
+              <h3 className="text-lg font-semibold font-serif">免费版</h3>
+              <p className="text-sm text-base-content/50 mt-1">手工创作，永远免费</p>
+              <div className="mt-6 space-y-3 flex-1">
+                {[
+                  "卷章管理（树形结构）",
+                  "正文手写编辑",
+                  "版本历史与回溯",
+                  "归档阅读",
+                  "卷章配置",
+                  "进阶设定入口",
+                  "7 项创作设定",
+                ].map((f) => (
+                  <div key={f} className="flex items-center gap-2 text-sm">
+                    <span className="text-success">✓</span> {f}
+                  </div>
+                ))}
+              </div>
+              <Link to="/login" className="btn btn-outline btn-block mt-8">免费开始</Link>
+            </div>
+
+            {/* PRO 版 */}
+            <div className="rounded-2xl p-8 bg-primary/5 border border-primary/30 shadow-lg shadow-primary/5 flex flex-col relative">
+              <span className="absolute -top-3 left-8 text-xs font-medium px-3 py-0.5 rounded-full bg-primary text-primary-content">PRO</span>
+              <h3 className="text-lg font-semibold font-serif">PRO 版</h3>
+              <p className="text-sm text-base-content/50 mt-1">解锁全部 AI 能力</p>
+              <div className="mt-6 space-y-3 flex-1">
+                {[
+                  "AI 设定生成（文风/世界/反AI）",
+                  "章纲进阶字段",
+                  "AI 正文生成（SSE 流式）",
+                  "提示词面板",
+                  "模型自由选择（Haiku / Sonnet）",
+                ].map((f) => (
+                  <div key={f} className="flex items-center gap-2 text-sm">
+                    <span className="text-primary">✦</span> {f}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-8 text-center">
+                <span className="inline-block text-xs text-primary/80 border border-primary/30 rounded-full px-4 py-1.5">按 Token 计费 · 购买见授权服务</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>

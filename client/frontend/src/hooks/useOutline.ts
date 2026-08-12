@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { toast } from "@/lib/toast";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -256,7 +257,12 @@ export function useOutline(projectId: string): UseOutlineReturn {
 
   const confirmChapter = useCallback(
     async (ref: string) => {
-      await api.post(`/novels/${projectId}/chapters/${ref}/confirm`);
+      try {
+        await api.post(`/novels/${projectId}/chapters/${ref}/confirm`);
+      } catch {
+        toast.error("确认失败，请检查章节内容是否完整");
+        return;
+      }
 
       // Optimistically update local state
       const updatedVolumes = volumes.map((v) => ({
@@ -281,9 +287,13 @@ export function useOutline(projectId: string): UseOutlineReturn {
   // -----------------------------------------------------------------------
 
   const transitionToPrompt = useCallback(async () => {
-    await api.post(`/novels/${projectId}/workflow/transition`, {
-      target: "prompt",
-    });
+    try {
+      await api.post(`/novels/${projectId}/workflow/transition`, {
+        target: "prompt",
+      });
+    } catch {
+      toast.error("确认全部章纲失败，请检查是否还有未完成的章节");
+    }
   }, [projectId]);
 
   // -----------------------------------------------------------------------

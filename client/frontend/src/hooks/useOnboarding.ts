@@ -23,7 +23,8 @@ export function useOnboarding(projectId: string | undefined, volumes: any[]) {
   const hasVolumes = volumes.length > 0;
   const allConfirmed =
     settingsStatus !== null && SETTINGS_TYPES.every((t) => settingsStatus[t] === true);
-  const isNew = !hasVolumes && !allConfirmed;
+  // settingsStatus 拉取失败（null）时不能当作「全新项目」——避免把已有数据的项目误拉回设定引导
+  const isNew = settingsStatus !== null && !hasVolumes && !allConfirmed;
 
   const confirmSetting = useCallback(
     async (type: string): Promise<boolean> => {
