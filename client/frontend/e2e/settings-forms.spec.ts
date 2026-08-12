@@ -466,3 +466,136 @@ test("P2-1 面板切换守卫：脏表单切换需确认，取消保留输入", 
     restore();
   }
 });
+
+// -------------------------------------------------------------------------
+// P2-1b/1c/1d：三个「脏意识」缺口（角色切换 / 离开设定视图 / 完成设定自动保存）
+// -------------------------------------------------------------------------
+
+test("P2-1b 角色切换守卫：脏表单切换需确认，取消保留输入", async ({ page }) => {
+  const { restore } = await setupSession(page);
+  try {
+    const pid = await createNovel(page, `守卫角色${Date.now() % 100000}`);
+    await page.getByRole("button", { name: "编辑设定" }).click();
+    await openSetting(page, "角色管理");
+
+    // 创建两个角色（走真实创建弹窗）
+    for (const name of ["阿甲", "阿乙"]) {
+      await page.locator("main").getByRole("button", { name: /新建/ }).click();
+      await page.getByPlaceholder("角色名").fill(name);
+      await page.getByRole("button", { name: "角色：配角" }).click();
+      await page.getByRole("button", { name: "✦ 创建" }).click();
+      await expect(
+        page.locator("main .w-48").getByText(name, { exact: true }),
+      ).toBeVisible({ timeout: 5000 });
+    }
+    // 创建第二个角色后自动选中「阿乙」；先切回「阿甲」（干净，无弹窗）。
+    // 阿甲数据为异步加载（GET /settings/character/阿甲），须等表单角色名=阿甲
+    // （快照已就绪）再输入，否则加载完成会覆盖输入并重置脏标记 → 守卫不触发。
+    await page.locator("main .w-48").getByText("阿甲", { exact: true }).click();
+    await expect(
+      page
+        .locator("label", { hasText: "角色名" })
+        .locator("xpath=ancestor::div[1]")
+        .locator("input"),
+    ).toHaveValue("阿甲", { timeout: 5000 });
+
+    // 编辑阿甲的外貌 → 脏
+    await fillSettingField(page, "外貌", "阿甲的外貌描述");
+    const appearance = page
+      .locator("label", { hasText: "外貌" })
+      .locator("xpath=ancestor::div[2]")
+      .locator("textarea");
+
+    // 取消分支：dismiss → 仍选中阿甲、输入保留
+    let dialogShown = false;
+    page.once("dialog", (d) => {
+      dialogShown = true;
+      void d.dismiss();
+    });
+    await page.locator("main .w-48").getByText("阿乙", { exact: true }).click();
+    expect(dialogShown).toBe(true);
+    await expect(appearance).toHaveValue("阿甲的外貌描述");
+
+    // 确认分支：accept → 切换为阿乙（表单角色名=阿乙）
+    page.once("dialog", (d) => void d.accept());
+    await page.locator("main .w-48").getByText("阿乙", { exact: true }).click();
+    await expect(
+      page
+        .locator("label", { hasText: "角色名" })
+        .locator("xpath=ancestor::div[1]")
+        .locator("input"),
+    ).toHaveValue("阿乙");
+  } finally {
+    restore();
+  }
+});
+
+test("P2-1c 离开设定视图守卫：脏表单离开需确认，取消保留", async ({ page }) => {
+  const { restore } = await setupSession(page);
+  try {
+    await createNovel(page, `守卫离开${Date.now() % 100000}`);
+    await page.getByRole("button", { name: "编辑设定" }).click();
+
+    const scene = page
+      .locator("label", { hasText: "主要场景" })
+      .locator("xpath=ancestor::div[2]")
+      .locator("textarea");
+    await expect(scene).toBeVisible({ timeout: 10000 });
+    await scene.fill("边境城邦：临海要塞，北接荒漠");
+
+    // 取消分支：dismiss → 仍在设定视图、输入保留
+    let dialogShown = false;
+    page.once("dialog", (d) => {
+      dialogShown = true;
+      void d.dismiss();
+    });
+    await page.getByRole("button", { name: "编辑正文" }).click();
+    expect(dialogShown).toBe(true);
+    await expect(scene).toBeVisible();
+    await expect(scene).toHaveValue("边境城邦：临海要塞，北接荒漠");
+
+    // 确认分支：accept → 离开设定视图（世界设定面板卸载）
+    page.once("dialog", (d) => void d.accept());
+    await page.getByRole("button", { name: "编辑正文" }).click();
+    await expect(scene).toHaveCount(0);
+  } finally {
+    restore();
+  }
+});
+
+test("P2-1d 脏表单完成设定：自动保存再确认（内容落库 + 已设定）", async ({
+  page,
+  request,
+}) => {
+  const { restore, token } = await setupSession(page);
+  try {
+    const pid = await createNovel(page, `守卫完成${Date.now() % 100000}`);
+    await page.getByRole("button", { name: "编辑设定" }).click();
+
+    // 填 ≥4 个子字段（3 地理 + 1 政治，readiness 阈值=4），不点保存（脏表单）
+    const scene = page
+      .locator("label", { hasText: "主要场景" })
+      .locator("xpath=ancestor::div[2]")
+      .locator("textarea");
+    await expect(scene).toBeVisible({ timeout: 10000 });
+    await fillSettingField(page, "主要场景", "一座被沙漠包围的边境城邦");
+    await fillSettingField(page, "气候", "昼夜温差极大，夜晚滴水成冰");
+    await fillSettingField(page, "地理限制", "北临黑海，西侧是断崖");
+    await page.getByRole("button", { name: "政治" }).click();
+    await fillSettingField(page, "统治形式", "城主议会制，元老席位世袭");
+
+    // 完成设定 → 应先自动保存（PUT /settings/world）再确认（PUT /settings/status/world）
+    const autoSave = page.waitForResponse(
+      (r) => r.request().method() === "PUT" && r.url().includes("/settings/world"),
+    );
+    await confirmPanel(page, "世界设定");
+    await autoSave;
+
+    // 后端直查：内容已落库（自动保存生效）
+    const world = await apiGetJSON(request, token, `/novels/${pid}/settings/world`);
+    expect(world.geography.scenes).toContain("边境城邦");
+    expect(world.politics.rule).toContain("城主议会制");
+  } finally {
+    restore();
+  }
+});
