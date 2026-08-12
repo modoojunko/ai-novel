@@ -69,8 +69,10 @@ export default function NovelWorkspace() {
         const ok = window.confirm("当前设定有未保存的修改，离开将丢失这些修改。确定继续吗？");
         if (!ok) return;
       }
-      // 进入设定视图前复位残留脏标记（防上次未保存的旧标记污染本次导航）
-      if (next === "advanced-settings") settingsDirtyRef.current = false;
+      // 进入设定视图前复位残留脏标记（防上次未保存的旧标记污染本次导航）。
+      // 仅真正进入时复位：重复点击已激活的「编辑设定」不卸载/不重挂载，
+      // 若无条件复位会清掉 go() 读到的脏标记，导致离开守卫漏拦截。
+      if (next === "advanced-settings" && view !== "advanced-settings") settingsDirtyRef.current = false;
       setView(next, payload);
     },
     [view, setView],
