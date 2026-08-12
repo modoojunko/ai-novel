@@ -45,7 +45,7 @@ export default function CharacterManager({ projectId, confirmed, onConfirm, onDi
   const [showCreate, setShowCreate] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [charError, setCharError] = useState("");
-  const { snapshotLoaded, markSaved } = useDirtyState(char, onDirtyChange);
+  const { isDirty, snapshotLoaded, markSaved } = useDirtyState(char, onDirtyChange);
 
   const loadNames = () => {
     api.get(`/novels/${projectId}/settings/characters/list`).then(setNames).catch(() => {});
@@ -90,13 +90,24 @@ export default function CharacterManager({ projectId, confirmed, onConfirm, onDi
   }
 
   async function saveCharacter() {
-    if (!selected) return;
+    if (!selected) return false;
     setSaving(true); setCharError("");
     try {
       await api.put(`/novels/${projectId}/settings/character/${selected}`, char);
       markSaved();
-    } catch (e: any) { setCharError(e.message || "保存失败"); }
+      return true;
+    } catch (e: any) { setCharError(e.message || "保存失败"); return false; }
     finally { setSaving(false); }
+  }
+
+  /** gap1：切换角色前，若有未保存修改先确认，避免静默丢输入。 */
+  function handleSelectChar(name: string) {
+    if (name === selected) return;
+    if (isDirty) {
+      const ok = window.confirm("当前角色有未保存的修改，切换将丢失这些修改。确定继续吗？");
+      if (!ok) return;
+    }
+    loadCharacter(name);
   }
 
   async function addCharacter(name: string, role: string) {
@@ -130,6 +141,15 @@ export default function CharacterManager({ projectId, confirmed, onConfirm, onDi
     } catch (e: any) { setCharError(e.message || "删除失败"); }
   }
 
+  /** gap3：有选中角色则先保存（恒保存，幂等）再确认；无选中角色直接确认。 */
+  async function handleConfirmToggle() {
+    if (selected) {
+      const ok = await saveCharacter();
+      if (!ok) return;
+    }
+    onConfirm?.();
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-6 py-3 border-b border-base-300">
@@ -158,7 +178,7 @@ export default function CharacterManager({ projectId, confirmed, onConfirm, onDi
                 className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md transition-colors cursor-pointer group ${
                   selected === n ? "bg-primary/10" : "hover:bg-base-300/30"
                 }`}
-                onClick={() => loadCharacter(n)}
+                onClick={() => handleSelectChar(n)}
               >
                 <span className="text-sm">👤</span>
                 <span className={`flex-1 text-sm truncate ${selected === n ? "text-primary font-medium" : "text-base-content/60"}`}>{n}</span>
@@ -256,7 +276,7 @@ export default function CharacterManager({ projectId, confirmed, onConfirm, onDi
 
       <div className="flex items-center justify-between px-6 py-3 border-t border-base-300">
         <span className="text-xs text-base-content/20">{names.length} 个角色</span>
-        <ConfirmToggle confirmed={!!confirmed} onToggle={() => onConfirm?.()} />
+        <ConfirmToggle confirmed={!!confirmed} onToggle={() => void handleConfirmToggle()} />
       </div>
     </div>
   );
