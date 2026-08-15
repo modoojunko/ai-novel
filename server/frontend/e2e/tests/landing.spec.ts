@@ -11,8 +11,8 @@ test.describe('Landing Page', () => {
   })
 
   test('显示下载按钮和查看套餐按钮', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /下载 Windows/ })).toBeVisible()
-    await expect(page.getByRole('button', { name: '查看套餐' })).toBeVisible()
+    await expect(page.getByRole('link', { name: /下载 Windows/ })).toBeVisible()
+    await expect(page.getByRole('link', { name: '查看套餐' })).toBeVisible()
   })
 
   test('导航栏显示登录和注册链接（未登录）', async ({ page }) => {
@@ -60,7 +60,7 @@ test.describe('Landing Page', () => {
   })
 
   test('锚点导航：点击查看套餐跳转到 pricing', async ({ page }) => {
-    await page.getByRole('button', { name: '查看套餐' }).click()
+    await page.getByRole('link', { name: '查看套餐' }).click()
     await expect(page.locator('#pricing')).toBeVisible()
   })
 
@@ -72,8 +72,8 @@ test.describe('Landing Page', () => {
   test('桌面端 > lg 时导航菜单可见', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.goto('/')
-    await expect(page.getByText('功能').first()).toBeVisible()
-    await expect(page.getByText('套餐').first()).toBeVisible()
+    await expect(page.locator('.navbar-center a[href="#features"]')).toBeVisible()
+    await expect(page.locator('.navbar-center a[href="#pricing"]')).toBeVisible()
   })
 
   test('Trial 卡「注册领取」按钮跳注册页', async ({ page }) => {
