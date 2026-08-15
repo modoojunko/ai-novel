@@ -63,4 +63,13 @@ request.interceptors.response.use(
   }
 )
 
+/**
+ * 预热后端（云托管 MinNum=0 冷启动兜底）：
+ * 站点加载时发一个轻量请求，让实例在用户填表期间完成冷启动。
+ * 无 pc_hash 的 check-auth 不查库，极轻；失败静默（冷启动期间 503 属预期）。
+ */
+export function warmUpBackend(): void {
+  request.get('/check-auth', { params: { pc_hash: '' } }).catch(() => {})
+}
+
 export default request
