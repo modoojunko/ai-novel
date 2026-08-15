@@ -25,7 +25,7 @@ jobs:
         run: npm install -g @cloudbase/cli
 
       - name: 登录（环境 API Key，无账号交互）
-        run: tcb login --apiKeyId ${{ secrets.TCB_API_KEY_ID }} --apiKey ${{ secrets.TCB_API_KEY }}
+        run: tcb login --cloudbase-api-key ${{ secrets.TCB_API_KEY }} -e ${{ vars.TCB_ENV_ID }}
 
       # ── 后端：云托管（云端构建镜像，本地无需 Docker）──
       # 用 secrets 生成部署配置（仓库内 cloudbaserc.json 只放占位符，凭据不入库）
