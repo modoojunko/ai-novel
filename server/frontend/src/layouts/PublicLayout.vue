@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
+import AppButton from '@/components/ui/AppButton.vue'
 import { Moon, Sun } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -42,23 +43,22 @@ onMounted(() => {
       </ul>
     </div>
     <div class="navbar-end gap-2">
-      <button
-        class="btn btn-ghost btn-sm"
+      <AppButton
+        variant="ghost"
+        size="sm"
         @click="toggleTheme"
         :aria-label="theme === 'parchment' ? '切换到深色主题' : '切换到浅色主题'"
       >
         <Sun v-if="theme === 'novelforge'" class="w-4 h-4" />
         <Moon v-else class="w-4 h-4" />
-      </button>
+      </AppButton>
 
       <template v-if="session.isLoggedIn">
-        <router-link to="/dashboard" class="btn btn-primary btn-sm">
-          我的账号
-        </router-link>
+        <AppButton to="/dashboard" size="sm">我的账号</AppButton>
       </template>
       <template v-else>
-        <router-link to="/login" class="btn btn-ghost btn-sm">登录</router-link>
-        <router-link to="/register" class="btn btn-primary btn-sm">注册</router-link>
+        <AppButton to="/login" variant="ghost" size="sm">登录</AppButton>
+        <AppButton to="/register" size="sm">注册</AppButton>
       </template>
     </div>
   </div>

@@ -25,23 +25,23 @@ const session = useSessionStore()
       </div>
 
       <div class="flex flex-wrap gap-3">
-        <template v-if="session.isLoggedIn">
-          <router-link to="/dashboard">
-            <AppButton variant="primary" size="lg">进入控制台</AppButton>
-          </router-link>
-        </template>
-        <template v-else>
-          <a
-            href="https://github.com/mooodjunko/ai-novel/releases/latest"
-            target="_blank"
-            rel="noopener"
-          >
-            <AppButton variant="primary" size="lg">下载 Windows 版</AppButton>
-          </a>
-        </template>
-        <a href="#pricing">
-          <AppButton variant="outline" size="lg">查看套餐</AppButton>
-        </a>
+        <AppButton
+          v-if="session.isLoggedIn"
+          to="/dashboard"
+          variant="primary"
+          size="lg"
+        >
+          进入控制台
+        </AppButton>
+        <AppButton
+          v-else
+          href="https://github.com/mooodjunko/ai-novel/releases/latest"
+          variant="primary"
+          size="lg"
+        >
+          下载 Windows 版
+        </AppButton>
+        <AppButton href="#pricing" variant="outline" size="lg">查看套餐</AppButton>
       </div>
 
       <p class="text-sm text-base-content/50">

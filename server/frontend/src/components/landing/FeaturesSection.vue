@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AppCard from '@/components/ui/AppCard.vue'
+
 // 三大痛点支柱：怕烂尾 / 不像你 / 有 AI 味（文案以用户语言呈现，不用内部术语）
 const pillars = [
   {
@@ -60,11 +62,11 @@ const keyFeatures = [
 
     <!-- 三大痛点支柱 -->
     <div class="grid md:grid-cols-3 gap-6">
-      <div
+      <AppCard
         v-for="(pillar, i) in pillars"
         :key="pillar.num"
-        class="card bg-base-100 border border-base-300 p-6 hover:border-primary/40 transition-colors duration-200"
-        :class="`animate-fade-up`"
+        hoverable
+        class="animate-fade-up"
         :style="{ animationDelay: `${i * 0.08}s` }"
       >
         <div class="font-display text-4xl font-bold text-primary/50">{{ pillar.num }}</div>
@@ -80,7 +82,7 @@ const keyFeatures = [
             <p class="text-xs text-base-content/50 mt-1">{{ point.desc }}</p>
           </div>
         </div>
-      </div>
+      </AppCard>
     </div>
 
     <!-- 六阶段工作流：桌面端 6 列网格 -->
@@ -89,11 +91,12 @@ const keyFeatures = [
       <p class="text-sm text-base-content/60 mt-1">从灵感到成书，每一步都有明确的出口</p>
     </div>
     <div class="hidden lg:grid lg:grid-cols-6 gap-4">
-      <div
+      <AppCard
         v-for="(step, i) in workflowSteps"
         :key="step.title"
-        class="card bg-base-100 border border-base-300 p-4 text-center hover:border-primary/40 transition-colors duration-200"
-        :class="`animate-fade-up`"
+        compact
+        hoverable
+        class="text-center animate-fade-up"
         :style="{ animationDelay: `${i * 0.08}s` }"
       >
         <div class="text-2xl text-primary mb-2">
@@ -101,7 +104,7 @@ const keyFeatures = [
         </div>
         <div class="font-medium text-sm">{{ step.title }}</div>
         <div class="text-xs text-base-content/50 mt-1">{{ step.desc }}</div>
-      </div>
+      </AppCard>
     </div>
 
     <!-- 六阶段工作流：移动端纵向 steps -->

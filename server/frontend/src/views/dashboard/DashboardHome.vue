@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useSessionStore } from '@/stores/session'
 import { useDeviceStore } from '@/stores/devices'
+import { usePageLoad } from '@/composables/usePageLoad'
 import LicenseCard from '@/components/dashboard/LicenseCard.vue'
+import AppButton from '@/components/ui/AppButton.vue'
 import AppCard from '@/components/ui/AppCard.vue'
 import AppModal from '@/components/ui/AppModal.vue'
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
@@ -12,27 +14,10 @@ const session = useSessionStore()
 const deviceStore = useDeviceStore()
 
 const showActivateModal = ref(false)
-const loadError = ref(false)
-
-onMounted(async () => {
-  loadError.value = false
-  try {
-    await Promise.all([
-      session.fetchUserInfo(),
-      deviceStore.fetchDevices(),
-    ])
-  } catch {
-    loadError.value = true
-  }
-})
-
-function retry() {
-  loadError.value = false
-  Promise.all([
-    session.fetchUserInfo(),
-    deviceStore.fetchDevices(),
-  ]).catch(() => { loadError.value = true })
-}
+const { loadError, retry } = usePageLoad(() => Promise.all([
+  session.fetchUserInfo(),
+  deviceStore.fetchDevices(),
+]))
 </script>
 
 <template>
@@ -49,7 +34,7 @@ function retry() {
     <!-- 错误态 -->
     <div v-else-if="loadError" class="text-center py-12">
       <p class="text-base-content/60 mb-4">加载失败</p>
-      <button class="btn btn-outline btn-sm" @click="retry">重试</button>
+      <AppButton variant="outline" size="sm" @click="retry">重试</AppButton>
     </div>
 
     <!-- 内容区 -->

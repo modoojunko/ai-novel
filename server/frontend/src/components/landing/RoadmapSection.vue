@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AppCard from '@/components/ui/AppCard.vue'
+
 // PM 规划中的能力（docs/superpowers/specs/2026-08-13-paid-ai-capabilities-design.md）
 const roadmap = [
   { icon: '📝', title: 'AI 写章纲', desc: '下一章写什么，AI 先给你一份草稿，你确认后再动笔' },
@@ -14,11 +16,11 @@ const roadmap = [
       <h2 class="font-display text-3xl font-bold text-center">即将上线</h2>
       <p class="text-center text-base-content/60 mt-2 mb-12">规划中的能力，敬请期待</p>
       <div class="grid sm:grid-cols-2 gap-6 max-w-4xl mx-auto">
-        <div
+        <AppCard
           v-for="(item, i) in roadmap"
           :key="item.title"
-          class="card bg-base-100 border border-base-300 p-6 relative hover:border-primary/40 transition-colors duration-200"
-          :class="`animate-fade-up`"
+          hoverable
+          class="relative animate-fade-up"
           :style="{ animationDelay: `${i * 0.08}s` }"
         >
           <span class="absolute -top-3 right-5 text-xs px-3 py-0.5 rounded-full bg-base-300 text-base-content/70">
@@ -27,7 +29,7 @@ const roadmap = [
           <div class="text-3xl mb-3">{{ item.icon }}</div>
           <h3 class="font-serif font-bold">{{ item.title }}</h3>
           <p class="text-sm text-base-content/60 mt-1">{{ item.desc }}</p>
-        </div>
+        </AppCard>
       </div>
     </div>
   </section>
