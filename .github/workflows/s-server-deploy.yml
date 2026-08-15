@@ -61,9 +61,10 @@ jobs:
           VITE_API_BASE=${{ vars.TCB_BACKEND_DOMAIN }}/api npm run build
 
       - name: 部署前端（novel-s-web）
-        # 在根目录执行（与 login 同目录，规避子目录凭证查找差异）；--cwd 指定项目目录
+        # 在根目录执行（与 login 同目录）；--cwd 指定项目目录
         # --install-command/--build-command 置空：本地已构建 dist，云端仅上传
-        run: tcb app deploy novel-s-web --env-id ${{ vars.TCB_ENV_ID }} --cwd server/frontend --install-command "" --build-command "" --output-dir dist --deploy-path / --force
+        # --ignore 排除 node_modules 等大目录（否则上传数百 MB 卡死）
+        run: tcb app deploy novel-s-web --env-id ${{ vars.TCB_ENV_ID }} --cwd server/frontend --install-command "" --build-command "" --output-dir dist --deploy-path / --force --ignore "**/node_modules/**,**/e2e/**,**/playwright-report/**"
 
       - name: 部署结果
         run: |
