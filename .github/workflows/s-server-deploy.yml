@@ -62,7 +62,8 @@ jobs:
 
       - name: 部署前端（novel-s-web）
         working-directory: server/frontend
-        run: tcb app deploy novel-s-web --env-id ${{ vars.TCB_ENV_ID }} --build-command "" --output-dir dist --deploy-path / --force
+        # --install-command/--build-command 置空：本地已构建 dist，云端仅上传（避免交互提问）
+        run: tcb app deploy novel-s-web --env-id ${{ vars.TCB_ENV_ID }} --install-command "" --build-command "" --output-dir dist --deploy-path / --force
 
       - name: 部署结果
         run: |
