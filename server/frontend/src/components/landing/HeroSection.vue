@@ -10,12 +10,19 @@ const session = useSessionStore()
     <!-- 左侧文字 -->
     <div class="space-y-6">
       <h1 class="font-display text-4xl lg:text-5xl font-bold leading-tight">
-        AI 辅助长篇小说创作
+        人铸灵魂，
+        <span class="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+          AI 行笔墨
+        </span>
       </h1>
       <p class="font-serif text-lg text-base-content/70 max-w-md">
-        本地运行，数据完全由你掌控。<br>
-        六阶段工作流，与 AI 协作写完你的长篇。
+        AI 是笔，你才是作家。构想由你铸就，文字交给 AI，成稿由你拍板。
       </p>
+      <div class="flex flex-wrap gap-2">
+        <span class="badge badge-outline">装在自己电脑上</span>
+        <span class="badge badge-outline">从灵感到成书</span>
+        <span class="badge badge-outline">数据只属于你</span>
+      </div>
 
       <div class="flex flex-wrap gap-3">
         <template v-if="session.isLoggedIn">

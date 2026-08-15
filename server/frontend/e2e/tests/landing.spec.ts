@@ -6,8 +6,8 @@ test.describe('Landing Page', () => {
   })
 
   test('显示品牌标题和副标题', async ({ page }) => {
-    await expect(page.getByText('AI 辅助长篇小说创作')).toBeVisible()
-    await expect(page.getByText('本地运行，数据完全由你掌控')).toBeVisible()
+    await expect(page.getByText('人铸灵魂')).toBeVisible()
+    await expect(page.getByText('AI 是笔，你才是作家')).toBeVisible()
   })
 
   test('显示下载按钮和查看套餐按钮', async ({ page }) => {
@@ -33,7 +33,7 @@ test.describe('Landing Page', () => {
 
   test('功能区块存在六个工作流步骤', async ({ page }) => {
     await page.locator('#features').scrollIntoViewIfNeeded()
-    const steps = ['初始化', '设定', '大纲', '提示词', '写作', '归档']
+    const steps = ['建书', '设定', '大纲', '章纲', '写作', '归档']
     for (const step of steps) {
       await expect(page.getByText(step).first()).toBeVisible()
     }

@@ -36,6 +36,7 @@ onMounted(() => {
     <div class="navbar-center hidden lg:flex">
       <ul class="menu menu-horizontal gap-1">
         <li><a href="#features" class="btn btn-ghost btn-sm">功能</a></li>
+        <li><a href="#roadmap" class="btn btn-ghost btn-sm">路线图</a></li>
         <li><a href="#pricing" class="btn btn-ghost btn-sm">套餐</a></li>
         <li><a href="#guide" class="btn btn-ghost btn-sm">激活指南</a></li>
       </ul>
