@@ -1,5 +1,5 @@
 """消费一次性 enrolled 标记。"""
-from app.infrastructure.repositories.grant_repo import GrantRepo
+from app.infrastructure.repositories.base import GrantRepo
 
 
 def consume_enrolled(grant_repo: GrantRepo, pc_hash: str, username: str) -> dict:

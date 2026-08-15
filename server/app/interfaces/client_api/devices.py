@@ -2,15 +2,12 @@
 from __future__ import annotations
 import logging
 from fastapi import Depends, Header
-from sqlalchemy.orm import Session
 from fastapi.responses import JSONResponse
 
-from app.interfaces.deps import get_db, get_current_user_or_none
+from app.interfaces.deps import get_db, get_current_user_or_none, Db
 from app.application.devices.get_device_status import get_device_status
 from app.application.devices.consume_enrolled import consume_enrolled
-from app.infrastructure.repositories.grant_repo import GrantRepo
-from app.infrastructure.repositories.device_repo import DeviceRepo
-from app.infrastructure.repositories.code_repo import CodeRepo
+from app.infrastructure.repositories.factory import grant_repo, device_repo, code_repo
 
 logger = logging.getLogger("api.client.devices")
 
@@ -21,7 +18,7 @@ from app.interfaces.client_api.router import router as r
 async def api_devices_current(
     pc_hash: str = "",
     authorization: str = Header(default=""),
-    db: Session = Depends(get_db),
+    db: Db = Depends(get_db),
 ):
     """获取当前设备状态（裸字段格式，冻结）。"""
     user_id = get_current_user_or_none(authorization=authorization)
@@ -30,7 +27,7 @@ async def api_devices_current(
 
     logger.info("event=devices_current.start user=%s pc_hash=%s", user_id, pc_hash)
     result = get_device_status(
-        GrantRepo(db), DeviceRepo(db), CodeRepo(db),
+        grant_repo(db), device_repo(db), code_repo(db),
         username=user_id, pc_hash=pc_hash,
     )
     return result
@@ -40,13 +37,13 @@ async def api_devices_current(
 async def api_consume_enrolled(
     pc_hash: str = "",
     authorization: str = Header(default=""),
-    db: Session = Depends(get_db),
+    db: Db = Depends(get_db),
 ):
     """消费 enrolled 标记。"""
     user_id = get_current_user_or_none(authorization=authorization)
     if not user_id:
         return {"code": -1, "msg": "无效的令牌"}
 
-    result = consume_enrolled(GrantRepo(db), pc_hash, user_id)
+    result = consume_enrolled(grant_repo(db), pc_hash, user_id)
     db.commit()
     return result

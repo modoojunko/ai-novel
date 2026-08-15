@@ -115,11 +115,48 @@ alembic upgrade head
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `PORT` | `19000` | 监听端口 |
-| `DB_DIR` | `server/` | 数据库目录 |
-| `DB_NAME` | `license.db` | 数据库文件名 |
+| `DB_BACKEND` | `sqlite` | 数据库后端：`sqlite`（本地/测试，默认）或 `pg_http`（生产：CloudBase PG HTTP API） |
+| `TCB_PG_ENV_ID` | 空 | CloudBase 环境 ID（`DB_BACKEND=pg_http` 时必填，用于推导 PostgREST 端点） |
+| `TCB_PG_API_KEY` | 空 | CloudBase 环境 API Key（`DB_BACKEND=pg_http` 时必填；角色 `service_role`，绕过 RLS） |
+| `DATABASE_URL` | `sqlite:///<DB_DIR>/<DB_NAME>` | SQLite 连接串（本地路径跟随 DB_DIR/DB_NAME；PG 后端不使用 TCP 连接） |
+| `DB_DIR` / `DB_NAME` | `server/` / `license.db` | SQLite 数据库路径 |
 | `JWT_SECRET` | `local-license-secret` | JWT 签名密钥 |
 | `ADMIN_TOKEN` | `admin123` | 管理员令牌 |
 | `LOG_LEVEL` | `INFO` | 日志级别 |
+
+## 部署到 CloudBase（云托管 + PostgreSQL HTTP API）
+
+S端 数据层通过**仓储接口 + 双实现**抽象：`DB_BACKEND=sqlite`（SQLAlchemy，本地/测试）与 `DB_BACKEND=pg_http`（CloudBase PG PostgREST HTTP API，生产）——服务层零感知，切换只改环境变量。
+
+CloudBase 体验版套餐的 PostgreSQL 不开放 TCP 直连（无连接地址/账号管理），但可通过 **PostgREST HTTP API** 完整读写（环境 API Key 鉴权，`service_role` 身份）。
+
+### 1. 数据库准备（一次性，管理端）
+
+1. 环境开通 PostgreSQL 后，用 CloudBase MCP `managePgDatabase(applyMigration)` 建表（users/codes/device_grants/device_registry/global_config），并写入 `alembic_version` 打标 —— 应用启动时 `pg_http` 后端跳过迁移
+2. 控制台「身份认证 → API 密钥」创建服务端 API Key（或在 MCP 中 `manageAppAuth(createApiKey)`）
+
+### 2. 部署（tcb CLI）
+
+```bash
+cd server
+tcb login            # 设备码登录
+tcb cloudrun deploy  # 读取 server/cloudbaserc.json（服务 novel-s-server）
+```
+
+`cloudbaserc.json` 中 envParams 需填入真实值（**含凭据，勿提交真实值到仓库**）：
+
+- `TCB_PG_API_KEY`：上面创建的 API Key
+- `JWT_SECRET` / `ADMIN_TOKEN`：强随机值
+
+### 3. 验证
+
+```bash
+# 接口冒烟
+curl https://<cloudrun-domain>/api/web/register -X POST -H 'Content-Type: application/json' \
+  -d '{"username":"smoke1","password":"Pass123!","security_question":"q?","security_answer":"a"}'
+```
+
+> 本地开发：`python app/main.py`（默认 sqlite，数据在 `server/license.db`）；现有 50 个测试全部基于 sqlite 后端运行。
 
 ## 数据模型（6 张表）
 

@@ -46,11 +46,15 @@ app = create_app()
 
 @app.on_event("startup")
 def on_startup():
-    """启动时自动建表 + 检查 Alembic 迁移版本。"""
+    """启动时自动建表 + 检查 Alembic 迁移版本（仅 sqlite 后端；pg_http 表已预建）。"""
     import logging
-    import subprocess
     logger = logging.getLogger("app")
-    logger.info("event=app.start db_path=%s", settings.DB_PATH)
+    logger.info("event=app.start db_backend=%s db_path=%s", settings.DB_BACKEND, settings.DB_PATH)
+
+    if settings.DB_BACKEND == "pg_http":
+        # CloudBase PG 表结构由管理端 MCP applyMigration 预建，应用启动不迁移
+        logger.info("event=app.started version=%s db_backend=pg_http", "2.1.0")
+        return
 
     # 先跑 alembic 迁移（空库上正常建表并打标 alembic_version），
     # 再 create_all 兜底（checkfirst 默认跳过已存在表）——避免 fresh DB 上
@@ -58,25 +62,20 @@ def on_startup():
     alembic_dir = Path(__file__).parent.parent / "alembic"
     if alembic_dir.exists():
         try:
-            result = subprocess.run(
-                [sys.executable, "-m", "alembic", "upgrade", "head"],
-                cwd=str(Path(__file__).parent.parent),
-                capture_output=True, text=True, timeout=30,
-            )
-            if result.returncode == 0:
-                logger.info("event=app.migration action=alembic_upgrade result=ok")
-            else:
-                logger.warning(
-                    "event=app.migration action=alembic_upgrade result=fail stderr=%s",
-                    result.stderr[:200],
-                )
+            from alembic import command
+            from alembic.config import Config
+            server_dir = Path(__file__).parent.parent
+            alembic_cfg = Config(str(server_dir / "alembic.ini"))
+            alembic_cfg.set_main_option("script_location", str(server_dir / "alembic"))
+            command.upgrade(alembic_cfg, "head")
+            logger.info("event=app.migration action=alembic_upgrade result=ok")
         except Exception as e:
-            logger.warning("event=app.migration action=alembic_check error=%s", e)
+            logger.warning("event=app.migration action=alembic_upgrade result=fail error=%s", e)
 
     logger.info("event=app.migration action=create_all")
     Base.metadata.create_all(bind=engine)
 
-    logger.info("event=app.started version=%s db_path=%s", "2.0.0", settings.DB_PATH)
+    logger.info("event=app.started version=%s db_path=%s", "2.1.0", settings.DB_PATH)
 
 
 if __name__ == "__main__":

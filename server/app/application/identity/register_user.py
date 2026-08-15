@@ -5,8 +5,7 @@ from datetime import date, timedelta, datetime
 from app.domain.identity import User
 from app.domain.licensing import ActivationCode
 from app.infrastructure.security.password import hash_password
-from app.infrastructure.repositories.user_repo import UserRepo
-from app.infrastructure.repositories.code_repo import CodeRepo
+from app.infrastructure.repositories.base import UserRepo, CodeRepo
 
 
 def register_user(
@@ -30,7 +29,7 @@ def register_user(
         security_answer_hash=answer_hash,
     )
     user_repo.create(user)
-    user_repo.db.flush()  # 确保用户已持久化，后续试用码 FK 不失败
+    user_repo.flush()  # SQLite 下确保用户已持久化，后续试用码 FK 不失败
 
     # 送 7 天试用 —— 与创建用户在同一事务中
     trial_code_id = f"TRIAL-{uuid.uuid4().hex[:8].upper()}"

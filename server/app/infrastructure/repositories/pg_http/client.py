@@ -1,0 +1,115 @@
+"""CloudBase PG HTTP API（PostgREST）客户端。
+
+用环境 API Key 鉴权（role=service_role，绕过 RLS），通过
+https://<envId>.api.tcloudbasegateway.com/v1/rdb/rest/<table> 做单表 CRUD。
+本服务查询均为单表简单过滤/排序，PostgREST 语义完全覆盖。
+"""
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any
+
+import httpx
+
+
+def to_iso(value: datetime | None) -> str | None:
+    """datetime → ISO 8601 字符串（PostgREST 存储/返回格式）。"""
+    return value.isoformat() if value is not None else None
+
+
+def parse_dt(value: Any) -> datetime | None:
+    """ISO 字符串 → datetime；空值/已是 datetime 原样处理。"""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    return datetime.fromisoformat(str(value))
+
+
+class PgRestClient:
+    """PostgREST 客户端：filter dict → `eq.` 查询参数，sort → `order=`，limit → `limit=`。"""
+
+    def __init__(
+        self,
+        endpoint: str,
+        api_key: str,
+        timeout: float = 10.0,
+        transport: httpx.BaseTransport | None = None,
+    ):
+        self._endpoint = endpoint.rstrip("/")
+        self._client = httpx.Client(
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            timeout=timeout,
+            transport=transport,  # 测试注入 MockTransport
+        )
+
+    def find(
+        self,
+        table: str,
+        filter: dict | None = None,
+        sort: list[tuple[str, str]] | None = None,
+        limit: int | None = None,
+    ) -> list[dict]:
+        resp = self._client.get(
+            f"{self._endpoint}/{table}",
+            params=self._build_params(filter, sort, limit),
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def find_one(
+        self,
+        table: str,
+        filter: dict | None = None,
+        sort: list[tuple[str, str]] | None = None,
+    ) -> dict | None:
+        rows = self.find(table, filter, sort, limit=1)
+        return rows[0] if rows else None
+
+    def insert(self, table: str, doc: dict) -> None:
+        # None → JSON null：PostgREST 省略字段会应用列 DEFAULT（如 ''），
+        # 显式 null 才能写 NULL。需要数据库默认值的列（如 created_at）由调用方不传键。
+        resp = self._client.post(f"{self._endpoint}/{table}", json=doc)
+        resp.raise_for_status()
+
+    def update(self, table: str, filter: dict, changes: dict) -> None:
+        body = {k: v for k, v in changes.items() if v is not None}
+        resp = self._client.patch(
+            f"{self._endpoint}/{table}",
+            params=self._build_params(filter),
+            json=body,
+        )
+        resp.raise_for_status()
+
+    def delete(self, table: str, filter: dict) -> int:
+        """删除并返回受影响行数（Prefer: return=representation 让响应携带删除的行）。"""
+        resp = self._client.request(
+            "DELETE",
+            f"{self._endpoint}/{table}",
+            params=self._build_params(filter),
+            headers={"Prefer": "return=representation"},
+        )
+        resp.raise_for_status()
+        return len(resp.json()) if resp.content else 0
+
+    def commit(self) -> None:
+        """PostgREST 每次请求即时生效，无事务；接口层统一调用，no-op。"""
+        return
+
+    @staticmethod
+    def _build_params(
+        filter: dict | None,
+        sort: list[tuple[str, str]] | None = None,
+        limit: int | None = None,
+    ) -> dict[str, str]:
+        params: dict[str, str] = {}
+        for key, value in (filter or {}).items():
+            params[key] = "is.null" if value is None else f"eq.{value}"
+        if sort:
+            params["order"] = ",".join(f"{field}.{direction}" for field, direction in sort)
+        if limit is not None:
+            params["limit"] = str(limit)
+        return params

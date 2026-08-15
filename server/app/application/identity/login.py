@@ -2,9 +2,9 @@
 from __future__ import annotations
 from app.infrastructure.security.password import verify_password
 from app.infrastructure.security.jwt import sign_jwt
-from app.infrastructure.repositories.user_repo import UserRepo
+from app.infrastructure.repositories.base import UserRepo
 from app.domain.licensing import License
-from app.infrastructure.repositories.code_repo import CodeRepo
+from app.infrastructure.repositories.base import CodeRepo
 
 
 def login(user_repo: UserRepo, code_repo: CodeRepo, username: str, password: str) -> dict:

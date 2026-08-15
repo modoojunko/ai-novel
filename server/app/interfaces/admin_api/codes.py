@@ -1,20 +1,18 @@
 """运营管理 API：generate_code, query_codes。"""
 from __future__ import annotations
 from fastapi import Depends
-from sqlalchemy.orm import Session
 
-from app.interfaces.deps import get_db
+from app.interfaces.deps import get_db, Db
 from app.interfaces.dto import GenerateCodeRequest, QueryCodesRequest
 from app.config import settings
-from app.infrastructure.repositories.code_repo import CodeRepo
+from app.infrastructure.repositories.factory import code_repo
 from app.domain.licensing import ActivationCode, tier_policy
-from app.models.code import ActivationCodeORM
 
 from app.interfaces.admin_api.router import router as r
 
 
 @r.post("/api/generate_code")
-async def api_generate_code(req: GenerateCodeRequest, db: Session = Depends(get_db)):
+async def api_generate_code(req: GenerateCodeRequest, db: Db = Depends(get_db)):
     if req.admin_token != settings.ADMIN_TOKEN:
         return {"code": 3, "msg": "管理员验证失败"}
     if req.tier not in settings.TIER_POLICY:
@@ -27,7 +25,7 @@ async def api_generate_code(req: GenerateCodeRequest, db: Session = Depends(get_
         chars = string.ascii_uppercase + string.digits
         return f"AC-{'-'.join(''.join(secrets.choice(chars) for _ in range(4)) for _ in range(4))}"
 
-    repo = CodeRepo(db)
+    repo = code_repo(db)
     generated = []
     for _ in range(req.count):
         code_id = _gen_code()
@@ -50,15 +48,14 @@ async def api_generate_code(req: GenerateCodeRequest, db: Session = Depends(get_
 
 
 @r.post("/api/query_codes")
-async def api_query_codes(req: QueryCodesRequest, db: Session = Depends(get_db)):
+async def api_query_codes(req: QueryCodesRequest, db: Db = Depends(get_db)):
     if req.admin_token != settings.ADMIN_TOKEN:
         return {"code": 3, "msg": "管理员验证失败"}
-    repo = CodeRepo(db)
+    repo = code_repo(db)
     if req.username:
         codes = repo.find_all_by_username(req.username)
     else:
-        rows = db.query(ActivationCodeORM).order_by(ActivationCodeORM.created_at.desc()).limit(200).all()
-        codes = [CodeRepo._to_domain(r) for r in rows]
+        codes = repo.find_all(limit=200)
 
     code_list = [{
         "code_id": c.code_id,

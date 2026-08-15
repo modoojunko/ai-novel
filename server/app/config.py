@@ -12,8 +12,30 @@ class Settings:
     HOST: str = os.getenv("HOST", "127.0.0.1")
 
     # ── 数据库 ──
+    # sqlite（默认，本地开发/测试，现有测试零改动）
+    # pg_http（生产：CloudBase PostgreSQL 经 PostgREST HTTP API 访问，体验版套餐无需 TCP 直连）
+    DB_BACKEND: str = os.getenv("DB_BACKEND", "sqlite")
     DB_DIR: Path = Path(os.getenv("DB_DIR", Path(__file__).parent.parent))
     DB_PATH: str = str(DB_DIR / os.getenv("DB_NAME", "license.db"))
+
+    # ── CloudBase PG（DB_BACKEND=pg_http 时）──
+    TCB_PG_ENV_ID: str = os.getenv("TCB_PG_ENV_ID", "")
+    TCB_PG_API_KEY: str = os.getenv("TCB_PG_API_KEY", "")
+
+    @property
+    def DATABASE_URL(self) -> str:
+        """数据库连接串。显式设置 DATABASE_URL（如 postgresql://...）时使用之，
+        否则回退 SQLite（路径跟随 DB_DIR/DB_NAME，便于测试覆盖 DB_PATH）。"""
+        return os.getenv("DATABASE_URL", "") or f"sqlite:///{self.DB_PATH}"
+
+    @property
+    def TCB_PG_ENDPOINT(self) -> str:
+        """CloudBase PG PostgREST 端点，默认按环境 ID 推导。"""
+        return os.getenv("TCB_PG_ENDPOINT", "") or (
+            f"https://{self.TCB_PG_ENV_ID}.api.tcloudbasegateway.com/v1/rdb/rest"
+            if self.TCB_PG_ENV_ID
+            else ""
+        )
 
     # ── JWT ──
     JWT_SECRET: str = os.getenv("JWT_SECRET", "local-license-secret")

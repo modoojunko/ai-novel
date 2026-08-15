@@ -30,8 +30,8 @@ from app.config import settings  # noqa: E402
 
 
 def run_migrations_offline() -> None:
-    """离线模式：使用 settings.DB_PATH 配置 URL。"""
-    url = f"sqlite:///{settings.DB_PATH}"
+    """离线模式：使用 settings.DATABASE_URL 配置 URL（SQLite / PostgreSQL 均可）。"""
+    url = settings.DATABASE_URL
     context.configure(
         url=url,
         target_metadata=target_metadata,
