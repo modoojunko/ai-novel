@@ -158,6 +158,22 @@ curl https://<cloudrun-domain>/api/web/register -X POST -H 'Content-Type: applic
 
 > 本地开发：`python app/main.py`（默认 sqlite，数据在 `server/license.db`）；现有 50 个测试全部基于 sqlite 后端运行。
 
+## S端 前端部署（CloudBase 静态托管，成本≈0）
+
+管理门户（Vue SPA）发布到静态托管（体验版套餐含免费额度），API 直连云托管后端域名（静态托管无反代，靠 CORS——后端 `allow_origins=["*"]` 已放开）。
+
+```bash
+cd server/frontend
+# 构建时注入后端 API 地址（不注入则回退 /api，适配本地 docker-compose nginx 反代）
+VITE_API_BASE=https://<cloudrun-domain>/api npm run build
+# 用 CloudBase MCP manageApps 部署（framework=static, installCmd="", buildCmd="", buildPath=dist）
+# 或 tcb CLI 等价命令；独立子域名：<serviceName>-<envId>.webapps.tcloudbase.com
+```
+
+- `src/api/request.ts`：`baseURL = import.meta.env.VITE_API_BASE || '/api'`
+- 部署后配置静态托管路由规则：404 → index.html（SPA 子路由回退）
+- 前端已部署实例：`novel-s-web` → https://novel-s-web-ai-novel-test-d1ghsr86ra814c12c.webapps.tcloudbase.com
+
 ## 数据模型（6 张表）
 
 | 表 | 用途 |
