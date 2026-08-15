@@ -53,13 +53,32 @@ const session = useSessionStore()
       </p>
     </div>
 
-    <!-- 右侧产品截图 -->
+    <!-- 右侧产品界面示意图（纯 CSS 绘制，随主题自动适配；待 C 端定稿后替换为真实截图） -->
     <div class="card bg-base-200 border border-base-300 shadow-xl rounded-box overflow-hidden">
-      <div class="aspect-video bg-base-300/50 flex items-center justify-center text-base-content/30 font-display text-lg">
-        <!-- v1: 占位截图，后续替换为实际 C端 截图 -->
-        <div class="text-center p-8">
-          <div class="text-4xl mb-2">📖</div>
-          <div>写作工作室 · 截图</div>
+      <!-- 窗口栏 -->
+      <div class="flex items-center gap-1.5 px-4 py-2.5 border-b border-base-300/70">
+        <span class="w-2.5 h-2.5 rounded-full bg-red-400/80"></span>
+        <span class="w-2.5 h-2.5 rounded-full bg-yellow-400/80"></span>
+        <span class="w-2.5 h-2.5 rounded-full bg-green-400/80"></span>
+        <div class="mx-auto text-[10px] text-base-content/40 font-display">写作工作室</div>
+      </div>
+      <!-- 工作区：六阶段侧栏 + 文稿行 -->
+      <div class="flex gap-3 p-4">
+        <div class="w-24 shrink-0 space-y-1.5">
+          <div
+            v-for="step in ['建书', '设定', '大纲', '章纲', '写作', '归档']"
+            :key="step"
+            class="text-[10px] px-2 py-1 rounded-md bg-base-100 border border-base-300/50"
+            :class="step === '写作' ? 'border-primary text-primary font-medium' : 'text-base-content/50'"
+          >
+            {{ step }}
+          </div>
+        </div>
+        <div class="flex-1 space-y-2 pt-1">
+          <div class="h-2.5 w-3/4 rounded-full bg-base-300/70"></div>
+          <div class="h-2.5 w-2/3 rounded-full bg-base-300/50"></div>
+          <div class="h-2.5 w-4/5 rounded-full bg-base-300/50"></div>
+          <div class="h-2.5 w-1/2 rounded-full bg-base-300/50"></div>
         </div>
       </div>
     </div>

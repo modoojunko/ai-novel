@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import AppCard from '@/components/ui/AppCard.vue'
+import { Brain, FileText, Link, MessagesSquare } from 'lucide-vue-next'
 
 // PM 规划中的能力（docs/superpowers/specs/2026-08-13-paid-ai-capabilities-design.md）
 const roadmap = [
-  { icon: '📝', title: 'AI 写章纲', desc: '下一章写什么，AI 先给你一份草稿，你确认后再动笔' },
-  { icon: '🧠', title: '记性更好的 AI', desc: '写到几十万字，前情照样记得清，前后不打架' },
-  { icon: '🔗', title: '伏笔不丢，人设不崩', desc: '每章写完自动帮你记下角色状态和埋下的坑' },
-  { icon: '💬', title: '动笔前先聊聊', desc: '开写前和 AI 把设定聊透，把「想写」变成「在写」' },
+  { icon: FileText, title: 'AI 写章纲', desc: '下一章写什么，AI 先给你一份草稿，你确认后再动笔' },
+  { icon: Brain, title: '记性更好的 AI', desc: '写到几十万字，前情照样记得清，前后不打架' },
+  { icon: Link, title: '伏笔不丢，人设不崩', desc: '每章写完自动帮你记下角色状态和埋下的坑' },
+  { icon: MessagesSquare, title: '动笔前先聊聊', desc: '开写前和 AI 把设定聊透，把「想写」变成「在写」' },
 ]
 </script>
 
@@ -26,7 +27,7 @@ const roadmap = [
           <span class="absolute -top-3 right-5 text-xs px-3 py-0.5 rounded-full bg-base-300 text-base-content/70">
             规划中
           </span>
-          <div class="text-3xl mb-3">{{ item.icon }}</div>
+          <component :is="item.icon" class="w-7 h-7 text-primary mb-3" />
           <h3 class="font-serif font-bold">{{ item.title }}</h3>
           <p class="text-sm text-base-content/60 mt-1">{{ item.desc }}</p>
         </AppCard>
