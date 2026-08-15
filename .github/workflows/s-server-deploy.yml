@@ -1,0 +1,69 @@
+name: S端 自动发布 CloudBase
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - ".github/workflows/s-server-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 安装 tcb CLI
+        run: npm install -g @cloudbase/cli
+
+      - name: 登录（环境 API Key，无账号交互）
+        run: tcb login --apiKeyId ${{ secrets.TCB_API_KEY_ID }} --apiKey ${{ secrets.TCB_API_KEY }}
+
+      # ── 后端：云托管（云端构建镜像，本地无需 Docker）──
+      # 用 secrets 生成部署配置（仓库内 cloudbaserc.json 只放占位符，凭据不入库）
+      - name: 生成后端部署配置
+        run: |
+          cat > server/cloudbaserc.json <<'EOF'
+          {
+            "envId": "${{ vars.TCB_ENV_ID }}",
+            "cloudrun": {
+              "name": "novel-s-server",
+              "serverType": "container",
+              "openAccessTypes": ["PUBLIC"],
+              "envParams": {
+                "DB_BACKEND": "pg_http",
+                "TCB_PG_ENV_ID": "${{ vars.TCB_ENV_ID }}",
+                "TCB_PG_API_KEY": "${{ secrets.TCB_API_KEY }}",
+                "JWT_SECRET": "${{ secrets.JWT_SECRET }}",
+                "ADMIN_TOKEN": "${{ secrets.ADMIN_TOKEN }}"
+              }
+            }
+          }
+          EOF
+
+      - name: 部署后端（novel-s-server）
+        run: tcb cloudrun deploy --service-name novel-s-server --source ./server --env-id ${{ vars.TCB_ENV_ID }} --force
+
+      # ── 前端：本地构建（注入后端 API 地址）→ 静态托管 app（独立域名 + 版本管理）──
+      - name: 构建前端
+        working-directory: server/frontend
+        run: |
+          npm ci
+          VITE_API_BASE=${{ vars.TCB_BACKEND_DOMAIN }}/api npm run build
+
+      - name: 部署前端（novel-s-web）
+        working-directory: server/frontend
+        run: tcb app deploy novel-s-web --env-id ${{ vars.TCB_ENV_ID }} --build-command "" --output-dir dist --deploy-path / --force
+
+      - name: 部署结果
+        run: |
+          echo "后端: https://novel-s-server-297265-7-1468883265.sh.run.tcloudbase.com"
+          echo "前端: https://novel-s-web-ai-novel-test-d1ghsr86ra814c12c.webapps.tcloudbase.com"

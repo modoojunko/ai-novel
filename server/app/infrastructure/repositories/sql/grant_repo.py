@@ -1,10 +1,11 @@
+"""SQL（SQLAlchemy/SQLite）设备授权凭证仓储。"""
 from __future__ import annotations
 from sqlalchemy.orm import Session
 from app.models.grant import DeviceGrantORM
 from app.domain.devices import DeviceGrant
 
 
-class GrantRepo:
+class SqlGrantRepo:
     def __init__(self, db: Session):
         self.db = db
 

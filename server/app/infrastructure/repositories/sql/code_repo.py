@@ -1,3 +1,4 @@
+"""SQL（SQLAlchemy/SQLite）激活码仓储。"""
 from __future__ import annotations
 from datetime import date, datetime
 from sqlalchemy.orm import Session
@@ -5,7 +6,7 @@ from app.models.code import ActivationCodeORM
 from app.domain.licensing import ActivationCode
 
 
-class CodeRepo:
+class SqlCodeRepo:
     def __init__(self, db: Session):
         self.db = db
 
@@ -48,13 +49,22 @@ class CodeRepo:
         )
         return [self._to_domain(r) for r in rows]
 
+    def find_all(self, limit: int = 200) -> list[ActivationCode]:
+        rows = (
+            self.db.query(ActivationCodeORM)
+            .order_by(ActivationCodeORM.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+        return [self._to_domain(r) for r in rows]
+
     def create(self, code: ActivationCode) -> None:
         row = ActivationCodeORM(
             code_id=code.code_id,
             tier=code.tier,
             duration_days=code.duration_days,
             status=code.status,
-            bound_username=code.bound_username,
+            bound_username=code.bound_username or None,  # 空串→NULL，避免 FK 引用空用户
             created_by=code.created_by,
         )
         self.db.add(row)

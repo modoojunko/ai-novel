@@ -1,10 +1,11 @@
+"""SQL（SQLAlchemy/SQLite）用户仓储。"""
 from __future__ import annotations
 from sqlalchemy.orm import Session
 from app.models.user import UserORM
 from app.domain.identity import User
 
 
-class UserRepo:
+class SqlUserRepo:
     def __init__(self, db: Session):
         self.db = db
 
@@ -46,3 +47,7 @@ class UserRepo:
         self.db.query(UserORM).filter(UserORM.username == username).update(
             {"security_question": question, "security_answer_hash": answer_hash}
         )
+
+    def flush(self) -> None:
+        """确保用户已持久化，后续试用码 FK 不失败。"""
+        self.db.flush()

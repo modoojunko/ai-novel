@@ -1,7 +1,7 @@
 """激活码激活/续费。"""
 from __future__ import annotations
 from datetime import date
-from app.infrastructure.repositories.code_repo import CodeRepo
+from app.infrastructure.repositories.base import CodeRepo
 from app.domain.licensing import License, tier_policy
 
 

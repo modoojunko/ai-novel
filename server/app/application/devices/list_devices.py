@@ -1,7 +1,6 @@
 """列出用户所有设备（含激活状态）。"""
 from __future__ import annotations
-from app.infrastructure.repositories.device_repo import DeviceRepo
-from app.infrastructure.repositories.code_repo import CodeRepo
+from app.infrastructure.repositories.base import DeviceRepo, CodeRepo
 from app.domain.devices import ActivationPolicy
 from app.domain.licensing import License, tier_policy
 

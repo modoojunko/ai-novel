@@ -2,10 +2,7 @@
 from __future__ import annotations
 from app.infrastructure.security.password import verify_password
 from app.infrastructure.security.jwt import sign_jwt
-from app.infrastructure.repositories.user_repo import UserRepo
-from app.infrastructure.repositories.code_repo import CodeRepo
-from app.infrastructure.repositories.device_repo import DeviceRepo
-from app.infrastructure.repositories.grant_repo import GrantRepo
+from app.infrastructure.repositories.base import UserRepo, CodeRepo, DeviceRepo, GrantRepo
 from app.domain.devices import DeviceRegistry, DeviceProfile
 from app.domain.licensing import License
 

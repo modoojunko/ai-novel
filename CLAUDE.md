@@ -163,7 +163,7 @@ ai-novel/
 │   ├── app/                   核心代码（4A 分层架构）
 │   │   ├── config.py          配置管理
 │   │   ├── main.py            FastAPI 应用入口
-│   │   ├── models/            SQLAlchemy ORM（6 张表）
+│   │   ├── models/            SQLAlchemy ORM（6 张表，SQLite/PostgreSQL 双方言）
 │   │   ├── domain/            领域层（纯 Python，无框架依赖）
 │   │   ├── infrastructure/    仓储 + 安全（JWT/密码哈希）
 │   │   ├── application/       编排用例（11 个 use case）
@@ -187,6 +187,7 @@ ai-novel/
 - **设定渲染收敛 settings/render.py**：文风/反AI → 提示词字符串统一经 render.py（flatten_principles / fmt_mistakes / depiction_techniques_str / build_tone_section），容忍模板盘文件与前端/AI 保存的 dict/list 双态。前端两表单 merge-on-save（`{...existing, ...edited}`），因后端 PUT = 整体替换。
 - **题材/文风分离**：叙事者角色与叙事基调归文风表单（writing-style `narrator_role` + `tone{default_tone, atmosphere, pov, techniques}`），题材库的 toneBlueprint/narratorRole 数据保留但不注入提示词。存量项目经启动回填 `backfill_tone_overrides` 一次性迁入文风 tone。
 - **SSE 流式传输**：第五阶段写作期间每个段落一个 SSE 连接。前端可打开多个并行流，支持每个段落的暂停/停止。
+- **S端 数据库双实现**：`DB_BACKEND` 决定仓储实现——`sqlite`（SQLAlchemy/SQLite，本地与测试默认）或 `pg_http`（CloudBase PostgreSQL PostgREST HTTP API + 环境 API Key，生产）。仓储接口在 `app/infrastructure/repositories/base.py`（5 个 Protocol），服务层只依赖接口，切换数据库只改环境变量。体验版套餐 PG 无 TCP 直连（无连接地址/账号管理），HTTP API 是唯一路径（service_role 绕过 RLS）；建表由 MCP `applyMigration` 预建并打标 alembic_version，`pg_http` 后端启动跳过迁移。
 - **Token 计费**：每次 AI 调用记录到 `token_log` 并从用户余额中扣除。按模型计价（haiku：输入/输出每百万 $0.80/$4.00；sonnet：$3/$15）。
 - **多租户隔离**：文件系统路径 `/data/{user_id}/`，数据库查询通过 JWT 中的 user_id 限定范围，v1 不支持项目共享。
 

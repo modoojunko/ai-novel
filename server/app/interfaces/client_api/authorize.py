@@ -3,15 +3,11 @@ from __future__ import annotations
 import logging
 from fastapi import Depends, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy.orm import Session
 
-from app.interfaces.deps import get_db
+from app.interfaces.deps import get_db, Db
 from app.interfaces.dto import AuthorizeRequest
 from app.application.devices.authorize_device import authorize_device
-from app.infrastructure.repositories.user_repo import UserRepo
-from app.infrastructure.repositories.code_repo import CodeRepo
-from app.infrastructure.repositories.device_repo import DeviceRepo
-from app.infrastructure.repositories.grant_repo import GrantRepo
+from app.infrastructure.repositories.factory import user_repo, code_repo, device_repo, grant_repo
 
 logger = logging.getLogger("api.client.auth")
 
@@ -107,11 +103,11 @@ async def api_auth_page(request: Request):
 @r.post("/api/authorize")
 async def api_authorize(
     req: AuthorizeRequest,
-    db: Session = Depends(get_db),
+    db: Db = Depends(get_db),
 ):
     logger.info("event=authorize.start user=%s", req.username)
     result = authorize_device(
-        UserRepo(db), CodeRepo(db), DeviceRepo(db), GrantRepo(db),
+        user_repo(db), code_repo(db), device_repo(db), grant_repo(db),
         username=req.username.strip(),
         password=req.password,
         pc_hash=req.pc_hash,
@@ -125,15 +121,15 @@ async def api_authorize(
 
 
 @r.get("/api/check-auth")
-async def api_check_auth(pc_hash: str = "", db: Session = Depends(get_db)):
+async def api_check_auth(pc_hash: str = "", db: Db = Depends(get_db)):
     """C端 轮询：该 pc_hash 是否已授权。"""
     if not pc_hash:
         return {"code": 1, "msg": "缺少 pc_hash"}
     try:
-        grant = GrantRepo(db).get(pc_hash)
+        grant = grant_repo(db).get(pc_hash)
         if grant:
             from app.domain.licensing import License
-            codes = CodeRepo(db).find_active_by_username(grant.username)
+            codes = code_repo(db).find_active_by_username(grant.username)
             license_ = License(username=grant.username).merge(codes)
             return {
                 "code": 0,

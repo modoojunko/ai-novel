@@ -105,3 +105,7 @@ reasonix.toml
 
 # Playwright test reports
 playwright-report/
+# Local tooling artifacts
+.mimosa/
+agent/
+.zcode/

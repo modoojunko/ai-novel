@@ -1,9 +1,10 @@
+"""SQL（SQLAlchemy/SQLite）全局配置仓储。"""
 from __future__ import annotations
 from sqlalchemy.orm import Session
 from app.models.config import GlobalConfigORM
 
 
-class ConfigRepo:
+class SqlConfigRepo:
     def __init__(self, db: Session):
         self.db = db
 

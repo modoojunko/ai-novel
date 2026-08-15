@@ -1,6 +1,6 @@
 """移除设备。"""
 from __future__ import annotations
-from app.infrastructure.repositories.device_repo import DeviceRepo
+from app.infrastructure.repositories.base import DeviceRepo
 
 
 def remove_device(device_repo: DeviceRepo, username: str, device_id: str) -> dict:
