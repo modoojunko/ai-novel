@@ -50,7 +50,8 @@ jobs:
           EOF
 
       - name: 部署后端（novel-s-server）
-        run: tcb cloudrun deploy --service-name novel-s-server --source ./server --env-id ${{ vars.TCB_ENV_ID }} --force
+        # printf 回答灰度提问（No=部署成功后自动切换流量）；--wait 等待构建完成
+        run: printf 'n\n' | tcb cloudrun deploy --service-name novel-s-server --source ./server --env-id ${{ vars.TCB_ENV_ID }} --force --wait
 
       # ── 前端：本地构建（注入后端 API 地址）→ 静态托管 app（独立域名 + 版本管理）──
       - name: 构建前端
