@@ -13,7 +13,8 @@ export interface ApiResponse<T = any> {
 const request: AxiosInstance = axios.create({
   // 默认同源 /api（本地 nginx 反代）；云端静态托管无反代，构建时注入 VITE_API_BASE 指向后端域名
   baseURL: import.meta.env.VITE_API_BASE || '/api',
-  timeout: 15000,
+  // 60s：云托管 MinNum=0 缩容后首次请求需冷启动（30-60s），15s 默认超时会误报失败
+  timeout: 60000,
   headers: { 'Content-Type': 'application/json' },
 })
 
