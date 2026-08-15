@@ -38,6 +38,11 @@ def create_app() -> FastAPI:
     app.include_router(web_router)
     app.include_router(admin_router)
 
+    @app.get("/__tcb_probe__")
+    def tcb_probe():
+        """CloudBase 云托管健康检查探针：返回 200 表示容器存活（不触库，极轻）。"""
+        return {"ok": True}
+
     return app
 
 
