@@ -102,19 +102,9 @@ export const useSessionStore = defineStore('session', () => {
     localStorage.removeItem('token')
   }
 
-  function setTokenFromAuth(tokenStr: string, tierStr: string, expires: string, user: string): void {
-    token.value = tokenStr
-    tier.value = tierStr
-    expiresAt.value = expires
-    username.value = user
-    isValid.value = true
-    userFetched.value = false
-    localStorage.setItem('token', tokenStr)
-  }
-
   return {
     token, username, tier, tierDisplay, expiresAt, isValid, isLoading, userFetched,
     isLoggedIn, hasLicense,
-    login, register, fetchUserInfo, logout, setTokenFromAuth,
+    login, register, fetchUserInfo, logout,
   }
 })
