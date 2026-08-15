@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppCard from '@/components/ui/AppCard.vue'
+import AppContainer from '@/components/ui/AppContainer.vue'
 import { Brain, FileText, Link, MessagesSquare } from 'lucide-vue-next'
 
 // PM 规划中的能力（docs/superpowers/specs/2026-08-13-paid-ai-capabilities-design.md）
@@ -13,7 +14,7 @@ const roadmap = [
 
 <template>
   <section id="roadmap" class="py-16 lg:py-24 bg-base-200/30 border-y border-base-300/30">
-    <div class="max-w-5xl mx-auto px-6">
+    <AppContainer>
       <h2 class="font-display text-3xl font-bold text-center">即将上线</h2>
       <p class="text-center text-base-content/60 mt-2 mb-12">规划中的能力，敬请期待</p>
       <div class="grid sm:grid-cols-2 gap-6 max-w-4xl mx-auto">
@@ -32,6 +33,6 @@ const roadmap = [
           <p class="text-sm text-base-content/60 mt-1">{{ item.desc }}</p>
         </AppCard>
       </div>
-    </div>
+    </AppContainer>
   </section>
 </template>
