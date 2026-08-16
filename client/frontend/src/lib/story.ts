@@ -51,10 +51,6 @@ export async function initDeduction(projectId: string, chapterRef?: string): Pro
   return api.post("/story/init", { project_id: projectId, chapter_ref: chapterRef });
 }
 
-export async function setSeed(deductionId: string, seed: string): Promise<any> {
-  return api.post(`/story/${deductionId}/seed`, { seed });
-}
-
 export async function runRound(deductionId: string): Promise<RoundResultData> {
   return api.post(`/story/${deductionId}/round`);
 }

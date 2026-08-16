@@ -465,7 +465,6 @@ function ChapterStatusBar({
       saveState={saveState}
       onSave={save}
       onRetry={retry}
-      isArchived={status === "archived"}
     />
   );
 }

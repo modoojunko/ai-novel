@@ -5,8 +5,9 @@ import { toast } from "@/lib/toast";
 import AuthGuard from "@/components/auth/AuthGuard";
 import DeleteConfirmModal from "@/components/novel/DeleteConfirmModal";
 import CreateProjectModal from "@/components/novel/CreateProjectModal";
+import ImportNovelModal from "@/components/novel/ImportNovelModal";
 import RenameModal from "@/components/novel/RenameModal";
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { FileUp, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 
 interface Novel {
   id: string;
@@ -33,6 +34,7 @@ function NovelList() {
   const [tier, setTier] = useState<string>('');
   const [trialDays, setTrialDays] = useState<number>(0);
   const [showCreate, setShowCreate] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Novel | null>(null);
   const [renameTarget, setRenameTarget] = useState<Novel | null>(null);
   const [showKeyHint, setShowKeyHint] = useState(false);
@@ -95,6 +97,8 @@ function NovelList() {
     navigate(`/novel/${novelId}`);
   }
 
+  const freeLimitReached = tier === "none" && novels.length >= 1;
+
   return (
     <main className="max-w-4xl mx-auto py-12 px-4">
       {/* 免费层 Banner */}
@@ -123,11 +127,21 @@ function NovelList() {
       )}
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold font-display text-base-content">我的作品</h1>
-        {!(tier === 'none' && novels.length >= 1) && (
-          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-            <Plus className="w-4 h-4" />
-            开始新小说
-          </button>
+        {!freeLimitReached && (
+          <div className="flex items-center gap-2">
+            <button
+              className="btn btn-outline"
+              onClick={() => setShowImport(true)}
+              title="导入已有稿子（.md / .txt / .docx）"
+            >
+              <FileUp className="w-4 h-4" />
+              导入
+            </button>
+            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+              <Plus className="w-4 h-4" />
+              开始新小说
+            </button>
+          </div>
         )}
       </div>
 
@@ -153,7 +167,19 @@ function NovelList() {
       ) : novels.length === 0 ? (
         <div className="text-center py-20 text-base-content/60">
           <p className="text-lg mb-2 font-serif">暂无小说</p>
-          <p className="text-sm">点击「开始新小说」开始创作</p>
+          <p className="text-sm mb-6">点击「开始新小说」开始创作，或导入已有稿子</p>
+          {!freeLimitReached && (
+            <div className="flex items-center justify-center gap-2">
+              <button className="btn btn-outline" onClick={() => setShowImport(true)}>
+                <FileUp className="w-4 h-4" />
+                导入已有稿子
+              </button>
+              <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+                <Plus className="w-4 h-4" />
+                开始新小说
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4">
@@ -239,6 +265,13 @@ function NovelList() {
         onCreated={handleCreated}
         tier={tier}
         novelCount={novels.length}
+      />
+
+      {/* Import Novel Modal */}
+      <ImportNovelModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onImported={handleCreated}
       />
 
       {/* Delete confirmation modal */}

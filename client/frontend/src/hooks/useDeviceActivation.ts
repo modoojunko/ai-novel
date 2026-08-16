@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { getToken } from '../lib/auth';
+import { getApiBaseUrl } from '../lib/env';
 import { toast } from '../lib/toast';
 
 interface DeviceStatus {
@@ -21,7 +22,7 @@ export function useDeviceActivation() {
 
     setLoading(true);
     try {
-      const resp = await fetch('/api/auth/devices/current', {
+      const resp = await fetch(`${getApiBaseUrl()}/api/auth/devices/current`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!resp.ok) return null;

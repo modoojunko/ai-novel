@@ -279,16 +279,13 @@ async def delete_chapter(
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
-    await get_storage().delete_file(
-        project.root_path, f"chapters/{chapter_ref}.yaml"
-    )
-    # 清理 versions/{ref}/
-    for f in await get_storage().list_dir(
-        project.root_path, f"versions/{chapter_ref}"
-    ):
-        await get_storage().delete_file(
-            project.root_path, f"versions/{chapter_ref}/{f}"
-        )
+
+    storage = get_storage()
+    # 清理归档 .md（对称 unarchive 的 prefix 匹配；避免归档列表残留幽灵条目）
+    from chapters.service import cleanup_chapter_artifacts
+
+    await cleanup_chapter_artifacts(project.root_path, chapter_ref)
+    await storage.delete_file(project.root_path, f"chapters/{chapter_ref}.yaml")
     # DB 行 + 计数维护（同 session commit）；不再改内嵌列表
     try:
         from repositories import chapter_repo, volume_repo

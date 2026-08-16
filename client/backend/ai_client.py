@@ -77,9 +77,13 @@ class AIClient:
         system: str,
         messages: list[dict[str, str]],
         max_tokens: int = 1024,
+        usage: dict | None = None,
         **kwargs: Any,
     ) -> str:
-        """Non-streaming. Returns full response text."""
+        """Non-streaming. Returns full response text.
+
+        usage: 可选 dict，调用成功后填充 {"tokens_in", "tokens_out"}，供 TokenLog 记录。
+        """
         model = self.resolve(model)
         if self._provider == "openai":
             openai_messages: list[dict[str, Any]] = []
@@ -97,6 +101,10 @@ class AIClient:
                 extra_body=extra,
                 **kwargs,
             )
+            if usage is not None:
+                u = getattr(response, "usage", None)
+                usage["tokens_in"] = getattr(u, "prompt_tokens", 0) or 0
+                usage["tokens_out"] = getattr(u, "completion_tokens", 0) or 0
             return response.choices[0].message.content or ""
         else:
             response = await self._client.messages.create(
@@ -106,6 +114,10 @@ class AIClient:
                 max_tokens=max_tokens,
                 **kwargs,
             )
+            if usage is not None:
+                u = getattr(response, "usage", None)
+                usage["tokens_in"] = getattr(u, "input_tokens", 0) or 0
+                usage["tokens_out"] = getattr(u, "output_tokens", 0) or 0
             for block in response.content:
                 if getattr(block, "type", "") == "text" and block.text:
                     return block.text
