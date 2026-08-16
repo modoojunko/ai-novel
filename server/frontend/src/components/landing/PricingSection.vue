@@ -2,38 +2,53 @@
 import AppCard from '@/components/ui/AppCard.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 
-const plans = [
+interface Plan {
+  tier: string
+  label: string
+  price: string
+  unit: string
+  features: string[]
+  cta: string
+  ctaVariant: 'primary' | 'outline'
+  badge: string
+  badgeText?: string
+  highlighted?: boolean
+  ctaTo?: string
+  ctaHref?: string
+}
+
+const plans: Plan[] = [
   {
     tier: 'trial', label: '试用', price: '¥0', unit: '/7天',
     features: ['全功能体验', '1 台设备', '7 天有效期'],
-    cta: '注册领取', ctaVariant: 'primary' as const,
-    badge: 'badge-ghost', href: '/register',
+    cta: '注册领取', ctaVariant: 'primary',
+    badge: 'badge-ghost', ctaTo: '/register',
   },
   {
     tier: 'monthly', label: '月付', price: '—', unit: '/月',
     features: ['30 天有效期', '3 台设备', '全功能'],
-    cta: '去淘宝购买', ctaVariant: 'outline' as const,
-    badge: '', href: 'https://shop.taobao.com',
+    cta: '去淘宝购买', ctaVariant: 'outline',
+    badge: '', ctaHref: 'https://shop.taobao.com',
   },
   {
     tier: 'quarterly', label: '季付', price: '—', unit: '/季',
     features: ['90 天有效期', '3 台设备', '约 ¥X/月'],
-    cta: '去淘宝购买', ctaVariant: 'primary' as const,
+    cta: '去淘宝购买', ctaVariant: 'primary',
     badge: 'badge-primary', badgeText: '最受欢迎', highlighted: true,
-    href: 'https://shop.taobao.com',
+    ctaHref: 'https://shop.taobao.com',
   },
   {
     tier: 'yearly', label: '年付', price: '—', unit: '/年',
     features: ['365 天有效期', '5 台设备', '约 ¥X/月，最划算'],
-    cta: '去淘宝购买', ctaVariant: 'outline' as const,
-    badge: '', href: 'https://shop.taobao.com',
+    cta: '去淘宝购买', ctaVariant: 'outline',
+    badge: '', ctaHref: 'https://shop.taobao.com',
   },
   {
     tier: 'lifetime', label: '永久', price: '—', unit: '一次买断',
     features: ['永久有效', '不限设备数', '终身更新'],
-    cta: '去淘宝购买', ctaVariant: 'outline' as const,
+    cta: '去淘宝购买', ctaVariant: 'outline',
     badge: 'badge-accent', badgeText: '永久',
-    href: 'https://shop.taobao.com',
+    ctaHref: 'https://shop.taobao.com',
   },
 ]
 </script>
@@ -68,12 +83,14 @@ const plans = [
             <li v-for="f in plan.features" :key="f">✓ {{ f }}</li>
           </ul>
 
-          <a v-if="plan.href.startsWith('http')" :href="plan.href" target="_blank" rel="noopener">
-            <AppButton :variant="plan.ctaVariant" block>{{ plan.cta }}</AppButton>
-          </a>
-          <router-link v-else :to="plan.href">
-            <AppButton :variant="plan.ctaVariant" block>{{ plan.cta }}</AppButton>
-          </router-link>
+          <AppButton
+            :variant="plan.ctaVariant"
+            block
+            :to="plan.ctaTo"
+            :href="plan.ctaHref"
+          >
+            {{ plan.cta }}
+          </AppButton>
         </AppCard>
       </div>
     </div>

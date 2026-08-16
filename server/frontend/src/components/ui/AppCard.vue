@@ -14,7 +14,7 @@ withDefaults(defineProps<{
   <div
     class="card bg-base-100 border border-base-300 shadow-sm transition-shadow duration-200"
     :class="[
-      hoverable && 'hover:shadow-md hover:-translate-y-0.5 transition-all duration-200',
+      hoverable && 'hover:shadow-md hover:-translate-y-0.5 hover:border-primary/40 transition-all duration-200',
       highlighted && 'ring-2 ring-primary shadow-lg',
     ]"
   >

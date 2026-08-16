@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppContainer from '@/components/ui/AppContainer.vue'
 import HeroSection from '@/components/landing/HeroSection.vue'
 import ConceptSection from '@/components/landing/ConceptSection.vue'
 import FeaturesSection from '@/components/landing/FeaturesSection.vue'
@@ -11,20 +12,20 @@ import FooterSection from '@/components/landing/FooterSection.vue'
 
 <template>
   <div>
-    <div class="max-w-5xl mx-auto px-6">
+    <AppContainer>
       <HeroSection />
-    </div>
+    </AppContainer>
     <!-- 全宽横幅：核心叙事与路线图预告 -->
     <ConceptSection />
-    <div class="max-w-5xl mx-auto px-6">
+    <AppContainer>
       <FeaturesSection />
-    </div>
+    </AppContainer>
     <RoadmapSection />
-    <div class="max-w-5xl mx-auto px-6">
+    <AppContainer>
       <PricingSection />
       <ActivationGuideSection />
       <FaqSection />
       <FooterSection />
-    </div>
+    </AppContainer>
   </div>
 </template>

@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
+import AppButton from '@/components/ui/AppButton.vue'
 import { Moon, Sun, Home, KeyRound, Monitor, Settings, LogOut, Menu } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -50,10 +51,15 @@ onMounted(() => {
           <span class="font-display font-bold">爱小说</span>
         </div>
         <div class="navbar-end">
-          <button class="btn btn-ghost btn-sm" @click="toggleTheme">
+          <AppButton
+            variant="ghost"
+            size="sm"
+            @click="toggleTheme"
+            :aria-label="theme === 'parchment' ? '切换到深色主题' : '切换到浅色主题'"
+          >
             <Sun v-if="theme === 'novelforge'" class="w-4 h-4" />
             <Moon v-else class="w-4 h-4" />
-          </button>
+          </AppButton>
         </div>
       </div>
 
@@ -109,10 +115,10 @@ onMounted(() => {
             <p class="text-sm font-medium truncate">{{ session.username || '用户' }}</p>
             <span class="badge badge-primary badge-sm mt-1">{{ session.tierDisplay }}</span>
           </div>
-          <button class="btn btn-ghost btn-xs w-full justify-start gap-2" @click="handleLogout">
+          <AppButton variant="ghost" size="xs" block class="justify-start gap-2" @click="handleLogout">
             <LogOut class="w-3 h-3" />
             退出登录
-          </button>
+          </AppButton>
         </div>
       </aside>
     </div>

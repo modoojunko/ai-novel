@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { Monitor, Laptop, Terminal } from 'lucide-vue-next'
 import type { DeviceItem } from '@/api/web'
 import AppCard from '@/components/ui/AppCard.vue'
+import AppButton from '@/components/ui/AppButton.vue'
 
 const props = defineProps<{
   device: DeviceItem
@@ -74,15 +75,16 @@ const statusBadge = computed(() => {
           <span class="badge badge-sm" :class="statusBadge.cls">{{ statusBadge.text }}</span>
         </div>
 
-        <button
+        <AppButton
           v-if="!device.is_current"
-          class="btn btn-error btn-outline btn-sm"
+          variant="error"
+          size="sm"
           @click="$emit('remove', device.id)"
         >
           移除
-        </button>
+        </AppButton>
         <div v-else class="tooltip" data-tip="当前设备不可移除">
-          <button class="btn btn-error btn-outline btn-sm" disabled>移除</button>
+          <AppButton variant="error" size="sm" disabled>移除</AppButton>
         </div>
       </div>
     </div>

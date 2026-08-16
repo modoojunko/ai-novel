@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>爱小说 · AI Novel</title>
+  <script>
+    // 首帧主题：在 CSS 应用前写入 data-theme，避免深色主题用户刷新时闪白
+    document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'parchment')
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link

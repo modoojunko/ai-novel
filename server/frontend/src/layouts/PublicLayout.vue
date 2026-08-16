@@ -2,7 +2,8 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
-import { Moon, Sun } from 'lucide-vue-next'
+import AppButton from '@/components/ui/AppButton.vue'
+import { Menu, Moon, Sun } from 'lucide-vue-next'
 
 const router = useRouter()
 const session = useSessionStore()
@@ -21,11 +22,32 @@ onMounted(() => {
     session.fetchUserInfo()
   }
 })
+
+function closeMobileMenu(e: MouseEvent) {
+  // 点击锚点后收起移动端菜单
+  (e.target as HTMLElement).closest('details')?.removeAttribute('open')
+}
 </script>
 
 <template>
   <div class="navbar bg-base-100/80 backdrop-blur border-b border-base-300 sticky top-0 z-40 px-4 lg:px-8">
-    <div class="navbar-start">
+    <div class="navbar-start gap-2">
+      <!-- 移动端导航菜单（桌面端隐藏） -->
+      <details class="dropdown lg:hidden">
+        <summary class="btn btn-ghost btn-sm" aria-label="打开导航菜单">
+          <Menu class="w-4 h-4" />
+        </summary>
+        <ul
+          class="menu dropdown-content z-50 mt-2 w-44 p-2 bg-base-100 border border-base-300 rounded-box shadow-lg"
+          @click="closeMobileMenu"
+        >
+          <li><a href="#features">功能</a></li>
+          <li><a href="#roadmap">路线图</a></li>
+          <li><a href="#pricing">套餐</a></li>
+          <li><a href="#guide">激活指南</a></li>
+        </ul>
+      </details>
+
       <router-link to="/" class="flex items-center gap-2 font-display text-lg font-bold text-base-content no-underline">
         <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-brand to-amber-deep flex items-center justify-center text-white text-sm">
           ✎
@@ -42,23 +64,22 @@ onMounted(() => {
       </ul>
     </div>
     <div class="navbar-end gap-2">
-      <button
-        class="btn btn-ghost btn-sm"
+      <AppButton
+        variant="ghost"
+        size="sm"
         @click="toggleTheme"
         :aria-label="theme === 'parchment' ? '切换到深色主题' : '切换到浅色主题'"
       >
         <Sun v-if="theme === 'novelforge'" class="w-4 h-4" />
         <Moon v-else class="w-4 h-4" />
-      </button>
+      </AppButton>
 
       <template v-if="session.isLoggedIn">
-        <router-link to="/dashboard" class="btn btn-primary btn-sm">
-          我的账号
-        </router-link>
+        <AppButton to="/dashboard" size="sm">我的账号</AppButton>
       </template>
       <template v-else>
-        <router-link to="/login" class="btn btn-ghost btn-sm">登录</router-link>
-        <router-link to="/register" class="btn btn-primary btn-sm">注册</router-link>
+        <AppButton to="/login" variant="ghost" size="sm">登录</AppButton>
+        <AppButton to="/register" size="sm">注册</AppButton>
       </template>
     </div>
   </div>

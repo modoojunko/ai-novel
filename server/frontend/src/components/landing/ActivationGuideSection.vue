@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Download, KeyRound, User } from 'lucide-vue-next'
 </script>
 
 <template>
@@ -13,7 +14,10 @@
           1
         </div>
         <div class="md:text-center">
-          <div class="font-medium mb-1">📥 下载安装</div>
+          <div class="font-medium mb-1 flex items-center gap-1.5 md:justify-center">
+            <Download class="w-4 h-4 text-primary shrink-0" />
+            下载安装
+          </div>
           <p class="text-sm text-base-content/60">从 GitHub Releases 下载 Windows 客户端，双击即用</p>
         </div>
         <!-- 虚线连接（桌面端） -->
@@ -26,7 +30,10 @@
           2
         </div>
         <div class="md:text-center">
-          <div class="font-medium mb-1">👤 注册账号</div>
+          <div class="font-medium mb-1 flex items-center gap-1.5 md:justify-center">
+            <User class="w-4 h-4 text-primary shrink-0" />
+            注册账号
+          </div>
           <p class="text-sm text-base-content/60">应用内或本站注册，自动获得 7 天全功能试用</p>
         </div>
         <div class="hidden md:block absolute top-5 left-[calc(50%+2rem)] w-[calc(100%-3rem)] border-t-2 border-dashed border-base-300" />
@@ -38,7 +45,10 @@
           3
         </div>
         <div class="md:text-center">
-          <div class="font-medium mb-1">🔑 激活 License</div>
+          <div class="font-medium mb-1 flex items-center gap-1.5 md:justify-center">
+            <KeyRound class="w-4 h-4 text-primary shrink-0" />
+            激活 License
+          </div>
           <p class="text-sm text-base-content/60">淘宝购买激活码，在控制台一键激活，设备自动绑定</p>
         </div>
       </div>

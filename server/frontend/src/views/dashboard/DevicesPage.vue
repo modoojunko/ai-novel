@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useDeviceStore } from '@/stores/devices'
+import { usePageLoad } from '@/composables/usePageLoad'
 import DeviceCard from '@/components/dashboard/DeviceCard.vue'
+import AppButton from '@/components/ui/AppButton.vue'
 import AppModal from '@/components/ui/AppModal.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
@@ -11,16 +13,7 @@ const deviceStore = useDeviceStore()
 const showRemoveConfirm = ref(false)
 const removingDeviceId = ref('')
 const removingDeviceName = ref('')
-const loadError = ref(false)
-
-onMounted(async () => {
-  loadError.value = false
-  try {
-    await deviceStore.fetchDevices()
-  } catch {
-    loadError.value = true
-  }
-})
+const { loadError, retry } = usePageLoad(() => deviceStore.fetchDevices())
 
 function confirmRemove(deviceId: string) {
   const device = deviceStore.devices.find(d => d.id === deviceId)
@@ -34,11 +27,6 @@ async function doRemove() {
   showRemoveConfirm.value = false
   await deviceStore.removeDevice(removingDeviceId.value)
   removingDeviceId.value = ''
-}
-
-function retry() {
-  loadError.value = false
-  deviceStore.fetchDevices()
 }
 </script>
 
@@ -66,7 +54,7 @@ function retry() {
     <!-- 错误态 -->
     <div v-else-if="loadError" class="text-center py-12">
       <p class="text-base-content/60 mb-4">加载失败</p>
-      <button class="btn btn-outline btn-sm" @click="retry">重试</button>
+      <AppButton variant="outline" size="sm" @click="retry">重试</AppButton>
     </div>
 
     <!-- 空态 -->
@@ -94,8 +82,8 @@ function retry() {
         移除后该设备将无法使用全功能，确定移除？
       </p>
       <div class="modal-action">
-        <button class="btn btn-ghost btn-sm" @click="showRemoveConfirm = false">取消</button>
-        <button class="btn btn-error btn-sm" @click="doRemove">确认移除</button>
+        <AppButton variant="ghost" size="sm" @click="showRemoveConfirm = false">取消</AppButton>
+        <AppButton variant="error" size="sm" @click="doRemove">确认移除</AppButton>
       </div>
     </AppModal>
   </div>

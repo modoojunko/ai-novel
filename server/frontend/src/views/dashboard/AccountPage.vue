@@ -1,29 +1,18 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
 import { useSessionStore } from '@/stores/session'
+import { usePageLoad } from '@/composables/usePageLoad'
+import AppButton from '@/components/ui/AppButton.vue'
 import AppCard from '@/components/ui/AppCard.vue'
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
 import ChangePasswordForm from '@/components/dashboard/ChangePasswordForm.vue'
 import SecurityForm from '@/components/dashboard/SecurityForm.vue'
 
 const session = useSessionStore()
-const loadError = ref(false)
-
-onMounted(async () => {
-  loadError.value = false
-  try {
-    if (!session.userFetched) {
-      await session.fetchUserInfo()
-    }
-  } catch {
-    loadError.value = true
+const { loadError, retry } = usePageLoad(async () => {
+  if (!session.userFetched) {
+    await session.fetchUserInfo()
   }
 })
-
-function retry() {
-  loadError.value = false
-  session.fetchUserInfo()
-}
 </script>
 
 <template>
@@ -34,7 +23,7 @@ function retry() {
 
     <div v-else-if="loadError" class="text-center py-12">
       <p class="text-base-content/60 mb-4">加载失败</p>
-      <button class="btn btn-outline btn-sm" @click="retry">重试</button>
+      <AppButton variant="outline" size="sm" @click="retry">重试</AppButton>
     </div>
 
     <template v-else>

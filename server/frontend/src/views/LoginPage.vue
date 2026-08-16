@@ -49,11 +49,11 @@ async function handleReset() {
   try {
     const res = await apiResetPassword(resetUsername.value, resetAnswer.value, resetNewPass.value)
     if (res.code === 0) {
+      // 保留展开区，让成功提示可见（用户确认后可用新密码直接登录）
       resetMsg.value = 'success:密码已重置，请用新密码登录'
       resetUsername.value = ''
       resetAnswer.value = ''
       resetNewPass.value = ''
-      showResetForm.value = false
     } else {
       resetMsg.value = res.msg || '重置失败'
     }

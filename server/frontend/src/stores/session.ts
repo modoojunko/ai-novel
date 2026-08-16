@@ -24,18 +24,22 @@ export const useSessionStore = defineStore('session', () => {
   const hasLicense = computed(() => tier.value !== 'none' && isValid.value)
 
   // ── Actions ──
+  function applyAuthData(data: { token?: string; tier?: string; expires_at?: string }, usernameInput: string, defaultTier = 'none'): void {
+    token.value = data.token || ''
+    tier.value = data.tier || defaultTier
+    expiresAt.value = data.expires_at || ''
+    username.value = usernameInput
+    localStorage.setItem('token', token.value)
+    isValid.value = true
+    userFetched.value = false
+  }
+
   async function login(usernameInput: string, password: string): Promise<{ ok: boolean; msg?: string }> {
     isLoading.value = true
     try {
       const res = await apiWebLogin(usernameInput, password)
       if (res.code === 0 && res.data) {
-        token.value = res.data.token
-        tier.value = res.data.tier || 'none'
-        expiresAt.value = res.data.expires_at || ''
-        localStorage.setItem('token', res.data.token)
-        username.value = usernameInput
-        isValid.value = true
-        userFetched.value = false
+        applyAuthData(res.data, usernameInput)
         return { ok: true }
       }
       return { ok: false, msg: res.msg || '登录失败' }
@@ -56,13 +60,7 @@ export const useSessionStore = defineStore('session', () => {
     try {
       const res = await apiWebRegister(usernameInput, password, securityQuestion, securityAnswer)
       if (res.code === 0 && res.data) {
-        token.value = res.data.token
-        tier.value = res.data.tier || 'trial'
-        expiresAt.value = res.data.expires_at || ''
-        username.value = usernameInput
-        localStorage.setItem('token', res.data.token)
-        isValid.value = true
-        userFetched.value = false
+        applyAuthData(res.data, usernameInput, 'trial')
         return { ok: true }
       }
       return { ok: false, msg: res.msg || '注册失败' }
@@ -102,19 +100,9 @@ export const useSessionStore = defineStore('session', () => {
     localStorage.removeItem('token')
   }
 
-  function setTokenFromAuth(tokenStr: string, tierStr: string, expires: string, user: string): void {
-    token.value = tokenStr
-    tier.value = tierStr
-    expiresAt.value = expires
-    username.value = user
-    isValid.value = true
-    userFetched.value = false
-    localStorage.setItem('token', tokenStr)
-  }
-
   return {
     token, username, tier, tierDisplay, expiresAt, isValid, isLoading, userFetched,
     isLoggedIn, hasLicense,
-    login, register, fetchUserInfo, logout, setTokenFromAuth,
+    login, register, fetchUserInfo, logout,
   }
 })

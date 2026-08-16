@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import AppCard from '@/components/ui/AppCard.vue'
+import {
+  BookOpen, Bot, Brain, FileText, Library, LineChart, ListTodo, Lock, PenLine, Settings, Wand2, Zap,
+} from 'lucide-vue-next'
+
 // 三大痛点支柱：怕烂尾 / 不像你 / 有 AI 味（文案以用户语言呈现，不用内部术语）
 const pillars = [
   {
@@ -35,21 +40,21 @@ const pillars = [
 
 // 六阶段工作流的用户语言呈现（提示词为内部环节，不向用户展示——对齐 PM 评审）
 const workflowSteps = [
-  { icon: '📝', title: '建书', desc: '填个书名，10 秒开写' },
-  { icon: '⚙️', title: '设定', desc: '世界观与角色，可深可浅' },
-  { icon: '📋', title: '大纲', desc: '分卷规划，剧情不跑偏' },
-  { icon: '📄', title: '章纲', desc: '每章动笔前，先想好写什么' },
-  { icon: '✍️', title: '写作', desc: '手写或 AI 协作，一章一章推' },
-  { icon: '📚', title: '归档', desc: '定稿收藏，随时回来改' },
+  { icon: BookOpen, title: '建书', desc: '填个书名，10 秒开写' },
+  { icon: Settings, title: '设定', desc: '世界观与角色，可深可浅' },
+  { icon: ListTodo, title: '大纲', desc: '分卷规划，剧情不跑偏' },
+  { icon: FileText, title: '章纲', desc: '每章动笔前，先想好写什么' },
+  { icon: PenLine, title: '写作', desc: '手写或 AI 协作，一章一章推' },
+  { icon: Library, title: '归档', desc: '定稿收藏，随时回来改' },
 ]
 
 const keyFeatures = [
-  { icon: '⚡', title: 'AI 写本章', desc: '一口气写完整章，也能续写、润色、扩写，随时喊停' },
-  { icon: '🧠', title: '剧情推演', desc: '卡文时让角色先演一遍，看走向合不合理' },
-  { icon: '🎭', title: '去 AI 味', desc: '避开机器腔，越写越像你' },
-  { icon: '🤖', title: '模型随你选', desc: '接你自己的 AI 服务，DeepSeek、Kimi、通义等主流模型都支持' },
-  { icon: '🔒', title: '数据不出电脑', desc: '稿子存在本地，关网也能写' },
-  { icon: '📊', title: '花费心中有数', desc: 'AI 按用量计费，写之前先告诉你大概花多少' },
+  { icon: Zap, title: 'AI 写本章', desc: '一口气写完整章，也能续写、润色、扩写，随时喊停' },
+  { icon: Brain, title: '剧情推演', desc: '卡文时让角色先演一遍，看走向合不合理' },
+  { icon: Wand2, title: '去 AI 味', desc: '避开机器腔，越写越像你' },
+  { icon: Bot, title: '模型随你选', desc: '接你自己的 AI 服务，DeepSeek、Kimi、通义等主流模型都支持' },
+  { icon: Lock, title: '数据不出电脑', desc: '稿子存在本地，关网也能写' },
+  { icon: LineChart, title: '花费心中有数', desc: 'AI 按用量计费，写之前先告诉你大概花多少' },
 ]
 </script>
 
@@ -60,11 +65,11 @@ const keyFeatures = [
 
     <!-- 三大痛点支柱 -->
     <div class="grid md:grid-cols-3 gap-6">
-      <div
+      <AppCard
         v-for="(pillar, i) in pillars"
         :key="pillar.num"
-        class="card bg-base-100 border border-base-300 p-6 hover:border-primary/40 transition-colors duration-200"
-        :class="`animate-fade-up`"
+        hoverable
+        class="animate-fade-up"
         :style="{ animationDelay: `${i * 0.08}s` }"
       >
         <div class="font-display text-4xl font-bold text-primary/50">{{ pillar.num }}</div>
@@ -80,7 +85,7 @@ const keyFeatures = [
             <p class="text-xs text-base-content/50 mt-1">{{ point.desc }}</p>
           </div>
         </div>
-      </div>
+      </AppCard>
     </div>
 
     <!-- 六阶段工作流：桌面端 6 列网格 -->
@@ -89,26 +94,30 @@ const keyFeatures = [
       <p class="text-sm text-base-content/60 mt-1">从灵感到成书，每一步都有明确的出口</p>
     </div>
     <div class="hidden lg:grid lg:grid-cols-6 gap-4">
-      <div
+      <AppCard
         v-for="(step, i) in workflowSteps"
         :key="step.title"
-        class="card bg-base-100 border border-base-300 p-4 text-center hover:border-primary/40 transition-colors duration-200"
-        :class="`animate-fade-up`"
+        compact
+        hoverable
+        class="text-center animate-fade-up"
         :style="{ animationDelay: `${i * 0.08}s` }"
       >
-        <div class="text-2xl text-primary mb-2">
-          {{ step.icon }}
+        <div class="mb-2 flex justify-center">
+          <component :is="step.icon" class="w-6 h-6 text-primary" />
         </div>
         <div class="font-medium text-sm">{{ step.title }}</div>
         <div class="text-xs text-base-content/50 mt-1">{{ step.desc }}</div>
-      </div>
+      </AppCard>
     </div>
 
     <!-- 六阶段工作流：移动端纵向 steps -->
     <ul class="steps steps-vertical lg:hidden mt-6">
       <li v-for="step in workflowSteps" :key="step.title" class="step">
         <div class="text-left">
-          <div class="font-medium">{{ step.icon }} {{ step.title }}</div>
+          <div class="font-medium flex items-center gap-1.5">
+            <component :is="step.icon" class="w-4 h-4 text-primary" />
+            {{ step.title }}
+          </div>
           <div class="text-xs text-base-content/50">{{ step.desc }}</div>
         </div>
       </li>
@@ -122,7 +131,9 @@ const keyFeatures = [
         class="text-center animate-fade-up"
         :style="{ animationDelay: `${i * 0.1}s` }"
       >
-        <div class="text-3xl mb-2">{{ feature.icon }}</div>
+        <div class="mb-2 flex justify-center">
+          <component :is="feature.icon" class="w-7 h-7 text-primary" />
+        </div>
         <div class="font-medium mb-1">{{ feature.title }}</div>
         <div class="text-sm text-base-content/60">{{ feature.desc }}</div>
       </div>
