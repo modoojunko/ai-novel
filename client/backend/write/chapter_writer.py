@@ -2,6 +2,7 @@
 
 from filesystem.storage import get_storage
 from genres.service import build_genre_section, resolve_genre_context
+from prompt.context import inject_world_setting
 from settings.render import (
     build_tone_section,
     depiction_techniques_str,
@@ -71,18 +72,10 @@ class ChapterContext:
         lines.append(f"本段是《{self.novel_title}》的一章。")
         if self.premise:
             lines.append(f"故事前提：{self.premise}")
-        world = self.world_setting
-        if world:
-            summary_parts = []
-            for key in ["geography", "politics", "rules"]:
-                val = world.get(key, {})
-                if isinstance(val, dict):
-                    for sub in val.values():
-                        if isinstance(sub, str) and len(sub) > 5:
-                            summary_parts.append(sub)
-                            break
-            if summary_parts:
-                lines.append(f"世界观：{' '.join(summary_parts[:3])}")
+        # 世界观（细粒度全字段注入，与提示词面板路径共用 inject_world_setting）
+        world_block = inject_world_setting(self.world_setting)
+        if world_block:
+            lines.append(world_block)
         if self.volume_summary:
             lines.append(f"本卷概要：{self.volume_summary}")
         lines.append("")

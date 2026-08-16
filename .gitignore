@@ -102,6 +102,7 @@ live-*.png
 # Local dev tooling
 .reasonix/
 reasonix.toml
+.mimosa/
 
 # Playwright test reports
 playwright-report/

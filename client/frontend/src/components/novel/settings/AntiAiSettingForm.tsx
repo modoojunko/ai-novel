@@ -21,7 +21,6 @@ interface TicPattern {
 const TABS = [
   { id: "fatigue", label: "疲劳词" },
   { id: "patterns", label: "句式偏好" },
-  { id: "rewrite", label: "改写算法" },
 ];
 
 // 与模板 anti-ai.yaml 的 fatigue_words_zh 7 分类一致（quality.py 按此分类展平检查）
@@ -42,21 +41,6 @@ function toWordList(v: unknown): string[] {
 
 function emptyTic(): TicPattern {
   return { pattern: "", name: "", threshold: 3, severity: "medium", description: "" };
-}
-
-function formatRewriteRules(rules: unknown): string {
-  if (!rules || typeof rules !== "object") return "";
-  const lines: string[] = [];
-  for (const [key, val] of Object.entries(rules as Record<string, any>)) {
-    if (val && typeof val === "object") {
-      lines.push(`【${key}】`);
-      if (val.description) lines.push(val.description);
-      if (val.example_before) lines.push(`前：${val.example_before}`);
-      if (val.example_after) lines.push(`后：${val.example_after}`);
-      lines.push("");
-    }
-  }
-  return lines.join("\n");
 }
 
 // structural_tic_patterns 结构化编辑：pattern（正则）/ name / threshold / severity / description
@@ -136,7 +120,6 @@ const AntiAiSettingForm = forwardRef<SettingSaveHandle, Props>(function AntiAiSe
   const [existing, setExisting] = useState<Record<string, any> | null>(null);
   const [fatigueWords, setFatigueWords] = useState<Record<string, string[]>>({});
   const [ticPatterns, setTicPatterns] = useState<TicPattern[]>([]);
-  const [rewriteDisplay, setRewriteDisplay] = useState("");
   const currentShape = { fatigueWords, ticPatterns };
   const { snapshotLoaded, markSaved } = useDirtyState(currentShape, onDirtyChange);
 
@@ -163,7 +146,6 @@ const AntiAiSettingForm = forwardRef<SettingSaveHandle, Props>(function AntiAiSe
         }));
         setFatigueWords(fw);
         setTicPatterns(tics);
-        setRewriteDisplay(formatRewriteRules(d.rewrite_rules));
         snapshotLoaded({ fatigueWords: fw, ticPatterns: tics });
       })
       .catch(() => {
@@ -222,11 +204,6 @@ const AntiAiSettingForm = forwardRef<SettingSaveHandle, Props>(function AntiAiSe
       )}
       {tab === "patterns" && (
         <TicPatternEditor items={ticPatterns} onChange={setTicPatterns} />
-      )}
-      {tab === "rewrite" && (
-        <pre className="whitespace-pre-wrap text-sm text-base-content/70 bg-base-200/40 border border-base-300/60 rounded-lg p-3.5 leading-relaxed">
-          {rewriteDisplay || "暂无改写算法（只读，AI 味修正由模型在生成阶段处理）"}
-        </pre>
       )}
 
       {error && <p className="text-sm text-error/80 mt-3">{error}</p>}
