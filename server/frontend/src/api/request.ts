@@ -49,7 +49,10 @@ request.interceptors.response.use(
       if (data.code === 2) {
         handleUnauthorized()
       }
-      return Promise.reject(new Error(data.msg || '请求失败'))
+      // 把后端 code 挂到 Error 上：调用方需区分业务失败（code 1）与网络错误
+      const err = new Error(data.msg || '请求失败') as Error & { code?: number }
+      err.code = data.code
+      return Promise.reject(err)
     }
 
     return response

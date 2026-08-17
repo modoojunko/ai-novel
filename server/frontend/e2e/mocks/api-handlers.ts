@@ -9,6 +9,8 @@ export class MockApi {
   private page: Page
   private currentUser: TestUser | null = null
   private devices: TestDevice[] = []
+  /** 会话失效模式：/user/me 返回 HTTP 200 + code 1（与真实后端「用户不存在/未登录」一致） */
+  private userMeDead = false
   private routes: string[] = [
     '**/api/web/login',
     '**/api/web/register',
@@ -30,6 +32,7 @@ export class MockApi {
   async setup(): Promise<void> {
     this.currentUser = null
     this.devices = []
+    this.userMeDead = false
     for (const url of this.routes) {
       await this.page.route(url, (route) => this.handler(route))
     }
@@ -51,6 +54,12 @@ export class MockApi {
       createTestDevice({ is_current: true, activated: true }, 1),
       createTestDevice({ activated: true }, 2),
     ]
+  }
+
+  /** 模拟真实后端「会话失效」：残留 token 有效格式但用户已不存在/未登录（HTTP 200 + code 1） */
+  setDeadSession(): void {
+    this.currentUser = null
+    this.userMeDead = true
   }
 
   get token(): string {
@@ -106,6 +115,9 @@ export class MockApi {
     }
 
     if (path === '/api/user/me' && method === 'GET') {
+      if (this.userMeDead) {
+        return route.fulfill(json(1, null))
+      }
       if (!this.currentUser) {
         return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ code: 2, msg: '未登录' }) })
       }
