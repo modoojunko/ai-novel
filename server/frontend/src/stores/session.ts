@@ -82,8 +82,17 @@ export const useSessionStore = defineStore('session', () => {
         expiresAt.value = res.data.expires_at || ''
         isValid.value = !!res.data.is_valid
       }
-    } catch {
-      // silent
+    } catch (e: any) {
+      // code 1 = 会话失效（token 无效 / 用户已不存在，如本地库重建后残留旧 token）。
+      // 必须清掉本地会话，否则 isLoggedIn 只看 token 存在与否，会渲染出「已登录」
+      // 但数据全空的壳。受保护页面硬跳 /login；公共页只清态（头部自动回到未登录）。
+      if (e?.code === 1) {
+        logout()
+        if (window.location.pathname.startsWith('/dashboard')) {
+          window.location.href = '/login'
+        }
+      }
+      // 其余（网络错误等）保持静默，由页面 loadError/重试兜底
     } finally {
       isLoading.value = false
       userFetched.value = true
