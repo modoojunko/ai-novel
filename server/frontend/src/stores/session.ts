@@ -74,9 +74,15 @@ export const useSessionStore = defineStore('session', () => {
   // 云托管 MinNum=0 缩容后冷启动 30-60s：/user/me 网络失败时延迟重试自愈
   // （失败请求本身已触发扩容）。仅重试无业务 code 的网络错误。
   const FETCH_RETRY_DELAYS_MS = [20_000, 20_000]
+  let fetchRetryTimer: ReturnType<typeof setTimeout> | undefined
 
   async function fetchUserInfo(retryDelays: number[] = FETCH_RETRY_DELAYS_MS): Promise<void> {
-    if (!token.value) return
+    if (!token.value) {
+      // 复位重试链遗留的 loading：挂起期间被登出后若不复位，
+      // isLoading=true 会让登录/注册按钮（:loading 即禁用）永久不可点
+      isLoading.value = false
+      return
+    }
     isLoading.value = true
     let retrying = false
     try {
@@ -101,7 +107,7 @@ export const useSessionStore = defineStore('session', () => {
         // 不置 userFetched，避免页面误判「已拉取」
         retrying = true
         const [delay, ...rest] = retryDelays
-        setTimeout(() => { fetchUserInfo(rest) }, delay)
+        fetchRetryTimer = setTimeout(() => { fetchUserInfo(rest) }, delay)
       }
       // 其余（业务失败）保持静默，由页面 loadError/重试兜底
     } finally {
@@ -113,6 +119,12 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   function logout(): void {
+    // 终止挂起的 fetchUserInfo 重试链并复位 loading（重试期间的登出）
+    if (fetchRetryTimer) {
+      clearTimeout(fetchRetryTimer)
+      fetchRetryTimer = undefined
+    }
+    isLoading.value = false
     token.value = ''
     username.value = ''
     tier.value = 'none'
