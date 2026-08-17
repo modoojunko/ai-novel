@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 
 const requestMock = vi.fn();
@@ -60,5 +60,67 @@ describe("useAuthHeal", () => {
 
     expect(setTokenMock).not.toHaveBeenCalled();
     expect(localStorage.getItem("auth_token")).toBe("existing-token");
+  });
+});
+
+describe("useAuthHeal 冷启动重试", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("code -1（S端冷启动 503）后重试，成功即写回 token", async () => {
+    requestMock
+      .mockResolvedValueOnce({ code: -1, msg: "S端响应异常（HTTP 503）" })
+      .mockResolvedValue({ code: 0, data: { token: "healed-token", username: "modoojunko" } });
+    await mountHeal();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(requestMock).toHaveBeenCalledTimes(1);
+    expect(setTokenMock).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(requestMock).toHaveBeenCalledTimes(2);
+    expect(setTokenMock).toHaveBeenCalledWith("healed-token", "modoojunko");
+    // 成功后不再重试
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(requestMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("code 1（明确未登录）不重试", async () => {
+    requestMock.mockResolvedValue({ code: 1, data: { message: "未登录" } });
+    await mountHeal();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(requestMock).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(requestMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("请求失败（后端不可达）同样重试直至成功", async () => {
+    requestMock
+      .mockRejectedValueOnce(new Error("backend down"))
+      .mockResolvedValue({ code: 0, data: { token: "healed-token", username: "u" } });
+    await mountHeal();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(requestMock).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(requestMock).toHaveBeenCalledTimes(2);
+    expect(setTokenMock).toHaveBeenCalledWith("healed-token", "u");
+  });
+
+  it("持续失败最多 4 次（首次 + 3 重试）后放弃，保持静默", async () => {
+    requestMock.mockResolvedValue({ code: -1, msg: "S端 不可达" });
+    await mountHeal();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(requestMock).toHaveBeenCalledTimes(4);
+    expect(setTokenMock).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(requestMock).toHaveBeenCalledTimes(4);
   });
 });

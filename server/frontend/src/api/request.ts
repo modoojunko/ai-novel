@@ -68,11 +68,20 @@ request.interceptors.response.use(
 
 /**
  * 预热后端（云托管 MinNum=0 冷启动兜底）：
- * 站点加载时发一个轻量请求，让实例在用户填表期间完成冷启动。
- * 无 pc_hash 的 check-auth 不查库，极轻；失败静默（冷启动期间 503 属预期）。
+ * 站点加载时发一个轻量请求，让实例在用户填表/浏览期间完成冷启动。
+ * 无 pc_hash 的 check-auth 不查库，极轻。冷启动期间网关返回 503 属预期——
+ * 失败请求本身已触发扩容，间隔重试直到实例就绪（覆盖 30-60s 冷启动窗口）。
  */
-export function warmUpBackend(): void {
-  request.get('/check-auth', { params: { pc_hash: '' } }).catch(() => {})
+export async function warmUpBackend(attemptDelaysMs: number[] = [15_000, 15_000, 15_000, 15_000]): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await request.get('/check-auth', { params: { pc_hash: '' } })
+      return
+    } catch {
+      if (attempt >= attemptDelaysMs.length) return
+      await new Promise((resolve) => setTimeout(resolve, attemptDelaysMs[attempt]))
+    }
+  }
 }
 
 export default request

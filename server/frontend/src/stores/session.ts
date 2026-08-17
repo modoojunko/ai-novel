@@ -71,9 +71,14 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  async function fetchUserInfo(): Promise<void> {
+  // 云托管 MinNum=0 缩容后冷启动 30-60s：/user/me 网络失败时延迟重试自愈
+  // （失败请求本身已触发扩容）。仅重试无业务 code 的网络错误。
+  const FETCH_RETRY_DELAYS_MS = [20_000, 20_000]
+
+  async function fetchUserInfo(retryDelays: number[] = FETCH_RETRY_DELAYS_MS): Promise<void> {
     if (!token.value) return
     isLoading.value = true
+    let retrying = false
     try {
       const res = await apiUserMe()
       if (res.code === 0 && res.data) {
@@ -91,11 +96,19 @@ export const useSessionStore = defineStore('session', () => {
         if (window.location.pathname.startsWith('/dashboard')) {
           window.location.href = '/login'
         }
+      } else if (retryDelays.length > 0 && e?.code === undefined) {
+        // 网络错误（无业务 code）：后端正冷启动，保持 loading 并延迟重试；
+        // 不置 userFetched，避免页面误判「已拉取」
+        retrying = true
+        const [delay, ...rest] = retryDelays
+        setTimeout(() => { fetchUserInfo(rest) }, delay)
       }
-      // 其余（网络错误等）保持静默，由页面 loadError/重试兜底
+      // 其余（业务失败）保持静默，由页面 loadError/重试兜底
     } finally {
-      isLoading.value = false
-      userFetched.value = true
+      if (!retrying) {
+        isLoading.value = false
+        userFetched.value = true
+      }
     }
   }
 
