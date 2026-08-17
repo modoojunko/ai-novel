@@ -65,11 +65,19 @@ def on_startup():
             from alembic import command
             from alembic.config import Config
             server_dir = Path(__file__).parent.parent
-            alembic_cfg = Config(str(server_dir / "alembic.ini"))
+            # 不加载 alembic.ini（config_file_name=None）：env.py 里 fileConfig(ini)
+            # 默认 disable_existing_loggers=True，会把 app/api/uvicorn 的 logger 全部禁用，
+            # 而 dictConfig(disable_existing_loggers=False) 无法复活未显式配置的子 logger
+            # （如 api.access），导致访问日志全程失声。script_location 显式传入即可。
+            alembic_cfg = Config()
             alembic_cfg.set_main_option("script_location", str(server_dir / "alembic"))
             command.upgrade(alembic_cfg, "head")
+            setup_logging()
+            logger = logging.getLogger("app")
             logger.info("event=app.migration action=alembic_upgrade result=ok")
         except Exception as e:
+            setup_logging()
+            logger = logging.getLogger("app")
             logger.warning("event=app.migration action=alembic_upgrade result=fail error=%s", e)
 
     logger.info("event=app.migration action=create_all")
