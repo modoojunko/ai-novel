@@ -1,7 +1,8 @@
 """CloudBase PG HTTP API 设备授权凭证仓储。"""
 from __future__ import annotations
-from app.infrastructure.repositories.pg_http.client import PgRestClient
+
 from app.domain.devices import DeviceGrant
+from app.infrastructure.repositories.pg_http.client import PgRestClient
 
 _TABLE = "device_grants"
 

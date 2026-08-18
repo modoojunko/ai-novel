@@ -1,5 +1,7 @@
 from __future__ import annotations
-from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, func
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, func
+
 from app.models.base import Base
 
 

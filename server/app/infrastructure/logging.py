@@ -1,11 +1,11 @@
 from __future__ import annotations
+
 import logging
 import logging.config
 import sys
 from pathlib import Path
 
 from app.config import settings
-
 
 LOG_FORMAT = (
     "%(asctime)s.%(msecs)03d+08:00 | %(levelname)-5s | %(name)-20s | "

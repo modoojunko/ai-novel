@@ -1,13 +1,15 @@
 """C端 设备端点：devices/current, consume-enrolled。"""
 from __future__ import annotations
+
 import logging
+
 from fastapi import Depends, Header
 from fastapi.responses import JSONResponse
 
-from app.interfaces.deps import get_db, get_current_user_or_none, Db
-from app.application.devices.get_device_status import get_device_status
 from app.application.devices.consume_enrolled import consume_enrolled
-from app.infrastructure.repositories.factory import grant_repo, device_repo, code_repo
+from app.application.devices.get_device_status import get_device_status
+from app.infrastructure.repositories.factory import code_repo, device_repo, grant_repo
+from app.interfaces.deps import Db, get_current_user_or_none, get_db
 
 logger = logging.getLogger("api.client.devices")
 

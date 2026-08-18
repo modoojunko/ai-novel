@@ -1,13 +1,13 @@
 """C端 账户端点：reset_password。"""
 from __future__ import annotations
+
 from fastapi import Depends
 
-from app.interfaces.deps import get_db, Db
-from app.interfaces.dto import ResetPasswordRequest
 from app.application.identity.reset_password import reset_password
 from app.infrastructure.repositories.factory import user_repo
-
 from app.interfaces.client_api.router import router as r
+from app.interfaces.deps import Db, get_db
+from app.interfaces.dto import ResetPasswordRequest
 
 
 @r.post("/api/reset_password")

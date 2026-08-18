@@ -1,7 +1,8 @@
 """密保重置密码。"""
 from __future__ import annotations
-from app.infrastructure.security.password import verify_password, hash_password
+
 from app.infrastructure.repositories.base import UserRepo
+from app.infrastructure.security.password import hash_password, verify_password
 
 
 def reset_password(user_repo: UserRepo, username: str, security_answer: str, new_password: str) -> dict:

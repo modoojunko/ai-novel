@@ -1,7 +1,9 @@
 from __future__ import annotations
-from datetime import datetime, timedelta, timezone
 
-from jose import jwt as jose_jwt, JWTError
+from datetime import UTC, datetime, timedelta
+
+from jose import JWTError
+from jose import jwt as jose_jwt
 
 from app.config import settings
 
@@ -11,7 +13,7 @@ def sign_jwt(username: str) -> str:
     payload = {
         "sub": username,
         "username": username,
-        "exp": int((datetime.now(timezone.utc) + timedelta(days=settings.JWT_EXPIRE_DAYS)).timestamp()),
+        "exp": int((datetime.now(UTC) + timedelta(days=settings.JWT_EXPIRE_DAYS)).timestamp()),
     }
     return jose_jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -42,9 +43,11 @@ class DeviceProfile:
     os_arch: str
 
     @staticmethod
-    def from_b64(encoded: str) -> "DeviceProfile":
+    def from_b64(encoded: str) -> DeviceProfile:
         """从 Base64 解码。解码失败返回空值。"""
-        import json, base64, binascii
+        import base64
+        import binascii
+        import json
         if not encoded:
             return DeviceProfile("", "", "", "")
         try:
@@ -64,7 +67,8 @@ class DeviceProfile:
 
     def to_b64(self) -> str:
         """编码为 Base64 URL-safe 格式。"""
-        import json, base64
+        import base64
+        import json
         payload = {
             "f": self.fingerprint,
             "h": self.hostname,

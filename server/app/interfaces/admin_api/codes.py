@@ -1,14 +1,14 @@
 """运营管理 API：generate_code, query_codes。"""
 from __future__ import annotations
+
 from fastapi import Depends
 
-from app.interfaces.deps import get_db, Db
-from app.interfaces.dto import GenerateCodeRequest, QueryCodesRequest
 from app.config import settings
-from app.infrastructure.repositories.factory import code_repo
 from app.domain.licensing import ActivationCode, tier_policy
-
+from app.infrastructure.repositories.factory import code_repo
 from app.interfaces.admin_api.router import router as r
+from app.interfaces.deps import Db, get_db
+from app.interfaces.dto import GenerateCodeRequest, QueryCodesRequest
 
 
 @r.post("/api/generate_code")
@@ -20,7 +20,8 @@ async def api_generate_code(req: GenerateCodeRequest, db: Db = Depends(get_db)):
     if req.count < 1 or req.count > 100:
         return {"code": 1, "msg": "生成数量 1-100"}
 
-    import secrets, string
+    import secrets
+    import string
     def _gen_code():
         chars = string.ascii_uppercase + string.digits
         return f"AC-{'-'.join(''.join(secrets.choice(chars) for _ in range(4)) for _ in range(4))}"

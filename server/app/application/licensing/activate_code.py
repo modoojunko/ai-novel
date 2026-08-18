@@ -1,8 +1,10 @@
 """激活码激活/续费。"""
 from __future__ import annotations
+
 from datetime import date
-from app.infrastructure.repositories.base import CodeRepo
+
 from app.domain.licensing import License, tier_policy
+from app.infrastructure.repositories.base import CodeRepo
 
 
 def activate_code(code_repo: CodeRepo, username: str, code_id: str) -> dict:

@@ -1,17 +1,23 @@
 """门户账户 API：web/login, web/register, user/me, user/password, user/security。"""
 from __future__ import annotations
+
 import logging
+
 from fastapi import Depends
 
-from app.interfaces.deps import get_db, get_current_user_or_none, Db
-from app.interfaces.dto import (
-    WebLoginRequest, WebRegisterRequest,
-    ChangePasswordRequest, SecurityRequest, ok, fail,
-)
 from app.application.identity.login import login
 from app.application.identity.register_user import register_user
-from app.infrastructure.repositories.factory import user_repo, code_repo
-from app.infrastructure.security.password import verify_password, hash_password
+from app.infrastructure.repositories.factory import code_repo, user_repo
+from app.infrastructure.security.password import hash_password, verify_password
+from app.interfaces.deps import Db, get_current_user_or_none, get_db
+from app.interfaces.dto import (
+    ChangePasswordRequest,
+    SecurityRequest,
+    WebLoginRequest,
+    WebRegisterRequest,
+    fail,
+    ok,
+)
 
 logger = logging.getLogger("api.web.account")
 

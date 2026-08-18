@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
-import pytest
-
-from app.domain.devices.device import DeviceRegistry, DeviceProfile
 from app.domain.devices.activation_policy import ActivationPolicy
+from app.domain.devices.device import DeviceProfile, DeviceRegistry
 from app.domain.licensing import tier_policy
-
 
 # ══════════════════════════════════════════════════════════════════
 # tier_policy
@@ -64,7 +61,7 @@ def _device(
         os="Windows-11",
         os_arch="AMD64",
         last_active_at=datetime.fromisoformat(last_active),
-        bound_at=datetime.now(timezone.utc),
+        bound_at=datetime.now(UTC),
     )
 
 
@@ -161,7 +158,8 @@ class TestDeviceProfileCodec:
 
     def test_missing_fields(self):
         """缺少字段时默认空字符串"""
-        import json, base64
+        import base64
+        import json
         encoded = base64.urlsafe_b64encode(json.dumps({"unknown": "value"}).encode()).decode()
         decoded = DeviceProfile.from_b64(encoded)
         assert decoded.fingerprint == ""

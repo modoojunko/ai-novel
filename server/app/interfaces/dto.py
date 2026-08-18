@@ -1,7 +1,7 @@
 """Pydantic 请求/响应模型。"""
 from __future__ import annotations
-from pydantic import BaseModel
 
+from pydantic import BaseModel
 
 # ── 请求模型 ──
 
@@ -59,7 +59,7 @@ class DeviceRemoveRequest(BaseModel):
 
 # ── 通用响应包装 ──
 
-def ok(data: dict = None) -> dict:
+def ok(data: dict | None = None) -> dict:
     return {"code": 0, "msg": "ok", "data": data or {}}
 
 def fail(code: int = 1, msg: str = "") -> dict:

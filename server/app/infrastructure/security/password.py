@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import hashlib
 
 # 跟旧系统保持相同 salt，保证已有的密码哈希兼容

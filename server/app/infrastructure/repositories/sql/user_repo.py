@@ -1,8 +1,10 @@
 """SQL（SQLAlchemy/SQLite）用户仓储。"""
 from __future__ import annotations
+
 from sqlalchemy.orm import Session
-from app.models.user import UserORM
+
 from app.domain.identity import User
+from app.models.user import UserORM
 
 
 class SqlUserRepo:

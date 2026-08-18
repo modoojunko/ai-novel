@@ -8,7 +8,6 @@ from app.config import settings
 
 class Base(DeclarativeBase):
     """所有 ORM 模型的基类。"""
-    pass
 
 
 # 方言由 DATABASE_URL 决定：本地默认 SQLite（不支持并发写入，同步无意义），

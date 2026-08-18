@@ -1,7 +1,8 @@
 """CloudBase PG HTTP API 用户仓储。"""
 from __future__ import annotations
-from app.infrastructure.repositories.pg_http.client import PgRestClient, parse_dt
+
 from app.domain.identity import User
+from app.infrastructure.repositories.pg_http.client import PgRestClient, parse_dt
 
 _TABLE = "users"
 

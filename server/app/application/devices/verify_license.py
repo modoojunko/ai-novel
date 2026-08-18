@@ -1,7 +1,13 @@
 """检查 License 和设备绑定状态（C端 心跳验证）。"""
 from __future__ import annotations
-from app.infrastructure.repositories.base import UserRepo, CodeRepo, DeviceRepo
+
 from app.domain.licensing import License, tier_policy
+from app.infrastructure.repositories.base import (
+    CodeRepo,
+    DeviceRepo,
+    GrantRepo,
+    UserRepo,
+)
 
 
 def verify_license(
@@ -35,7 +41,6 @@ def verify_license(
     license_valid = license_.is_valid()
 
     # 4) 设备绑定校验
-    from app.infrastructure.repositories.base import GrantRepo
     grant = grant_repo.get(pc_hash)
     device_valid = grant is not None and grant.username == username
     valid = license_valid and device_valid

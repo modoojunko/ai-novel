@@ -11,6 +11,8 @@ on:
     paths:
       - "server/app/**"
       - "server/tests/**"
+      - "server/requirements.txt"
+      - ".github/workflows/server-backend-ci.yml"
   workflow_dispatch:
 
 permissions:
@@ -27,9 +29,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r requirements.txt 2>/dev/null || true
-      - run: pip install ruff pytest httpx
+      - run: pip install -r requirements.txt
+      - run: pip install ruff pytest pytest-timeout
       - name: Lint
-        run: ruff check app/ tests/ 2>/dev/null || echo "no app/ or ruff failed"
+        run: ruff check app/ tests/
       - name: Test
-        run: python -m pytest tests/ -v --timeout=30 2>/dev/null || echo "no tests"
+        run: python -m pytest tests/ -v --timeout=60

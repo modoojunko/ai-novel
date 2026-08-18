@@ -1,9 +1,9 @@
 """C端 设备状态查询（裸字段格式，冻结不改变）。"""
 from __future__ import annotations
-from app.infrastructure.repositories.base import GrantRepo, DeviceRepo
+
 from app.domain.devices import ActivationPolicy
 from app.domain.licensing import License, tier_policy
-from app.infrastructure.repositories.base import CodeRepo
+from app.infrastructure.repositories.base import CodeRepo, DeviceRepo, GrantRepo
 
 
 def get_device_status(

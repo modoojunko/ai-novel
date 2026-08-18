@@ -13,8 +13,7 @@ from __future__ import annotations
 
 import os
 import tempfile
-from datetime import date, timedelta, datetime
-from pathlib import Path
+from datetime import date, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -24,8 +23,8 @@ from sqlalchemy.orm import sessionmaker
 
 def _build_engine(db_path: str):
     """创建独立的 engine + 建表，替换 app.models.base 的全局 engine/session。"""
-    from app.models.base import Base
     from app.models import base as mbase
+    from app.models.base import Base
 
     new_engine = create_engine(f"sqlite:///{db_path}", connect_args={"timeout": 10})
     Base.metadata.create_all(bind=new_engine)
@@ -36,16 +35,23 @@ def _build_engine(db_path: str):
 
 @pytest.fixture(scope="module")
 def client():
-    """针对新系统的 TestClient（独立临时 DB）。"""
+    """针对新系统的 TestClient（独立临时 DB）。
+
+    注意：替换的是全局 engine/SessionLocal，teardown 必须还原，
+    否则后续测试模块（tests/test_*.py）会连到已删除的临时库。"""
+    from app.config import settings
+    from app.models import base as mbase
+    orig_engine, orig_session_local = mbase.engine, mbase.SessionLocal
+    orig_db_path = settings.DB_PATH
+
     tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
     db_path = tmp.name
     tmp.close()
 
     # 必须 import app 前设置 DB_PATH
-    from app.config import settings
     settings.DB_PATH = db_path
 
-    _build_engine(db_path)
+    new_engine = _build_engine(db_path)
 
     # 导入 app.main（会使用 settings.DB_PATH 和替换后的 engine/session）
     from app.main import app
@@ -55,23 +61,24 @@ def client():
 
     yield test_client
 
-    # 关闭所有连接以便删除临时文件
-    from app.models import base as mbase
-    if mbase.engine:
-        mbase.engine.dispose()
+    # 还原全局状态，再关闭/清理本模块的独立 engine
+    mbase.engine = orig_engine
+    mbase.SessionLocal = orig_session_local
+    settings.DB_PATH = orig_db_path
+    new_engine.dispose()
     os.unlink(db_path)
 
 
 def _seed_new_db(db_path: str):
     """通过新系统的 ORM 写入种子数据。"""
+    from app.infrastructure.security.jwt import sign_jwt
+    from app.infrastructure.security.password import hash_password
     from app.models.base import SessionLocal
-    from app.models.user import UserORM
     from app.models.code import ActivationCodeORM
+    from app.models.config import GlobalConfigORM
     from app.models.device import DeviceRegistryORM
     from app.models.grant import DeviceGrantORM
-    from app.models.config import GlobalConfigORM
-    from app.infrastructure.security.password import hash_password
-    from app.infrastructure.security.jwt import sign_jwt
+    from app.models.user import UserORM
 
     db = SessionLocal()
     expires = date.today() + timedelta(days=7)

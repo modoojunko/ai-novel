@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 from datetime import date, timedelta
+
 from app.config import settings
 
 

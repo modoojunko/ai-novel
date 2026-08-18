@@ -1,5 +1,6 @@
 """CloudBase PG HTTP API 全局配置仓储。"""
 from __future__ import annotations
+
 from app.infrastructure.repositories.pg_http.client import PgRestClient
 
 _TABLE = "global_config"

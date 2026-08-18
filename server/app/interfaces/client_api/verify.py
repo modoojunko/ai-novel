@@ -1,12 +1,19 @@
 """C端 License/设备验证端点 /api/verify。"""
 from __future__ import annotations
+
 import logging
+
 from fastapi import Depends
 
-from app.interfaces.deps import get_db, Db
-from app.interfaces.dto import VerifyRequest
 from app.application.devices.verify_license import verify_license
-from app.infrastructure.repositories.factory import user_repo, code_repo, device_repo, grant_repo
+from app.infrastructure.repositories.factory import (
+    code_repo,
+    device_repo,
+    grant_repo,
+    user_repo,
+)
+from app.interfaces.deps import Db, get_db
+from app.interfaces.dto import VerifyRequest
 
 logger = logging.getLogger("api.client.verify")
 
