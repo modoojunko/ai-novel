@@ -33,6 +33,9 @@ function NovelList() {
   const [loadError, setLoadError] = useState(false);
   const [tier, setTier] = useState<string>('');
   const [trialDays, setTrialDays] = useState<number>(0);
+  const [isMember, setIsMember] = useState<boolean>(false);
+  const [expired, setExpired] = useState<boolean>(false);
+  const [portalUrl, setPortalUrl] = useState<string>('');
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Novel | null>(null);
@@ -85,10 +88,13 @@ function NovelList() {
     api.post("/auth/verify").then((r: any) => {
       if (r.tier) setTier(r.tier);
       if (r.trial_remaining_days !== undefined) setTrialDays(r.trial_remaining_days);
+      if (r.is_member !== undefined) setIsMember(r.is_member);
+      if (r.expired !== undefined) setExpired(r.expired);
     }).catch(() => {});
-    // 检查 API Key 配置状态
+    // 检查 API Key 配置状态 + 取 S端 门户地址（续费/开通引导用）
     api.get("/auth/config").then((cfg: any) => {
       if (!cfg.has_api_key) setShowKeyHint(true);
+      if (cfg.portal_url) setPortalUrl(cfg.portal_url);
     }).catch(() => {});
   }, [fetchNovels]);
 
@@ -97,10 +103,29 @@ function NovelList() {
     navigate(`/novel/${novelId}`);
   }
 
-  const freeLimitReached = tier === "none" && novels.length >= 1;
+  // 免费待遇 = 非有效会员（免费层或套餐过期），与后端 require_project_limit 口径一致
+  const freeLimitReached = !isMember && novels.length >= 1;
 
   return (
     <main className="max-w-4xl mx-auto py-12 px-4">
+      {/* 过期降级 Banner（2026-08-18 口径：过期降为免费待遇） */}
+      {expired && tier !== 'none' && (
+        <div className="alert alert-warning mb-6 shadow-sm">
+          <div className="flex-1">
+            <span className="font-bold">⏰ 套餐已过期，已降为免费待遇</span>
+            <span className="text-sm ml-2">
+              AI 功能与多项目已暂停 · 免费待遇下可手工创作 1 本小说
+            </span>
+          </div>
+          {portalUrl ? (
+            <a href={portalUrl} target="_blank" rel="noreferrer" className="btn btn-warning btn-sm">
+              续费恢复
+            </a>
+          ) : (
+            <Link to="/" state={{ scrollTo: "pricing" }} className="btn btn-warning btn-sm">了解套餐</Link>
+          )}
+        </div>
+      )}
       {/* 免费层 Banner */}
       {tier === 'none' && (
         <div className="alert alert-info mb-6 shadow-sm">

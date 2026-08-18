@@ -45,6 +45,17 @@ export async function request(path: string, options?: { method?: string; body?: 
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
+    // AI 会员拦截：后端 403 detail = {reason: "member_required", message}
+    // → 广播全局升级引导（MemberBlockPrompt 监听），错误继续抛给调用方
+    if (res.status === 403 && err?.detail?.reason === "member_required") {
+      const message = err.detail.message || "AI 是会员功能";
+      window.dispatchEvent(
+        new CustomEvent("member-block", { detail: { message } }),
+      );
+      const e = new Error(message) as Error & { reason?: string };
+      e.reason = "member_required";
+      throw e;
+    }
     // detail 可能是对象（如删除题材 409 的 { message, projects }），透传 projects 供 UI 提示引用项目
     const message =
       typeof err.detail === "string"

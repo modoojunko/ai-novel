@@ -1,0 +1,73 @@
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
+
+let portalUrlCache: string | null = null;
+
+/** 测试钩子：重置门户地址缓存。 */
+export function resetPortalUrlCache() {
+  portalUrlCache = null;
+}
+
+/**
+ * 全局会员拦截弹窗（2026-08-18 口径）：AI 调用被后端 member_required 403
+ * 拦截时，api.request 广播 "member-block" 事件，本组件统一弹升级引导
+ * （含 S端 门户跳转），替代各调用点散落的裸错误处理。
+ */
+export default function MemberBlockPrompt() {
+  const [message, setMessage] = useState<string | null>(null);
+  const [portalUrl, setPortalUrl] = useState("");
+
+  useEffect(() => {
+    const onBlock = async (e: Event) => {
+      const msg =
+        (e as CustomEvent<{ message?: string }>).detail?.message ||
+        "AI 是会员功能";
+      setMessage(msg);
+      let url = portalUrlCache ?? "";
+      if (portalUrlCache === null) {
+        try {
+          const cfg = await api.get("/auth/config");
+          url = cfg?.portal_url || "";
+        } catch {
+          url = "";
+        }
+        portalUrlCache = url;
+      }
+      setPortalUrl(url);
+    };
+    window.addEventListener("member-block", onBlock as EventListener);
+    return () =>
+      window.removeEventListener("member-block", onBlock as EventListener);
+  }, []);
+
+  if (!message) return null;
+
+  return (
+    <div className="modal modal-open" data-testid="member-block-prompt">
+      <div className="modal-box max-w-sm">
+        <h3 className="font-bold text-base">✨ PRO 专属功能</h3>
+        <p className="py-4 text-sm text-base-content/70">{message}</p>
+        <div className="modal-action">
+          <button className="btn btn-ghost btn-sm" onClick={() => setMessage(null)}>
+            稍后再说
+          </button>
+          {portalUrl ? (
+            <a
+              className="btn btn-primary btn-sm"
+              href={portalUrl}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => setMessage(null)}
+            >
+              去 S 端开通 / 续费
+            </a>
+          ) : (
+            <button className="btn btn-primary btn-sm" onClick={() => setMessage(null)}>
+              知道了
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

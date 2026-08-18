@@ -121,7 +121,8 @@ export default function RightToolbar({
     setVersionsLoading(true);
     api
       .get(`/novels/${projectId}/chapters/${chapterRef}/versions`)
-      .then((data: Version[]) => setVersions(data))
+      // 响应可能缺省/非数组（免费态也挂载本工具栏），兜底空表防崩
+      .then((data: Version[]) => setVersions(Array.isArray(data) ? data : []))
       .catch(() => setVersions([]))
       .finally(() => setVersionsLoading(false));
   }, [projectId, chapterRef]);

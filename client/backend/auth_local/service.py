@@ -39,6 +39,12 @@ SESSION_DAYS = 30
 POLL_INTERVAL = 2
 POLL_TIMEOUT = 120
 
+# 会员套餐（S端 TIER_POLICY）：AI 能力判据。lifetime 永不过期。
+MEMBER_TIERS = ("trial", "monthly", "quarterly", "yearly", "lifetime")
+
+# S端 门户（购买/续费/开通试用入口），可通过 config.json 覆盖
+DEFAULT_PORTAL_URL = "https://novel-s-web-ai-novel-test-d1ghsr86ra814c12c.webapps.tcloudbase.com"
+
 
 def get_local_config() -> dict:
     try:
@@ -71,6 +77,7 @@ def load_or_create_config() -> dict:
         "expires_at": "",
         "last_login_at": "",
         "server_api": "",
+        "portal_url": DEFAULT_PORTAL_URL,
     }
     for k, v in defaults.items():
         if k not in cfg:
@@ -276,62 +283,88 @@ async def verify_session() -> dict:
     if login_time and datetime.now(UTC) < login_time:
         return {"valid": False, "msg": "系统时间异常"}
 
-    # 计算剩余天数
-    trial_days = 7
-    if expires_at:
-        try:
-            expiry = date.fromisoformat(expires_at[:10])
-            trial_days = max(0, (expiry - datetime.now(UTC).date()).days)
-        except ValueError:
-            pass
-
+    # 套餐判定统一走 check_permission（tier/is_member/expired/project_limit/剩余天数）
+    perm = check_permission()
     return {
         "valid": True,
-        "tier": cfg.get("tier", "none"),
-        "trial_remaining_days": trial_days,
+        "tier": perm["tier"],
+        "is_member": perm.get("is_member", False),
+        "expired": perm.get("expired", False),
+        "expires_at": expires_at,
+        "project_limit": perm.get("project_limit"),
+        "trial_remaining_days": perm.get("trial_remaining_days", 0),
     }
 
 
 def check_permission(now: date | None = None) -> dict:
-    """检查当前用户套餐权限
+    """检查当前用户套餐权限（2026-08-18 口径）
 
-    免费用户 allowed=True，带 project_limit=1。
-    新用户默认 7 天 AI 试用（expires_at 为空时）。
+    统一形状，全分支齐备：
+    - is_member: 是否拥有有效会员身份（trial/月/季/年/终身，未过期）——AI 能力判据
+    - expired: 套餐是否已过期（过期降为免费待遇）
+    - project_limit: 项目上限（None=会员不限；免费/过期=1）
+    - trial_remaining_days: 距到期剩余天数（免费层仅在有到期数据时有效，不再默认 7）
+
+    allowed 保留旧语义（False 仅出现在过期/信息异常），workflow.tier_bypass 据此旁路。
     """
     cfg = get_local_config()
-    tier = cfg.get("tier", "none")
+    tier = cfg.get("tier", "none") or "none"
     expires_at = cfg.get("expires_at", "")
     now = now or datetime.now(UTC).date()
 
-    # 免费层
-    if tier == "none":
-        trial_days = 7
-        if expires_at:
-            try:
-                expiry = date.fromisoformat(expires_at[:10])
-                trial_days = max(0, (expiry - now).days)
-            except ValueError:
-                pass
+    def _remaining_days() -> int:
+        if not expires_at:
+            return 0
+        try:
+            return max(0, (date.fromisoformat(expires_at[:10]) - now).days)
+        except ValueError:
+            return 0
+
+    # 免费层（none / 未知值一律按免费处理）
+    if tier not in MEMBER_TIERS:
         return {
             "allowed": True,
-            "tier": "none",
+            "tier": tier,
+            "is_member": False,
+            "expired": False,
             "project_limit": 1,
-            "trial_remaining_days": trial_days,
+            "trial_remaining_days": _remaining_days(),
         }
 
-    # 付费套餐
-    if tier in ("monthly", "quarterly", "yearly"):
+    # 会员套餐过期检查（终身不过期；无到期数据视为有效，兼容 S端 旧数据）
+    if tier != "lifetime" and expires_at:
         try:
-            if expires_at and date.fromisoformat(expires_at[:10]) < now:
+            if date.fromisoformat(expires_at[:10]) < now:
                 return {
                     "allowed": False,
+                    "tier": tier,
+                    "is_member": False,
+                    "expired": True,
                     "reason": "expired",
-                    "msg": "套餐已过期，请续费",
+                    "msg": "套餐已过期，已降为免费待遇 — 续费后恢复全部功能",
+                    "project_limit": 1,
+                    "trial_remaining_days": 0,
                 }
         except ValueError:
-            return {"allowed": False, "reason": "invalid", "msg": "套餐信息异常"}
+            return {
+                "allowed": False,
+                "tier": tier,
+                "is_member": False,
+                "expired": True,
+                "reason": "invalid",
+                "msg": "套餐信息异常",
+                "project_limit": 1,
+                "trial_remaining_days": 0,
+            }
 
-    return {"allowed": True, "tier": tier}
+    return {
+        "allowed": True,
+        "tier": tier,
+        "is_member": True,
+        "expired": False,
+        "project_limit": None,
+        "trial_remaining_days": _remaining_days(),
+    }
 
 
 async def _ensure_local_user(username: str) -> None:

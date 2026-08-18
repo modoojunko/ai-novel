@@ -19,7 +19,6 @@ import type { UseWorkbenchReturn, WorkbenchNode } from "@/hooks/useWorkbench";
 import type { UseOutlineReturn } from "@/hooks/useOutline";
 import { useOutline } from "@/hooks/useOutline";
 import { useChapterData } from "@/hooks/useChapterData";
-import { TierGate } from "./license/FeatureTier";
 import { Maximize2, X } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -200,13 +199,11 @@ export default function Workbench({ wb }: WorkbenchProps) {
                 active={activeTab === "outline"}
                 onClick={() => setActiveTab("outline")}
               />
-              <TierGate feature="prompt-panel">
-                <TabProgressButton
-                  label="提示词"
-                  active={activeTab === "prompt"}
-                  onClick={() => setActiveTab("prompt")}
-                />
-              </TierGate>
+              <TabProgressButton
+                label="提示词"
+                active={activeTab === "prompt"}
+                onClick={() => setActiveTab("prompt")}
+              />
             </div>
             <button
               onClick={() => setFocusMode((v) => !v)}
@@ -269,22 +266,20 @@ export default function Workbench({ wb }: WorkbenchProps) {
                       />
                     )}
                   </div>
-                  {/* RightToolbar 仅 PRO（N14） */}
-                  <TierGate feature="ai-generate">
-                    <RightToolbar
-                      projectId={projectId}
-                      chapterRef={selectedRef}
-                      hasSelection={aiState.hasSelection}
-                      selectedText={aiState.selectedText}
-                      onContinue={handleContinue}
-                      onPolish={handlePolish}
-                      onExpand={handleExpand}
-                      captureNow={captureNow}
-                      continueLoading={aiState.continueLoading}
-                      polishLoading={aiState.polishLoading}
-                      expandLoading={aiState.expandLoading}
-                    />
-                  </TierGate>
+                  {/* AI 工具栏：入口对所有人可见，使用由后端会员门控拦截（弹升级引导） */}
+                  <RightToolbar
+                    projectId={projectId}
+                    chapterRef={selectedRef}
+                    hasSelection={aiState.hasSelection}
+                    selectedText={aiState.selectedText}
+                    onContinue={handleContinue}
+                    onPolish={handlePolish}
+                    onExpand={handleExpand}
+                    captureNow={captureNow}
+                    continueLoading={aiState.continueLoading}
+                    polishLoading={aiState.polishLoading}
+                    expandLoading={aiState.expandLoading}
+                  />
                 </div>
               ) : activeTab === "outline" ? (
                 <ChapterOutlinePanel
@@ -295,12 +290,10 @@ export default function Workbench({ wb }: WorkbenchProps) {
                 />
               ) : (
                 <div className="flex-1 min-w-0 overflow-y-auto">
-                  <TierGate feature="prompt-panel">
-                    <PromptManagementPage
-                      projectId={projectId}
-                      chapterRef={selectedRef}
-                    />
-                  </TierGate>
+                  <PromptManagementPage
+                    projectId={projectId}
+                    chapterRef={selectedRef}
+                  />
                 </div>
               )
             ) : (

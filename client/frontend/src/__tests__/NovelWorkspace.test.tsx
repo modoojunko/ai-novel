@@ -31,11 +31,14 @@ const apiState = vi.hoisted(() => ({
 vi.mock("@/lib/api", () => ({ api: apiState }));
 
 function TierProvider({ tier, children }: { tier: string; children: ReactNode }) {
-  const isFree = tier === "none";
+  const isMember = tier !== "none";
   const value: TierState = {
     tier,
-    isFree,
-    isPro: !isFree,
+    isFree: !isMember,
+    isMember,
+    expired: false,
+    expiresAt: "",
+    isPro: isMember,
     trialRemainingDays: 0,
     loading: false,
     error: null,
@@ -202,18 +205,17 @@ describe("免费态：无阶段催促 UI、无 AI 字段入口", () => {
     );
   });
 
-  it("免费态选中章渲染 正文/章纲 子 label；提示词不可见（PRO-only）", async () => {
+  it("免费态选中章渲染 正文/章纲/提示词 子 label（AI 入口可见，使用由后端拦截）", async () => {
     mockOneChapterTree();
     renderWorkspace("none");
     await screen.findByText("第一卷");
     fireEvent.click(screen.getByText("▸"));
     fireEvent.click(screen.getByText("第一章"));
     await screen.findByPlaceholderText("正文（在此撰写小说内容）");
-    // 章选中 → 中部子 label：正文 / 章纲 可见
+    // 章选中 → 中部子 label：正文 / 章纲 / 提示词 全可见（2026-08-18 口径）
     expect(screen.getByRole("button", { name: "正文" })).toBeDefined();
     expect(screen.getByRole("button", { name: "章纲" })).toBeDefined();
-    // 提示词 PRO-only：免费态子 label 不可见
-    expect(screen.queryByRole("button", { name: "提示词" })).toBeNull();
+    expect(screen.getByRole("button", { name: "提示词" })).toBeDefined();
   });
 });
 

@@ -23,7 +23,6 @@ import type { SelectionCapture } from "@/lib/selection";
 import ContrastPreviewModal from "./ContrastPreviewModal";
 import { useChapterData } from "@/hooks/useChapterData";
 import { useTier } from "@/hooks/useTier";
-import { TierGate } from "./license/FeatureTier";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -629,19 +628,18 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
           </div>
 
           <div className="space-y-3">
-              <TierGate feature="ai-generate">
-                {!streaming && !continueLoading && (
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={handleStartWriting}
-                      className="btn btn-primary btn-sm gap-1.5"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      AI 写本章
-                    </button>
-                  </div>
-                )}
-              </TierGate>
+              {/* AI 入口可见，非会员点击由后端拦截弹升级引导 */}
+              {!streaming && !continueLoading && (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleStartWriting}
+                    className="btn btn-primary btn-sm gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    AI 写本章
+                  </button>
+                </div>
+              )}
 
               {streaming || continueLoading ? (
                 <div className="space-y-3">
@@ -715,9 +713,8 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
           </div>
         </div>
 
-        {/* ── Quality Check + Archive（质量检查 PRO 专属） ───────────── */}
+        {/* ── Quality Check + Archive（质量检查为会员功能，非会员点击弹升级引导） ── */}
         <div className="flex items-center gap-3 pt-3">
-          <TierGate feature="ai-generate">
             <button
               onClick={handleQualityCheck}
               disabled={qcLoading || !prose.trim()}
@@ -726,7 +723,6 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
               {qcLoading ? <span className="loading loading-spinner loading-xs" /> : <Search className="w-3.5 h-3.5" />}
               质量检查
             </button>
-          </TierGate>
           <button
             onClick={handleArchive}
             disabled={archiving || !prose.trim() || isArchived}
