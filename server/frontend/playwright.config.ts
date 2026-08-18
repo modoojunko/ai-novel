@@ -11,7 +11,9 @@ export default defineConfig({
     ['list'],
   ],
   use: {
-    baseURL: 'http://localhost:5173',
+    // 5175 = S端专属端口（vite.config.ts strictPort）；勿改回 5173——那是
+    // C端前端端口，reuseExistingServer 会复用错应用导致 e2e 全打到 C端上
+    baseURL: 'http://localhost:5175',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'on-first-retry',
@@ -24,7 +26,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:5173',
+    url: 'http://localhost:5175',
     reuseExistingServer: !process.env.CI,
     timeout: 30000,
   },
