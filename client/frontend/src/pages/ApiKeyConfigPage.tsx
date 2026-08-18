@@ -13,6 +13,10 @@ import { DeleteConfirmDialog } from "../components/api-config/DeleteConfirmDialo
 import { UndoToast } from "../components/api-config/UndoToast";
 import { getToken, isLoggedIn } from "../lib/auth";
 import { getApiBaseUrl } from "../lib/env";
+import {
+  getArchiveAiSummaryEnabled,
+  setArchiveAiSummaryEnabled,
+} from "../lib/prefs";
 
 function authHeaders(): Record<string, string> {
   const token = getToken();
@@ -36,6 +40,7 @@ export default function ApiKeyConfigPage() {
   const [deleting, setDeleting] = useState(false);
   const [undoToast, setUndoToast] = useState<{ config: ApiConfig; data: { affected_projects: number } } | null>(null);
   const [migrationStatus, setMigrationStatus] = useState<{ completed: boolean; configName?: string } | undefined>(undefined);
+  const [archiveAiSummary, setArchiveAiSummary] = useState(() => getArchiveAiSummaryEnabled());
 
   // Check #add anchor
   useEffect(() => {
@@ -139,6 +144,28 @@ export default function ApiKeyConfigPage() {
 
       {/* Usage Stats */}
       <UsageStatsCard data={(usageData as UsageSummary) ?? null} loading={usageLoading} />
+
+      {/* AI 偏好：归档 AI 摘要开关（本地偏好，仅影响归档时的摘要生成方式） */}
+      <div className="card bg-base-100 border border-base-300 p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">AI 偏好</h2>
+            <p className="text-sm text-base-content/60 mt-1">
+              归档时使用 AI 生成章节摘要（消耗 API Key 额度）。关闭后改为截取正文开头作为摘要，不消耗额度。
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            className="toggle toggle-primary"
+            checked={archiveAiSummary}
+            onChange={(e) => {
+              setArchiveAiSummary(e.target.checked);
+              setArchiveAiSummaryEnabled(e.target.checked);
+            }}
+            aria-label="归档时使用 AI 生成章节摘要"
+          />
+        </div>
+      </div>
 
       {/* Form (create/edit) */}
       {(showForm || editConfig) && (

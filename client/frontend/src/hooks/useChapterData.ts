@@ -34,7 +34,7 @@ export interface UseChapterDataReturn {
   setTargetWords: (n: number) => void;
   save: () => void;
   retry: () => void;
-  archive: () => Promise<void>;
+  archive: (options?: { aiSummary?: boolean }) => Promise<void>;
   reload: () => Promise<void>;
   loading: boolean;
   error: string | null;
@@ -228,13 +228,15 @@ export function useChapterData(
   // Archive
   // -----------------------------------------------------------------------
 
-  const archive = useCallback(async () => {
+  const archive = useCallback(async (options?: { aiSummary?: boolean }) => {
     const { prose: p } = stateRef.current;
     if (!p.trim()) return;
     setError(null);
     try {
       await api.post(`/novels/${projectId}/chapters/${ref}/archive`, {
         full_text: p,
+        // ai_summary=false：设置里关掉归档 AI 摘要（后端降级为正文摘要）
+        ai_summary: options?.aiSummary ?? true,
       });
       setStatus("archived");
       setInitial({ prose: p, status: "archived" });
