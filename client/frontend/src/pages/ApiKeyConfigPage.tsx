@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useApiConfigs } from "../hooks/useApiConfigs";
-import type { ApiConfig } from "../types/api-config";
+import { useUsageStats } from "../hooks/useUsageStats";
+import type { ApiConfig, UsageSummary } from "../types/api-config";
 import { MigrationBanner } from "../components/api-config/MigrationBanner";
 import { UsageStatsCard } from "../components/api-config/UsageStatsCard";
 import { ApiConfigCard } from "../components/api-config/ApiConfigCard";
@@ -11,6 +12,7 @@ import type { ApiConfigFormData } from "../components/api-config/ApiConfigForm";
 import { DeleteConfirmDialog } from "../components/api-config/DeleteConfirmDialog";
 import { UndoToast } from "../components/api-config/UndoToast";
 import { getToken, isLoggedIn } from "../lib/auth";
+import { getApiBaseUrl } from "../lib/env";
 
 function authHeaders(): Record<string, string> {
   const token = getToken();
@@ -27,6 +29,7 @@ export default function ApiKeyConfigPage() {
     }
   }, [navigate]);
   const { configs, loading, error, refresh, addConfig, updateConfig, deleteConfig, restoreConfig, refreshStatus, testConfig, testRawConfig } = useApiConfigs();
+  const { data: usageData, loading: usageLoading, refresh: refreshUsage } = useUsageStats({});
   const [showForm, setShowForm] = useState(false);
   const [editConfig, setEditConfig] = useState<ApiConfig | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApiConfig | null>(null);
@@ -43,7 +46,7 @@ export default function ApiKeyConfigPage() {
 
   // Fetch migration status
   useEffect(() => {
-    fetch("/api/v1/user/profile", { headers: authHeaders() })
+    fetch(`${getApiBaseUrl()}/api/v1/user/profile`, { headers: authHeaders() })
       .then((r) => r.json())
       .then((data) => {
         if (data.migration_completed !== undefined) {
@@ -99,7 +102,8 @@ export default function ApiKeyConfigPage() {
     if (configs.length > 0) {
       refreshStatus();
     }
-  }, [configs.length, refreshStatus]);
+    refreshUsage();
+  }, [configs.length, refreshStatus, refreshUsage]);
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
@@ -134,7 +138,7 @@ export default function ApiKeyConfigPage() {
       )}
 
       {/* Usage Stats */}
-      <UsageStatsCard data={null} loading={loading} />
+      <UsageStatsCard data={(usageData as UsageSummary) ?? null} loading={usageLoading} />
 
       {/* Form (create/edit) */}
       {(showForm || editConfig) && (

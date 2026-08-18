@@ -37,8 +37,6 @@ const IMPORTED_NOVEL_STEPS = [
 // ---------------------------------------------------------------------------
 
 export default function OnboardingCard({
-  novelId: _novelId,
-  source: _source,
   variant,
   onDismiss,
   onStart,

@@ -176,6 +176,18 @@ async def stream_continue(
 
             await refresh_chapter_meta(db, project, chapter_ref, chapter)
 
+            from api_configs.usage import record_usage
+
+            await record_usage(
+                db,
+                user_id=project.user_id,
+                project_id=project.id,
+                chapter_id=chapter_ref,
+                operation="continue",
+                model=resolved_model,
+                tokens_out=event.tokens,
+            )
+
             yield f"data: {json.dumps({'type': 'done', 'full_text': generated_text, 'tokens': event.tokens}, ensure_ascii=False)}\n\n"
         elif event.error:
             yield f"data: {json.dumps({'type': 'error', 'error': event.error}, ensure_ascii=False)}\n\n"
@@ -188,8 +200,12 @@ async def polish_text(
     surrounding_context: str,
     style_settings: dict | None = None,
     model: str | None = None,
+    usage: dict | None = None,
 ) -> str:
-    """Polish selected text (non-streaming). Returns polished text string."""
+    """Polish selected text (non-streaming). Returns polished text string.
+
+    usage: 可选 dict，调用后填充 {"model", "tokens_in", "tokens_out"}。
+    """
     ctx = await build_auxiliary_context(root_path, chapter_ref, style_settings)
     ctx["selected_text"] = selected_text
     ctx["surrounding_context"] = surrounding_context
@@ -199,6 +215,8 @@ async def polish_text(
 
     resolved_model = model or ctx.pop("_writing_model", "haiku")
     role = ctx.pop("_role", "一位小说家")
+    if usage is not None:
+        usage["model"] = resolved_model
 
     client = await get_ai_client()
     return await client.chat(
@@ -206,6 +224,7 @@ async def polish_text(
         system=f"你是一位文字编辑专家，请遵循以下角色定位：{role}",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=2048,
+        usage=usage,
     )
 
 
@@ -216,8 +235,12 @@ async def expand_text(
     surrounding_context: str,
     style_settings: dict | None = None,
     model: str | None = None,
+    usage: dict | None = None,
 ) -> str:
-    """Expand selected text (non-streaming). Returns expanded text string."""
+    """Expand selected text (non-streaming). Returns expanded text string.
+
+    usage: 可选 dict，调用后填充 {"model", "tokens_in", "tokens_out"}。
+    """
     ctx = await build_auxiliary_context(root_path, chapter_ref, style_settings)
     ctx["selected_text"] = selected_text
     ctx["surrounding_context"] = surrounding_context
@@ -227,6 +250,8 @@ async def expand_text(
 
     resolved_model = model or ctx.pop("_writing_model", "haiku")
     role = ctx.pop("_role", "一位小说家")
+    if usage is not None:
+        usage["model"] = resolved_model
 
     client = await get_ai_client()
     return await client.chat(
@@ -234,4 +259,5 @@ async def expand_text(
         system=f"你是一位擅长细节描写的文学作家，请遵循以下角色定位：{role}",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=4096,
+        usage=usage,
     )

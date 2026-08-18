@@ -244,6 +244,61 @@ def test_get_chapter_row_self_heals_missing_rows():
     _run_async(_run())
 
 
+def test_cleanup_chapter_artifacts_removes_archive_and_versions():
+    """删章清理：归档 .md + versions 快照一并删除（防归档列表幽灵条目）。"""
+    from chapters.service import cleanup_chapter_artifacts
+
+    async def _run():
+        project = await _new_project("ca1")
+        # 造章 + 归档 + 版本快照
+        await storage.write_yaml(
+            project.root_path,
+            "chapters/vol-1-ch-1.yaml",
+            {"volume": 1, "chapter": 1, "title": "第一章", "status": "archived",
+             "prose": "正文内容"},
+        )
+        await storage.write_md(
+            project.root_path,
+            "archives/vol-1-ch-1-first-chapter.md",
+            "归档正文",
+        )
+        await storage.write_yaml(
+            project.root_path,
+            "versions/vol-1-ch-1/v1000.yaml",
+            {"version": "v1000", "snapshot": {"prose": "x"}},
+        )
+        # 其他章节的归档不受影响
+        await storage.write_md(
+            project.root_path,
+            "archives/vol-2-ch-1-other.md",
+            "其他章归档",
+        )
+
+        await cleanup_chapter_artifacts(project.root_path, "vol-1-ch-1")
+
+        assert (
+            await storage.read_md(
+                project.root_path, "archives/vol-1-ch-1-first-chapter.md"
+            )
+            == ""
+        )
+        assert (
+            await storage.read_yaml(
+                project.root_path, "versions/vol-1-ch-1/v1000.yaml"
+            )
+            == {}
+        )
+        # 其他章的归档保留
+        assert (
+            await storage.read_md(
+                project.root_path, "archives/vol-2-ch-1-other.md"
+            )
+            == "其他章归档"
+        )
+
+    _run_async(_run())
+
+
 # ── service 包装（模块内统一异步 session 入口）─────────────────────────────
 
 

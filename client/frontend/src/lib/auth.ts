@@ -17,9 +17,3 @@ export function getUsername(): string | null {
 export function isLoggedIn(): boolean {
   return !!getToken();
 }
-
-export function logout() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USERNAME_KEY);
-  window.location.href = '/#/login';
-}
