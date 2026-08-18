@@ -2,28 +2,52 @@ import { useEffect } from "react";
 import { request } from "@/lib/api";
 import { setToken } from "@/lib/auth";
 
+// 云托管 MinNum=0 缩容后首次请求触发冷启动（30-60s），期间 check-auth 返回
+// code -1（S端不可达）或请求失败。失败请求本身已唤醒实例，间隔重试即可自愈。
+const RETRY_DELAYS_MS = [20_000, 20_000, 20_000];
+
 /**
  * 应用启动时静默自愈本地登录态：
  * 后端 OAuth 会话有效（GET /auth/check-auth 返回 token）即写回 localStorage，
  * 解决「后端 config.json token 有效、前端 localStorage 副本丢失/被清」导致的重复登录。
- * 幂等：后端有效才写回；无效/失败静默，不改动现有状态，不跳转。
+ * - code 0：会话有效，写回后结束
+ * - code 1：后端明确未登录，重试无意义，结束
+ * - code -1 / 请求失败：S端 冷启动或后端未就绪，按 RETRY_DELAYS_MS 重试
+ * 幂等：后端有效才写回；失败静默，不改动现有状态，不跳转。
  */
 export function useAuthHeal() {
   useEffect(() => {
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const sleep = (ms: number) =>
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, ms);
+      });
+
     (async () => {
-      try {
-        const res = await request("/auth/check-auth");
+      for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+        if (attempt > 0) await sleep(RETRY_DELAYS_MS[attempt - 1]);
         if (cancelled) return;
-        if (res.code === 0 && res.data?.token && res.data.token !== "dev-token") {
-          setToken(res.data.token, res.data.username ?? "");
+        try {
+          const res = await request("/auth/check-auth");
+          if (cancelled) return;
+          if (res.code === 0) {
+            if (res.data?.token && res.data.token !== "dev-token") {
+              setToken(res.data.token, res.data.username ?? "");
+            }
+            return;
+          }
+          if (res.code === 1) return;
+        } catch {
+          // C端后端不可达：稍后重试
         }
-      } catch {
-        // 后端不可达/未登录：静默失败，由 LoginPage 手动流程兜底
+        // code -1（S端 冷启动）或请求失败 → 继续下一轮
       }
     })();
+
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, []);
 }

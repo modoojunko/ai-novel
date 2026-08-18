@@ -188,12 +188,17 @@ async def call_server_api(
 ) -> dict:
     url = f"{_get_server_api()}/{endpoint}"
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        # 60s：云托管 MinNum=0 缩容后首次请求需冷启动（30-60s），10s 会误报超时
+        async with httpx.AsyncClient(timeout=60) as client:
             if method == "GET":
                 resp = await client.get(url, params=params)
             else:
                 resp = await client.post(url, json=json_body)
-            return resp.json()
+            try:
+                return resp.json()
+            except ValueError:
+                # 云托管网关冷启动/重启期间可能返回空体或 HTML 错误页
+                return {"code": -1, "msg": f"S端响应异常（HTTP {resp.status_code}）"}
     except httpx.TimeoutException:
         return {"code": -1, "msg": "网络超时"}
     except httpx.RequestError as e:
@@ -211,6 +216,10 @@ async def browser_auth(silent: bool = False) -> dict:
     # 静默模式：只查一次，不打开浏览器
     if silent:
         result = await call_server_api("check-auth", params={"pc_hash": pc_hash})
+        if result.get("code") == -1:
+            # S端 不可达（云托管缩容冷启动 503 / 网络断）：区别于「未登录」，
+            # 前端 useAuthHeal 据此识别为可重试而非直接放弃
+            return {"code": -1, "msg": result.get("msg", "S端 不可达")}
         if result.get("code") == 0:
             data = result["data"]
             cfg["token"] = data["token"]
