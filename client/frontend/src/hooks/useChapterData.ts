@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { api } from "@/lib/api";
 
 // ---------------------------------------------------------------------------
@@ -58,6 +58,245 @@ function targetKey(projectId: string, ref: string): string {
 
 const DEFAULT_TARGET = 2000;
 
+/** 自动保存防抖窗口（N8）。 */
+const AUTOSAVE_DEBOUNCE_MS = 1500;
+
+// ---------------------------------------------------------------------------
+// ChapterStore —— 每章一份的模块级单例（useChapterData 多实例共享）
+//
+// 修复前：ChapterEditor 与 ChapterStatusBar 各自持有一份 hook 状态和防抖
+// timer，状态栏实例的 prose 停留在旧值，点「保存」会把旧正文 PUT 回去，
+// 覆盖编辑器里未落盘的新输入（丢失更新）。修复后：同一章的所有消费者
+// 订阅同一 store，全章唯一防抖 timer / 唯一 in-flight 保存。
+// ---------------------------------------------------------------------------
+
+interface ChapterStoreState {
+  loading: boolean;
+  error: string | null;
+  chapter: ChapterPayload | null;
+  prose: string;
+  status: string;
+  initial: { prose: string; status: string };
+  saveState: SaveState;
+  targetWords: number;
+}
+
+type Listener = () => void;
+
+class ChapterStore {
+  readonly projectId: string;
+  readonly ref: string;
+
+  private listeners = new Set<Listener>();
+  private saving = false;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private refCount = 0;
+  private disposed = false;
+
+  state: ChapterStoreState;
+
+  constructor(projectId: string, ref: string) {
+    this.projectId = projectId;
+    this.ref = ref;
+    const raw = localStorage.getItem(targetKey(projectId, ref));
+    const n = raw ? parseInt(raw, 10) : NaN;
+    this.state = {
+      loading: true,
+      error: null,
+      chapter: null,
+      prose: "",
+      status: "outline",
+      initial: { prose: "", status: "outline" },
+      saveState: "saved",
+      targetWords: Number.isFinite(n) && n > 0 ? n : DEFAULT_TARGET,
+    };
+  }
+
+  subscribe = (fn: Listener): (() => void) => {
+    this.listeners.add(fn);
+    return () => {
+      this.listeners.delete(fn);
+    };
+  };
+
+  getSnapshot = (): ChapterStoreState => this.state;
+
+  /** 首个消费者挂载 → 拉取章节数据。 */
+  acquire = () => {
+    this.refCount += 1;
+    if (this.refCount === 1) void this.load();
+  };
+
+  /** 末位消费者卸载 → 脱离注册表 + 脏数据兜底 flush（防丢窗口）。 */
+  release = () => {
+    this.refCount -= 1;
+    if (this.refCount > 0 || this.disposed) return;
+    this.disposed = true;
+    stores.delete(storeKey(this.projectId, this.ref));
+    this.clearTimer();
+    if (this.isDirty() && !this.saving) void this.doSave();
+  };
+
+  private update(patch: Partial<ChapterStoreState>) {
+    this.state = { ...this.state, ...patch };
+    this.listeners.forEach((l) => l());
+  }
+
+  isDirty = () =>
+    this.state.prose !== this.state.initial.prose ||
+    this.state.status !== this.state.initial.status;
+
+  setProse = (p: string) => {
+    if (p === this.state.prose) return;
+    this.update({ prose: p });
+    this.afterChange();
+  };
+
+  setStatus = (st: string) => {
+    if (st === this.state.status) return;
+    this.update({ status: st });
+    this.afterChange();
+  };
+
+  setError = (msg: string) => this.update({ error: msg });
+
+  private afterChange() {
+    if (this.isDirty() && this.state.saveState === "saved") {
+      this.update({ saveState: "unsaved" });
+    }
+    this.clearTimer();
+    if (this.isDirty()) {
+      this.timer = setTimeout(() => {
+        this.timer = null;
+        void this.doSave();
+      }, AUTOSAVE_DEBOUNCE_MS);
+    }
+  }
+
+  private clearTimer() {
+    if (this.timer !== null) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+  }
+
+  load = async (): Promise<void> => {
+    this.update({ loading: true, error: null });
+    try {
+      const data: ChapterPayload = await api.get(
+        `/novels/${this.projectId}/chapters/${this.ref}`,
+      );
+      if (this.disposed) return;
+      const p = data.prose || "";
+      const st = data.status || "outline";
+      this.update({
+        chapter: data,
+        prose: p,
+        status: st,
+        initial: { prose: p, status: st },
+        saveState: "saved",
+        loading: false,
+        error: null,
+      });
+    } catch (e: any) {
+      if (this.disposed) return;
+      this.update({ loading: false, error: e.message || "加载章节失败" });
+    }
+  };
+
+  doSave = async (): Promise<void> => {
+    if (this.saving) return;
+    const { prose: p, status: st, chapter: ch } = this.state;
+    if (!ch) return;
+    this.saving = true;
+    this.update({ saveState: "autosaving" });
+    try {
+      // 优先 PUT .../prose（后端 #12）。仅当端点结构性缺失（404/405）才降级
+      // 全量 PUT；网络错误/5xx/403 直接 failed —— 降级前会重取最新章再合并，
+      // 避免用陈旧全量 payload 覆盖其他入口（AI 设定等）刚写入的 outline。
+      try {
+        await api.put(`/novels/${this.projectId}/chapters/${this.ref}/prose`, {
+          prose: p,
+        });
+      } catch (e: any) {
+        if (e?.status !== 404 && e?.status !== 405) throw e;
+        const latest: ChapterPayload = await api.get(
+          `/novels/${this.projectId}/chapters/${this.ref}`,
+        );
+        const updated: ChapterPayload = { ...latest, prose: p, status: st };
+        await api.put(`/novels/${this.projectId}/chapters/${this.ref}`, updated);
+        this.update({ chapter: updated });
+      }
+      this.update({ initial: { prose: p, status: st }, saveState: "saved" });
+    } catch (e: any) {
+      this.update({ saveState: "failed", error: e.message || "保存失败" });
+    } finally {
+      this.saving = false;
+    }
+  };
+
+  save = () => {
+    void this.doSave();
+  };
+
+  retry = () => {
+    void this.doSave();
+  };
+
+  setTargetWords = (n: number) => {
+    const safe = Number.isFinite(n) && n > 0 ? Math.round(n) : DEFAULT_TARGET;
+    localStorage.setItem(targetKey(this.projectId, this.ref), String(safe));
+    this.update({ targetWords: safe });
+  };
+
+  archive = async (options?: { aiSummary?: boolean }) => {
+    const { prose: p } = this.state;
+    if (!p.trim()) return;
+    this.update({ error: null });
+    try {
+      await api.post(`/novels/${this.projectId}/chapters/${this.ref}/archive`, {
+        full_text: p,
+        // ai_summary=false：设置里关掉归档 AI 摘要（后端降级为正文摘要）
+        ai_summary: options?.aiSummary ?? true,
+      });
+      this.update({
+        status: "archived",
+        initial: { prose: p, status: "archived" },
+        saveState: "saved",
+      });
+      // 通知工作台树刷新 → 卷章列表 status 已置 archived → 📦 即时同步
+      window.dispatchEvent(
+        new CustomEvent("chapter:archived", {
+          detail: { projectId: this.projectId, ref: this.ref },
+        }),
+      );
+    } catch (e: any) {
+      this.update({ error: e.message || "归档失败", saveState: "failed" });
+    }
+  };
+}
+
+const stores = new Map<string, ChapterStore>();
+
+function storeKey(projectId: string, ref: string): string {
+  return `${projectId}::${ref}`;
+}
+
+function getStore(projectId: string, ref: string): ChapterStore {
+  const key = storeKey(projectId, ref);
+  let s = stores.get(key);
+  if (!s) {
+    s = new ChapterStore(projectId, ref);
+    stores.set(key, s);
+  }
+  return s;
+}
+
+/** 仅测试用：清空模块级 store 注册表，避免跨用例状态串扰。 */
+export function resetChapterStoresForTest() {
+  stores.clear();
+}
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -66,209 +305,38 @@ export function useChapterData(
   projectId: string,
   ref: string,
 ): UseChapterDataReturn {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [chapter, setChapter] = useState<ChapterPayload | null>(null);
+  const store = useMemo(() => getStore(projectId, ref), [projectId, ref]);
 
-  const [prose, setProse] = useState("");
-  const [status, setStatus] = useState("outline");
+  useEffect(() => {
+    store.acquire();
+    return () => store.release();
+  }, [store]);
 
-  // 初始快照 → isDirty 两源比较（章纲归 useOutline 单一属主，011 后续）
-  const [initial, setInitial] = useState({ prose: "", status: "outline" });
-  const [saveState, setSaveState] = useState<SaveState>("saved");
-
-  const [targetWords, setTargetWordsState] = useState<number>(() => {
-    const raw = localStorage.getItem(targetKey(projectId, ref));
-    const n = raw ? parseInt(raw, 10) : NaN;
-    return Number.isFinite(n) && n > 0 ? n : DEFAULT_TARGET;
-  });
+  const state = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
   const isDirty =
-    prose !== initial.prose ||
-    status !== initial.status;
+    state.prose !== state.initial.prose || state.status !== state.initial.status;
 
-  const wordCount = useMemo(() => countChars(prose), [prose]);
-
-  // Refs to avoid stale closures in timers / flush callbacks
-  const stateRef = useRef({ prose, status, chapter });
-  stateRef.current = { prose, status, chapter };
-  const initialRef = useRef(initial);
-  initialRef.current = initial;
-  const dirtyRef = useRef(isDirty);
-  dirtyRef.current = isDirty;
-  const savingRef = useRef(false);
-
-  // -----------------------------------------------------------------------
-  // Load chapter
-  // -----------------------------------------------------------------------
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data: ChapterPayload = await api.get(
-        `/novels/${projectId}/chapters/${ref}`,
-      );
-      setChapter(data);
-      const p = data.prose || "";
-      const st = data.status || "outline";
-      setProse(p);
-      setStatus(st);
-      setInitial({ prose: p, status: st });
-      setSaveState("saved");
-    } catch (e: any) {
-      setError(e.message || "加载章节失败");
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId, ref]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  // -----------------------------------------------------------------------
-  // Core save
-  // -----------------------------------------------------------------------
-
-  const doSave = useCallback(async (): Promise<void> => {
-    if (savingRef.current) return;
-    const { prose: p, status: st, chapter: ch } = stateRef.current;
-    if (!ch) return;
-    savingRef.current = true;
-    setSaveState("autosaving");
-    try {
-      // 优先 PUT .../prose（后端 #12）；未就位降级 PUT /chapters/{ref} 全量（outline 原样保留，属主 useOutline）
-      try {
-        await api.put(`/novels/${projectId}/chapters/${ref}/prose`, { prose: p });
-      } catch {
-        const updated: ChapterPayload = {
-          ...ch,
-          prose: p,
-          status: st,
-        };
-        await api.put(`/novels/${projectId}/chapters/${ref}`, updated);
-        setChapter(updated);
-      }
-      initialRef.current = { prose: p, status: st };
-      setInitial({ prose: p, status: st });
-      setSaveState("saved");
-    } catch (e: any) {
-      setSaveState("failed");
-      setError(e.message || "保存失败");
-    } finally {
-      savingRef.current = false;
-    }
-  }, [projectId, ref]);
-
-  // saveFnRef 供防抖 timer 与卸载 flush 调用
-  const saveFnRef = useRef<() => Promise<void>>(doSave);
-  saveFnRef.current = doSave;
-
-  // -----------------------------------------------------------------------
-  // 内容变脏 → 未保存态（防抖窗内显示「未保存」；autosaving/saved 时不覆盖）
-  // -----------------------------------------------------------------------
-
-  useEffect(() => {
-    if (isDirty && saveState === "saved") {
-      setSaveState("unsaved");
-    }
-  }, [isDirty, saveState]);
-
-  // -----------------------------------------------------------------------
-  // Auto-save: debounce 1500ms（N8）
-  // -----------------------------------------------------------------------
-
-  useEffect(() => {
-    if (!isDirty) return;
-    const timer = setTimeout(() => {
-      void saveFnRef.current();
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [prose, status, isDirty]);
-
-  // -----------------------------------------------------------------------
-  // Flush on unmount / chapter switch（防丢窗口）
-  // -----------------------------------------------------------------------
-
-  useEffect(() => {
-    return () => {
-      if (dirtyRef.current && !savingRef.current) {
-        void saveFnRef.current();
-      }
-    };
-  }, [ref]);
-
-  // -----------------------------------------------------------------------
-  // Save / retry
-  // -----------------------------------------------------------------------
-
-  const save = useCallback(() => {
-    void saveFnRef.current();
-  }, []);
-
-  const retry = useCallback(() => {
-    void saveFnRef.current();
-  }, []);
-
-  // -----------------------------------------------------------------------
-  // Target words（localStorage 持久化）
-  // -----------------------------------------------------------------------
-
-  const setTargetWords = useCallback(
-    (n: number) => {
-      const safe = Number.isFinite(n) && n > 0 ? Math.round(n) : DEFAULT_TARGET;
-      setTargetWordsState(safe);
-      localStorage.setItem(targetKey(projectId, ref), String(safe));
-    },
-    [projectId, ref],
-  );
-
-  // -----------------------------------------------------------------------
-  // Archive
-  // -----------------------------------------------------------------------
-
-  const archive = useCallback(async (options?: { aiSummary?: boolean }) => {
-    const { prose: p } = stateRef.current;
-    if (!p.trim()) return;
-    setError(null);
-    try {
-      await api.post(`/novels/${projectId}/chapters/${ref}/archive`, {
-        full_text: p,
-        // ai_summary=false：设置里关掉归档 AI 摘要（后端降级为正文摘要）
-        ai_summary: options?.aiSummary ?? true,
-      });
-      setStatus("archived");
-      setInitial({ prose: p, status: "archived" });
-      setSaveState("saved");
-      // 通知工作台树刷新 → 卷章列表 status 已置 archived → 📦 即时同步
-      window.dispatchEvent(
-        new CustomEvent("chapter:archived", { detail: { projectId, ref } }),
-      );
-    } catch (e: any) {
-      setError(e.message || "归档失败");
-      setSaveState("failed");
-    }
-  }, [projectId, ref]);
+  const wordCount = useMemo(() => countChars(state.prose), [state.prose]);
 
   return {
-    chapter,
-    prose,
-    status,
-    setProse,
-    setStatus,
+    chapter: state.chapter,
+    prose: state.prose,
+    status: state.status,
+    setProse: store.setProse,
+    setStatus: store.setStatus,
     isDirty,
-    saveState,
+    saveState: state.saveState,
     wordCount,
-    targetWords,
-    setTargetWords,
-    save,
-    retry,
-    archive,
-    reload: load,
-    loading,
-    error,
-    setError,
+    targetWords: state.targetWords,
+    setTargetWords: store.setTargetWords,
+    save: store.save,
+    retry: store.retry,
+    archive: store.archive,
+    reload: store.load,
+    loading: state.loading,
+    error: state.error,
+    setError: store.setError,
   };
 }
 

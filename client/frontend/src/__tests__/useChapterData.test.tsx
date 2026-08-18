@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
+import { resetChapterStoresForTest } from "@/hooks/useChapterData";
 
 // ---------------------------------------------------------------------------
 // useChapterData — 1.5s 防抖自动保存 / 保存四态（含重试）/ countChars / 卸载 flush
+// 状态为每章单例 store（编辑器 + 状态栏双实例共享，防丢失更新）
 // ---------------------------------------------------------------------------
 
 const apiState = vi.hoisted(() => ({
@@ -32,6 +34,7 @@ beforeEach(() => {
   apiState.delete.mockReset();
   apiState.patch.mockReset();
   localStorage.clear();
+  resetChapterStoresForTest();
 });
 
 afterEach(() => {
@@ -42,9 +45,12 @@ async function importHooks() {
   return await import("@/hooks/useChapterData");
 }
 
-async function mountHook(projectId = "p1", ref = "vol-1-ch-1") {
+async function mountHook(initialProps?: { projectId?: string; ref?: string }) {
   const { useChapterData } = await importHooks();
-  const utils = renderHook(() => useChapterData(projectId, ref));
+  const utils = renderHook(
+    ({ projectId = "p1", ref = "vol-1-ch-1" }) => useChapterData(projectId, ref),
+    { initialProps: initialProps ?? {} },
+  );
   await act(async () => {}); // flush 初始 load
   return utils;
 }
@@ -129,10 +135,12 @@ describe("自动保存（1.5s 防抖）", () => {
     expect(result.current.saveState).toBe("saved");
   });
 
-  it("保存端点降级：/prose 失败 → 全量 PUT /chapters/{ref}", async () => {
+  it("保存端点降级：/prose 404（结构性缺失）→ 重取最新章合并后全量 PUT", async () => {
     vi.useFakeTimers();
     apiState.get.mockResolvedValue({ ...CHAPTER });
-    apiState.put.mockRejectedValueOnce(new Error("404"));
+    const notFound: Error & { status?: number } = new Error("Not Found");
+    notFound.status = 404;
+    apiState.put.mockRejectedValueOnce(notFound);
     apiState.put.mockResolvedValueOnce({});
     const { result } = await mountHook();
 
@@ -147,12 +155,87 @@ describe("自动保存（1.5s 防抖）", () => {
       "/novels/p1/chapters/vol-1-ch-1/prose",
       { prose: "降级保存" },
     );
+    // 全量 PUT 的 outline 来自降级前的重取（最新值），而非陈旧快照
     expect(apiState.put).toHaveBeenNthCalledWith(
       2,
       "/novels/p1/chapters/vol-1-ch-1",
       expect.objectContaining({ prose: "降级保存", outline: { summary: "概要" } }),
     );
     expect(result.current.saveState).toBe("saved");
+  });
+
+  it("网络错误不降级：/prose 网络错误 → 直接 failed，不发起全量 PUT", async () => {
+    vi.useFakeTimers();
+    apiState.get.mockResolvedValue({ ...CHAPTER });
+    apiState.put.mockRejectedValueOnce(new Error("网络错误"));
+    const { result } = await mountHook();
+
+    act(() => result.current.setProse("新增内容"));
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+    await act(async () => {});
+    expect(apiState.put).toHaveBeenCalledTimes(1);
+    expect(result.current.saveState).toBe("failed");
+    expect(result.current.error).toBe("网络错误");
+  });
+});
+
+describe("双实例单例（编辑器 + 状态栏共享一章状态）", () => {
+  it("同一章两个实例：单次防抖只 PUT 一次；状态栏 save() 用的是最新 prose（防丢失更新）", async () => {
+    vi.useFakeTimers();
+    apiState.get.mockResolvedValue({ ...CHAPTER });
+    apiState.put.mockResolvedValue({});
+    // 顺序挂载两个实例（并发 mount 会产生重叠 act 告警）
+    const a = await mountHook();
+    const b = await mountHook();
+
+    // 编辑器实例输入
+    act(() => a.result.current.setProse("第一句"));
+    expect(b.result.current.saveState).toBe("unsaved");
+
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+    await act(async () => {});
+    // 全章唯一 timer → 只有一次保存
+    expect(apiState.put).toHaveBeenCalledTimes(1);
+    expect(apiState.put).toHaveBeenCalledWith(
+      "/novels/p1/chapters/vol-1-ch-1/prose",
+      { prose: "第一句" },
+    );
+    expect(a.result.current.saveState).toBe("saved");
+    expect(b.result.current.saveState).toBe("saved");
+
+    // 状态栏实例（prose 停留在旧值）点保存 → 必须落盘编辑器里的最新正文
+    act(() => a.result.current.setProse("第一句+第二句"));
+    expect(b.result.current.saveState).toBe("unsaved");
+    act(() => b.result.current.save());
+    await act(async () => {});
+    expect(apiState.put).toHaveBeenLastCalledWith(
+      "/novels/p1/chapters/vol-1-ch-1/prose",
+      { prose: "第一句+第二句" },
+    );
+    expect(a.result.current.saveState).toBe("saved");
+  });
+
+  it("切章：旧章 store 卸载 flush，新章独立拉取", async () => {
+    vi.useFakeTimers();
+    apiState.get.mockResolvedValue({ ...CHAPTER });
+    apiState.put.mockResolvedValue({});
+    const { result, rerender, unmount } = await mountHook();
+
+    act(() => result.current.setProse("切章前的未保存内容"));
+    rerender({ projectId: "p1", ref: "vol-1-ch-2" });
+    await act(async () => {});
+    // 旧章 flush 落盘
+    expect(apiState.put).toHaveBeenCalledWith(
+      "/novels/p1/chapters/vol-1-ch-1/prose",
+      { prose: "切章前的未保存内容" },
+    );
+    // 新章独立 GET
+    expect(apiState.get).toHaveBeenCalledWith("/novels/p1/chapters/vol-1-ch-2");
+    unmount();
   });
 });
 

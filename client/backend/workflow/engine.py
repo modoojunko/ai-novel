@@ -2,6 +2,10 @@ from fastapi import HTTPException
 
 from filesystem.storage import get_storage
 
+# 每章版本快照上限：编辑器 1.5s 防抖自动保存每次变更都会写快照，
+# 不设上限会随写作时长线性膨胀（读取/列表也跟着变慢）。
+MAX_VERSIONS_PER_CHAPTER = 50
+
 
 def _validate_ref(ref: str) -> str:
     if ".." in ref or "/" in ref:
@@ -76,3 +80,19 @@ async def save_chapter(root_path: str, chapter_ref: str, data: dict):
             await get_storage().write_yaml(
                 root_path, f"versions/{chapter_ref}/v{timestamp}.yaml", version_data
             )
+            # 快照上限：每章保留最近 MAX_VERSIONS_PER_CHAPTER 份，超出删最旧。
+            # 版本文件名 v{毫秒时间戳} 同位数（13 位直到 2286 年），字典序即时间序。
+            version_files = [
+                f
+                for f in await get_storage().list_dir(
+                    root_path, f"versions/{chapter_ref}"
+                )
+                if f.endswith(".yaml")
+            ]
+            if len(version_files) > MAX_VERSIONS_PER_CHAPTER:
+                version_files.sort()
+                excess = len(version_files) - MAX_VERSIONS_PER_CHAPTER
+                for old_file in version_files[:excess]:
+                    await get_storage().delete_file(
+                        root_path, f"versions/{chapter_ref}/{old_file}"
+                    )
