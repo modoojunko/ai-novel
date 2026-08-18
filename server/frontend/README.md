@@ -47,7 +47,7 @@ npm install
 # 终端 1: 启动 S端 后端 (端口 19000)
 cd server && python app/main.py
 
-# 终端 2: 启动前端开发服务器 (端口 5173)
+# 终端 2: 启动前端开发服务器 (端口 5175，避开 C端前端的 5173)
 cd server/frontend && npm run dev
 ```
 
