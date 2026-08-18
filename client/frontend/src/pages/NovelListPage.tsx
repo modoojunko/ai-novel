@@ -126,21 +126,40 @@ function NovelList() {
           )}
         </div>
       )}
-      {/* 免费层 Banner */}
-      {tier === 'none' && (
+      {/* 试用中 Banner：提示剩余天数 + 到期影响，引导续费 */}
+      {tier === 'trial' && !expired && (
         <div className="alert alert-info mb-6 shadow-sm">
           <div className="flex-1">
             <span className="font-bold">
-              {trialDays > 0 ? `🔥 AI 试用还剩 ${trialDays} 天` : '⏰ AI 试用已到期'}
+              {trialDays > 0 ? `🔥 试用还剩 ${trialDays} 天` : '🔥 试用期进行中'}
             </span>
             <span className="text-sm ml-2">
               {trialDays > 0
-                ? '到期后可免费手工创作 1 本小说'
-                : '购买套餐后可继续使用 AI 功能，免费用户可手工创作 1 本小说'
-              }
+                ? '试用内可免费用全部 AI 功能，到期后降为免费待遇（可手工创作 1 本小说）'
+                : '可免费用全部 AI 功能，到期后降为免费待遇'}
             </span>
           </div>
-          <Link to="/" state={{ scrollTo: "pricing" }} className="btn btn-primary btn-sm">了解套餐</Link>
+          {portalUrl ? (
+            <a href={portalUrl} target="_blank" rel="noreferrer" className="btn btn-primary btn-sm">开通 PRO</a>
+          ) : (
+            <Link to="/" state={{ scrollTo: "pricing" }} className="btn btn-primary btn-sm">了解套餐</Link>
+          )}
+        </div>
+      )}
+      {/* 免费层 Banner：从未开通过套餐，引导试用 */}
+      {tier === 'none' && (
+        <div className="alert alert-info mb-6 shadow-sm">
+          <div className="flex-1">
+            <span className="font-bold">✨ 开通 7 天免费试用</span>
+            <span className="text-sm ml-2">
+              试用期内免费使用全部 AI 功能，到期自动降为免费待遇（可手工创作 1 本小说）
+            </span>
+          </div>
+          {portalUrl ? (
+            <a href={portalUrl} target="_blank" rel="noreferrer" className="btn btn-primary btn-sm">免费试用</a>
+          ) : (
+            <Link to="/" state={{ scrollTo: "pricing" }} className="btn btn-primary btn-sm">了解套餐</Link>
+          )}
         </div>
       )}
 

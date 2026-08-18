@@ -220,10 +220,25 @@ describe("目标字数与归档", () => {
     });
     expect(apiState.post).toHaveBeenCalledWith(
       "/novels/p1/chapters/vol-1-ch-1/archive",
-      { full_text: "正文内容" },
+      { full_text: "正文内容", ai_summary: true },
     );
     expect(result.current.status).toBe("archived");
     expect(result.current.saveState).toBe("saved");
+  });
+
+  it("归档：传 aiSummary:false → POST 体带 ai_summary:false（设置里关掉 AI 摘要）", async () => {
+    apiState.get.mockResolvedValue({ ...CHAPTER });
+    apiState.post.mockResolvedValue({});
+    const { result } = await mountHook();
+
+    act(() => result.current.setProse("正文内容"));
+    await act(async () => {
+      await result.current.archive({ aiSummary: false });
+    });
+    expect(apiState.post).toHaveBeenCalledWith(
+      "/novels/p1/chapters/vol-1-ch-1/archive",
+      { full_text: "正文内容", ai_summary: false },
+    );
   });
 
   it("归档成功 dispatch chapter:archived 事件（树 📦 同步）", async () => {
