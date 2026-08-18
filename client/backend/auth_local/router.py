@@ -5,12 +5,9 @@ from typing import Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api_configs.crypto import encrypt_api_key
-from api_configs.vendor import resolve_vendor
 from db import get_db
 from models.api_config import ApiConfig
 from models.user import User
@@ -19,24 +16,11 @@ from .middleware import get_current_user
 from .service import (
     _get_server_api,
     browser_auth,
-    check_permission,
     get_local_config,
     verify_session,
 )
 
 router = APIRouter(tags=["auth"])
-
-
-class ApiKeySaveRequest(BaseModel):
-    api_key: str
-    api_base_url: str
-    api_model: str
-
-
-class ApiKeyVerifyRequest(BaseModel):
-    api_key: str
-    api_base_url: str
-
 
 
 @router.get("/check-auth")
@@ -55,20 +39,6 @@ async def api_browser_auth():
 async def api_verify():
     """验证 30 天会话"""
     return await verify_session()
-
-
-@router.get("/permission")
-async def api_permission():
-    """检查套餐权限"""
-    return check_permission()
-
-
-@router.post("/refresh")
-async def api_refresh():
-    """刷新会话（启动时静默调用）"""
-    result = await verify_session()
-    return result
-
 
 
 @router.get("/devices/current")
@@ -201,53 +171,3 @@ async def api_user_profile(
 
     return resp
 
-
-@router.post("/verify-key")
-async def api_verify_key(req: ApiKeyVerifyRequest):
-    """验证 API Key 是否可用"""
-    from .key_verifier import get_verifier
-
-    verifier = get_verifier(req.api_base_url)
-    result = await verifier.verify(req.api_key, req.api_base_url)
-    return result
-
-
-@router.post("/config/api-key")
-async def api_save_api_key(
-    req: ApiKeySaveRequest,
-    user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """保存 AI API Key 到数据库 (创建或更新 ApiConfig)"""
-    # Detect vendor from base_url
-    vendor_id, vendor_name, _ = resolve_vendor(req.api_base_url)
-    config_name = f"{vendor_name} 默认配置"
-
-    # Look for existing ApiConfig with matching name
-    existing = await db.execute(
-        select(ApiConfig).where(
-            ApiConfig.user_id == user["id"],
-            ApiConfig.name == config_name,
-        )
-    )
-    cfg = existing.scalar_one_or_none()
-
-    if cfg:
-        # Update existing config
-        cfg.api_key = encrypt_api_key(req.api_key) if req.api_key else ""
-        cfg.base_url = req.api_base_url or ""
-    else:
-        # Create new config
-        cfg = ApiConfig(
-            user_id=user["id"],
-            name=config_name,
-            vendor=vendor_id,
-            vendor_display_name=vendor_name,
-            api_key=encrypt_api_key(req.api_key) if req.api_key else "",
-            base_url=req.api_base_url or "",
-            status="active",
-        )
-        db.add(cfg)
-
-    await db.commit()
-    return {"code": 0, "msg": "保存成功"}

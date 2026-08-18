@@ -20,7 +20,7 @@ export function useApiConfigs() {
     try {
       const resp = await fetch(`${API_BASE}/api-configs`, { headers: authHeaders() });
       if (resp.status === 503) {
-        window.location.href = "/config";
+        window.location.href = "/#/config";
         return;
       }
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);

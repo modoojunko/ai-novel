@@ -161,12 +161,18 @@ test.describe('v0.1 用户场景与反馈验证', () => {
   });
 
   test('U5: 无 API Key 时 AI 端点返回 503 服务不可用（非500）', async ({ request }) => {
-    // 确保没有 config.json 中的 Key
-    // 清理 Key 后测试
-    await request.post('http://127.0.0.1:8000/api/auth/config/api-key', {
-      data: { api_key: '', api_base_url: '', api_model: '' },
+    // 清理所有 ApiConfig（新多 Key 体系），确保无可用 Key
+    const list = await request.get('http://127.0.0.1:8000/api/v1/api-configs', {
       headers: { Authorization: 'Bearer dev' }
     });
+    if (list.ok()) {
+      const configs = await list.json();
+      for (const c of (configs as Array<{ id: string }>) ?? []) {
+        await request.delete(`http://127.0.0.1:8000/api/v1/api-configs/${c.id}`, {
+          headers: { Authorization: 'Bearer dev' }
+        });
+      }
+    }
     const r = await request.post('http://127.0.0.1:8000/api/ai/suggest-meta', {
       data: { premise: 'test' },
       headers: { Authorization: 'Bearer dev' }
@@ -175,29 +181,31 @@ test.describe('v0.1 用户场景与反馈验证', () => {
     expect([401, 503]).toContain(r.status());
   });
 
-  test('U6: verify-key 对假 Key 返回 valid=false', async ({ request }) => {
-    const r = await request.post('http://127.0.0.1:8000/api/auth/verify-key', {
-      data: { api_key: 'sk-fake-key-12345', api_base_url: 'https://api.deepseek.com/anthropic' }
+  test('U6: test-connection 对假 Key 返回 ok=false', async ({ request }) => {
+    const r = await request.post('http://127.0.0.1:8000/api/v1/api-configs/test-connection', {
+      data: { vendor_id: 'deepseek', api_key: 'sk-fake-key-12345', base_url: 'https://api.deepseek.com/anthropic' },
+      headers: { Authorization: 'Bearer dev' }
     });
+    expect(r.status()).toBe(200);
     const body = await r.json();
-    expect(body).toHaveProperty('valid');
-    expect(typeof body.valid).toBe('boolean');
+    expect(body).toHaveProperty('ok');
+    expect(typeof body.ok).toBe('boolean');
   });
 
 });
 
 test.describe('v0.1 API 门控验证', () => {
 
-  test('G1: 权限门控: check_permission 返回可用字段', async ({ request }) => {
-    const r = await request.get('http://127.0.0.1:8000/api/auth/permission');
+  test('G1: 权限门控: verify 返回套餐字段', async ({ request }) => {
+    const r = await request.post('http://127.0.0.1:8000/api/auth/verify');
     expect(r.status()).toBe(200);
     const perm = await r.json();
-    expect(perm).toHaveProperty('allowed');
-    expect(perm).toHaveProperty('tier');
+    expect(perm).toHaveProperty('valid');
+    expect(typeof perm.valid).toBe('boolean');
   });
 
   test('G2: 免费用户门控存在', async ({ request }) => {
-    const r = await request.get('http://127.0.0.1:8000/api/auth/permission');
+    const r = await request.post('http://127.0.0.1:8000/api/auth/verify');
     expect(r.status()).toBe(200);
   });
 

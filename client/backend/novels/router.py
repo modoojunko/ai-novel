@@ -104,16 +104,29 @@ async def suggest_meta(
         raise HTTPException(503, f"AI service not configured — {e}")
 
     try:
+        usage: dict = {}
         text = await client.chat(
             model="haiku",
             system="",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=1200,
+            usage=usage,
         )
         # Extract JSON from response (handle ```json fences)
         if "```" in text:
             text = text.split("```")[1]
             text = text.removeprefix("json")
+        from api_configs.usage import record_usage
+
+        await record_usage(
+            db,
+            user_id=user["id"],
+            project_id=None,
+            operation="suggest_meta",
+            model="haiku",
+            tokens_in=usage.get("tokens_in", 0),
+            tokens_out=usage.get("tokens_out", 0),
+        )
         return json.loads(text.strip())
     except ValueError as e:
         raise HTTPException(500, f"AI suggestion failed: {e!s}")

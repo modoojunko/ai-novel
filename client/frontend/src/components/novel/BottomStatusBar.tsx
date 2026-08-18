@@ -8,7 +8,6 @@ interface BottomStatusBarProps {
   saveState: SaveState;
   onSave: () => void;
   onRetry: () => void;
-  isArchived?: boolean;
 }
 
 const SAVE_LABEL: Record<SaveState, string> = {
@@ -32,7 +31,6 @@ export default function BottomStatusBar({
   saveState,
   onSave,
   onRetry,
-  isArchived = false,
 }: BottomStatusBarProps) {
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetDraft, setTargetDraft] = useState(String(targetWords));
@@ -85,7 +83,7 @@ export default function BottomStatusBar({
         </span>
         <progress
           className="progress progress-primary h-1.5 flex-1"
-          value={isArchived ? pct : pct}
+          value={pct}
           max={100}
         />
         <div className="flex items-center gap-1 shrink-0">

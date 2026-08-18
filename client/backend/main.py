@@ -31,7 +31,6 @@ from settings.ai_router import router as settings_ai_router
 from settings.router import router as settings_router
 from settings.status import router as settings_status_router
 from story.router import router as story_router
-from threads.router import router as threads_router
 from workflow.router import backfill_router as workflow_backfill_router
 from workflow.router import router as workflow_router
 from write.router import router as write_router
@@ -224,7 +223,6 @@ app.include_router(prompt_router)
 app.include_router(write_router)
 app.include_router(archive_router)
 app.include_router(archives_router)
-app.include_router(threads_router)
 app.include_router(chapters_versions_router)
 app.include_router(story_router)
 app.include_router(workflow_router)

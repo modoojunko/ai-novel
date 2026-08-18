@@ -113,7 +113,6 @@ function ArchiveCard({
   archiveDate,
   summary,
   isNew,
-  metadataFailed,
   onRead,
   onEdit,
 }: {
@@ -122,7 +121,6 @@ function ArchiveCard({
   archiveDate: string;
   summary: string;
   isNew: boolean;
-  metadataFailed?: boolean;
   onRead: () => void;
   onEdit: () => void;
 }) {
@@ -134,13 +132,7 @@ function ArchiveCard({
             {isNew && (
               <span className="badge badge-accent badge-sm">新</span>
             )}
-            <h3
-              className={`text-sm font-medium truncate ${
-                metadataFailed
-                  ? "text-base-content/40 italic"
-                  : "text-base-content"
-              }`}
-            >
+            <h3 className="text-sm font-medium truncate text-base-content">
               {title}
             </h3>
           </div>
@@ -150,7 +142,7 @@ function ArchiveCard({
             </p>
           ) : (
             <p className="text-xs text-base-content/30 italic mt-1">
-              {metadataFailed ? "元数据加载失败" : "暂无摘要"}
+              暂无摘要
             </p>
           )}
         </div>
@@ -220,20 +212,19 @@ export default function ArchivePage({
       const items = await Promise.all(
         files.map(async (f) => {
           const ref = parseChapterRef(f.filename);
-          if (!ref) {
-            return buildArchiveItem(f.filename, null);
-          }
+          if (!ref) return null;
           try {
             const chapter = await api.get(
               `/novels/${projectId}/chapters/${ref}`
             );
             return buildArchiveItem(f.filename, chapter);
           } catch {
-            return buildArchiveItem(f.filename, null);
+            // 章节已被删除 → 过滤幽灵条目（后端删章已清理归档，此处兜底）
+            return null;
           }
         })
       );
-      setArchives(sortArchives(items));
+      setArchives(sortArchives(items.filter((x): x is NonNullable<typeof x> => x !== null)));
     } catch (e: any) {
       setError(e.message || "加载归档列表失败");
     } finally {

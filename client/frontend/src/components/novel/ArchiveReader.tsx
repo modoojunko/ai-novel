@@ -180,16 +180,18 @@ export default function ArchiveReader({
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={() => onRestore(chapterRef)}
-            className="btn btn-ghost btn-xs gap-1 text-base-content/50 hover:text-base-content"
-            title="恢复为可编辑章节"
+            disabled={!chapterRef}
+            className="btn btn-ghost btn-xs gap-1 text-base-content/50 hover:text-base-content disabled:opacity-30 disabled:pointer-events-none"
+            title={chapterRef ? "恢复为可编辑章节" : "章节已删除，无法恢复"}
           >
             <RotateCcw className="w-3.5 h-3.5" />
             恢复
           </button>
           <button
             onClick={() => onEdit(chapterRef)}
-            className="btn btn-ghost btn-xs gap-1 text-base-content/50 hover:text-base-content"
-            title="在编辑器中打开"
+            disabled={!chapterRef}
+            className="btn btn-ghost btn-xs gap-1 text-base-content/50 hover:text-base-content disabled:opacity-30 disabled:pointer-events-none"
+            title={chapterRef ? "在编辑器中打开" : "章节已删除，无法编辑"}
           >
             <ExternalLink className="w-3.5 h-3.5" />
             编辑

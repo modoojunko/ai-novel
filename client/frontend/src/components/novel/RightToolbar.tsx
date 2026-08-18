@@ -137,9 +137,7 @@ export default function RightToolbar({
       setDeductionId(res.deduction_id);
       setDeductionMissing(res.missing || []);
       if (!res.missing || res.missing.length === 0) {
-        // Auto-seed with empty string
-        await Story.setSeed(res.deduction_id, "");
-        // Auto-run first round
+        // 直接跑首轮（引擎按当前角色/舞台状态推演，无需触发种子）
         const result = await Story.runRound(res.deduction_id);
         setDeductionRound(result.round);
       }
@@ -177,9 +175,16 @@ export default function RightToolbar({
   }, [deductionId, deductionRound]);
 
   const handleDeductionStop = useCallback(async () => {
+    if (deductionId) {
+      try {
+        await Story.stopDeduction(deductionId);
+      } catch {
+        // 会话已失效等：本地照常清理
+      }
+    }
     setDeductionId(null);
     setDeductionRound(0);
-  }, []);
+  }, [deductionId]);
 
   // -----------------------------------------------------------------------
   // Format time

@@ -32,7 +32,7 @@ interface ChapterPromptInfo {
   chapterRef: string;
   chapterTitle: string;
   segments: PromptFile[];
-  status: "generated" | "partial" | "none" | "modified";
+  status: "generated" | "none" | "modified";
 }
 
 interface VolumeInfo {
@@ -502,13 +502,6 @@ export default function PromptManagementPage({
                   <span className="badge badge-sm badge-success gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-current" />
                     已生成
-                  </span>
-                );
-              case "partial":
-                return (
-                  <span className="badge badge-sm badge-warning gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                    部分生成
                   </span>
                 );
               case "modified":

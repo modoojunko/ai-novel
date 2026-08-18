@@ -11,7 +11,6 @@ type ModalAction = { type: "SET_NAME"; value: string } | { type: "DISMISS" };
 
 interface ModalState {
   name: string;
-  errorMsg: string;
 }
 
 interface CreateProjectModalProps {
@@ -30,13 +29,12 @@ interface CreateProjectModalProps {
 
 const INITIAL: ModalState = {
   name: "",
-  errorMsg: "",
 };
 
 function reducer(state: ModalState, action: ModalAction): ModalState {
   switch (action.type) {
     case "SET_NAME":
-      return { ...state, name: action.value, errorMsg: "" };
+      return { ...state, name: action.value };
     case "DISMISS":
       return { ...INITIAL };
     default:
@@ -167,9 +165,6 @@ export default function CreateProjectModal({
                     {state.name.length}/60
                   </span>
                 </div>
-                {state.errorMsg && (
-                  <p className="text-xs text-error mt-1">{state.errorMsg}</p>
-                )}
               </div>
 
               {/* 主按钮：创建小说 */}

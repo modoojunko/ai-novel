@@ -40,6 +40,24 @@ def _derive_outline_status(status: str, prose: str) -> str:
     return "unfilled"
 
 
+async def cleanup_chapter_artifacts(root_path: str, chapter_ref: str) -> None:
+    """删除章节的落盘产物：归档 .md（防归档列表幽灵条目）+ versions 快照。
+
+    chapter YAML 由调用方删除；DB 行/计数由调用方维护。
+    """
+    storage = get_storage()
+    chapter = await storage.read_yaml(root_path, f"chapters/{chapter_ref}.yaml")
+    if chapter:
+        vol_no = chapter.get("volume", 1)
+        ch_no = chapter.get("chapter", 1)
+        prefix = f"vol-{vol_no}-ch-{ch_no}-"
+        for f in await storage.list_dir(root_path, "archives"):
+            if f.startswith(prefix) and f.endswith(".md"):
+                await storage.delete_file(root_path, f"archives/{f}")
+    for f in await storage.list_dir(root_path, f"versions/{chapter_ref}"):
+        await storage.delete_file(root_path, f"versions/{chapter_ref}/{f}")
+
+
 async def create_chapter(db, project, volume_ref: str, title: str) -> dict:
     """卷内建章：定位卷 → MAX+1 → 双写（YAML 模板 + DB 行）+ 计数同事务。"""
     vol_no = int(strip_suffix(volume_ref).replace("vol-", ""))

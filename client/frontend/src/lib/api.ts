@@ -81,27 +81,7 @@ export const api = {
   /** Write story.yaml synopsis (manual backfill). */
   updateStory: (novelId: string, synopsis: string): Promise<{ ok: boolean; synopsis: string }> =>
     request(`/novels/${novelId}/story`, { method: 'PUT', body: JSON.stringify({ synopsis }) }),
-  /** AI backfill step 1 — three parallel calls: synopsis, world/style, characters */
-  aiBackfillStep1: (novelId: string) => request(`/novels/${novelId}/ai-backfill/step1`, { method: 'POST' }),
-  /** AI backfill step 2 — generate outline from step1 result */
-  aiBackfillStep2: (novelId: string, step1Result: Step1Result) =>
-    request(`/novels/${novelId}/ai-backfill/step2`, { method: 'POST', body: JSON.stringify({ step1_result: step1Result }) }),
-  /** Fetch backfill status */
-  fetchBackfillStatus: (novelId: string) => request(`/novels/${novelId}/ai-backfill/status`),
 };
-
-// ---------------------------------------------------------------------------
-// AI Backfill types
-// ---------------------------------------------------------------------------
-
-export interface Step1Result {
-  synopsis: string;
-  genre_profile: string;
-  world_setting: Record<string, any>;
-  writing_style: Record<string, any>;
-  characters: Array<{ name: string; role: string; description: string }>;
-  truncated?: boolean;
-}
 
 // ---------------------------------------------------------------------------
 // Import types
@@ -121,6 +101,7 @@ export interface VolumeImportData {
 export interface ImportPreviewData {
   title: string;
   volumes: VolumeImportData[];
+  warnings?: Array<{ type: string; message: string; details?: Record<string, unknown> | null }>;
 }
 
 // ---------------------------------------------------------------------------

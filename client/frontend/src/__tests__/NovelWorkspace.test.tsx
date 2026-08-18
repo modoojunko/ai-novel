@@ -60,7 +60,8 @@ function ProjectProvider({ children }: { children: ReactNode }) {
 function mockEmptyTree() {
   apiState.get.mockImplementation((path: string) => {
     if (path === "/novels/p1/volumes") return Promise.resolve([]);
-    if (path === "/novels/p1/settings/status") return Promise.resolve({});
+    if (path === "/novels/p1/readiness")
+      return Promise.resolve({ complete: false, missing: [], warning: "" });
     return Promise.resolve({});
   });
   apiState.fetchStory.mockResolvedValue({ synopsis: "" });
@@ -105,7 +106,8 @@ function mockOneChapterTree() {
       return Promise.resolve(ONE_VOL_ONE_CHAPTER);
     if (path === "/novels/p1/chapters/vol-1-ch-1")
       return Promise.resolve(ONE_CHAPTER_DATA);
-    if (path === "/novels/p1/settings/status") return Promise.resolve({});
+    if (path === "/novels/p1/readiness")
+      return Promise.resolve({ complete: false, missing: [], warning: "" });
     return Promise.resolve({});
   });
   apiState.fetchStory.mockResolvedValue({ synopsis: "" });
