@@ -1,9 +1,15 @@
 """CloudBase PG HTTP API 设备注册仓储。"""
 from __future__ import annotations
+
 import uuid
 from datetime import datetime
-from app.infrastructure.repositories.pg_http.client import PgRestClient, to_iso, parse_dt
+
 from app.domain.devices import DeviceRegistry
+from app.infrastructure.repositories.pg_http.client import (
+    PgRestClient,
+    parse_dt,
+    to_iso,
+)
 
 _TABLE = "device_registry"
 

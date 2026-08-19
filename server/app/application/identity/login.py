@@ -1,10 +1,10 @@
 """用户名密码登录（门户使用，非 OAuth 流程）。"""
 from __future__ import annotations
-from app.infrastructure.security.password import verify_password
-from app.infrastructure.security.jwt import sign_jwt
-from app.infrastructure.repositories.base import UserRepo
+
 from app.domain.licensing import License
-from app.infrastructure.repositories.base import CodeRepo
+from app.infrastructure.repositories.base import CodeRepo, UserRepo
+from app.infrastructure.security.jwt import sign_jwt
+from app.infrastructure.security.password import verify_password
 
 
 def login(user_repo: UserRepo, code_repo: CodeRepo, username: str, password: str) -> dict:

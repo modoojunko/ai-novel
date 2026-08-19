@@ -1,10 +1,16 @@
 """OAuth 授权流核心用例。"""
 from __future__ import annotations
-from app.infrastructure.security.password import verify_password
-from app.infrastructure.security.jwt import sign_jwt
-from app.infrastructure.repositories.base import UserRepo, CodeRepo, DeviceRepo, GrantRepo
-from app.domain.devices import DeviceRegistry, DeviceProfile
+
+from app.domain.devices import DeviceProfile, DeviceRegistry
 from app.domain.licensing import License
+from app.infrastructure.repositories.base import (
+    CodeRepo,
+    DeviceRepo,
+    GrantRepo,
+    UserRepo,
+)
+from app.infrastructure.security.jwt import sign_jwt
+from app.infrastructure.security.password import verify_password
 
 
 def authorize_device(

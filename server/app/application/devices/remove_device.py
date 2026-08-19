@@ -1,5 +1,6 @@
 """移除设备。"""
 from __future__ import annotations
+
 from app.infrastructure.repositories.base import DeviceRepo
 
 

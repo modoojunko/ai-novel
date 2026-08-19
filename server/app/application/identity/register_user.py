@@ -1,11 +1,13 @@
 """注册新用户 + 赠送 7 天试用码。"""
 from __future__ import annotations
+
 import uuid
-from datetime import date, timedelta, datetime
+from datetime import date, datetime, timedelta
+
 from app.domain.identity import User
 from app.domain.licensing import ActivationCode
+from app.infrastructure.repositories.base import CodeRepo, UserRepo
 from app.infrastructure.security.password import hash_password
-from app.infrastructure.repositories.base import UserRepo, CodeRepo
 
 
 def register_user(

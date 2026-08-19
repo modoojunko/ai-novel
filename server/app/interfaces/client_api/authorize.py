@@ -1,13 +1,20 @@
 """C端 OAuth 授权流：auth-page / authorize / check-auth。"""
 from __future__ import annotations
+
 import logging
+
 from fastapi import Depends, Request
 from fastapi.responses import HTMLResponse
 
-from app.interfaces.deps import get_db, Db
-from app.interfaces.dto import AuthorizeRequest
 from app.application.devices.authorize_device import authorize_device
-from app.infrastructure.repositories.factory import user_repo, code_repo, device_repo, grant_repo
+from app.infrastructure.repositories.factory import (
+    code_repo,
+    device_repo,
+    grant_repo,
+    user_repo,
+)
+from app.interfaces.deps import Db, get_db
+from app.interfaces.dto import AuthorizeRequest
 
 logger = logging.getLogger("api.client.auth")
 
@@ -142,5 +149,5 @@ async def api_check_auth(pc_hash: str = "", db: Db = Depends(get_db)):
             }
         return {"code": 1, "msg": "等待授权"}
     except Exception:
-        logger.error("event=check_auth_error pc_hash=%s", pc_hash, exc_info=True)
+        logger.exception("event=check_auth_error pc_hash=%s", pc_hash)
         return {"code": -1, "msg": "内部错误，请查看服务器日志"}

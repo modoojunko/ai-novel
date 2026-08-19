@@ -1,5 +1,6 @@
 """FastAPI 应用入口。"""
 from __future__ import annotations
+
 import sys
 from pathlib import Path
 
@@ -30,9 +31,9 @@ def create_app() -> FastAPI:
     register_middleware(app)
     register_handlers(app)
 
+    from app.interfaces.admin_api import admin_router
     from app.interfaces.client_api import client_router
     from app.interfaces.web_api import web_router
-    from app.interfaces.admin_api import admin_router
 
     app.include_router(client_router)
     app.include_router(web_router)
@@ -62,8 +63,9 @@ def on_startup():
     alembic_dir = Path(__file__).parent.parent / "alembic"
     if alembic_dir.exists():
         try:
-            from alembic import command
             from alembic.config import Config
+
+            from alembic import command
             server_dir = Path(__file__).parent.parent
             # 不加载 alembic.ini（config_file_name=None）：env.py 里 fileConfig(ini)
             # 默认 disable_existing_loggers=True，会把 app/api/uvicorn 的 logger 全部禁用，

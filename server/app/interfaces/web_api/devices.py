@@ -1,13 +1,13 @@
 """门户设备 API：device/my, device/remove。"""
 from __future__ import annotations
+
 from fastapi import Depends
 
-from app.interfaces.deps import get_db, get_current_user_or_none, Db
-from app.interfaces.dto import DeviceRemoveRequest, ok, fail
 from app.application.devices.list_devices import list_devices
 from app.application.devices.remove_device import remove_device
-from app.infrastructure.repositories.factory import device_repo, code_repo
-
+from app.infrastructure.repositories.factory import code_repo, device_repo
+from app.interfaces.deps import Db, get_current_user_or_none, get_db
+from app.interfaces.dto import DeviceRemoveRequest, fail
 from app.interfaces.web_api.router import router as r
 
 

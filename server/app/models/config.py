@@ -1,6 +1,8 @@
 """global_config ORM 模型。"""
 from __future__ import annotations
+
 from sqlalchemy import Column, String, Text
+
 from app.models.base import Base
 
 

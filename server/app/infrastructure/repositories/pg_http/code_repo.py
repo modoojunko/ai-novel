@@ -1,8 +1,14 @@
 """CloudBase PG HTTP API 激活码仓储。"""
 from __future__ import annotations
+
 from datetime import date, datetime
-from app.infrastructure.repositories.pg_http.client import PgRestClient, to_iso, parse_dt
+
 from app.domain.licensing import ActivationCode
+from app.infrastructure.repositories.pg_http.client import (
+    PgRestClient,
+    parse_dt,
+    to_iso,
+)
 
 _TABLE = "codes"
 

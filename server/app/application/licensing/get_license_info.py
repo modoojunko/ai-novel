@@ -1,5 +1,6 @@
 """查询用户当前 License 信息。"""
 from __future__ import annotations
+
 from app.domain.licensing import License
 from app.infrastructure.repositories.base import CodeRepo, UserRepo
 

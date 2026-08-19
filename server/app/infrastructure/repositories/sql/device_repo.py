@@ -1,10 +1,13 @@
 """SQL（SQLAlchemy/SQLite）设备注册仓储。"""
 from __future__ import annotations
+
 import uuid
 from datetime import datetime
+
 from sqlalchemy.orm import Session
-from app.models.device import DeviceRegistryORM
+
 from app.domain.devices import DeviceRegistry
+from app.models.device import DeviceRegistryORM
 
 
 class SqlDeviceRepo:

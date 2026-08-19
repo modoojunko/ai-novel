@@ -1,13 +1,14 @@
 """FastAPI 依赖注入。"""
 from __future__ import annotations
-from fastapi import Depends, HTTPException, Header
+
+from fastapi import Header, HTTPException
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.infrastructure.repositories.pg_http import get_pg_client
 from app.infrastructure.repositories.pg_http.client import PgRestClient
-from app.models.base import get_db as _get_sql_db
 from app.infrastructure.security.jwt import verify_jwt
+from app.models.base import get_db as _get_sql_db
 
 # DB handle 联合类型：sqlite 后端为 Session，pg_http 后端为 PgRestClient
 Db = Session | PgRestClient
