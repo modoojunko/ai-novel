@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiWebLogin, apiWebRegister, apiUserMe } from '@/api/web'
+import { warmUpBackend } from '@/api/request'
 
 export const useSessionStore = defineStore('session', () => {
   // ── State ──
@@ -37,6 +38,8 @@ export const useSessionStore = defineStore('session', () => {
   async function login(usernameInput: string, password: string): Promise<{ ok: boolean; msg?: string }> {
     isLoading.value = true
     try {
+      // 冷启动门闩：等预热完成（共享 Promise）再发真实请求，避免直接撞 503
+      await warmUpBackend()
       const res = await apiWebLogin(usernameInput, password)
       if (res.code === 0 && res.data) {
         applyAuthData(res.data, usernameInput)
@@ -58,6 +61,7 @@ export const useSessionStore = defineStore('session', () => {
   ): Promise<{ ok: boolean; msg?: string }> {
     isLoading.value = true
     try {
+      await warmUpBackend()
       const res = await apiWebRegister(usernameInput, password, securityQuestion, securityAnswer)
       if (res.code === 0 && res.data) {
         applyAuthData(res.data, usernameInput, 'trial')
@@ -86,6 +90,9 @@ export const useSessionStore = defineStore('session', () => {
     isLoading.value = true
     let retrying = false
     try {
+      // 先等预热门闩（与站点加载的 warmUpBackend 共享同一 Promise），
+      // 避免挂载期数据请求与预热赛跑；后续网络错误仍有下面的重试链兜底
+      await warmUpBackend()
       const res = await apiUserMe()
       if (res.code === 0 && res.data) {
         username.value = res.data.username || ''
