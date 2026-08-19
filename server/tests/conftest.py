@@ -8,10 +8,13 @@
 import os
 import tempfile
 import uuid
+from pathlib import Path
 
 _tmp_db = tempfile.NamedTemporaryFile(suffix="_s_server_test.db", delete=False)
 _tmp_db.close()
-os.environ.setdefault("DATABASE_URL", f"sqlite:///{_tmp_db.name}")
+# 无条件覆盖：setdefault 会沿用开发 shell 残留的 DATABASE_URL，
+# 导致测试静默连入外部库（迁移 + 写入真实数据）
+os.environ["DATABASE_URL"] = f"sqlite:///{_tmp_db.name}"
 
 import pytest
 from fastapi.testclient import TestClient
@@ -29,6 +32,17 @@ def client():
     """进程内 TestClient（startup 会跑 alembic 迁移 + create_all 建表）。"""
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _cleanup_tmp_db():
+    """会话结束后释放连接并删除临时库（含 SQLite WAL/SHM 边车文件）。"""
+    yield
+    from app.models import base as mbase
+
+    mbase.engine.dispose()
+    for suffix in ("", "-wal", "-shm"):
+        Path(_tmp_db.name + suffix).unlink(missing_ok=True)
 
 
 @pytest.fixture
