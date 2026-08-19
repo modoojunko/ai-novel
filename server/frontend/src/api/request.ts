@@ -73,19 +73,29 @@ request.interceptors.response.use(
  * 失败请求本身已触发扩容，间隔重试直到实例就绪（覆盖 30-60s 冷启动窗口）。
  * 注意空 pc_hash 固定返回 code 1「缺少 pc_hash」：带业务 code 的拒绝说明
  * 后端已应答（实例已热），与无 code 的网络错误（网关 503/断连）区分开。
+ *
+ * 单例（single-flight）：返回同一个进行中的 Promise——数据请求/登录先
+ * await 本函数作为「门闩」，避免页面数据与预热并发赛跑去打冷后端。
+ * 注意：只预热一次；长会话中后端再次缩零时，由各请求自身的网络错误
+ * 重试链兜底（失败请求同样会触发扩容）。
  */
-export async function warmUpBackend(attemptDelaysMs: number[] = [15_000, 15_000, 15_000, 15_000]): Promise<void> {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      await request.get('/check-auth', { params: { pc_hash: '' } })
-      return
-    } catch (e: any) {
-      // 带 code 的拒绝 = 后端已应答（如 code 1 缺少 pc_hash）= 已就绪，无需重试
-      if (e?.code !== undefined) return
-      if (attempt >= attemptDelaysMs.length) return
-      await new Promise((resolve) => setTimeout(resolve, attemptDelaysMs[attempt]))
+let warmPromise: Promise<void> | undefined
+
+export function warmUpBackend(attemptDelaysMs: number[] = [15_000, 15_000, 15_000, 15_000]): Promise<void> {
+  warmPromise ??= (async () => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await request.get('/check-auth', { params: { pc_hash: '' } })
+        return
+      } catch (e: any) {
+        // 带 code 的拒绝 = 后端已应答（如 code 1 缺少 pc_hash）= 已就绪，无需重试
+        if (e?.code !== undefined) return
+        if (attempt >= attemptDelaysMs.length) return
+        await new Promise((resolve) => setTimeout(resolve, attemptDelaysMs[attempt]))
+      }
     }
-  }
+  })()
+  return warmPromise
 }
 
 export default request

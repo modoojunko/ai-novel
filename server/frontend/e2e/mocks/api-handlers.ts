@@ -22,6 +22,7 @@ export class MockApi {
     '**/api/device/remove',
     '**/api/authorize',
     '**/api/reset_password',
+    '**/api/check-auth',
   ]
 
   constructor(page: Page) {
@@ -70,6 +71,14 @@ export class MockApi {
     const url = new URL(route.request().url())
     const path = url.pathname
     const method = route.request().method()
+
+    // ── 预热探测（冷启动门闩）──
+    // 真实后端对空 pc_hash 返回 code 1；任何带业务 code 的应答都代表「实例已热」，
+    // 门闩（warmUpBackend）据此立即放行。不 mock 会穿透到真实网络，e2e 里门闩
+    // 会空转重试 60s 导致所有页面数据用例超时。
+    if (path === '/api/check-auth') {
+      return route.fulfill(json(1, '缺少 pc_hash'))
+    }
 
     // ── C端 冻结契约 ──
     if (path === '/api/authorize' && method === 'POST') {
