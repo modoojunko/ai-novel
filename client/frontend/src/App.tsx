@@ -8,6 +8,7 @@ import ApiKeyConfigPage from "@/pages/ApiKeyConfigPage";
 import NovelListPage from "@/pages/NovelListPage";
 import NovelLayout from "@/pages/NovelLayout";
 import NovelWorkspace from "@/components/novel/NovelWorkspace";
+import MemberBlockPrompt from "@/components/novel/license/MemberBlockPrompt";
 
 /** 301 过渡：旧路由 /project/:id → /novel/:id */
 function RedirectToNovel() {
@@ -37,6 +38,8 @@ export default function App() {
         </Routes>
       </div>
       <Footer />
+      {/* AI 会员拦截全局升级引导（监听 api.request 的 member-block 事件） */}
+      <MemberBlockPrompt />
     </ClientShell>
   );
 }

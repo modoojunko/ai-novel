@@ -120,6 +120,7 @@ async def api_get_config(
             "has_api_key": bool(u.api_key) or has_api_config,
             "api_base_url": u.api_base_url or "",
             "api_model": u.api_model or "",
+            "portal_url": get_local_config().get("portal_url", ""),
         }
     # Fallback to config.json for migration period
     cfg = get_local_config()
@@ -130,6 +131,7 @@ async def api_get_config(
         "has_api_key": has_api_config or bool(cfg.get("api_key")),
         "api_base_url": cfg.get("api_base_url", ""),
         "api_model": cfg.get("api_model", ""),
+        "portal_url": cfg.get("portal_url", ""),
     }
 
 

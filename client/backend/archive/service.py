@@ -34,25 +34,29 @@ async def archive_chapter(root_path: str, chapter_ref: str, full_text: str) -> d
     await get_storage().write_md(root_path, archive_path, full_text)
 
     # Generate 200-char summary via AI; degrade to first 200 chars when unavailable
-    # (no API key → get_ai_client raises ValueError; chat failures also caught).
+    # (non-member → AI 是会员权益直接降级；no API key → get_ai_client raises
+    #  ValueError; chat failures also caught).
     summary = full_text[:200]
-    try:
-        client = await get_ai_client()
-        summary_text = await client.chat(
-            model="haiku",
-            system="",
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"用200字以内总结本章核心事件，只陈述事实不评论：\n\n{full_text[:3000]}",
-                }
-            ],
-            max_tokens=200,
-        )
-        if summary_text:
-            summary = summary_text[:200]
-    except Exception:  # noqa: BLE001, S110 — AI 摘要可选，失败降级为正文前 200 字
-        pass
+    from auth_local.service import check_permission
+
+    if check_permission().get("is_member", False):
+        try:
+            client = await get_ai_client()
+            summary_text = await client.chat(
+                model="haiku",
+                system="",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": f"用200字以内总结本章核心事件，只陈述事实不评论：\n\n{full_text[:3000]}",
+                    }
+                ],
+                max_tokens=200,
+            )
+            if summary_text:
+                summary = summary_text[:200]
+        except Exception:  # noqa: BLE001, S110 — AI 摘要可选，失败降级为正文前 200 字
+            pass
 
     chapter["archive_summary"] = summary
     chapter["archive_path"] = archive_path

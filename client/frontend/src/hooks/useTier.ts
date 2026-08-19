@@ -4,6 +4,9 @@ import { TierContext, type TierState } from "@/components/novel/license/LicenseP
 const SAFE_FREE: TierState = {
   tier: "none",
   isFree: true,
+  isMember: false,
+  expired: false,
+  expiresAt: "",
   isPro: false,
   trialRemainingDays: 0,
   loading: false,

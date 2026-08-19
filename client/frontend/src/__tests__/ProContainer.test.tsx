@@ -38,16 +38,23 @@ async function importProContainer() {
 
 function TestTierProvider({
   tier,
+  isMember,
+  expired = false,
   children,
 }: {
   tier: string;
+  isMember?: boolean;
+  expired?: boolean;
   children: ReactNode;
 }) {
-  const isFree = tier === "none";
+  const member = isMember ?? tier !== "none";
   const value: TierState = {
     tier,
-    isFree,
-    isPro: !isFree,
+    isFree: !member,
+    isMember: member,
+    expired,
+    expiresAt: "",
+    isPro: member,
     trialRemainingDays: 0,
     loading: false,
     error: null,
@@ -114,5 +121,17 @@ describe("ProContainer", () => {
       ),
     );
     expect(await screen.findByText("阶段状态已载入")).toBeDefined();
+  });
+
+  it("过期会员降为免费待遇：子树不渲染（与后端 tier_bypass 口径一致）", async () => {
+    const ProContainer = (await importProContainer()).default;
+    render(
+      <TestTierProvider tier="monthly" isMember={false} expired>
+        <ProContainer>
+          <button>PRO 专属按钮</button>
+        </ProContainer>
+      </TestTierProvider>,
+    );
+    expect(screen.queryByText("PRO 专属按钮")).toBeNull();
   });
 });

@@ -23,7 +23,13 @@ async function mountUseTier() {
 
 describe("LicenseProvider", () => {
   it("挂载时 /auth/verify 仅调一次并下发套餐状态", async () => {
-    apiPostMock.mockResolvedValue({ tier: "monthly", trial_remaining_days: 30 });
+    apiPostMock.mockResolvedValue({
+      tier: "monthly",
+      is_member: true,
+      expired: false,
+      expires_at: "2027-01-01",
+      trial_remaining_days: 30,
+    });
     const m = await mountUseTier();
     const { result } = m.renderHook();
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -31,17 +37,42 @@ describe("LicenseProvider", () => {
     expect(apiPostMock).toHaveBeenCalledTimes(1);
     expect(apiPostMock).toHaveBeenCalledWith("/auth/verify");
     expect(result.current.tier).toBe("monthly");
+    expect(result.current.isMember).toBe(true);
     expect(result.current.isFree).toBe(false);
     expect(result.current.isPro).toBe(true);
     expect(result.current.trialRemainingDays).toBe(30);
   });
 
   it("免费套餐 isFree=true", async () => {
-    apiPostMock.mockResolvedValue({ tier: "none", trial_remaining_days: 0 });
+    apiPostMock.mockResolvedValue({
+      tier: "none",
+      is_member: false,
+      expired: false,
+      trial_remaining_days: 0,
+    });
     const m = await mountUseTier();
     const { result } = m.renderHook();
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.isFree).toBe(true);
+    expect(result.current.isMember).toBe(false);
+    expect(result.current.isPro).toBe(false);
+  });
+
+  it("过期会员降为免费待遇：isFree=true、expired=true、isPro=false", async () => {
+    apiPostMock.mockResolvedValue({
+      tier: "monthly",
+      is_member: false,
+      expired: true,
+      expires_at: "2026-01-01",
+      trial_remaining_days: 0,
+    });
+    const m = await mountUseTier();
+    const { result } = m.renderHook();
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.tier).toBe("monthly");
+    expect(result.current.isMember).toBe(false);
+    expect(result.current.isFree).toBe(true);
+    expect(result.current.expired).toBe(true);
     expect(result.current.isPro).toBe(false);
   });
 

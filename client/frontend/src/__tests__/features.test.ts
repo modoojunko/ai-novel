@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { FEATURES, isFeatureEnabled, type FeatureKey } from "@/lib/features";
+import { FEATURES, isMemberFeature, type FeatureKey } from "@/lib/features";
 
-const FREE_ENABLED: FeatureKey[] = [
+const FREE_FEATURES: FeatureKey[] = [
   "tree-crud",
   "prose-edit",
   "version-history",
@@ -11,7 +11,7 @@ const FREE_ENABLED: FeatureKey[] = [
   "settings-7-items",
 ];
 
-const FREE_LOCKED: FeatureKey[] = [
+const MEMBER_FEATURES: FeatureKey[] = [
   "settings-ai-fields",
   "outline-advanced-fields",
   "ai-generate",
@@ -19,29 +19,27 @@ const FREE_LOCKED: FeatureKey[] = [
   "ai-model",
 ];
 
-describe("isFeatureEnabled — 两态矩阵", () => {
-  it("免费键在 none/pro 两态均可用", () => {
-    for (const key of FREE_ENABLED) {
-      expect(isFeatureEnabled(key, "none"), key).toBe(true);
-      expect(isFeatureEnabled(key, "monthly"), key).toBe(true);
+describe("isMemberFeature — 会员功能矩阵（2026-08-18 口径）", () => {
+  it("人工写作能力非会员功能（免费完整可用）", () => {
+    for (const key of FREE_FEATURES) {
+      expect(isMemberFeature(key), key).toBe(false);
     }
   });
 
-  it("锁定键（AI）免费态不可用、付费态可用", () => {
-    for (const key of FREE_LOCKED) {
-      expect(isFeatureEnabled(key, "none"), key).toBe(false);
-      expect(isFeatureEnabled(key, "monthly"), key).toBe(true);
+  it("AI 能力是会员功能（入口可见、使用由后端拦截）", () => {
+    for (const key of MEMBER_FEATURES) {
+      expect(isMemberFeature(key), key).toBe(true);
     }
   });
 
   it("清单键与两态分组完全覆盖（无遗漏无多键）", () => {
     const keys = Object.keys(FEATURES) as FeatureKey[];
-    expect(keys.length).toBe(FREE_ENABLED.length + FREE_LOCKED.length);
+    expect(keys.length).toBe(FREE_FEATURES.length + MEMBER_FEATURES.length);
     for (const key of keys) {
-      const inFree = FREE_ENABLED.includes(key);
-      const inLocked = FREE_LOCKED.includes(key);
-      expect(inFree || inLocked, key).toBe(true);
-      expect(FEATURES[key].free).toBe(inFree);
+      const inFree = FREE_FEATURES.includes(key);
+      const inMember = MEMBER_FEATURES.includes(key);
+      expect(inFree || inMember, key).toBe(true);
+      expect(FEATURES[key].memberOnly).toBe(inMember);
     }
   });
 });
