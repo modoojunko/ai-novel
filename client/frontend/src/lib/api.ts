@@ -52,8 +52,9 @@ export async function request(path: string, options?: { method?: string; body?: 
       window.dispatchEvent(
         new CustomEvent("member-block", { detail: { message } }),
       );
-      const e = new Error(message) as Error & { reason?: string };
+      const e = new Error(message) as Error & { reason?: string; status?: number };
       e.reason = "member_required";
+      e.status = res.status;
       throw e;
     }
     // detail 可能是对象（如删除题材 409 的 { message, projects }），透传 projects 供 UI 提示引用项目
@@ -61,7 +62,9 @@ export async function request(path: string, options?: { method?: string; body?: 
       typeof err.detail === "string"
         ? err.detail
         : err.detail?.message || res.statusText;
-    const e = new Error(message) as Error & { projects?: string[] };
+    // 附带 HTTP 状态码：调用方据此区分结构性错误（404/405 端点缺失）与网络/服务端错误
+    const e = new Error(message) as Error & { status?: number; projects?: string[] };
+    e.status = res.status;
     if (typeof err.detail === "object" && Array.isArray(err.detail.projects)) {
       e.projects = err.detail.projects;
     }
