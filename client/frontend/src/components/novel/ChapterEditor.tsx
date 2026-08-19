@@ -23,6 +23,11 @@ import type { SelectionCapture } from "@/lib/selection";
 import ContrastPreviewModal from "./ContrastPreviewModal";
 import { useChapterData } from "@/hooks/useChapterData";
 import { useTier } from "@/hooks/useTier";
+import {
+  getArchiveAiSummaryEnabled,
+  isArchiveNoticeShown,
+  markArchiveNoticeShown,
+} from "@/lib/prefs";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -78,7 +83,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
     { projectId, chapterRef, onShowVersion, onAIStateChange, focusMode = false },
     ref,
   ) {
-    const { isFree } = useTier();
+    const { isFree, isMember } = useTier();
 
     const {
       chapter,
@@ -456,11 +461,17 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
 
     const handleArchive = useCallback(async () => {
       if (!prose.trim()) return;
+      // 会员首次归档：告知会消耗 AI 额度，可去设置关闭（免费用户后端自动降级为正文摘要，不打扰）
+      const useAiSummary = getArchiveAiSummaryEnabled();
+      if (isMember && useAiSummary && !isArchiveNoticeShown()) {
+        window.confirm("归档将使用 AI 生成章节摘要，会消耗你 API Key 的额度。\n可随时在「设置 → AI 偏好」中关闭，关闭后使用正文截取摘要。");
+        markArchiveNoticeShown();
+      }
       if (!window.confirm("确认归档本章？归档后正文将锁定为只读状态。")) return;
       setArchiving(true);
-      await archive();
+      await archive({ aiSummary: useAiSummary });
       setArchiving(false);
-    }, [prose, archive]);
+    }, [prose, archive, isMember]);
 
     // 归档只读：status === "archived" 时 textarea readOnly + 顶部提示条
     const isArchived = status === "archived";

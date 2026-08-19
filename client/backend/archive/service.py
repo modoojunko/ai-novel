@@ -22,7 +22,9 @@ def _canonical_chapter_ref(ref: str) -> str:
     return ref
 
 
-async def archive_chapter(root_path: str, chapter_ref: str, full_text: str) -> dict:
+async def archive_chapter(
+    root_path: str, chapter_ref: str, full_text: str, ai_summary: bool = True
+) -> dict:
     _validate_ref(chapter_ref)
     chapter = await get_storage().read_yaml(root_path, f"chapters/{chapter_ref}.yaml")
 
@@ -34,12 +36,12 @@ async def archive_chapter(root_path: str, chapter_ref: str, full_text: str) -> d
     await get_storage().write_md(root_path, archive_path, full_text)
 
     # Generate 200-char summary via AI; degrade to first 200 chars when unavailable
-    # (non-member → AI 是会员权益直接降级；no API key → get_ai_client raises
-    #  ValueError; chat failures also caught).
+    # (ai_summary=False → 前端设置关掉 AI 摘要；non-member → AI 是会员权益直接降级；
+    #  no API key → get_ai_client raises ValueError; chat failures also caught).
     summary = full_text[:200]
     from auth_local.service import check_permission
 
-    if check_permission().get("is_member", False):
+    if ai_summary and check_permission().get("is_member", False):
         try:
             client = await get_ai_client()
             summary_text = await client.chat(

@@ -1,7 +1,9 @@
 import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { ExternalLink } from "lucide-react";
 import ThemeToggle from "@/components/novel/ThemeToggle";
 import { isLoggedIn } from "@/lib/auth";
+import { PORTAL_URL } from "@/lib/portal";
 
 const GH_REPO = "https://github.com/modoojunko/ai-novel";
 const FEEDBACK_URL = `${GH_REPO}/issues/new`;
@@ -278,7 +280,16 @@ export default function LandingPage() {
                 ))}
               </div>
               <div className="mt-8 text-center">
-                <span className="inline-block text-xs text-primary/80 border border-primary/30 rounded-full px-4 py-1.5">按 Token 计费 · 购买见授权服务</span>
+                <a
+                  href={PORTAL_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-primary btn-block"
+                >
+                  去授权中心开通
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+                <p className="text-xs text-base-content/50 mt-2">支持 7 天免费试用 · 按月 / 按年订阅</p>
               </div>
             </div>
           </div>
