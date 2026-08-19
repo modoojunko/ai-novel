@@ -11,6 +11,14 @@ on:
 permissions:
   contents: read
 
+# 串行化部署：连续合 PR 会触发多条 run 并发，tcb 平台侧同时只允许一个部署任务，
+# 相撞会卡在「已有部署任务运行」交互提示上以 exit 130 失败。
+# 不用 cancel-in-progress：中途取消同样会让下一条 run 撞上平台侧进行中的部署；
+# 排队等待虽会多跑几轮，但每轮都部署当时的最新 main，最终状态必为最新。
+concurrency:
+  group: s-server-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
