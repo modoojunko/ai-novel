@@ -44,7 +44,6 @@ _EXPECTATION_SCALARS = [
 ]
 
 _KEY_POINT_TAG = re.compile(r"^\[([^\]]+)\](.*)$", re.DOTALL)
-_COLON_SPLIT = re.compile(r"^([^：:]{1,50})[：:]\s*(.+)$", re.DOTALL)
 
 
 def _fit(value, width: int | None):
@@ -70,11 +69,18 @@ def _format_key_point(tag: str, content: str) -> str:
 
 
 def _split_labeled(item: str) -> tuple[str, str]:
-    """'场景：功能' → ('场景', '功能')；无标签 → ('', 原文)。"""
-    m = _COLON_SPLIT.match((item or "").strip())
-    if m:
-        return m.group(1).strip(), m.group(2)
-    return "", item or ""
+    """'场景：功能' → ('场景', '功能')；无标签 → ('', 原文)。
+
+    纯字符串切分（首个全/半角冒号）；标签空或超 50 字、冒号后为空则不拆。
+    """
+    s = (item or "").strip()
+    positions = [i for i in (s.find("："), s.find(":")) if i != -1]
+    if positions:
+        idx = min(positions)
+        label, rest = s[:idx].strip(), s[idx + 1 :].strip()
+        if label and rest and len(label) <= 50:
+            return label, rest
+    return "", s
 
 
 def _derive_outline_status(status: str, prose: str) -> str:
