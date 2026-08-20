@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 from ai_client import get_ai_client
 from filesystem.storage import get_storage
+from workflow.engine import load_chapter
 
 
 def _validate_ref(ref: str) -> str:
@@ -26,7 +27,7 @@ async def archive_chapter(
     root_path: str, chapter_ref: str, full_text: str, ai_summary: bool = True
 ) -> dict:
     _validate_ref(chapter_ref)
-    chapter = await get_storage().read_yaml(root_path, f"chapters/{chapter_ref}.yaml")
+    chapter = await load_chapter(root_path, chapter_ref)
 
     vol = chapter.get("volume", 1)
     ch = chapter.get("chapter", 1)
@@ -60,13 +61,8 @@ async def archive_chapter(
         except Exception:  # noqa: BLE001, S110 — AI 摘要可选，失败降级为正文前 200 字
             pass
 
-    chapter["archive_summary"] = summary
-    chapter["archive_path"] = archive_path
-    chapter["status"] = "archived"
-    await get_storage().write_yaml(root_path, f"chapters/{chapter_ref}.yaml", chapter)
-
-    # 树读已切 DB（change 006）：不再写 vol YAML 内嵌 chapters 列表（§4.3 唯一属主非镜像）；
-    # 归档的 DB 章行 archived 态由 archive/router.py 同步（BE-03）。
+    # 章数据已入库（PR②）：status=archived / archived_at 由 archive/router 同步（BE-03）；
+    # archive_summary / archive_path 归 PR④ archives 表。
 
     await update_thread_state(root_path, chapter, summary)
     await update_character_states(root_path, chapter, full_text)

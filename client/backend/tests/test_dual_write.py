@@ -1,7 +1,7 @@
-"""Change 006 — 双写一致性测试（TE-10）
+"""Change 006 — 写路径一致性测试（TE-10；PR② 章族入库后 DB 唯一属主）
 
-验证：save_chapter/save_prose 后 DB 元数据正确、YAML 为内容准（prose 不入 DB）；
-DB 写失败降级不 500（读路径自愈兜底）；versions restore 后 refresh_chapter_meta 刷新；
+验证：save_chapter/save_prose 后 DB 元数据与正文一致（chapter_contents.prose）；
+章 YAML 不再落盘；save_prose 缺章 404；versions restore 后元数据刷新；
 confirm 写 DB confirmed 态；delete_chapter 删 DB 行/versions + 计数维护（HTTP 层）。
 
 用法：
@@ -159,7 +159,7 @@ def test_save_chapter_updates_db_metadata():
     _run_async(_run())
 
 
-def test_save_prose_yaml_authoritative_prose_not_in_db():
+def test_save_prose_db_authoritative():
     async def _run():
         project = await _new_project("sp1")
         async with async_session() as session:
@@ -167,39 +167,34 @@ def test_save_prose_yaml_authoritative_prose_not_in_db():
             await _create_volume(session, proj)
             await _create_chapter(session, proj)
             await _save_prose(session, proj, "vol-1-ch-1", "灯火在雨里摇晃")
-            # YAML 为内容准：prose 全量入 YAML
+            # DB 为内容准：正文入 chapter_contents.prose
+            row = await chapter_repo.get_by_ref(session, proj.id, "vol-1-ch-1")
+            assert row.content is not None
+            assert row.content.prose == "灯火在雨里摇晃"
+            assert row.word_count == count_chars("灯火在雨里摇晃") == 7
+            # 章 YAML 不再落盘（章族 DB 唯一属主）
             data = await storage.read_yaml(
                 proj.root_path, "chapters/vol-1-ch-1.yaml"
             )
-            assert data["prose"] == "灯火在雨里摇晃"
-            # DB 只存元数据，无 prose 列（word_count 同步派生）
-            row = await chapter_repo.get_by_ref(session, proj.id, "vol-1-ch-1")
-            assert row.word_count == count_chars("灯火在雨里摇晃") == 7
-            assert not hasattr(row, "prose")
+            assert data == {}
 
     _run_async(_run())
 
 
-def test_refresh_db_failure_degrades_without_500(monkeypatch):
+def test_save_prose_missing_chapter_404():
     async def _run():
+        from fastapi import HTTPException
+
         project = await _new_project("df1")
         async with async_session() as session:
             proj = await session.get(Novel, project.id)
             await _create_volume(session, proj)
-            await _create_chapter(session, proj)
-            # DB 写抛错 → 双写第二步降级，不向上抛（YAML 已落盘，读路径自愈）
-            async def boom(*_a, **_k):
-                raise RuntimeError("db down")
-
-            monkeypatch.setattr("repositories.chapter_repo.upsert", boom)
+            # 章行不存在 → 统一写入口前置校验 404（不再有 YAML 自愈降级）
             from chapters.service import save_prose
 
-            await save_prose(session, proj, "vol-1-ch-1", "孤身走暗巷")
-            # YAML 仍在（内容准）
-            data = await storage.read_yaml(
-                proj.root_path, "chapters/vol-1-ch-1.yaml"
-            )
-            assert data["prose"] == "孤身走暗巷"
+            with pytest.raises(HTTPException) as exc_info:
+                await save_prose(session, proj, "vol-1-ch-1", "孤身走暗巷")
+            assert exc_info.value.status_code == 404
 
     _run_async(_run())
 

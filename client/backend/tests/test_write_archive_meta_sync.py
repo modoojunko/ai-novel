@@ -211,13 +211,11 @@ class TestWriteArchiveMetaSync:
         async def _check():
             async with async_session() as session:
                 proj = await session.get(Novel, pid)
-                # YAML draft + 清归档标记
+                # 章族入库：状态在 DB 行，章 YAML 不存在
                 data = await get_storage().read_yaml(
                     proj.root_path, f"chapters/{ref}.yaml"
                 )
-                assert data["status"] == "draft"
-                assert "archive_path" not in data
-                assert "archive_summary" not in data
+                assert data == {}
                 # DB archived_at=None, status=draft
                 row = await chapter_repo.get_by_ref(session, pid, ref)
                 assert row is not None

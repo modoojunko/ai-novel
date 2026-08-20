@@ -161,9 +161,9 @@ async def build_chapter_context(
         ctx.genre_fatigue_words = gctx.get("fatigue_words", [])
 
     # Chapter
-    chapter = (
-        await get_storage().read_yaml(root_path, f"chapters/{chapter_ref}.yaml") or {}
-    )
+    from workflow.engine import load_chapter
+
+    chapter = await load_chapter(root_path, chapter_ref) or {}
     ctx.chapter_outline = chapter.get("outline", {})
     if not isinstance(ctx.chapter_outline, dict):
         ctx.chapter_outline = {}
@@ -205,9 +205,9 @@ async def build_chapter_context(
     vol_num_match = re.match(r"vol-(\d+)", chapter_ref)
     if vol_num_match and ch_num > 1:
         prev_ref = f"vol-{vol_num_match.group(1)}-ch-{ch_num - 1}"
-        prev = (
-            await get_storage().read_yaml(root_path, f"chapters/{prev_ref}.yaml") or {}
-        )
+        from workflow.engine import load_chapter
+
+        prev = await load_chapter(root_path, prev_ref) or {}
         prev_prose = prev.get("prose", "")
         if prev_prose:
             ctx.previous_chapter_recap = prev_prose[-500:]

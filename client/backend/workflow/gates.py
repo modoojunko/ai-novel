@@ -109,14 +109,47 @@ def gate_quality_passed(chapter_data: dict) -> GateResult:
     )
 
 
+async def _chapters_by_root(root_path: str) -> list:
+    """root_path → 项目全部章行（selectin 已带子表/正文，供组装/派生）。"""
+    from sqlalchemy import select
+
+    from db import async_session
+    from models.chapter import Chapter
+    from models.project import Novel
+
+    stmt = (
+        select(Chapter)
+        .join(Novel, Novel.id == Chapter.project_id)
+        .where(Novel.root_path == root_path)
+        .order_by(Chapter.ref)
+    )
+    async with async_session() as session:
+        return list((await session.scalars(stmt)).all())
+
+
+async def _volume_count_by_root(root_path: str) -> int:
+    from sqlalchemy import func as sa_func
+    from sqlalchemy import select as sa_select
+
+    from db import async_session
+    from models.project import Novel
+    from models.volume import Volume
+
+    stmt = (
+        sa_select(sa_func.count(Volume.id))
+        .join(Novel, Novel.id == Volume.project_id)
+        .where(Novel.root_path == root_path)
+    )
+    async with async_session() as session:
+        return await session.scalar(stmt) or 0
+
+
 async def gate_outline_exists(root_path: str) -> GateResult:
-    """Check if at least one volume with chapters exists.
+    """Check if at least one volume exists（卷族入库：DB 计数）.
 
     Soft gate — reminds but allows proceeding.
     """
-    files = await get_storage().list_dir(root_path, "volumes")
-    vol_files = [f for f in files if f.endswith(".yaml")]
-    if not vol_files:
+    if await _volume_count_by_root(root_path) == 0:
         return GateResult(
             valid=True,
             warnings=["no volumes created yet"],
@@ -126,33 +159,22 @@ async def gate_outline_exists(root_path: str) -> GateResult:
 
 
 async def gate_prose_written(root_path: str) -> GateResult:
-    """Check if at least one chapter has prose content written.
+    """Check if at least one chapter has prose content written（章族入库：DB 判 has_prose）.
 
     Soft gate — reminds progress.
     """
-    files = await get_storage().list_dir(root_path, "chapters")
-    written = 0
-    total = 0
-    for f in sorted(files):
-        if not f.endswith(".yaml"):
-            continue
-        ch = await get_storage().read_yaml(root_path, f"chapters/{f}")
-        if not ch:
-            continue
-        total += 1
-        if ch.get("prose", "").strip():
-            written += 1
-
-    if total == 0:
+    rows = await _chapters_by_root(root_path)
+    if not rows:
         return GateResult(
             valid=True,
             warnings=["no chapters created yet"],
             hard_block=False,
         )
-    if written < total:
+    written = sum(1 for r in rows if r.has_prose)
+    if written < len(rows):
         return GateResult(
             valid=True,
-            warnings=[f"prose written for {written}/{total} chapters"],
+            warnings=[f"prose written for {written}/{len(rows)} chapters"],
             hard_block=False,
         )
     return GateResult(valid=True, warnings=[])
@@ -197,26 +219,24 @@ async def get_phase_status(
     settings_result = await gate_settings_complete(root_path)
     outline_result = await gate_outline_exists(root_path)
 
-    # All chapters check
-    chapter_files = await get_storage().list_dir(root_path, "chapters")
-    chapter_yamls = [f for f in chapter_files if f.endswith(".yaml")]
+    # All chapters check（章族入库：DB 行 → 组装章 JSON 供门控）
+    from chapters.store import assemble_chapter
+
+    chapter_rows = await _chapters_by_root(root_path)
+    chapter_refs = [r.ref for r in chapter_rows]
 
     all_chapters_ready = True
     chapter_warnings: list[str] = []
-    for f in sorted(chapter_yamls):
-        ch = await get_storage().read_yaml(root_path, f"chapters/{f}")
-        if not ch:
-            continue
-        r = gate_chapter_ready(ch)
+    for row in chapter_rows:
+        r = gate_chapter_ready(assemble_chapter(row))
         if not r.valid:
             all_chapters_ready = False
             chapter_warnings.extend(r.warnings)
 
     # Prompt check: only if there are chapters
     prompt_result = GateResult(valid=True, warnings=[])
-    if chapter_yamls:
-        for f in sorted(chapter_yamls):
-            ref = f.replace(".yaml", "")
+    if chapter_refs:
+        for ref in chapter_refs:
             r = await gate_prompts_exist(root_path, ref)
             if not r.valid:
                 prompt_result = r

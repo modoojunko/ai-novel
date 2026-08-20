@@ -7,10 +7,14 @@ characters/function/word_target 读 → 真实用户填的段落概要/字数在
 
 修复：组装器做语义回退 —— goal←summary、word_target←target_words、
 emotional_tone/characters←章级字段（emotional_design.primary_mood / outline.characters）。
+
+章族入库：章数据经 conftest.seed_chapter_db 种进 DB（统一写入口）。
 """
 
 import asyncio
 import tempfile
+
+from conftest import seed_chapter_db
 
 from filesystem.storage import get_storage
 from prompt.assembler import assemble_segment_prompt
@@ -29,8 +33,25 @@ def _tmp_root() -> str:
     return tempfile.mkdtemp(prefix="test_prompt_assembler_")
 
 
+_CHAPTER = {
+    "volume": 1,
+    "chapter": 1,
+    "title": "第一章",
+    "outline": {
+        "summary": "主角来到边境城邦。",
+        "characters": ["张三"],
+    },
+    "memo": {},
+    "emotional_design": {"primary_mood": "紧张"},
+    "segments": [
+        {"summary": "城门初见城邦", "target_words": 800},
+        {"summary": "遇到神秘商人", "target_words": 1200},
+    ],
+}
+
+
 def _seed(root: str):
-    """写入最小 settings + 章文件（与前端保存结构一致）。"""
+    """写入最小 settings + 章 DB 行（与前端保存结构一致）。"""
     _run_async(
         get_storage().write_yaml(
             root,
@@ -46,27 +67,7 @@ def _seed(root: str):
         )
     )
     _run_async(get_storage().write_yaml(root, "threads.yaml", {"threads": {}}))
-    _run_async(
-        get_storage().write_yaml(
-            root,
-            "chapters/vol-1-ch-1.yaml",
-            {
-                "volume": 1,
-                "chapter": 1,
-                "title": "第一章",
-                "outline": {
-                    "summary": "主角来到边境城邦。",
-                    "characters": ["张三"],
-                },
-                "memo": {},
-                "emotional_design": {"primary_mood": "紧张"},
-                "segments": [
-                    {"summary": "城门初见城邦", "target_words": 800},
-                    {"summary": "遇到神秘商人", "target_words": 1200},
-                ],
-            },
-        )
-    )
+    _run_async(seed_chapter_db(root, _CHAPTER))
 
 
 class TestAssembleSegmentPromptFieldFallback:
@@ -110,12 +111,14 @@ class TestAssembleSegmentPromptFieldFallback:
         """segment 显式提供字段时优先，不回退到章级。"""
         root = _tmp_root()
         _seed(root)
-        data = _run_async(get_storage().read_yaml(root, "chapters/vol-1-ch-1.yaml"))
+        from workflow.engine import load_chapter, save_chapter
+
+        data = _run_async(load_chapter(root, "vol-1-ch-1"))
         data["segments"][0]["goal"] = "自定义目标"
         data["segments"][0]["word_target"] = 1500
         data["segments"][0]["emotional_tone"] = "压抑"
         data["segments"][0]["characters"] = ["李四"]
-        _run_async(get_storage().write_yaml(root, "chapters/vol-1-ch-1.yaml", data))
+        _run_async(save_chapter(root, "vol-1-ch-1", data))
         prompt = _run_async(assemble_segment_prompt(root, "vol-1-ch-1", 0, "测试小说"))
         assert "本段目标：自定义目标" in prompt
         assert "约1500字" in prompt

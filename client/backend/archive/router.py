@@ -47,20 +47,14 @@ async def archive(
     tier_phase_transition(project, "archive", force=True)
     project.total_archives += 1
 
-    # 双写第二步：以 YAML（status=archived）为准刷新 DB 章行；archived_at 为 DB-only 字段显式置
-    from chapters.service import refresh_chapter_meta
+    # DB 章行 archived 态（status + archived_at）
+    from repositories import chapter_repo
 
-    await refresh_chapter_meta(db, project, chapter_ref)
-    try:
-        from repositories import chapter_repo
-
-        row = await chapter_repo.get_by_ref(db, project.id, chapter_ref)
-        if row is not None:
-            row.status = "archived"
-            row.archived_at = datetime.now(UTC).replace(tzinfo=None)
-        await db.commit()
-    except Exception:  # noqa: BLE001, S110 — DB 失败不 500（YAML 已 archived，读路径自愈）
-        pass
+    row = await chapter_repo.get_by_ref(db, project.id, chapter_ref)
+    if row is not None:
+        row.status = "archived"
+        row.archived_at = datetime.now(UTC).replace(tzinfo=None)
+    await db.commit()
 
     return result
 

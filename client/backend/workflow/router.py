@@ -3,7 +3,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_local.middleware import get_current_user
 from db import get_db
-from filesystem.storage import get_storage
 from novels.ai_backfill import step1_backfill, step2_backfill
 from novels.events import log_event
 from novels.service import get_novel
@@ -58,21 +57,17 @@ async def transition_workflow(
         }
 
     if target == "prompt":
-        # Hard gate: chapters must be ready before generating prompts
-        files = await get_storage().list_dir(project.root_path, "chapters")
+        # Hard gate: chapters must be ready before generating prompts（章族入库：DB 组装）
+        from chapters.store import assemble_chapter
+        from workflow.gates import _chapters_by_root
+
         failures = []
-        for f in sorted(files):
-            if not f.endswith(".yaml"):
-                continue
-            ref = f.replace(".yaml", "")
-            chapter = await get_storage().read_yaml(
-                project.root_path, f"chapters/{f}"
+        for row in await _chapters_by_root(project.root_path):
+            result = await tier_or_gate(
+                db, project, gate_chapter_ready, assemble_chapter(row)
             )
-            if not chapter:
-                continue
-            result = await tier_or_gate(db, project, gate_chapter_ready, chapter)
             if result.hard_block and not result.valid:
-                failures.append({"chapter_ref": ref, "missing": result.warnings})
+                failures.append({"chapter_ref": row.ref, "missing": result.warnings})
 
         if failures:
             raise HTTPException(
@@ -88,18 +83,16 @@ async def transition_workflow(
         return {"ok": True, "phase": project.current_phase}
 
     if target == "write":
-        # Hard gate: prompts must exist before writing
-        files = await get_storage().list_dir(project.root_path, "chapters")
+        # Hard gate: prompts must exist before writing（章族入库：DB 章 ref 列表）
+        from workflow.gates import _chapters_by_root
+
         failures = []
-        for f in sorted(files):
-            if not f.endswith(".yaml"):
-                continue
-            ref = f.replace(".yaml", "")
+        for row in await _chapters_by_root(project.root_path):
             result = await tier_or_gate(
-                db, project, gate_prompts_exist, project.root_path, ref
+                db, project, gate_prompts_exist, project.root_path, row.ref
             )
             if result.hard_block and not result.valid:
-                failures.append({"chapter_ref": ref, "missing": result.warnings})
+                failures.append({"chapter_ref": row.ref, "missing": result.warnings})
 
         if failures:
             raise HTTPException(

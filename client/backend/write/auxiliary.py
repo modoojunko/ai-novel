@@ -167,14 +167,10 @@ async def stream_continue(
             generated_text += event.text
             yield f"data: {json.dumps({'type': 'chunk', 'text': event.text}, ensure_ascii=False)}\n\n"
         elif event.is_done:
-            # Save updated prose
+            # Save updated prose（统一写入口：落库 + 元数据派生 + 版本快照）
             new_prose = existing_prose[:cursor_position] + generated_text
             chapter["prose"] = new_prose
             await save_chapter(root_path, chapter_ref, chapter)
-            # 双写第二步：刷新 DB 元数据（word_count/has_prose/outline_status）
-            from chapters.service import refresh_chapter_meta
-
-            await refresh_chapter_meta(db, project, chapter_ref, chapter)
 
             from api_configs.usage import record_usage
 

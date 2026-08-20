@@ -34,22 +34,14 @@ async def quality_check(
     _validate_ref(chapter_ref)
 
     full_text = body.get("full_text", "")
-    chapter = await load_chapter(project.root_path, chapter_ref)
     results = await run_quality_checks(project.root_path, full_text)
-
-    chapter["quality_check"] = results
-    await get_storage().write_yaml(
-        project.root_path, f"chapters/{chapter_ref}.yaml", chapter
-    )
-
     return results
 
 
 async def _stream_chapter(db, project, root_path: str, chapter_ref: str, ctx, prompt: str):
     """Generate chapter text via AI streaming, save on completion (BE-01: 写完刷新 DB 元数据)."""
     from ai_client import get_ai_client
-    from chapters.service import refresh_chapter_meta
-    from workflow.engine import load_chapter
+    from chapters.service import save_chapter
 
     client = await get_ai_client()
     model = (
@@ -76,11 +68,8 @@ async def _stream_chapter(db, project, root_path: str, chapter_ref: str, ctx, pr
         elif event.is_done:
             chapter = await load_chapter(root_path, chapter_ref)
             chapter["prose"] = full_text
-            await get_storage().write_yaml(
-                root_path, f"chapters/{chapter_ref}.yaml", chapter
-            )
-            # 双写第二步：以 YAML 为准刷新 DB 元数据（word_count/has_prose/outline_status）
-            await refresh_chapter_meta(db, project, chapter_ref, chapter)
+            # 统一写入口（修直写缺陷）：拆装落库 + 元数据派生 + 版本快照
+            await save_chapter(db, project, chapter_ref, chapter)
             from api_configs.usage import record_usage
 
             await record_usage(

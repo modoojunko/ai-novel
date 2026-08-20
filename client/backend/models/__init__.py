@@ -1,6 +1,19 @@
 from models.api_config import ApiConfig
 from models.audit_log import ProjectModelAuditLog
-from models.chapter import Chapter
+from models.chapter import (
+    Chapter,
+    ChapterCharacter,
+    ChapterContent,
+    ChapterDowntimeFunction,
+    ChapterKeyChoice,
+    ChapterKeyPoint,
+    ChapterKnowledgeState,
+    ChapterPayoffItem,
+    ChapterProhibition,
+    ChapterRequiredChange,
+    ChapterSceneCard,
+    ChapterSegment,
+)
 from models.event import Event
 from models.genre import Genre
 from models.project import Novel
@@ -18,6 +31,17 @@ from models.volume import (
 __all__ = [
     "ApiConfig",
     "Chapter",
+    "ChapterCharacter",
+    "ChapterContent",
+    "ChapterDowntimeFunction",
+    "ChapterKeyChoice",
+    "ChapterKeyPoint",
+    "ChapterKnowledgeState",
+    "ChapterPayoffItem",
+    "ChapterProhibition",
+    "ChapterRequiredChange",
+    "ChapterSceneCard",
+    "ChapterSegment",
     "Event",
     "Genre",
     "Novel",

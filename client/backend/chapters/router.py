@@ -134,7 +134,7 @@ async def get_chapter(
     data = await load_chapter(project.root_path, chapter_ref)
     if not data:
         raise HTTPException(404, "Chapter not found")
-    # YAML 内容 + DB 元数据合并；行缺失读路径自愈（ensure_volume_row 懒补，B10）
+    # DB 组装章全量 JSON + 元数据合并（store 组 outline/memo/segments/prose）
     meta = await get_chapter_row(db, project, chapter_ref)
     if meta:
         data.update(meta)
@@ -186,32 +186,26 @@ async def confirm_chapter(
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
     chapter = await load_chapter(project.root_path, chapter_ref)
+    if not chapter:
+        raise HTTPException(404, "Chapter not found")
     result = await tier_or_gate(db, project, gate_chapter_ready, chapter)
     if not result.valid:
         # warnings 为中文缺失项（gate_chapter_ready），前端直接透传展示
         missing = "、".join(result.warnings)
         raise HTTPException(400, f"章纲确认失败，请先填写：{missing}")
     chapter["status"] = "confirmed"
-    await get_storage().write_yaml(
-        project.root_path, f"chapters/{chapter_ref}.yaml", chapter
-    )
-    # DB confirmed 态（status/outline_status/confirmed_at=now）；不再写内嵌列表
+    # 统一写入口：DB 落库 + 元数据派生（status/outline_status）
+    await save_chapter(db, project, chapter_ref, chapter)
     from datetime import UTC, datetime
 
-    from chapters.service import refresh_chapter_meta
+    from repositories import chapter_repo
 
-    await refresh_chapter_meta(db, project, chapter_ref, chapter)
-    try:
-        from repositories import chapter_repo
-
-        row = await chapter_repo.get_by_ref(db, project.id, chapter_ref)
-        if row is not None:
-            row.status = "confirmed"
-            row.outline_status = "confirmed"
-            row.confirmed_at = datetime.now(UTC).replace(tzinfo=None)
-            await db.commit()
-    except Exception:  # noqa: BLE001, S110 — DB 失败不 500（YAML 已 confirmed）
-        pass
+    row = await chapter_repo.get_by_ref(db, project.id, chapter_ref)
+    if row is not None:
+        row.status = "confirmed"
+        row.outline_status = "confirmed"
+        row.confirmed_at = datetime.now(UTC).replace(tzinfo=None)
+        await db.commit()
     return {"ok": True, "status": "confirmed"}
 
 
@@ -222,48 +216,35 @@ async def unarchive_chapter(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """P2 unarchive：把归档章恢复为可编辑态（YAML draft + 清归档标记 + DB 清 archived_at）。"""
+    """P2 unarchive：把归档章恢复为可编辑态（DB draft + 清归档文件 + 清 archived_at）。"""
     project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
 
-    storage = get_storage()
-    chapter = await storage.read_yaml(
-        project.root_path, f"chapters/{chapter_ref}.yaml"
-    )
+    chapter = await load_chapter(project.root_path, chapter_ref)
     if not chapter:
         raise HTTPException(404, "Chapter not found")
 
     chapter["status"] = "draft"
     chapter.pop("archive_path", None)
     chapter.pop("archive_summary", None)
-    await storage.write_yaml(
-        project.root_path, f"chapters/{chapter_ref}.yaml", chapter
-    )
+    await save_chapter(db, project, chapter_ref, chapter)
 
+    storage = get_storage()
     # 对称清理归档 .md（镜像 archive 写归档文件；列表读 archives/ 目录）
-    vol_no = chapter.get("volume", 1)
-    ch_no = chapter.get("chapter", 1)
-    prefix = f"vol-{vol_no}-ch-{ch_no}-"
+    prefix = f"{chapter_ref}-"
     for f in await storage.list_dir(project.root_path, "archives"):
         if f.startswith(prefix) and f.endswith(".md"):
             await storage.delete_file(project.root_path, f"archives/{f}")
 
-    # 双写第二步：YAML draft → DB 清 archived_at + status=draft
-    from chapters.service import refresh_chapter_meta
+    from repositories import chapter_repo
 
-    await refresh_chapter_meta(db, project, chapter_ref, chapter)
-    try:
-        from repositories import chapter_repo
-
-        row = await chapter_repo.get_by_ref(db, project.id, chapter_ref)
-        if row is not None:
-            row.status = "draft"
-            row.archived_at = None
-        await db.commit()
-    except Exception:  # noqa: BLE001, S110 — DB 失败不 500（YAML 已 draft，读路径自愈）
-        pass
+    row = await chapter_repo.get_by_ref(db, project.id, chapter_ref)
+    if row is not None:
+        row.status = "draft"
+        row.archived_at = None
+    await db.commit()
 
     return {"ok": True, "ref": chapter_ref}
 
@@ -279,29 +260,21 @@ async def delete_chapter(
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
-
-    storage = get_storage()
-    # 清理归档 .md（对称 unarchive 的 prefix 匹配；避免归档列表残留幽灵条目）
+    # 清理落盘产物（归档 .md + versions 快照，PR③/④ 前仍文件）
     from chapters.service import cleanup_chapter_artifacts
 
     await cleanup_chapter_artifacts(project.root_path, chapter_ref)
-    await storage.delete_file(project.root_path, f"chapters/{chapter_ref}.yaml")
-    # DB 行 + 计数维护（同 session commit）；不再改内嵌列表
-    try:
-        from repositories import chapter_repo, volume_repo
-        from workflow.engine import strip_suffix
+    # DB 行（CASCADE 删章纲子表/正文）+ 计数维护
+    from repositories import chapter_repo, volume_repo
+    from workflow.engine import strip_suffix
 
-        row = await chapter_repo.get_by_ref(db, project.id, chapter_ref)
-        if row is not None:
-            await chapter_repo.delete(db, row.id)
-            parts = strip_suffix(chapter_ref).split("-")
-            vol = await volume_repo.get_by_volume_no(
-                db, project.id, int(parts[1])
-            )
-            if vol is not None:
-                vol.chapter_count = max(0, vol.chapter_count - 1)
-            project.total_chapters = max(0, (project.total_chapters or 0) - 1)
-        await db.commit()
-    except Exception:  # noqa: BLE001, S110 — DB 失败不 500（YAML 已删，树由读路径自愈）
-        pass
+    row = await chapter_repo.get_by_ref(db, project.id, chapter_ref)
+    if row is not None:
+        await chapter_repo.delete(db, row.id)
+        parts = strip_suffix(chapter_ref).split("-")
+        vol = await volume_repo.get_by_volume_no(db, project.id, int(parts[1]))
+        if vol is not None:
+            vol.chapter_count = max(0, vol.chapter_count - 1)
+        project.total_chapters = max(0, (project.total_chapters or 0) - 1)
+    await db.commit()
     return {"ok": True}
