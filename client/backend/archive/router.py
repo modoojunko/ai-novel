@@ -1,12 +1,15 @@
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from archive.service import archive_chapter
 from auth_local.middleware import get_current_user
 from db import get_db
-from filesystem.storage import get_storage
+from models.archive import Archive
+from models.chapter import Chapter
+from models.project import Novel
 from novels.service import get_novel
 from workflow.engine import _validate_ref
 from workflow.tier import tier_phase_transition
@@ -20,6 +23,30 @@ archives_router = APIRouter(
     prefix="/api/novels/{project_id}/archives",
     tags=["archives"],
 )
+
+
+def _slugify(title: str) -> str:
+    return (title or "").replace(" ", "-").lower()[:50]
+
+
+def _archive_filename(chapter_ref: str, title: str) -> str:
+    """归档文件名（文件时代的寻址形态，前端零改动继续用它当地址）。"""
+    return f"{chapter_ref}-{_slugify(title)}.md"
+
+
+def _parse_archive_filename(filename: str) -> tuple[str, str] | None:
+    """'vol-1-ch-2-标题.md' → ('vol-1-ch-2', 标题 slug)；形态不符返回 None。"""
+    if "/" in filename or ".." in filename or not filename.endswith(".md"):
+        return None
+    body = filename[:-3]
+    parts = body.split("-")
+    if len(parts) < 4 or parts[0] != "vol" or parts[2] != "ch":
+        return None
+    if not (parts[1].isdigit() and parts[3].isdigit()):
+        return None
+    ref = f"vol-{parts[1]}-ch-{parts[3]}"
+    slug = "-".join(parts[4:])
+    return ref, slug
 
 
 @router.post("")
@@ -68,10 +95,19 @@ async def list_archives(
     project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    files = await get_storage().list_dir(project.root_path, "archives")
-    files = sorted(files, reverse=True)
+    stmt = (
+        select(Archive)
+        .join(Chapter, Chapter.id == Archive.chapter_id)
+        .where(Chapter.project_id == project.id)
+        .order_by(Archive.archived_at.desc())
+    )
+    rows = (await db.scalars(stmt)).all()
     return [
-        {"filename": f, "path": f"archives/{f}"} for f in files if f.endswith(".md")
+        {
+            "filename": _archive_filename(r.chapter.ref, r.title),
+            "path": f"archives/{_archive_filename(r.chapter.ref, r.title)}",
+        }
+        for r in rows
     ]
 
 
@@ -85,7 +121,17 @@ async def get_archive(
     project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    content = await get_storage().read_md(project.root_path, f"archives/{filename}")
-    if not content:
+    parsed = _parse_archive_filename(filename)
+    if parsed is None:
         raise HTTPException(404, "Archive not found")
-    return {"filename": filename, "content": content}
+    ref, _slug = parsed
+    stmt = (
+        select(Archive)
+        .join(Chapter, Chapter.id == Archive.chapter_id)
+        .join(Novel, Novel.id == Chapter.project_id)
+        .where(Novel.root_path == project.root_path, Chapter.ref == ref)
+    )
+    row = await db.scalar(stmt)
+    if row is None or _archive_filename(ref, row.title) != filename:
+        raise HTTPException(404, "Archive not found")
+    return {"filename": filename, "content": row.content}

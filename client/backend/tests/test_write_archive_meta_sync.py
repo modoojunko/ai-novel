@@ -4,7 +4,7 @@
 - archive DB 同步：HTTP 归档 → DB status=archived + archived_at 非空 + 卷 YAML 内嵌列表不写
   + GET /volumes 树 archived=True。
 - unarchive 往返：HTTP unarchive → YAML status=draft + 清 archive_path/archive_summary
-  + DB archived_at=None + 归档 .md 对称删除 + 树 archived=False。
+  + DB archived_at=None + 归档行对称删除（archives 表，PR④）+ 树 archived=False。
 - 归档过短仍 400（archive 端点字数门限不因双写改动放宽）。
 - genre 表面化：选题材 → GET /novels/{id} 响应 genre/genre_name；未选/损坏 KV → None 不 500。
 
@@ -147,10 +147,20 @@ def _chapter_in_tree(tree, ref: str) -> dict:
     raise AssertionError(f"chapter {ref} not in tree: {tree}")
 
 
-async def _archive_filenames(pid: str) -> list[str]:
+async def _archive_rows(pid: str) -> list:
     async with async_session() as session:
         proj = await session.get(Novel, pid)
-        return await get_storage().list_dir(proj.root_path, "archives")
+        from sqlalchemy import select
+
+        from models.archive import Archive
+        from models.chapter import Chapter
+
+        stmt = (
+            select(Archive)
+            .join(Chapter, Chapter.id == Archive.chapter_id)
+            .where(Chapter.project_id == proj.id)
+        )
+        return (await session.scalars(stmt)).all()
 
 
 LONG_TEXT = "（归档正文）灯火在雨里摇晃，她合上日志，决定明日启程。行囊里只有半册旧书，与一枚磨亮的铜哨。" * 20
@@ -199,13 +209,13 @@ class TestWriteArchiveMetaSync:
             f"/api/novels/{pid}/chapters/{ref}/archive", json={"full_text": LONG_TEXT}
         )
         assert r.status_code == 200, r.text
-        assert any(
-            f.startswith("vol-1-ch-1-") and f.endswith(".md")
-            for f in _run_async(_archive_filenames(pid))
-        ), "归档应产生 .md 文件"
+        rows = _run_async(_archive_rows(pid))
+        assert len(rows) == 1, "归档应产生 archives 表行"
+        assert rows[0].content == LONG_TEXT
+        assert rows[0].title == "第1章"
 
         r2 = client.post(f"/api/novels/{pid}/chapters/{ref}/unarchive")
-        assert r2.status_code == 200, r2.text
+        assert r2.status_code == 200, r.text
         assert r2.json()["ref"] == ref
 
         async def _check():
@@ -221,11 +231,8 @@ class TestWriteArchiveMetaSync:
                 assert row is not None
                 assert row.status == "draft"
                 assert row.archived_at is None
-                # 归档 .md 对称删除
-                mds = await get_storage().list_dir(proj.root_path, "archives")
-                assert not any(
-                    f.startswith("vol-1-ch-1-") and f.endswith(".md") for f in mds
-                )
+                # 归档行对称删除（unarchive 撤下归档全文）
+                assert await _archive_rows(pid) == []
 
         _run_async(_check())
 

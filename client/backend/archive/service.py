@@ -34,7 +34,6 @@ async def archive_chapter(
     title = chapter.get("title", "untitled")
     slug = title.replace(" ", "-").lower()[:50]
     archive_path = f"archives/vol-{vol}-ch-{ch}-{slug}.md"
-    await get_storage().write_md(root_path, archive_path, full_text)
 
     # Generate 200-char summary via AI; degrade to first 200 chars when unavailable
     # (ai_summary=False → 前端设置关掉 AI 摘要；non-member → AI 是会员权益直接降级；
@@ -61,8 +60,33 @@ async def archive_chapter(
         except Exception:  # noqa: BLE001, S110 — AI 摘要可选，失败降级为正文前 200 字
             pass
 
-    # 章数据已入库（PR②）：status=archived / archived_at 由 archive/router 同步（BE-03）；
-    # archive_summary / archive_path 归 PR④ archives 表。
+    # archives 表（PR④）：一章一行，重归档即替换；随章行 FK CASCADE
+    from sqlalchemy import select
+
+    from chapters.store import _get_chapter_by_root
+    from db import async_session
+    from models.archive import Archive
+
+    async with async_session() as session:
+        ch_row = await _get_chapter_by_root(session, root_path, chapter_ref)
+        if ch_row is not None:
+            row = await session.scalar(
+                select(Archive).where(Archive.chapter_id == ch_row.id)
+            )
+            if row is None:
+                session.add(
+                    Archive(
+                        chapter_id=ch_row.id,
+                        title=str(title)[:200],
+                        summary=str(summary)[:300],
+                        content=full_text,
+                    )
+                )
+            else:
+                row.title = str(title)[:200]
+                row.summary = str(summary)[:300]
+                row.content = full_text
+            await session.commit()
 
     await update_thread_state(root_path, chapter, summary)
     await update_character_states(root_path, chapter, full_text)

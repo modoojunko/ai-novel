@@ -19,6 +19,11 @@ PATH_TO_KEY = {
 CHARACTER_DIR = "settings/character-setting"
 CHARACTER_PREFIX = "character:"  # DB key 前缀：character:{filename.yaml}
 
+# threads.yaml → KV（PR④）：专用路由，不进 PATH_TO_KEY——否则会经 KEY_TO_PATH
+# 泄漏进 settings 单文件端点白名单（SINGLE_FILE_TYPES），凭空多出 /settings/threads。
+THREADS_PATH = "threads.yaml"
+THREADS_KEY = "threads"
+
 # 目录型设定：无单文件端点，/settings/{type} 泛化端点应拒绝（指引走 /character/{name} 等）
 MULTI_FILE_SETTING_KEYS = {"characters"}
 
@@ -26,9 +31,11 @@ KEY_TO_PATH = {v: k for k, v in PATH_TO_KEY.items()}
 
 
 def route_relative_path(relative_path: str) -> str | None:
-    """settings 相对路径 → DB key；非 settings 路径返回 None（路由到 LocalFileBackend）。"""
+    """settings/threads 相对路径 → DB key；其余路径返回 None（路由到 LocalFileBackend）。"""
     if relative_path in PATH_TO_KEY:
         return PATH_TO_KEY[relative_path]
+    if relative_path == THREADS_PATH:
+        return THREADS_KEY
     if relative_path.startswith(CHARACTER_DIR + "/"):
         return CHARACTER_PREFIX + relative_path[len(CHARACTER_DIR) + 1 :]
     return None

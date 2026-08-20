@@ -14,11 +14,9 @@ SKELETON_DIRS = [
     "settings/character-setting",
     "volumes",
     "chapters",
-    "prompts",
-    "archives",
 ]
 
-# 非设定文件：仍在本地骨架（author-intent / current-focus / threads）
+# 非设定文件：仍在本地骨架（author-intent / current-focus）
 TEMPLATE_FILES = {
     "author-intent.md.template": "author-intent.md",
     "current-focus.md.template": "current-focus.md",
@@ -36,7 +34,6 @@ SETTINGS_TEMPLATES = {
 SKELETON_FILES = [
     ("author-intent.md", "md"),
     ("current-focus.md", "md"),
-    ("threads.yaml", "yaml"),
 ]
 
 
@@ -56,5 +53,3 @@ def _init_project_skeleton_local(root_path: str):
             shutil.copy2(src, dst)
         else:
             Path(dst).touch()
-
-    Path(os.path.join(root_path, "threads.yaml")).write_text("threads: {}\n")

@@ -122,6 +122,7 @@ async def assemble_all_segments(
     root_path: str, chapter_ref: str, novel_title: str = ""
 ) -> list[str]:
     _validate_ref(chapter_ref)
+    from prompt.store import save_prompt
     from workflow.engine import load_chapter
 
     chapter = await load_chapter(root_path, chapter_ref)
@@ -129,7 +130,7 @@ async def assemble_all_segments(
     prompts = []
     for i in range(len(segments)):
         prompt = await assemble_segment_prompt(root_path, chapter_ref, i, novel_title)
-        prompt_path = f"prompts/{chapter_ref}-seg-{i + 1}-prompt.md"
-        await get_storage().write_md(root_path, prompt_path, prompt)
-        prompts.append(prompt_path)
+        # chapter_prompts 表（PR④）：name=seg-{i+1}-prompt；对外路径形态保持
+        await save_prompt(root_path, chapter_ref, f"seg-{i + 1}-prompt", prompt)
+        prompts.append(f"prompts/{chapter_ref}-seg-{i + 1}-prompt.md")
     return prompts

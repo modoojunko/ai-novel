@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_local.middleware import get_current_user
 from chapters.service import get_chapter_row, save_chapter, save_prose
 from db import get_db
-from filesystem.storage import get_storage
 from novels.service import get_novel
 from volumes.schemas import VolumeCreate, VolumeUpdate
 from workflow.engine import _validate_ref, load_chapter
@@ -231,19 +231,20 @@ async def unarchive_chapter(
     chapter.pop("archive_summary", None)
     await save_chapter(db, project, chapter_ref, chapter)
 
-    storage = get_storage()
-    # 对称清理归档 .md（镜像 archive 写归档文件；列表读 archives/ 目录）
-    prefix = f"{chapter_ref}-"
-    for f in await storage.list_dir(project.root_path, "archives"):
-        if f.startswith(prefix) and f.endswith(".md"):
-            await storage.delete_file(project.root_path, f"archives/{f}")
-
     from repositories import chapter_repo
 
     row = await chapter_repo.get_by_ref(db, project.id, chapter_ref)
     if row is not None:
         row.status = "draft"
         row.archived_at = None
+        # 对称清归档行（archives 表，PR④）：章恢复可编辑，归档全文撤下
+        from models.archive import Archive
+
+        arch = await db.scalar(
+            select(Archive).where(Archive.chapter_id == row.id)
+        )
+        if arch is not None:
+            await db.delete(arch)
     await db.commit()
 
     return {"ok": True, "ref": chapter_ref}
@@ -260,11 +261,7 @@ async def delete_chapter(
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
-    # 清理落盘产物（归档 .md + versions 快照，PR③/④ 前仍文件）
-    from chapters.service import cleanup_chapter_artifacts
-
-    await cleanup_chapter_artifacts(project.root_path, chapter_ref)
-    # DB 行（CASCADE 删章纲子表/正文）+ 计数维护
+    # DB 行（CASCADE 删章纲子表/正文/版本快照/归档/提示词）+ 计数维护
     from repositories import chapter_repo, volume_repo
     from workflow.engine import strip_suffix
 

@@ -318,40 +318,35 @@ def test_get_chapter_row_missing_returns_none():
     _run_async(_run())
 
 
-def test_cleanup_chapter_artifacts_removes_archive_only():
-    """删章清理：归档 .md 删除（版本快照已入库，随章行 CASCADE，无文件可清）。"""
-    from chapters.service import cleanup_chapter_artifacts
+def test_cleanup_chapter_artifacts_gone_archives_cascade():
+    """删章产物清理函数已废（PR④）：归档/提示词随章行 FK CASCADE，无需文件清理。"""
+    from models.archive import Archive, ChapterPrompt
 
     async def _run():
         project = await _new_project("ca1")
-        # 造归档（PR④ 前归档仍为文件）
-        await storage.write_md(
-            project.root_path,
-            "archives/vol-1-ch-1-first-chapter.md",
-            "归档正文",
-        )
-        # 其他章节的归档不受影响
-        await storage.write_md(
-            project.root_path,
-            "archives/vol-2-ch-1-other.md",
-            "其他章归档",
-        )
+        async with async_session() as session:
+            proj = await session.get(Novel, project.id)
+            await _create_volume(session, proj, title="第一卷")
+            ch = await _create_chapter(session, proj, "vol-1", title="第一章")
+            ref = ch["ref"]
+            # 直接挂归档行 + 提示词行（模拟已归档已生成提示词的章）
+            row = await chapter_repo.get_by_ref(session, proj.id, ref)
+            session.add(Archive(chapter_id=row.id, title="第一章", summary="s", content="c"))
+            session.add(ChapterPrompt(chapter_id=row.id, name="seg-1-prompt", content="p"))
+            await session.commit()
 
-        await cleanup_chapter_artifacts(project.root_path, "vol-1-ch-1")
+            # 服务层路径：chapter_repo.delete 后行随 FK CASCADE
+            await chapter_repo.delete(session, row.id)
+            await session.commit()
 
-        assert (
-            await storage.read_md(
-                project.root_path, "archives/vol-1-ch-1-first-chapter.md"
+            arch = await session.scalar(
+                select(Archive).where(Archive.chapter_id == row.id)
             )
-            == ""
-        )
-        # 其他章的归档保留
-        assert (
-            await storage.read_md(
-                project.root_path, "archives/vol-2-ch-1-other.md"
+            prompt = await session.scalar(
+                select(ChapterPrompt).where(ChapterPrompt.chapter_id == row.id)
             )
-            == "其他章归档"
-        )
+            assert arch is None, "归档行应随章行 CASCADE 删除"
+            assert prompt is None, "提示词行应随章行 CASCADE 删除"
 
     _run_async(_run())
 
