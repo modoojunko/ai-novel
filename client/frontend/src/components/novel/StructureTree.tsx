@@ -11,6 +11,8 @@ export type TreeNode = {
   id: string;
   icon?: React.ReactNode;
   label?: string;
+  /** 重命名输入框预填值（只编辑名称部分）；缺省用 label 整串 */
+  editValue?: string;
   badge?: string;
   badgeColor?: string;
   actions?: TreeNodeAction[];
@@ -44,12 +46,12 @@ interface TreeProps extends TreeCallbacks {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Recursively find a node's label by id. */
-function findNodeLabel(nodes: TreeNode[], id: string): string {
+/** Recursively find a node's edit value (rename prefill) by id. */
+function findNodeEditValue(nodes: TreeNode[], id: string): string {
   for (const n of nodes) {
-    if (n.id === id) return n.label ?? "";
+    if (n.id === id) return n.editValue ?? n.label ?? "";
     if (n.children) {
-      const found = findNodeLabel(n.children, id);
+      const found = findNodeEditValue(n.children, id);
       if (found !== "") return found;
     }
   }
@@ -123,9 +125,9 @@ function TreeNodeItem({
 
   const handleDoubleClick = useCallback(() => {
     if (editable && !isEditing) {
-      onStartEdit(node.id, node.label ?? "");
+      onStartEdit(node.id, node.editValue ?? node.label ?? "");
     }
-  }, [editable, isEditing, node.id, node.label, onStartEdit]);
+  }, [editable, isEditing, node.id, node.editValue, node.label, onStartEdit]);
 
   const showRightSide =
     (!isEditing && onDelete && !hasChildren) ||
@@ -348,7 +350,7 @@ export default function StructureTree({
   const handleCommitEdit = useCallback(
     (id: string) => {
       const trimmed = editingValue.trim();
-      const original = findNodeLabel(nodes, id);
+      const original = findNodeEditValue(nodes, id);
       if (trimmed && trimmed !== original) {
         onTitleChange?.(id, trimmed);
       }

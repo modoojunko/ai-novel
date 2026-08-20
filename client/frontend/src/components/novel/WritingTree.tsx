@@ -3,6 +3,7 @@ import { Book, FileText, Plus } from "lucide-react";
 import StructureTree from "./StructureTree";
 import type { TreeNode } from "./StructureTree";
 import type { WorkbenchVolume } from "@/hooks/useWorkbench";
+import { editName, nodeLabel } from "@/lib/nodeTitle";
 
 interface WritingTreeProps {
   volumes: WorkbenchVolume[];
@@ -42,7 +43,9 @@ export default function WritingTree({
         return {
           id: ref,
           icon: <FileText className="w-3.5 h-3.5" />,
-          label: ch.title || `第${ch.chapter}章`,
+          // 序号程序排死 + 名称：第5章 · 城门初见（重命名只编辑名称）
+          label: nodeLabel("章", ch.chapter, ch.title),
+          editValue: editName("章", ch.chapter, ch.title),
           // N1：空章「未写」弱化（灰字），不做硬过滤
           badge: isArchived
             ? "📦"
@@ -71,7 +74,9 @@ export default function WritingTree({
       return {
         id: v.name || `vol-${volNum}`,
         icon: <Book className="w-3.5 h-3.5" />,
-        label: v.title || `第${volNum}卷`,
+        // 序号程序排死 + 名称：第三卷 · 风起晋北（重命名只编辑名称）
+        label: nodeLabel("卷", volNum, v.title),
+        editValue: editName("卷", volNum, v.title),
         badge: `${chapterNodes.length}章`,
         children: chapterNodes,
         data: { type: "volume", volume: v.name, volNum },

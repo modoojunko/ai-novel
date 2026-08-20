@@ -87,13 +87,33 @@ describe("树 CRUD 与选择", () => {
     expect(node.id).toBe("vol-1-ch-1");
   });
 
-  it("双击章节标题进入重命名 → 回车提交 onRename", () => {
+  it("双击章节标题进入重命名（只编辑名称）→ 回车提交 onRename", () => {
     const p = renderTree();
     fireEvent.doubleClick(screen.getByText("第一章"));
-    const input = screen.getByDisplayValue("第一章");
-    fireEvent.change(input, { target: { value: "改名章" } });
+    // 默认序号形态（第一章）= 没起过名：重命名输入框预填空，改名 = 起个名
+    const input = screen.getByDisplayValue("");
+    fireEvent.change(input, { target: { value: "城门初见" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(p.onRename).toHaveBeenCalledWith("vol-1-ch-1", "改名章");
+    expect(p.onRename).toHaveBeenCalledWith("vol-1-ch-1", "城门初见");
+  });
+
+  it("已有名称的节点：标签显示「序号 · 名称」，重命名预填只含名称", () => {
+    const p = renderTree({
+      volumes: [
+        {
+          name: "vol-1",
+          title: "风起晋北",
+          chapters: [],
+        },
+      ],
+    });
+    expect(screen.getByText("第一卷 · 风起晋北")).toBeDefined();
+    fireEvent.doubleClick(screen.getByText("第一卷 · 风起晋北"));
+    expect(screen.getByDisplayValue("风起晋北")).toBeDefined();
+    const input = screen.getByDisplayValue("风起晋北");
+    fireEvent.change(input, { target: { value: "风起云涌" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(p.onRename).toHaveBeenCalledWith("vol-1", "风起云涌");
   });
 
   it("hover 删除 → 行内确认「确认删除?」→ onDelete", () => {

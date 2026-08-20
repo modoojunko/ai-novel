@@ -8,14 +8,16 @@ import Breadcrumb from "./Breadcrumb";
 import BottomStatusBar from "./BottomStatusBar";
 import VersionHistory from "./VersionHistory";
 import RightToolbar from "./RightToolbar";
+import CreateNodeModal from "./CreateNodeModal";
 import OutlineEditor, {
   type ChapterData as OutlineChapterData,
 } from "./outline/OutlineEditor";
 import PromptManagementPage from "./PromptManagementPage";
 import TabProgressButton from "./TabProgressButton";
 import type { SelectionCapture } from "@/lib/selection";
+import { cnNum, nodeLabel } from "@/lib/nodeTitle";
 import type { TreeNode } from "./StructureTree";
-import type { UseWorkbenchReturn, WorkbenchNode } from "@/hooks/useWorkbench";
+import type { UseWorkbenchReturn, WorkbenchNode, WorkbenchVolume } from "@/hooks/useWorkbench";
 import type { UseOutlineReturn } from "@/hooks/useOutline";
 import { useOutline } from "@/hooks/useOutline";
 import { useChapterData } from "@/hooks/useChapterData";
@@ -156,14 +158,63 @@ export default function Workbench({ wb }: WorkbenchProps) {
 
   const addChapterIn = useCallback(
     (volumeName: string) => {
-      // 在指定卷下建章：临时选中该卷再调 createChapter
-      onSelectNode({
-        id: volumeName,
-        data: { type: "volume", volume: volumeName },
-      } as TreeNode);
-      void createChapter();
+      // 在指定卷下建章：打开章弹窗并锁定目标卷（不再临时选中该卷）
+      setChapterDialogVol(volumeName);
     },
-    [onSelectNode, createChapter],
+    [],
+  );
+
+  // ── 新建卷/章弹窗（序号程序排定，名称必填即标题） ─────────────────────
+  const [volDialogOpen, setVolDialogOpen] = useState(false);
+  // undefined = 关闭；null = 自动目标卷（选中卷 → 第一卷）；string = 指定卷
+  const [chapterDialogVol, setChapterDialogVol] = useState<string | null | undefined>(
+    undefined,
+  );
+  // 无卷时点「新建章」：先建卷，成功后紧接着弹章弹窗（链式）
+  const [chainChapter, setChainChapter] = useState(false);
+
+  const openVolumeDialog = useCallback((chain = false) => {
+    setChainChapter(chain);
+    setVolDialogOpen(true);
+  }, []);
+
+  const openChapterDialog = useCallback(
+    (volName?: string) => {
+      if (volumes.length === 0) {
+        openVolumeDialog(true);
+        return;
+      }
+      setChapterDialogVol(volName ?? null);
+    },
+    [volumes.length, openVolumeDialog],
+  );
+
+  const handleVolumeCreated = useCallback(
+    async (name: string) => {
+      const volRef = await createVolume(name);
+      if (!volRef) return; // 失败：toast 已提示，弹窗保持打开可重试
+      setVolDialogOpen(false);
+      if (chainChapter) {
+        setChainChapter(false);
+        setChapterDialogVol(volRef);
+      }
+    },
+    [createVolume, chainChapter],
+  );
+
+  // 章弹窗目标卷：指定卷 > 选中卷 > 第一卷
+  const chapterTargetVol: WorkbenchVolume | undefined =
+    (chapterDialogVol && volumes.find((v) => v.name === chapterDialogVol)) ||
+    volumes.find((v) => v.name === selectedId) ||
+    volumes[0];
+
+  const handleChapterCreated = useCallback(
+    async (name: string) => {
+      const ref = await createChapter(name, chapterTargetVol?.name);
+      if (!ref) return;
+      setChapterDialogVol(undefined);
+    },
+    [createChapter, chapterTargetVol],
   );
 
   return (
@@ -229,8 +280,8 @@ export default function Workbench({ wb }: WorkbenchProps) {
               expandedIds={expandedIds}
               onToggle={onToggle}
               onSelectNode={handleSelectNode}
-              onCreateVolume={() => void createVolume()}
-              onCreateChapter={() => void createChapter()}
+              onCreateVolume={() => openVolumeDialog()}
+              onCreateChapter={() => openChapterDialog()}
               onRename={(id, title) => void renameNode(id, title)}
               onDelete={(id) => void deleteNode(id)}
               onAddChapterIn={addChapterIn}
@@ -299,8 +350,8 @@ export default function Workbench({ wb }: WorkbenchProps) {
             ) : (
               <div className="flex-1 flex flex-col">
                 <EmptyState
-                  onCreateVolume={() => void createVolume()}
-                  onCreateChapter={() => void createChapter()}
+                  onCreateVolume={() => openVolumeDialog()}
+                  onCreateChapter={() => openChapterDialog()}
                 />
               </div>
             )}
@@ -350,6 +401,37 @@ export default function Workbench({ wb }: WorkbenchProps) {
       {/* 底部状态栏（专注模式保留，C6）：需选中章才显示字数/进度 */}
       {selectedRef && (
         <ChapterStatusBar key={selectedRef} projectId={projectId} chapterRef={selectedRef} />
+      )}
+
+      {/* 新建卷弹窗：序号程序排定（第N卷），卷名必填即标题 */}
+      {volDialogOpen && (
+        <CreateNodeModal
+          header="新建卷"
+          lockedLabel={`第${cnNum(volumes.length + 1)}卷`}
+          inputLabel="卷名"
+          placeholder="如：风起晋北"
+          onConfirm={handleVolumeCreated}
+          onCancel={() => {
+            setVolDialogOpen(false);
+            setChainChapter(false);
+          }}
+        />
+      )}
+
+      {/* 新建章弹窗：目标卷 + 第M章 程序排定，章名必填即标题 */}
+      {chapterDialogVol !== undefined && chapterTargetVol && (
+        <CreateNodeModal
+          header="新建章"
+          lockedLabel={`${nodeLabel(
+            "卷",
+            parseInt((chapterTargetVol.name || "vol-0").replace("vol-", ""), 10) || 0,
+            chapterTargetVol.title,
+          )} · 第${cnNum(chapterTargetVol.chapters.length + 1)}章`}
+          inputLabel="章名"
+          placeholder="如：城门初见"
+          onConfirm={handleChapterCreated}
+          onCancel={() => setChapterDialogVol(undefined)}
+        />
       )}
     </div>
   );
