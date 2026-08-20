@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     DateTime,
     ForeignKey,
@@ -327,3 +328,30 @@ class ChapterContent(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
+
+
+class ChapterVersion(Base):
+    """版本快照 — 全库 TEXT 五处之一。一章多行（≤50/章，服务层裁剪）。
+
+    version 为 13 位毫秒时间戳（BIGINT，例外档），字典序即时间序；
+    snapshot 为冻结的章 JSON（prose/outline/status）。
+    """
+
+    __tablename__ = "chapter_versions"
+    __table_args__ = (
+        UniqueConstraint("chapter_id", "version", name="uq_chve_chapter_version"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    chapter_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("chapters.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    version: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    comment: Mapped[str | None] = mapped_column(String(150))
+    snapshot: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

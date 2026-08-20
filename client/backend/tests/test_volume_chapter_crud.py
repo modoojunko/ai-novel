@@ -4,7 +4,7 @@
 update_volume 标量+子表整体替换；get_volume {ref} 容 .yaml + 卷纲四族组装；
 卷纲结构化字段（扩列+4 子表）读写回环；delete_volume 级联删章+清残留文件；
 create_chapter 章号自增 + 章/卷 YAML 均不落盘（DB 唯一属主）；get_chapter_row 无行即 None；
-confirm 写 DB confirmed 态；delete_chapter 删 DB 行/versions + 计数维护。
+confirm 写 DB confirmed 态；delete_volume 级联清 chapter_versions 行；cleanup 只清归档 .md。
 
 用法：
     cd client/backend
@@ -235,16 +235,19 @@ def test_delete_volume_cascades_chapters_and_files():
             await _create_volume(session, proj, title="待删卷")
             await _create_chapter(session, proj, "vol-1", title="第一章")
             await _create_chapter(session, proj, "vol-1", title="第二章")
-            # 写正文：chapter_contents 子行随章行 CASCADE，并产生版本快照文件
+            # 写正文：chapter_contents 子行随章行 CASCADE，并产生版本快照行
             from chapters.service import save_prose
+            from models.chapter import Chapter, ChapterContent, ChapterVersion
 
             await save_prose(session, proj, "vol-1-ch-1", "正文")
-            snap = [
-                f for f in await storage.list_dir(
-                    proj.root_path, "versions/vol-1-ch-1"
-                ) if f.endswith(".yaml")
-            ]
-            assert snap, "prose 变化应生成版本快照"
+            snaps = (
+                await session.scalars(
+                    select(ChapterVersion)
+                    .join(Chapter, Chapter.id == ChapterVersion.chapter_id)
+                    .where(Chapter.project_id == proj.id)
+                )
+            ).all()
+            assert snaps, "prose 变化应生成版本快照行"
             await _delete_volume(session, proj, "vol-1")
 
             assert await volume_repo.count_by_project(session, proj.id) == 0
@@ -252,8 +255,6 @@ def test_delete_volume_cascades_chapters_and_files():
             assert proj.total_volumes == 0
             assert proj.total_chapters == 0
             # 正文子行级联清理
-            from models.chapter import Chapter, ChapterContent
-
             contents = (
                 await session.scalars(
                     select(ChapterContent).join(
@@ -262,10 +263,15 @@ def test_delete_volume_cascades_chapters_and_files():
                 )
             ).all()
             assert contents == []
-            # versions 快照文件也被清（PR③ 前仍文件）
-            assert await storage.list_dir(
-                proj.root_path, "versions/vol-1-ch-1"
-            ) == []
+            # 版本快照行随章行 FK CASCADE 一并清理
+            versions = (
+                await session.scalars(
+                    select(ChapterVersion)
+                    .join(Chapter, Chapter.id == ChapterVersion.chapter_id)
+                    .where(Chapter.project_id == proj.id)
+                )
+            ).all()
+            assert versions == []
 
     _run_async(_run())
 
@@ -312,22 +318,17 @@ def test_get_chapter_row_missing_returns_none():
     _run_async(_run())
 
 
-def test_cleanup_chapter_artifacts_removes_archive_and_versions():
-    """删章清理：归档 .md + versions 快照一并删除（防归档列表幽灵条目）。"""
+def test_cleanup_chapter_artifacts_removes_archive_only():
+    """删章清理：归档 .md 删除（版本快照已入库，随章行 CASCADE，无文件可清）。"""
     from chapters.service import cleanup_chapter_artifacts
 
     async def _run():
         project = await _new_project("ca1")
-        # 造归档 + 版本快照（PR③/④ 前仍为文件的章族落盘产物）
+        # 造归档（PR④ 前归档仍为文件）
         await storage.write_md(
             project.root_path,
             "archives/vol-1-ch-1-first-chapter.md",
             "归档正文",
-        )
-        await storage.write_yaml(
-            project.root_path,
-            "versions/vol-1-ch-1/v1000.yaml",
-            {"version": "v1000", "snapshot": {"prose": "x"}},
         )
         # 其他章节的归档不受影响
         await storage.write_md(
@@ -343,12 +344,6 @@ def test_cleanup_chapter_artifacts_removes_archive_and_versions():
                 project.root_path, "archives/vol-1-ch-1-first-chapter.md"
             )
             == ""
-        )
-        assert (
-            await storage.read_yaml(
-                project.root_path, "versions/vol-1-ch-1/v1000.yaml"
-            )
-            == {}
         )
         # 其他章的归档保留
         assert (

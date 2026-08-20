@@ -1,8 +1,8 @@
 """Change 006 — 写路径一致性测试（TE-10；PR② 章族入库后 DB 唯一属主）
 
 验证：save_chapter/save_prose 后 DB 元数据与正文一致（chapter_contents.prose）；
-章 YAML 不再落盘；save_prose 缺章 404；versions restore 后元数据刷新；
-confirm 写 DB confirmed 态；delete_chapter 删 DB 行/versions + 计数维护（HTTP 层）。
+章 YAML 不再落盘；save_prose 缺章 404；versions 列表/回滚走 chapter_versions 表；
+confirm 写 DB confirmed 态；delete_chapter 删 DB 行 + 计数维护（HTTP 层）。
 
 用法：
     cd client/backend

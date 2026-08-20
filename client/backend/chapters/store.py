@@ -413,33 +413,41 @@ async def save_chapter(root_path: str, chapter_ref: str, data: dict) -> None:
 async def _write_version_snapshot(
     root_path: str, ref: str, old_status: str, prose: str, outline: dict, status: str
 ) -> None:
-    """versions/{ref}/v{毫秒}.yaml — PR③ 切 chapter_versions 表前的过渡实现。"""
-    from filesystem.storage import get_storage
+    """chapter_versions 表 — version 为 13 位毫秒时间戳（BIGINT），≤50/章。"""
+    import json
+
+    from db import async_session
+    from models.chapter import ChapterVersion
 
     timestamp = int(time.time() * 1000)
-    version_data = {
-        "version": f"v{timestamp}",
-        "chapter_ref": ref,
-        "created_at": timestamp,
-        "comment": "自动保存",
-        "snapshot": {
-            "prose": prose,
-            "outline": outline,
-            "status": status or old_status,
-        },
-    }
-    storage = get_storage()
-    await storage.write_yaml(root_path, f"versions/{ref}/v{timestamp}.yaml", version_data)
-    # 快照上限：文件名 v{13 位毫秒} 同位数，字典序即时间序。
-    version_files = [
-        f for f in await storage.list_dir(root_path, f"versions/{ref}")
-        if f.endswith(".yaml")
-    ]
-    if len(version_files) > MAX_VERSIONS_PER_CHAPTER:
-        version_files.sort()
-        excess = len(version_files) - MAX_VERSIONS_PER_CHAPTER
-        for old_file in version_files[:excess]:
-            await storage.delete_file(root_path, f"versions/{ref}/{old_file}")
+    snapshot = json.dumps(
+        {"prose": prose, "outline": outline, "status": status or old_status},
+        ensure_ascii=False,
+    )
+    async with async_session() as session:
+        row = await _get_chapter_by_root(session, root_path, ref)
+        if row is None:
+            return
+        session.add(
+            ChapterVersion(
+                chapter_id=row.id,
+                version=timestamp,
+                comment="自动保存",
+                snapshot=snapshot,
+            )
+        )
+        # 快照上限：version 单调递增，留最新 MAX_VERSIONS_PER_CHAPTER 条
+        stale = (
+            await session.scalars(
+                select(ChapterVersion)
+                .where(ChapterVersion.chapter_id == row.id)
+                .order_by(ChapterVersion.version.desc())
+                .offset(MAX_VERSIONS_PER_CHAPTER)
+            )
+        ).all()
+        for old_row in stale:
+            await session.delete(old_row)
+        await session.commit()
 
 
 async def collect_prose_by_root(root_path: str) -> str:

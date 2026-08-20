@@ -4,7 +4,7 @@
 - save_chapter / save_prose：委托 chapters.store 统一写入口
   （拆装落库 + word_count/has_prose/outline_status 派生 + 版本快照）。
 - get_chapter_row：纯 DB 元数据读（行缺失返回 None，无文件自愈）。
-- cleanup_chapter_artifacts：删章落盘产物（归档 .md + versions 快照，PR③/④ 前仍文件）。
+- cleanup_chapter_artifacts：删章落盘产物（归档 .md；版本快照已入库随章行 CASCADE）。
 """
 
 import logging
@@ -30,9 +30,9 @@ def _parse_chapter_ref(ref: str) -> tuple[int, int]:
 
 
 async def cleanup_chapter_artifacts(root_path: str, chapter_ref: str) -> None:
-    """删除章节的落盘产物：归档 .md（防归档列表幽灵条目）+ versions 快照。
+    """删除章节的落盘产物：归档 .md（防归档列表幽灵条目）。
 
-    章数据已在 DB（CASCADE 删行）；本函数只清 PR③/④ 前仍为文件的产物。
+    章数据与版本快照已在 DB（CASCADE 删行）；归档 .md 至 PR④ 仍是文件。
     章行已删时按 ref 前缀兜底匹配归档文件。
     """
     from filesystem.storage import get_storage
@@ -42,8 +42,6 @@ async def cleanup_chapter_artifacts(root_path: str, chapter_ref: str) -> None:
     for f in await storage.list_dir(root_path, "archives"):
         if f.startswith(prefix) and f.endswith(".md"):
             await storage.delete_file(root_path, f"archives/{f}")
-    for f in await storage.list_dir(root_path, f"versions/{chapter_ref}"):
-        await storage.delete_file(root_path, f"versions/{chapter_ref}/{f}")
 
 
 async def create_chapter(db, project, volume_ref: str, title: str) -> dict:
