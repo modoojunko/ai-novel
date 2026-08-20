@@ -155,47 +155,11 @@ def novel_to_dict(p) -> dict:
 async def build_project_tree(db, project) -> dict:
     """Build the full project tree: settings + volumes + chapters with status.
 
-    读路径强制切 DB（change 006，写路径停写内嵌列表后 YAML 内嵌 chapters 已不可信）；
-    DB 无行（回填未跑）降级现状文件扫描，防 404/空树。响应形状与 list_volumes 一致。
+    全量入库后 DB 是唯一存储（无文件降级路径）；响应形状与 list_volumes 一致。
     """
     from volumes.service import list_volumes
 
-    volumes = await list_volumes(db, project)
-    if not volumes:
-        volumes = await _scan_tree_from_files(project.root_path)
     return {
         "project_id": str(project.id),
-        "volumes": volumes,
+        "volumes": await list_volumes(db, project),
     }
-
-
-async def _scan_tree_from_files(root_path: str) -> list[dict]:
-    """降级路径：回填未跑（DB 无行）时读 vol YAML 内嵌列表构建树。"""
-    storage = get_storage()
-    files = await storage.list_dir(root_path, "volumes")
-    volumes = []
-    for f in sorted(files):
-        if f.endswith(".yaml"):
-            data = await storage.read_yaml(root_path, f"volumes/{f}")
-            chapters = []
-            for ch in data.get("chapters") or []:
-                chapters.append(
-                    {
-                        "ref": f"vol-{data['volume']}-ch-{ch['chapter']}",
-                        "volume": ch.get("volume"),
-                        "chapter": ch.get("chapter"),
-                        "title": ch.get("title", ""),
-                        "status": ch.get("status", "outline"),
-                        "word_count": count_chars(ch.get("prose", "")),
-                    }
-                )
-            volumes.append(
-                {
-                    "ref": f.replace(".yaml", ""),
-                    "title": data.get("title", f),
-                    "summary": data.get("summary", ""),
-                    "chapter_count": len(chapters),
-                    "chapters": chapters,
-                }
-            )
-    return volumes

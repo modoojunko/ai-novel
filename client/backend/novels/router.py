@@ -286,13 +286,100 @@ async def get_readiness(
     return await compute_readiness(project.root_path)
 
 
+async def _dump_project_snapshot(zf, db, project) -> None:
+    """全量入库后的导出：zip 内容全部由 DB 组装（盘上不再有业务文件）。
+
+    目录布局沿用旧文件树（settings/*.yaml、volumes/、chapters/、versions/、
+    archives/、prompts/），外加 project.json 元数据。
+    """
+    import yaml
+
+    from archive.router import _archive_filename
+    from chapters.store import assemble_chapter
+    from filesystem.paths import CHARACTER_DIR, PATH_TO_KEY, THREADS_PATH
+    from models.archive import Archive, ChapterPrompt
+    from models.chapter import Chapter, ChapterVersion
+    from models.volume import Volume
+    from volumes.service import get_volume
+
+    def _yaml(name: str, data: dict) -> None:
+        zf.writestr(name, yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
+
+    zf.writestr(
+        "project.json",
+        json.dumps(novel_to_dict(project), ensure_ascii=False, indent=2),
+    )
+
+    # 设定（KV 表）→ settings yaml 树
+    storage = get_storage()
+    for relative_path in PATH_TO_KEY:
+        data = await storage.read_yaml(project.root_path, relative_path)
+        if data:
+            _yaml(relative_path, data)
+    threads = await storage.read_yaml(project.root_path, THREADS_PATH)
+    if threads:
+        _yaml(THREADS_PATH, threads)
+    for fname in await storage.list_dir(project.root_path, CHARACTER_DIR):
+        data = await storage.read_yaml(project.root_path, f"{CHARACTER_DIR}/{fname}")
+        if data:
+            _yaml(f"{CHARACTER_DIR}/{fname}", data)
+
+    # 卷纲 + 章纲/正文 + 版本快照 + 生成提示词
+    volumes = (
+        await db.scalars(
+            select(Volume)
+            .where(Volume.project_id == project.id)
+            .order_by(Volume.volume_no)
+        )
+    ).all()
+    for vol in volumes:
+        vol_ref = f"vol-{vol.volume_no}"
+        vol_data = await get_volume(db, project, vol_ref)
+        if vol_data:
+            _yaml(f"volumes/{vol_ref}.yaml", vol_data)
+
+        chapters = (
+            await db.scalars(
+                select(Chapter)
+                .where(Chapter.volume_id == vol.id)
+                .order_by(Chapter.chapter_no)
+            )
+        ).all()
+        for ch in chapters:
+            _yaml(f"chapters/{ch.ref}.yaml", assemble_chapter(ch))
+            for ver in (
+                await db.scalars(
+                    select(ChapterVersion)
+                    .where(ChapterVersion.chapter_id == ch.id)
+                    .order_by(ChapterVersion.version)
+                )
+            ).all():
+                zf.writestr(f"versions/{ch.ref}/v{ver.version}.json", ver.snapshot)
+            for prompt in (
+                await db.scalars(
+                    select(ChapterPrompt).where(ChapterPrompt.chapter_id == ch.id)
+                )
+            ).all():
+                zf.writestr(f"prompts/{ch.ref}-{prompt.name}.md", prompt.content)
+
+    # 归档
+    archives = (
+        await db.scalars(
+            select(Archive).join(Chapter).where(Chapter.project_id == project.id)
+        )
+    ).all()
+    for arch in archives:
+        name = _archive_filename(arch.chapter.ref, arch.title)
+        zf.writestr(f"archives/{name}", arch.content)
+
+
 @router.get("/{project_id}/export")
 async def export_project(
     project_id: str,
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """打包项目目录为 zip（卷章/设定/正文/版本快照全量），供备份/分享。"""
+    """从 DB 打包项目全量（元数据/设定/卷章正文/版本/归档/提示词）为 zip。"""
     project = await get_novel(db, project_id, user["id"])
     if not project or project.status == "deleted":
         raise HTTPException(404, "Novel not found")
@@ -302,11 +389,7 @@ async def export_project(
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        for dirpath, _dirs, files in os.walk(project.root_path):
-            for fname in files:
-                full = os.path.join(dirpath, fname)
-                rel = os.path.relpath(full, project.root_path)
-                zf.write(full, rel)
+        await _dump_project_snapshot(zf, db, project)
     buffer.seek(0)
 
     # RFC 5987 编码中文文件名（slug 保留汉字，latin-1 header 会 UnicodeEncodeError）
@@ -387,8 +470,6 @@ async def import_persist(
 ):
     """Persist parsed volumes/chapters as a new novel project."""
     from config import DATA_ROOT
-    from filesystem.init import SKELETON_DIRS
-    from filesystem.storage import get_storage
     from models.project import Novel
 
     # ── Generate unique slug & root_path ──────────────────────────────
@@ -402,10 +483,8 @@ async def import_persist(
     root_path = os.path.join(DATA_ROOT, slug)
 
     try:
-        # ── 1. Create skeleton directories only ──────────────────────
+        # ── 1. Create project root only（数据全量入库，盘上无骨架）────
         os.makedirs(root_path, exist_ok=True)
-        for d in SKELETON_DIRS:
-            os.makedirs(os.path.join(root_path, d), exist_ok=True)
 
         # ── 2. Create DB project row first（章族入库：卷/章直写 DB）────
         project = Novel(

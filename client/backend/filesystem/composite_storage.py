@@ -1,8 +1,9 @@
 """CompositeStorageBackend — 组合路由后端（ADR-001）。
 
 按 route_relative_path 把 settings 路径 + threads.yaml（PR④）路由到
-DatabaseFileBackend，其余路径（volumes/chapters/md 等）路由 LocalFileBackend。
-唯一属主非镜像 → 运行时无双写、无一致性问题；仅启动迁移存在一次性 file→DB 窗口。
+DatabaseFileBackend；业务数据（卷/章/正文/版本/归档/提示词）自 PR①-⑤ 起
+全部走各自 DB 表、不再经过本路由。LocalFileBackend 仅剩项目根目录的
+创建/删除（init_skeleton/delete_root），盘上不再有任何业务文件。
 本模块只做路由分派，不含 DB IO（DB 读写都在 db_storage）。
 """
 
@@ -46,7 +47,7 @@ class CompositeStorageBackend:
         return await self._local.list_dir(root_path, relative_path)
 
     async def init_skeleton(self, root_path: str) -> None:
-        # ADR-003：settings 模板只进 DB 不进盘；本地骨架含非设定文件
+        # ADR-003：settings 模板只进 DB 不进盘；本地仅建项目根目录
         await seed_settings_to_db(root_path)
         await self._local.init_skeleton(root_path)
 

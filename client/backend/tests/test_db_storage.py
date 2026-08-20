@@ -147,8 +147,8 @@ def test_init_skeleton_seeds_db_not_disk():
         assert _run_async(db.has_key(root, key)) is True
     # 磁盘无 settings yaml（ADR-003：只进 DB 不进盘）
     assert not os.path.exists(os.path.join(root, "settings", "writing-style.yaml"))
-    # 本地骨架保留非设定文件；threads.yaml 已入 KV（PR④）不再落盘
-    assert os.path.exists(os.path.join(root, "author-intent.md"))
+    # PR⑤ 大扫除后盘上只剩项目根目录：无骨架文件/子目录
+    assert os.path.isdir(root)
+    assert os.listdir(root) == []
     assert not os.path.exists(os.path.join(root, "threads.yaml"))
     assert _run_async(db.has_key(root, "threads")) is False  # 首次归档时才建行
-    assert os.path.isdir(os.path.join(root, "settings", "character-setting"))
