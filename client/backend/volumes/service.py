@@ -1,21 +1,19 @@
-"""VolumeService — 卷 CRUD 双写（YAML 先写、DB 后更；change 006）。
+"""VolumeService — 卷族 CRUD 全量走 DB（数据全量入库，无文件层）。
 
-- list_volumes：DB 查询全量卷+章树元数据（含 has_prose/outline_status/archived），
-  不做正文过滤（N1 过滤在前端）。接入 GET /volumes（breaking change，前端同 commit 迁移）。
-- create_volume：MAX(volume_no)+1（忽略 body.vol_num）+ tier_or_gate + 双写 + 计数自增。
-- update_volume：title/summary 双写 DB+YAML；其余 key（PRO 卷纲）只写 YAML；pop chapters 清派生快照。
-- delete_volume：删 DB 行（CASCADE 删章）+ 删文件 + 计数维护。
-- DB 写失败降级不 500（try/except + warning），DB 行由读路径自愈。
+- list_volumes：DB 查询全量卷+章树元数据（含 has_prose/outline_status/archived）。
+- create_volume：MAX(volume_no)+1 + tier_or_gate + DB 行（唯一存储，失败即 500 不降级）。
+- get_volume：卷行标量 + 4 张卷纲子表 + 章列表（Chapter 行）组装详情。
+- update_volume：标量按传入键更新；子表传入即整体替换；Pydantic 已做四档长度校验。
+- delete_volume：删 DB 行（CASCADE 删章行与卷纲子表）+ 清章族文件（PR② 前章族仍是文件存储）+ 计数维护。
 """
 
 import logging
 from collections import defaultdict
 
-from sqlalchemy import func, select
+from fastapi import HTTPException
 
-from filesystem.storage import get_storage
-from models.chapter import Chapter
 from repositories import chapter_repo, volume_repo
+from volumes.schemas import VolumeUpdate
 from workflow.engine import strip_suffix, update_phase
 from workflow.gates import gate_settings_complete
 from workflow.tier import tier_or_gate
@@ -62,89 +60,205 @@ async def list_volumes(db, project) -> list[dict]:
 async def create_volume(
     db, project, *, title: str, summary: str = ""
 ) -> dict:
-    """MAX+1（忽略 body.vol_num）+ 双写 + 计数自增。"""
+    """MAX+1（忽略 body.vol_num）+ tier 门控 + DB 行 + 计数自增。"""
     vol_no = await volume_repo.max_volume_no(db, project.id) + 1
     result = await tier_or_gate(db, project, gate_settings_complete, project.root_path)
     if result.hard_block and not result.valid:
-        from fastapi import HTTPException
-
         raise HTTPException(400, f"Settings incomplete: {result.warnings}")
 
     update_phase(project, "outline")
-    await get_storage().write_yaml(
-        project.root_path,
-        f"volumes/vol-{vol_no}.yaml",
-        {"volume": vol_no, "title": title, "summary": summary, "chapters": []},
-    )
-    try:
-        await volume_repo.upsert(
-            db, project.id, vol_no, title=title, summary=summary
-        )
-        project.total_volumes += 1  # 现状 `= vol_num` 覆盖式是 bug
-        await db.commit()
-        logger.info("created volume %s for project %s", vol_no, project.id)
-    except Exception:
-        # YAML 已落，DB 行由读路径自愈（GET 懒补 / 启动回填）；不 500
-        logger.warning("create_volume DB write failed for %s", vol_no, exc_info=True)
+    await volume_repo.upsert(db, project.id, vol_no, title=title, summary=summary)
+    project.total_volumes += 1
+    await db.commit()
+    logger.info("created volume %s for project %s", vol_no, project.id)
 
-    return {"vol_num": vol_no, "filename": f"vol-{vol_no}.yaml", "ref": f"vol-{vol_no}"}
+    return {"vol_num": vol_no, "ref": f"vol-{vol_no}"}
 
 
-async def get_volume(db, project, ref: str) -> dict:
-    """DB 行元数据 + YAML 全字段合并返回；{ref} 容 .yaml。"""
+# 组装详情时输出的卷纲标量键（None 的不输出，保持响应干净）
+_DETAIL_SCALARS = [
+    "direction_method",
+    "template_name",
+    "core_conflict",
+    "emotional_arc",
+    "arc_mode",
+    "primary_drive",
+    "info_gap_start",
+    "info_gap_end",
+    "chapter_target",
+]
+
+
+async def get_volume(db, project, ref: str) -> dict | None:
+    """卷详情组装：标量 + 卷纲四族子表 + 章列表；{ref} 容 .yaml 尾缀。"""
     vol_no = int(strip_suffix(ref).replace("vol-", ""))
     vol = await volume_repo.get_by_volume_no(db, project.id, vol_no)
-    data = await get_storage().read_yaml(
-        project.root_path, f"volumes/vol-{vol_no}.yaml"
-    ) or {}
-    if vol is not None:
-        data.setdefault("title", vol.title)
-        data.setdefault("summary", vol.summary)
-    data["ref"] = f"vol-{vol_no}"
+    if vol is None:
+        return None
+
+    data: dict = {
+        "ref": f"vol-{vol_no}",
+        "volume": vol.volume_no,
+        "title": vol.title,
+        "summary": vol.summary,
+    }
+    for key in _DETAIL_SCALARS:
+        value = getattr(vol, key)
+        if value is not None:
+            data[key] = value
+    data["stages"] = [
+        {
+            "stage_name": s.stage_name,
+            "stage_function": s.stage_function,
+            "chapter_count": s.chapter_count,
+        }
+        for s in vol.stages
+    ]
+    data["conflict_ladders"] = [
+        {
+            "layer_no": l.layer_no,
+            "chapters_range": l.chapters_range,
+            "obstacle": l.obstacle,
+            "turning_type": l.turning_type,
+            "turning_point": l.turning_point,
+        }
+        for l in vol.conflict_ladders
+    ]
+    data["chapter_plans"] = [
+        {
+            "chapter_no": p.chapter_no,
+            "title": p.title,
+            "summary": p.summary,
+            "emotional_anchor": p.emotional_anchor,
+            "info_gap": p.info_gap,
+            "arc_position": p.arc_position,
+        }
+        for p in vol.chapter_plans
+    ]
+    data["character_voices"] = [
+        {
+            "character_name": v.character_name,
+            "situation": v.situation,
+            "unfinished": v.unfinished,
+            "interlude_thought": v.interlude_thought,
+            "next_action": v.next_action,
+        }
+        for v in vol.character_voices
+    ]
+
+    data["chapters"] = [
+        {
+            "ref": c.ref,
+            "volume": vol.volume_no,
+            "chapter": c.chapter_no,
+            "title": c.title,
+            "status": c.status,
+            "word_count": c.word_count,
+            "has_prose": c.has_prose,
+            "outline_status": c.outline_status,
+            "archived": c.status == "archived",
+        }
+        for c in await chapter_repo.list_by_volume(db, vol.id)
+    ]
     return data
 
 
-async def update_volume(db, project, ref: str, body: dict) -> dict:
-    """title/summary 双写 DB+YAML；其余 key 只写 YAML；pop chapters 清派生快照。"""
-    vol_no = int(strip_suffix(ref).replace("vol-", ""))
-    data = await get_storage().read_yaml(
-        project.root_path, f"volumes/vol-{vol_no}.yaml"
-    ) or {}
-    for k, v in body.items():
-        data[k] = v
-    # 派生快照不入库、不留 YAML（§4.3 唯一属主非镜像）
-    data.pop("chapters", None)
-
-    title = body.get("title", data.get("title", f"vol-{vol_no}"))
-    summary = body.get("summary", data.get("summary", ""))
-    await get_storage().write_yaml(
-        project.root_path, f"volumes/vol-{vol_no}.yaml", data
+def _replace_children(vol, body: VolumeUpdate) -> None:
+    """子表整体替换：传入即删旧插新（sort_order 按列表序 0 起）。"""
+    from models.volume import (
+        VolumeChapterPlan,
+        VolumeCharacterVoice,
+        VolumeConflictLadder,
+        VolumeStage,
     )
-    try:
-        await volume_repo.upsert(
-            db, project.id, vol_no, title=str(title), summary=str(summary or "")
-        )
-        await db.commit()
-    except Exception:
-        logger.warning("update_volume DB write failed for %s", vol_no, exc_info=True)
+
+    if body.stages is not None:
+        vol.stages = [
+            VolumeStage(
+                sort_order=i,
+                stage_name=s.stage_name,
+                stage_function=s.stage_function,
+                chapter_count=s.chapter_count,
+            )
+            for i, s in enumerate(body.stages)
+        ]
+    if body.conflict_ladders is not None:
+        vol.conflict_ladders = [
+            VolumeConflictLadder(
+                sort_order=i,
+                layer_no=l.layer_no,
+                chapters_range=l.chapters_range,
+                obstacle=l.obstacle,
+                turning_type=l.turning_type,
+                turning_point=l.turning_point,
+            )
+            for i, l in enumerate(body.conflict_ladders)
+        ]
+    if body.chapter_plans is not None:
+        vol.chapter_plans = [
+            VolumeChapterPlan(
+                sort_order=i,
+                chapter_no=p.chapter_no,
+                title=p.title,
+                summary=p.summary,
+                emotional_anchor=p.emotional_anchor,
+                info_gap=p.info_gap,
+                arc_position=p.arc_position,
+            )
+            for i, p in enumerate(body.chapter_plans)
+        ]
+    if body.character_voices is not None:
+        vol.character_voices = [
+            VolumeCharacterVoice(
+                sort_order=i,
+                character_name=v.character_name,
+                situation=v.situation,
+                unfinished=v.unfinished,
+                interlude_thought=v.interlude_thought,
+                next_action=v.next_action,
+            )
+            for i, v in enumerate(body.character_voices)
+        ]
+
+
+async def update_volume(db, project, ref: str, body: VolumeUpdate) -> dict:
+    """标量按传入键更新（None 跳过）；子表传入即整体替换。"""
+    vol_no = int(strip_suffix(ref).replace("vol-", ""))
+    vol = await volume_repo.get_by_volume_no(db, project.id, vol_no)
+    if vol is None:
+        raise HTTPException(404, "Volume not found")
+
+    for key in _DETAIL_SCALARS:
+        value = getattr(body, key)
+        if value is not None:
+            setattr(vol, key, value)
+    if body.title is not None:
+        vol.title = body.title
+    if body.summary is not None:
+        vol.summary = body.summary
+    # 先清旧子行并 flush（flush 内插入先于删除，会撞 UNIQUE(volume_id, sort_order)）
+    for _attr in ("stages", "conflict_ladders", "chapter_plans", "character_voices"):
+        if getattr(body, _attr) is not None:
+            getattr(vol, _attr).clear()
+    await db.flush()
+    _replace_children(vol, body)
+    await db.commit()
     return {"ok": True}
 
 
 async def delete_volume(db, project, ref: str) -> dict:
-    """删 DB 行（CASCADE 删章）→ 删 YAML/versions/archives → 计数维护。"""
+    """删 DB 行（CASCADE 删章行与卷纲子表）→ 清章族文件 → 计数维护。"""
+    from filesystem.storage import get_storage
+
     vol_no = int(strip_suffix(ref).replace("vol-", ""))
     vol = await volume_repo.get_by_volume_no(db, project.id, vol_no)
     storage = get_storage()
 
     deleted_chapters = 0
     if vol is not None:
-        result = await db.execute(
-            select(func.count(Chapter.id)).where(Chapter.volume_id == vol.id)
-        )
-        deleted_chapters = result.scalar() or 0
+        deleted_chapters = await chapter_repo.count_by_volume(db, vol.id)
 
-    # 文件清理
-    await storage.delete_file(project.root_path, f"volumes/vol-{vol_no}.yaml")
+    # 章族文件清理（章/版本/归档 PR②/④ 前仍是文件存储）
     prefix = f"vol-{vol_no}-ch-"
     for f in await storage.list_dir(project.root_path, "chapters"):
         if f.startswith(prefix) and f.endswith(".yaml"):
@@ -156,14 +270,9 @@ async def delete_volume(db, project, ref: str) -> dict:
         if f.startswith(f"vol-{vol_no}-"):
             await storage.delete_file(project.root_path, f"archives/{f}")
 
-    try:
-        if vol is not None:
-            await db.delete(vol)  # ORM cascade 删章行（FK CASCADE 双保险）
-        project.total_volumes = max(0, (project.total_volumes or 0) - 1)
-        project.total_chapters = max(
-            0, (project.total_chapters or 0) - deleted_chapters
-        )
-        await db.commit()
-    except Exception:
-        logger.warning("delete_volume DB write failed for %s", vol_no, exc_info=True)
+    if vol is not None:
+        await db.delete(vol)  # ORM cascade 删章行 + 卷纲子表（FK CASCADE 双保险）
+    project.total_volumes = max(0, (project.total_volumes or 0) - 1)
+    project.total_chapters = max(0, (project.total_chapters or 0) - deleted_chapters)
+    await db.commit()
     return {"ok": True}

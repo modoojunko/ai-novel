@@ -7,7 +7,13 @@ from models.project import Novel
 from models.project_setting import ProjectSetting
 from models.token_log import TokenLog
 from models.user import User
-from models.volume import Volume
+from models.volume import (
+    Volume,
+    VolumeChapterPlan,
+    VolumeCharacterVoice,
+    VolumeConflictLadder,
+    VolumeStage,
+)
 
 __all__ = [
     "ApiConfig",
@@ -20,4 +26,8 @@ __all__ = [
     "TokenLog",
     "User",
     "Volume",
+    "VolumeChapterPlan",
+    "VolumeCharacterVoice",
+    "VolumeConflictLadder",
+    "VolumeStage",
 ]

@@ -77,11 +77,29 @@ async def lifespan(app: FastAPI):
     # ── Migrate: add index_status column ─────────────────────────────
     try:
         async with engine.begin() as conn:
-            await conn.execute(
-                text("ALTER TABLE projects ADD COLUMN index_status TEXT DEFAULT 'none'")
+            await conn.exec_driver_sql(
+                "ALTER TABLE projects ADD COLUMN index_status TEXT DEFAULT 'none'"
             )
     except Exception:
         pass  # 列已存在
+
+    # ── 卷族入库：volumes 扩列（新库走 create_all；存量表幂等补列）─────
+    for _col_ddl in (
+        "ALTER TABLE volumes ADD COLUMN direction_method VARCHAR(50)",
+        "ALTER TABLE volumes ADD COLUMN template_name VARCHAR(50)",
+        "ALTER TABLE volumes ADD COLUMN core_conflict VARCHAR(150)",
+        "ALTER TABLE volumes ADD COLUMN emotional_arc VARCHAR(150)",
+        "ALTER TABLE volumes ADD COLUMN arc_mode VARCHAR(50)",
+        "ALTER TABLE volumes ADD COLUMN primary_drive VARCHAR(50)",
+        "ALTER TABLE volumes ADD COLUMN info_gap_start VARCHAR(300)",
+        "ALTER TABLE volumes ADD COLUMN info_gap_end VARCHAR(300)",
+        "ALTER TABLE volumes ADD COLUMN chapter_target INTEGER",
+    ):
+        try:
+            async with engine.begin() as conn:
+                await conn.exec_driver_sql(_col_ddl)
+        except Exception:
+            pass  # 列已存在
 
     # ── Seed preset genres ──────────────────────────────────────────
     try:
@@ -103,17 +121,9 @@ async def lifespan(app: FastAPI):
 
         logging.getLogger("uvicorn.error").warning("Tone backfill failed: %s", e)
 
-    # ── Migrate: 卷/章数据底座回填（change 005，幂等 run-once）────────
-    try:
-        from filesystem.index_volumes_chapters import index_volumes_chapters
-
-        await index_volumes_chapters()
-    except Exception as e:
-        import logging
-
-        logging.getLogger("uvicorn.error").warning(
-            "volumes/chapters backfill failed: %s", e
-        )
+    # ── 卷族入库后不再做启动回填 ─────────────────────────────────────
+    # 卷/章 CRUD 已切 DB 为唯一存储；reindex_project 仅由导入流程显式调用。
+    # 旧 YAML 若残留在盘，启动回填反而会用陈旧文件反向覆盖 DB（无用户，不做兼容）。
 
     # ── Migrate: create events table ─────────────────────────────────
     try:

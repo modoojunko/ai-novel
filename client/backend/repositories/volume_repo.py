@@ -3,6 +3,7 @@
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from models.project import Novel
 from models.volume import Volume
 
 
@@ -12,8 +13,8 @@ async def list_by_project(db: AsyncSession, project_id: str) -> list[Volume]:
         .where(Volume.project_id == project_id)
         .order_by(Volume.volume_no)
     )
-    result = await db.execute(stmt)
-    return list(result.scalars().all())
+    result = await db.scalars(stmt)
+    return list(result.all())
 
 
 def _parse_volume_no(ref_or_no) -> int | None:
@@ -44,14 +45,24 @@ async def get_by_volume_no(
     stmt = select(Volume).where(
         Volume.project_id == project_id, Volume.volume_no == volume_no
     )
-    result = await db.execute(stmt)
-    return result.scalar_one_or_none()
+    return await db.scalar(stmt)
+
+
+async def get_summary_by_root(
+    db: AsyncSession, root_path: str, volume_no: int
+) -> str:
+    """AI 生成链路（仅持有 root_path）取卷概要。"""
+    stmt = (
+        select(Volume.summary)
+        .join(Novel, Volume.project_id == Novel.id)
+        .where(Novel.root_path == root_path, Volume.volume_no == volume_no)
+    )
+    return await db.scalar(stmt) or ""
 
 
 async def max_volume_no(db: AsyncSession, project_id: str) -> int:
     stmt = select(func.max(Volume.volume_no)).where(Volume.project_id == project_id)
-    result = await db.execute(stmt)
-    return result.scalar() or 0
+    return await db.scalar(stmt) or 0
 
 
 async def upsert(
@@ -82,11 +93,8 @@ async def upsert(
 
 
 async def count_by_project(db: AsyncSession, project_id: str) -> int:
-    stmt = (
-        select(func.count(Volume.id)).where(Volume.project_id == project_id)
-    )
-    result = await db.execute(stmt)
-    return result.scalar() or 0
+    stmt = select(func.count(Volume.id)).where(Volume.project_id == project_id)
+    return await db.scalar(stmt) or 0
 
 
 async def ensure_volume_row(
@@ -98,7 +106,7 @@ async def ensure_volume_row(
 ) -> Volume:
     """懒补统一收口：卷行缺失 → upsert 卷（title 兜底「导入卷 N」）再插章行。
 
-    供 change 006 双写与读路径自愈复用；行已存在直接返回。
+    供章族双写与读路径自愈复用；行已存在直接返回。
     """
     row = await get_by_volume_no(db, project_id, volume_no)
     if row is not None:

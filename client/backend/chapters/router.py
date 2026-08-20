@@ -6,6 +6,7 @@ from chapters.service import get_chapter_row, save_chapter, save_prose
 from db import get_db
 from filesystem.storage import get_storage
 from novels.service import get_novel
+from volumes.schemas import VolumeCreate, VolumeUpdate
 from workflow.engine import _validate_ref, load_chapter
 from workflow.gates import gate_chapter_ready
 from workflow.tier import tier_or_gate
@@ -33,7 +34,7 @@ async def list_volumes(
 @router.post("/volumes")
 async def create_volume(
     project_id: str,
-    body: dict,
+    body: VolumeCreate,
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -44,8 +45,7 @@ async def create_volume(
 
     # body.vol_num 忽略（MAX+1，防撞 UNIQUE，B9/P2-N）
     return await create_volume_db(
-        db, project, title=body.get("title", f"Volume {project.total_volumes + 1}"),
-        summary=body.get("summary", ""),
+        db, project, title=body.title, summary=body.summary
     )
 
 
@@ -71,7 +71,7 @@ async def get_volume(
 async def update_volume(
     project_id: str,
     ref: str,
-    body: dict,
+    body: VolumeUpdate,
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
