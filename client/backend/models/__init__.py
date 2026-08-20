@@ -1,4 +1,5 @@
 from models.api_config import ApiConfig
+from models.archive import Archive, ChapterPrompt
 from models.audit_log import ProjectModelAuditLog
 from models.chapter import (
     Chapter,
@@ -31,6 +32,7 @@ from models.volume import (
 
 __all__ = [
     "ApiConfig",
+    "Archive",
     "Chapter",
     "ChapterCharacter",
     "ChapterContent",
@@ -40,6 +42,7 @@ __all__ = [
     "ChapterKnowledgeState",
     "ChapterPayoffItem",
     "ChapterProhibition",
+    "ChapterPrompt",
     "ChapterRequiredChange",
     "ChapterSceneCard",
     "ChapterSegment",

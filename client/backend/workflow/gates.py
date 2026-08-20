@@ -185,9 +185,22 @@ async def gate_archived(root_path: str) -> GateResult:
 
     Soft gate — reminds progress.
     """
-    files = await get_storage().list_dir(root_path, "archives")
-    archive_files = [f for f in files if f.endswith(".md")]
-    if not archive_files:
+    from sqlalchemy import select
+
+    from db import async_session
+    from models.archive import Archive
+    from models.chapter import Chapter
+    from models.project import Novel
+
+    async with async_session() as session:
+        arch_id = await session.scalar(
+            select(Archive.id)
+            .join(Chapter, Chapter.id == Archive.chapter_id)
+            .join(Novel, Novel.id == Chapter.project_id)
+            .where(Novel.root_path == root_path)
+            .limit(1)
+        )
+    if arch_id is None:
         return GateResult(
             valid=True,
             warnings=["no chapters archived yet"],

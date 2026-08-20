@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth_local.deps import require_ai_access
 from auth_local.middleware import get_current_user
 from db import get_db
-from filesystem.storage import get_storage
 from novels.service import get_novel
 from workflow.engine import _validate_ref, load_chapter, update_phase
 from write.auxiliary import expand_text, polish_text, stream_continue
@@ -105,10 +104,10 @@ async def write_chapter(
     ctx = await build_chapter_context(project.root_path, chapter_ref, project.name)
     prompt = ctx.to_prompt()
 
-    # Save prompt for review
-    await get_storage().write_md(
-        project.root_path, f"prompts/{chapter_ref}-write-prompt.md", prompt
-    )
+    # Save prompt for review（chapter_prompts 表，PR④）
+    from prompt.store import save_prompt
+
+    await save_prompt(project.root_path, chapter_ref, "write-prompt", prompt)
 
     update_phase(project, "write")
     await db.commit()

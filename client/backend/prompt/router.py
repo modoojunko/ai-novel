@@ -1,14 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_local.deps import require_ai_access
 from auth_local.middleware import get_current_user
 from db import get_db
-from filesystem.storage import get_storage
+from models.archive import ChapterPrompt
 from novels.service import get_novel
 from prompt.assembler import assemble_all_segments
+from repositories import chapter_repo
 from workflow.engine import _validate_ref, load_chapter, update_phase
 
 
@@ -87,8 +89,18 @@ async def list_prompts(
     project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
-    files = await get_storage().list_dir(project.root_path, "prompts")
-    return sorted([f for f in files if f.startswith(chapter_ref)])
+    ch_row = await chapter_repo.get_by_ref(db, project.id, chapter_ref)
+    if ch_row is None:
+        return []
+    names = (
+        await db.scalars(
+            select(ChapterPrompt.name)
+            .where(ChapterPrompt.chapter_id == ch_row.id)
+            .order_by(ChapterPrompt.name)
+        )
+    ).all()
+    # 对外保持文件名形态 {ref}-{name}.md（前端零改动）
+    return sorted(f"{chapter_ref}-{n}.md" for n in names)
 
 
 @router.post("/prompts/generate")
@@ -121,9 +133,20 @@ async def get_prompt_content(
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
-    content = await get_storage().read_md(
-        project.root_path, f"prompts/{chapter_ref}-{seg}-prompt.md"
-    )
+    if "/" in seg or ".." in seg:
+        raise HTTPException(404, "Prompt not found")
+    ch_row = await chapter_repo.get_by_ref(db, project.id, chapter_ref)
+    content = ""
+    if ch_row is not None:
+        content = (
+            await db.scalar(
+                select(ChapterPrompt.content).where(
+                    ChapterPrompt.chapter_id == ch_row.id,
+                    ChapterPrompt.name == f"{seg}-prompt",
+                )
+            )
+            or ""
+        )
     return PlainTextResponse(content)
 
 
@@ -141,7 +164,21 @@ async def update_prompt_content(
     if not project:
         raise HTTPException(404, "Project not found")
     _validate_ref(chapter_ref)
-    await get_storage().write_md(
-        project.root_path, f"prompts/{chapter_ref}-{seg}-prompt.md", body.content
+    if "/" in seg or ".." in seg:
+        raise HTTPException(404, "Prompt not found")
+    ch_row = await chapter_repo.get_by_ref(db, project.id, chapter_ref)
+    if ch_row is None:
+        raise HTTPException(404, "Chapter not found")
+    name = f"{seg}-prompt"
+    row = await db.scalar(
+        select(ChapterPrompt).where(
+            ChapterPrompt.chapter_id == ch_row.id,
+            ChapterPrompt.name == name,
+        )
     )
+    if row is None:
+        db.add(ChapterPrompt(chapter_id=ch_row.id, name=name, content=body.content))
+    else:
+        row.content = body.content
+    await db.commit()
     return {"status": "ok"}

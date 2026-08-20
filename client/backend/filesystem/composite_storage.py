@@ -1,7 +1,7 @@
 """CompositeStorageBackend — 组合路由后端（ADR-001）。
 
-按 PATH_TO_KEY 把 settings 路径路由到 DatabaseFileBackend，其余路径
-（volumes/chapters/prompts/archives/threads/md 等）路由 LocalFileBackend。
+按 route_relative_path 把 settings 路径 + threads.yaml（PR④）路由到
+DatabaseFileBackend，其余路径（volumes/chapters/md 等）路由 LocalFileBackend。
 唯一属主非镜像 → 运行时无双写、无一致性问题；仅启动迁移存在一次性 file→DB 窗口。
 本模块只做路由分派，不含 DB IO（DB 读写都在 db_storage）。
 """

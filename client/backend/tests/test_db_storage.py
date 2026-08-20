@@ -43,8 +43,10 @@ def test_paths_routing():
     # 非 settings 路径 → None（走 LocalFileBackend）
     assert route_relative_path("volumes/vol-1.yaml") is None
     assert route_relative_path("chapters/vol-1-ch-1.yaml") is None
-    assert route_relative_path("threads.yaml") is None
     assert route_relative_path("prompts/p.md") is None
+    # threads.yaml → KV 专用路由（PR④）；不得进 PATH_TO_KEY（会泄漏 /settings/threads 端点）
+    assert route_relative_path("threads.yaml") == "threads"
+    assert "threads.yaml" not in PATH_TO_KEY
     assert len(PATH_TO_KEY) == 8  # 坑1：9 类含 8 单文件 + 字符目录前缀
     assert set(KEY_TO_PATH) == set(PATH_TO_KEY.values())
 
@@ -145,7 +147,8 @@ def test_init_skeleton_seeds_db_not_disk():
         assert _run_async(db.has_key(root, key)) is True
     # 磁盘无 settings yaml（ADR-003：只进 DB 不进盘）
     assert not os.path.exists(os.path.join(root, "settings", "writing-style.yaml"))
-    # 本地骨架保留非设定文件
+    # 本地骨架保留非设定文件；threads.yaml 已入 KV（PR④）不再落盘
     assert os.path.exists(os.path.join(root, "author-intent.md"))
-    assert os.path.exists(os.path.join(root, "threads.yaml"))
+    assert not os.path.exists(os.path.join(root, "threads.yaml"))
+    assert _run_async(db.has_key(root, "threads")) is False  # 首次归档时才建行
     assert os.path.isdir(os.path.join(root, "settings", "character-setting"))
