@@ -1,5 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import type { WorkbenchVolume } from "@/hooks/useWorkbench";
+import { nodeLabel } from "@/lib/nodeTitle";
 
 interface BreadcrumbProps {
   projectName: string;
@@ -31,9 +32,9 @@ export default function Breadcrumb({
 
   const volTitle = (volName: string) => {
     const vol = volumes.find((v) => v.name === volName);
-    if (vol?.title) return vol.title;
     const n = parseInt((volName || "").replace("vol-", ""), 10);
-    return n ? `第${n}卷` : volName;
+    if (!n) return volName;
+    return nodeLabel("卷", n, vol?.title);
   };
 
   const selectedVolName = active.volNum !== null ? `vol-${active.volNum}` : null;
@@ -41,7 +42,7 @@ export default function Breadcrumb({
     ? (() => {
         const vol = volumes.find((v) => v.name === `vol-${active.volNum}`);
         const ch = vol?.chapters?.find((c) => c.chapter === active.chNum);
-        return ch?.title || `第${active.chNum}章`;
+        return nodeLabel("章", active.chNum!, ch?.title);
       })()
     : null;
 

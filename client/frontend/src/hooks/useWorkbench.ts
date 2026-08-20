@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { toast } from "@/lib/toast";
 import { useProject } from "@/hooks/useProject";
 import type { TreeNode } from "@/components/novel/StructureTree";
 
@@ -47,8 +48,8 @@ export interface UseWorkbenchReturn {
   expandedIds: Set<string>;
   onToggle: (id: string) => void;
   onSelectNode: (node: TreeNode) => void;
-  createVolume: () => Promise<void>;
-  createChapter: () => Promise<void>;
+  createVolume: (title: string) => Promise<string | null>;
+  createChapter: (title: string, volName?: string) => Promise<string | null>;
   renameNode: (nodeId: string, newTitle: string) => Promise<void>;
   deleteNode: (nodeId: string) => Promise<void>;
   refresh: () => Promise<void>;
@@ -63,22 +64,6 @@ function parseRef(ref: string): { vol: number; ch: number } | null {
   const m = ref.match(/^vol-(\d+)-ch-(\d+)$/);
   if (!m) return null;
   return { vol: parseInt(m[1], 10), ch: parseInt(m[2], 10) };
-}
-
-/** 数字 → 中文数字（1 → 一，12 → 十二，21 → 二十一，102 → 一百零二）。 */
-const CN_DIGITS = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
-function cnNum(n: number): string {
-  if (n <= 0 || !Number.isInteger(n)) return String(n);
-  if (n < 10) return CN_DIGITS[n];
-  if (n < 20) return `十${n % 10 ? CN_DIGITS[n % 10] : ""}`;
-  if (n < 100) {
-    const tens = Math.floor(n / 10);
-    const ones = n % 10;
-    return `${CN_DIGITS[tens]}十${ones ? CN_DIGITS[ones] : ""}`;
-  }
-  const hundreds = Math.floor(n / 100);
-  const rest = n % 100;
-  return `${CN_DIGITS[hundreds]}百${rest ? cnNum(rest) : ""}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -204,66 +189,67 @@ export function useWorkbench(): UseWorkbenchReturn {
   );
 
   // -----------------------------------------------------------------------
-  // Create volume
+  // Create volume（序号程序排定；名称必填，即卷标题）
   // -----------------------------------------------------------------------
 
-  const createVolume = useCallback(async () => {
-    if (!projectId) return;
-    const volNum = volumes.length + 1;
-    try {
-      const result = await api.post(`/novels/${projectId}/volumes`, {
-        title: `第${cnNum(volNum)}卷`,
-      });
-      await refresh();
-      const name = result.ref || `vol-${volNum}`;
-      setSelectedId(name);
-      setSelectedRef(null);
-      setExpandedIds((prev) => {
-        const next = new Set(prev);
-        next.add(name);
-        return next;
-      });
-      return;
-    } catch {
-      // 创建失败
-    }
-  }, [projectId, volumes.length, refresh]);
-
-  // -----------------------------------------------------------------------
-  // Create chapter（无卷先建卷；新章即达编辑器 N1）
-  // -----------------------------------------------------------------------
-
-  const createChapter = useCallback(async () => {
-    if (!projectId) return;
-    try {
-      // 优先在选中卷下建章（N1）；无选中卷则第一个卷；无卷先建卷
-      const selVolName = volumes.find((v) => v.name === selectedId) ? selectedId : null;
-      let targetVol = volumes.find((v) => v.name === selVolName) || volumes[0];
-      if (!targetVol) {
-        const volResult = await api.post(`/novels/${projectId}/volumes`, {
-          title: `第${cnNum(1)}卷`,
-        });
+  const createVolume = useCallback(
+    async (title: string): Promise<string | null> => {
+      if (!projectId) return null;
+      const volNum = volumes.length + 1;
+      try {
+        const result = await api.post(`/novels/${projectId}/volumes`, { title });
         await refresh();
-        targetVol = {
-          name: volResult.ref || "vol-1",
-          chapters: [],
-        };
+        const name = result.ref || `vol-${volNum}`;
+        setSelectedId(name);
+        setSelectedRef(null);
+        setExpandedIds((prev) => {
+          const next = new Set(prev);
+          next.add(name);
+          return next;
+        });
+        return name;
+      } catch {
+        toast.error("创建卷失败");
+        return null;
       }
+    },
+    [projectId, volumes.length, refresh],
+  );
 
-      const volRef = targetVol.name || "vol-1";
+  // -----------------------------------------------------------------------
+  // Create chapter（目标卷由调用方指定；选中卷优先，缺省第一卷；新章即达编辑器 N1）
+  // -----------------------------------------------------------------------
+
+  const createChapter = useCallback(
+    async (title: string, volName?: string): Promise<string | null> => {
+      if (!projectId) return null;
+      // 指定卷 > 选中卷 > 第一卷；无卷由调用方（Workbench）先走建卷弹窗
+      const targetVol =
+        (volName && volumes.find((v) => v.name === volName)) ||
+        volumes.find((v) => v.name === selectedId) ||
+        volumes[0];
+      if (!targetVol) {
+        toast.error("请先创建卷");
+        return null;
+      }
+      const volRef = targetVol.name;
       const nextCh = targetVol.chapters.length + 1;
-
-      const result = await api.post(
-        `/novels/${projectId}/volumes/${volRef}/chapters`,
-        { title: `第${cnNum(nextCh)}章` },
-      );
-      await refresh();
-      const ref = (result.chapter_ref as string) || `${volRef}-ch-${nextCh}`;
-      focusNode(ref);
-    } catch {
-      // 创建失败
-    }
-  }, [projectId, volumes, refresh, focusNode]);
+      try {
+        const result = await api.post(
+          `/novels/${projectId}/volumes/${volRef}/chapters`,
+          { title },
+        );
+        await refresh();
+        const ref = (result.chapter_ref as string) || `${volRef}-ch-${nextCh}`;
+        focusNode(ref);
+        return ref;
+      } catch {
+        toast.error("创建章失败");
+        return null;
+      }
+    },
+    [projectId, volumes, selectedId, refresh, focusNode],
+  );
 
   // -----------------------------------------------------------------------
   // Rename node
@@ -291,7 +277,7 @@ export function useWorkbench(): UseWorkbenchReturn {
         }
         await refresh();
       } catch {
-        // 重命名失败
+        toast.error("重命名失败");
       }
     },
     [projectId, refresh],
