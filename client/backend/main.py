@@ -46,16 +46,6 @@ async def lifespan(app: FastAPI):
 
         logging.getLogger("uvicorn.error").warning("Failed to create tables: %s", e)
 
-    # ── Migrate: settings 盘→DB（行缺失才迁，幂等，ADR-004）─────────────
-    try:
-        from filesystem.migrate import migrate_settings_to_db
-
-        await migrate_settings_to_db()
-    except Exception as e:
-        import logging
-
-        logging.getLogger("uvicorn.error").warning("Settings migration failed: %s", e)
-
     # ── Migrate: add source column to projects ───────────────────────
     try:
         async with engine.begin() as conn:
@@ -70,15 +60,6 @@ async def lifespan(app: FastAPI):
         async with engine.begin() as conn:
             await conn.execute(
                 text("ALTER TABLE projects ADD COLUMN backfill_status TEXT DEFAULT 'none'")
-            )
-    except Exception:
-        pass  # 列已存在
-
-    # ── Migrate: add index_status column ─────────────────────────────
-    try:
-        async with engine.begin() as conn:
-            await conn.exec_driver_sql(
-                "ALTER TABLE projects ADD COLUMN index_status TEXT DEFAULT 'none'"
             )
     except Exception:
         pass  # 列已存在
@@ -134,20 +115,6 @@ async def lifespan(app: FastAPI):
         import logging
 
         logging.getLogger("uvicorn.error").warning("Genre seed failed: %s", e)
-
-    # ── Migrate: 题材 tone_overrides → 文风 tone（ADR-007，seed 之后保证预置行存在）─
-    try:
-        from filesystem.migrate import backfill_tone_overrides
-
-        await backfill_tone_overrides()
-    except Exception as e:
-        import logging
-
-        logging.getLogger("uvicorn.error").warning("Tone backfill failed: %s", e)
-
-    # ── 卷族入库后不再做启动回填 ─────────────────────────────────────
-    # 卷/章 CRUD 已切 DB 为唯一存储；reindex_project 仅由导入流程显式调用。
-    # 旧 YAML 若残留在盘，启动回填反而会用陈旧文件反向覆盖 DB（无用户，不做兼容）。
 
     # ── Migrate: create events table ─────────────────────────────────
     try:

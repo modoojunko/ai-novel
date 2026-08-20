@@ -86,12 +86,26 @@ def gate_chapter_ready(chapter_data: dict) -> GateResult:
 
 
 async def gate_prompts_exist(root_path: str, chapter_ref: str) -> GateResult:
-    """Check if prompt file exists for given chapter.
+    """Check if prompt row exists for given chapter（chapter_prompts 表，PR④）.
 
     Hard gate — no prompt means cannot write.
     """
-    files = await get_storage().list_dir(root_path, "prompts")
-    exists = any(f.startswith(chapter_ref) for f in files)
+    from sqlalchemy import select
+
+    from db import async_session
+    from models.archive import ChapterPrompt
+    from models.chapter import Chapter
+    from models.project import Novel
+
+    async with async_session() as session:
+        prompt_id = await session.scalar(
+            select(ChapterPrompt.id)
+            .join(Chapter, Chapter.id == ChapterPrompt.chapter_id)
+            .join(Novel, Novel.id == Chapter.project_id)
+            .where(Novel.root_path == root_path, Chapter.ref == chapter_ref)
+            .limit(1)
+        )
+    exists = prompt_id is not None
     return GateResult(
         valid=exists,
         warnings=[] if exists else [f"prompt for {chapter_ref} not generated yet"],
@@ -219,8 +233,7 @@ async def get_phase_status(
       - warnings: [{"phase": str, "message": str}]
 
     "skipped" meaning: current_phase > phase and its gate_valid=false.
-    File I/O is capped at roughly 8 reads
-    (world-setting, writing-style, hooks, volumes, chapters, prompts, prose, archives).
+    卷/章/提示词/归档全量入库后，各门控直接查 DB；盘上无业务文件可读。
     """
     if current_phase not in PHASE_ORDER:
         current_phase = "init"

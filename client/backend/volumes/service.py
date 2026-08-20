@@ -247,24 +247,13 @@ async def update_volume(db, project, ref: str, body: VolumeUpdate) -> dict:
 
 
 async def delete_volume(db, project, ref: str) -> dict:
-    """删 DB 行（CASCADE 删章行/卷纲子表/版本快照/归档/提示词）→ 清残留章 YAML（PR⑤ 前仍是文件）→ 计数维护。"""
-    from filesystem.storage import get_storage
-
+    """删 DB 行（CASCADE 删章行/卷纲子表/版本快照/归档/提示词）→ 计数维护。"""
     vol_no = int(strip_suffix(ref).replace("vol-", ""))
     vol = await volume_repo.get_by_volume_no(db, project.id, vol_no)
-    storage = get_storage()
 
     deleted_chapters = 0
     if vol is not None:
         deleted_chapters = await chapter_repo.count_by_volume(db, vol.id)
-
-    # 残留章 YAML 清理（归档/提示词自 PR④ 随章行 CASCADE）
-    prefix = f"vol-{vol_no}-ch-"
-    for f in await storage.list_dir(project.root_path, "chapters"):
-        if f.startswith(prefix) and f.endswith(".yaml"):
-            await storage.delete_file(project.root_path, f"chapters/{f}")
-
-    if vol is not None:
         await db.delete(vol)  # ORM cascade 删章行 + 卷纲子表（FK CASCADE 双保险）
     project.total_volumes = max(0, (project.total_volumes or 0) - 1)
     project.total_chapters = max(0, (project.total_chapters or 0) - deleted_chapters)
