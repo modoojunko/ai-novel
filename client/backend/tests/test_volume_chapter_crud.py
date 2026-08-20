@@ -1,8 +1,9 @@
-"""Change 006 — volume-chapter-service CRUD 双写测试（TE-08/09）
+"""卷族 CRUD 入库测试（PR① 数据全量入库）
 
-验证：create_volume MAX+1 忽略 vol_num + 双写 + 计数自增；list_volumes DB 全量树；
-update_volume 双写 + pop chapters 派生快照；get_volume {ref} 容 .yaml；delete_volume 级联删章；
-create_chapter 章号自增 + 不写内嵌列表 + 计数同事务；get_chapter_row 读路径懒补自愈；
+验证：create_volume MAX+1 忽略 vol_num + DB 唯一存储 + 计数自增；list_volumes DB 全量树；
+update_volume 标量+子表整体替换；get_volume {ref} 容 .yaml + 卷纲四族组装；
+卷纲结构化字段（扩列+4 子表）读写回环；delete_volume 级联删章+清章族文件；
+create_chapter 章号自增 + 卷 YAML 不落盘（DB 唯一属主）；get_chapter_row 读路径懒补自愈；
 confirm 写 DB confirmed 态；delete_chapter 删 DB 行/versions + 计数维护。
 
 用法：
@@ -73,7 +74,7 @@ async def _new_project(name: str) -> Novel:
         return project
 
 
-# ── TE-08 卷 CRUD 双写 ───────────────────────────────────────────────────
+# ── 卷 CRUD（DB 唯一存储）────────────────────────────────────────────────
 
 
 def test_create_volume_max_plus_one_ignores_vol_num():
@@ -89,12 +90,8 @@ def test_create_volume_max_plus_one_ignores_vol_num():
             assert r1["vol_num"] == 1 and r2["vol_num"] == 2
             assert await volume_repo.count_by_project(session, proj.id) == 2
             assert proj.total_volumes == 2
-            # YAML 文件双写落盘
-            data = await storage.read_yaml(
-                proj.root_path, "volumes/vol-1.yaml"
-            )
-            assert data["title"] == "第一卷"
-            assert data["volume"] == 1
+            # 卷族 DB 唯一属主，不再落 YAML
+            assert await storage.read_yaml(proj.root_path, "volumes/vol-1.yaml") == {}
 
     _run_async(_run())
 
@@ -121,25 +118,25 @@ def test_list_volumes_returns_db_tree_with_chapter_meta():
     _run_async(_run())
 
 
-def test_update_volume_dual_write_and_pops_chapters():
+def test_update_volume_scalars_and_children_replace():
     async def _run():
         project = await _new_project("uv1")
         async with async_session() as session:
             proj = await session.get(Novel, project.id)
             await _create_volume(session, proj, title="原卷", summary="旧摘要")
             await _create_chapter(session, proj, "vol-1", title="第一章")
-            # update 只带 title/summary → DB+YAML 双更；chapters 派生快照被 pop
+            # update 只带 title/summary → DB 行更新；章列表始终由 Chapter 行派生
             await _update_volume(
                 session, proj, "vol-1",
-                {"title": "新卷名", "summary": "新摘要", "chapters": [{"chapter": 1}]},
+                {"title": "新卷名", "summary": "新摘要"},
             )
             vol = await volume_repo.get_by_volume_no(session, proj.id, 1)
             assert vol.title == "新卷名"
             assert vol.summary == "新摘要"
-            data = await storage.read_yaml(proj.root_path, "volumes/vol-1.yaml")
+            data = await _get_volume(session, proj, "vol-1")
             assert data["title"] == "新卷名"
             assert data["summary"] == "新摘要"
-            assert "chapters" not in data  # pop 派生快照，唯一属主非镜像
+            assert data["chapters"][0]["title"] == "第一章"
 
     _run_async(_run())
 
@@ -157,6 +154,78 @@ def test_get_volume_tolerates_yaml_suffix():
     _run_async(_run())
 
 
+def test_volume_structured_fields_roundtrip():
+    """卷纲结构化：扩列标量 + 4 张子表整体替换 + get_volume 组装。"""
+    async def _run():
+        project = await _new_project("sv1")
+        async with async_session() as session:
+            proj = await session.get(Novel, project.id)
+            await _create_volume(session, proj, title="结构卷")
+            await _update_volume(
+                session, proj, "vol-1",
+                {
+                    "direction_method": "template",
+                    "template_name": "悬疑递进",
+                    "core_conflict": "主角想查清真相，被幕后组织追杀",
+                    "emotional_arc": "压抑→更压抑→提升→打脸→装逼",
+                    "arc_mode": "先压后爽",
+                    "primary_drive": "悬疑",
+                    "info_gap_start": "读者知道有内鬼↦主角不知道",
+                    "info_gap_end": "主角识破内鬼↦反派不知已暴露",
+                    "chapter_target": 40,
+                    "stages": [
+                        {"stage_name": "起", "stage_function": "建立日常并埋雷",
+                         "chapter_count": 8},
+                        {"stage_name": "承", "stage_function": "追查遇阻升级",
+                         "chapter_count": 12},
+                    ],
+                    "conflict_ladders": [
+                        {"layer_no": 1, "chapters_range": "1-1~1-2",
+                         "obstacle": "线人失联", "turning_type": "信息转折",
+                         "turning_point": "线人留下的暗号指向内部"},
+                    ],
+                    "chapter_plans": [
+                        {"chapter_no": 1, "title": "雨夜接头",
+                         "summary": "主角接头拿档案，对方被灭口，档案失踪",
+                         "emotional_anchor": "压抑↑——开场即失手",
+                         "info_gap": "读者知道接头人是内鬼↦主角不知",
+                         "arc_position": "第1章/共40章——起段开篇"},
+                    ],
+                    "character_voices": [
+                        {"character_name": "林拓",
+                         "situation": "被停职调查，孤身查案",
+                         "unfinished": "还没查完师父的死因",
+                         "interlude_thought": "卷间思考：信任是否已是奢侈品",
+                         "next_action": "顺着暗号查内部档案室"},
+                    ],
+                },
+            )
+            data = await _get_volume(session, proj, "vol-1")
+            assert data["direction_method"] == "template"
+            assert data["chapter_target"] == 40
+            assert len(data["stages"]) == 2
+            assert data["stages"][0]["stage_name"] == "起"
+            assert data["stages"][0]["chapter_count"] == 8
+            assert data["conflict_ladders"][0]["layer_no"] == 1
+            assert data["chapter_plans"][0]["title"] == "雨夜接头"
+            assert data["character_voices"][0]["character_name"] == "林拓"
+
+            # 子表整体替换：stages 换成一行，其余族不动
+            await _update_volume(
+                session, proj, "vol-1",
+                {"stages": [{"stage_name": "合", "stage_function": "收束反转",
+                             "chapter_count": 5}]},
+            )
+            data = await _get_volume(session, proj, "vol-1")
+            assert len(data["stages"]) == 1
+            assert data["stages"][0]["stage_name"] == "合"
+            # 未传的族保持原值
+            assert len(data["conflict_ladders"]) == 1
+            assert data["chapter_target"] == 40
+
+    _run_async(_run())
+
+
 def test_delete_volume_cascades_chapters_and_files():
     async def _run():
         project = await _new_project("dv1")
@@ -165,7 +234,7 @@ def test_delete_volume_cascades_chapters_and_files():
             await _create_volume(session, proj, title="待删卷")
             await _create_chapter(session, proj, "vol-1", title="第一章")
             await _create_chapter(session, proj, "vol-1", title="第二章")
-            # 章 YAML 存在，稍后断言被级联清理
+            # 章 YAML 存在（PR② 前章族仍是文件存储），稍后断言被级联清理
             assert await storage.read_yaml(
                 proj.root_path, "chapters/vol-1-ch-1.yaml"
             )
@@ -175,10 +244,7 @@ def test_delete_volume_cascades_chapters_and_files():
             assert await chapter_repo.count_by_project(session, proj.id) == 0
             assert proj.total_volumes == 0
             assert proj.total_chapters == 0
-            # 文件级联删除
-            assert not await storage.read_yaml(
-                proj.root_path, "volumes/vol-1.yaml"
-            )
+            # 章族文件级联删除
             assert not await storage.read_yaml(
                 proj.root_path, "chapters/vol-1-ch-1.yaml"
             )
@@ -189,7 +255,7 @@ def test_delete_volume_cascades_chapters_and_files():
     _run_async(_run())
 
 
-# ── TE-09 章 CRUD ────────────────────────────────────────────────────────
+# ── 章 CRUD ──────────────────────────────────────────────────────────────
 
 
 def test_create_chapter_max_plus_one_no_embedded_list():
@@ -202,15 +268,14 @@ def test_create_chapter_max_plus_one_no_embedded_list():
             c2 = await _create_chapter(session, proj, "vol-1", title="第二章")
             assert c1["ref"] == "vol-1-ch-1"
             assert c2["ref"] == "vol-1-ch-2"
-            # 章文件双写落盘
+            # 章文件仍落盘（PR② 切换）
             data = await storage.read_yaml(
                 proj.root_path, "chapters/vol-1-ch-1.yaml"
             )
             assert data["title"] == "第一章"
             assert data["volume"] == 1 and data["chapter"] == 1
-            # 卷 YAML 内嵌列表停写（§4.3 唯一属主非镜像）
-            vol_data = await storage.read_yaml(proj.root_path, "volumes/vol-1.yaml")
-            assert vol_data.get("chapters") == []
+            # 卷 YAML 不落盘：卷族 DB 唯一属主（§4.3）
+            assert await storage.read_yaml(proj.root_path, "volumes/vol-1.yaml") == {}
             # 计数同事务
             vol = await volume_repo.get_by_volume_no(session, proj.id, 1)
             assert vol.chapter_count == 2
@@ -323,9 +388,10 @@ async def _get_volume(session, project, ref):
 
 
 async def _update_volume(session, project, ref, body):
+    from volumes.schemas import VolumeUpdate
     from volumes.service import update_volume
 
-    return await update_volume(session, project, ref, body)
+    return await update_volume(session, project, ref, VolumeUpdate(**body))
 
 
 async def _delete_volume(session, project, ref):

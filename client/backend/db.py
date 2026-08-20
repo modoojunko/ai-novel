@@ -16,6 +16,8 @@ engine = create_async_engine(
 def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
+    # WAL：编辑器自动保存高频小事务下读写不互斥，崩溃恢复更稳
+    cursor.execute("PRAGMA journal_mode=WAL")
     cursor.close()
 
 

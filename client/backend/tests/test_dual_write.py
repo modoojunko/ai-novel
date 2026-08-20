@@ -241,11 +241,11 @@ def test_confirm_writes_db_status_and_meta(client):
             assert row.outline_status == "confirmed"
             assert row.confirmed_at is not None
             assert row.confirmed_at <= datetime.now(UTC).replace(tzinfo=None)
-            # YAML 内嵌列表未写（唯一属主非镜像）
+            # 卷 YAML 不再落盘（卷族 DB 唯一属主）
             data = await storage.read_yaml(
                 (await session.get(Novel, pid)).root_path, "volumes/vol-1.yaml"
             )
-            assert data.get("chapters") == []
+            assert data == {}
 
     _run_async(_check())
 

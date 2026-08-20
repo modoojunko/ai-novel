@@ -85,17 +85,18 @@ async def inject_story_context(
     if world_block:
         parts.append(world_block)
 
-    # 卷概要（volume 字段为数字或 vol-N 字符串，兼容两种）
+    # 卷概要（volume 字段为数字或 vol-N 字符串，兼容两种；卷族入库后从 DB 取）
     vol_match = re.match(r"(?:vol-)?(\d+)", str(chapter.get("volume", "")))
     if vol_match:
-        vol_data = (
-            await get_storage().read_yaml(
-                root_path, f"volumes/vol-{vol_match.group(1)}.yaml"
+        from db import async_session
+        from repositories import volume_repo
+
+        async with async_session() as session:
+            vol_summary = await volume_repo.get_summary_by_root(
+                session, root_path, int(vol_match.group(1))
             )
-            or {}
-        )
-        if vol_data.get("summary"):
-            parts.append(f"本卷概要：{_trim(vol_data['summary'], 200)}")
+        if vol_summary:
+            parts.append(f"本卷概要：{_trim(vol_summary, 200)}")
 
     # Chapter summary
     if outline.get("summary"):

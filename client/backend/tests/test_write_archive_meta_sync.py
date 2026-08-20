@@ -179,10 +179,11 @@ class TestWriteArchiveMetaSync:
                 assert row.status == "archived"
                 assert row.archived_at is not None
                 proj = await session.get(Novel, pid)
+                # 卷 YAML 不再落盘（卷族 DB 唯一属主）
                 data = await get_storage().read_yaml(
                     proj.root_path, "volumes/vol-1.yaml"
                 )
-                assert data.get("chapters") == []
+                assert data == {}
 
         _run_async(_check())
 

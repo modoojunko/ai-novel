@@ -2,7 +2,6 @@
 
 from datetime import datetime
 
-from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -77,8 +76,25 @@ async def upsert(
 
 
 async def delete(db: AsyncSession, chapter_id: str) -> None:
-    stmt = sa_delete(Chapter).where(Chapter.id == chapter_id)
-    await db.execute(stmt)
+    obj = await db.get(Chapter, chapter_id)
+    if obj is not None:
+        await db.delete(obj)
+
+
+async def list_by_volume(
+    db: AsyncSession, volume_id: str, *, ordered: bool = True
+) -> list[Chapter]:
+    """单卷章列表（卷详情组装用；默认按章号升序）。"""
+    stmt = select(Chapter).where(Chapter.volume_id == volume_id)
+    if ordered:
+        stmt = stmt.order_by(Chapter.chapter_no)
+    return list((await db.scalars(stmt)).all())
+
+
+async def count_by_volume(db: AsyncSession, volume_id: str) -> int:
+    """单卷章数（删卷计数维护用）。"""
+    stmt = select(func.count(Chapter.id)).where(Chapter.volume_id == volume_id)
+    return await db.scalar(stmt) or 0
 
 
 async def max_chapter_no(

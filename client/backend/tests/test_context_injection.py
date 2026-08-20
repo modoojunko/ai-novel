@@ -173,6 +173,29 @@ class TestStoryWorldVolumeInjection:
     def test_volume_summary_injected(self):
         root = _tmp_root()
         _seed(root)
+
+        # 卷概要已入库（卷族 DB 唯一属主）：种 Novel+Volume 行，root_path 关联
+        async def _seed_volume_row():
+            from db import Base, async_session, engine
+            from models import Novel
+            from models.volume import Volume
+
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            async with async_session() as session:
+                proj = Novel(
+                    user_id="ctx_user", name="ctx小说", slug="ctx-novel",
+                    root_path=root, source="manual", current_phase="outline",
+                )
+                session.add(proj)
+                await session.flush()
+                session.add(Volume(
+                    project_id=proj.id, volume_no=1, title="第一卷 进城",
+                    summary="主角在城中村立足，仇家开始找人。",
+                ))
+                await session.commit()
+
+        _run_async(_seed_volume_row())
         prompt = _run_async(assemble_segment_prompt(root, "vol-1-ch-1", 0, "测试小说"))
         assert "本卷概要：主角在城中村立足，仇家开始找人。" in prompt
 

@@ -168,17 +168,18 @@ async def build_chapter_context(
     if not isinstance(ctx.chapter_outline, dict):
         ctx.chapter_outline = {}
 
-    # Volume info
+    # Volume info（卷族入库：卷概要改从 DB 取）
     import re
 
     vol_match = re.match(r"vol-(\d+)", chapter_ref)
     if vol_match:
-        vol_num = vol_match.group(1)
-        vol_data = (
-            await get_storage().read_yaml(root_path, f"volumes/vol-{vol_num}.yaml")
-            or {}
-        )
-        ctx.volume_summary = vol_data.get("summary", "")
+        from db import async_session
+        from repositories import volume_repo
+
+        async with async_session() as session:
+            ctx.volume_summary = await volume_repo.get_summary_by_root(
+                session, root_path, int(vol_match.group(1))
+            )
 
     # Characters in this chapter
     char_names = ctx.chapter_outline.get("characters", [])
