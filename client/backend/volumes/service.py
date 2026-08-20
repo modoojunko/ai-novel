@@ -4,12 +4,10 @@
 - create_volume：MAX(volume_no)+1 + tier_or_gate + DB 行（唯一存储，失败即 500 不降级）。
 - get_volume：卷行标量 + 4 张卷纲子表 + 章列表（Chapter 行）组装详情。
 - update_volume：标量按传入键更新；子表传入即整体替换；Pydantic 已做四档长度校验。
-- delete_volume：删 DB 行（CASCADE 删章行与卷纲子表）+ 清残留文件（versions/*.yaml 至 PR③、archives/*.md 至 PR④ 仍是文件）+ 计数维护。
+- delete_volume：删 DB 行（CASCADE 删章行/卷纲子表/版本快照）+ 清残留归档 .md（PR④ 前仍文件）+ 计数维护。
 """
 
 import logging
-import os
-import shutil
 from collections import defaultdict
 
 from fastapi import HTTPException
@@ -260,19 +258,11 @@ async def delete_volume(db, project, ref: str) -> dict:
     if vol is not None:
         deleted_chapters = await chapter_repo.count_by_volume(db, vol.id)
 
-    # 章族文件清理（章/版本/归档 PR②/④ 前仍是文件存储）
+    # 章族文件清理（章 YAML 自 PR②、版本快照自 PR③ 均入库 CASCADE；归档 .md 至 PR④ 仍是文件）
     prefix = f"vol-{vol_no}-ch-"
     for f in await storage.list_dir(project.root_path, "chapters"):
         if f.startswith(prefix) and f.endswith(".yaml"):
             await storage.delete_file(project.root_path, f"chapters/{f}")
-    for f in await storage.list_dir(project.root_path, "versions"):
-        if f.startswith(prefix):
-            # versions/{ref} 是快照目录（每章一个子目录），整树删除
-            full = os.path.join(project.root_path, "versions", f)
-            if os.path.isdir(full):
-                shutil.rmtree(full, ignore_errors=True)
-            else:
-                await storage.delete_file(project.root_path, f"versions/{f}")
     for f in await storage.list_dir(project.root_path, "archives"):
         if f.startswith(f"vol-{vol_no}-"):
             await storage.delete_file(project.root_path, f"archives/{f}")

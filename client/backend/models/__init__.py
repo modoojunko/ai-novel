@@ -13,6 +13,7 @@ from models.chapter import (
     ChapterRequiredChange,
     ChapterSceneCard,
     ChapterSegment,
+    ChapterVersion,
 )
 from models.event import Event
 from models.genre import Genre
@@ -42,6 +43,7 @@ __all__ = [
     "ChapterRequiredChange",
     "ChapterSceneCard",
     "ChapterSegment",
+    "ChapterVersion",
     "Event",
     "Genre",
     "Novel",
