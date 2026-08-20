@@ -101,6 +101,30 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass  # 列已存在
 
+    # ── 章族入库：chapters 扩列（新库走 create_all；存量表幂等补列）─────
+    for _col_ddl in (
+        "ALTER TABLE chapters ADD COLUMN summary VARCHAR(300)",
+        "ALTER TABLE chapters ADD COLUMN location VARCHAR(200)",
+        "ALTER TABLE chapters ADD COLUMN story_time VARCHAR(150)",
+        "ALTER TABLE chapters ADD COLUMN narrative_pov VARCHAR(50)",
+        "ALTER TABLE chapters ADD COLUMN current_task VARCHAR(300)",
+        "ALTER TABLE chapters ADD COLUMN word_target INTEGER",
+        "ALTER TABLE chapters ADD COLUMN primary_mood VARCHAR(50)",
+        "ALTER TABLE chapters ADD COLUMN mood_progression VARCHAR(300)",
+        "ALTER TABLE chapters ADD COLUMN intensity_peak VARCHAR(300)",
+        "ALTER TABLE chapters ADD COLUMN intensity_level INTEGER",
+        "ALTER TABLE chapters ADD COLUMN emotional_hook VARCHAR(150)",
+        "ALTER TABLE chapters ADD COLUMN expectation_state VARCHAR(150)",
+        "ALTER TABLE chapters ADD COLUMN expectation_strategy VARCHAR(50)",
+        "ALTER TABLE chapters ADD COLUMN expectation_detail VARCHAR(300)",
+        "ALTER TABLE chapters ADD COLUMN perspective_guidance VARCHAR(300)",
+    ):
+        try:
+            async with engine.begin() as conn:
+                await conn.exec_driver_sql(_col_ddl)
+        except Exception:
+            pass  # 列已存在
+
     # ── Seed preset genres ──────────────────────────────────────────
     try:
         from genres.service import ensure_seed_genres

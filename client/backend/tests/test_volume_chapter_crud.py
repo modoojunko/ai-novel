@@ -2,8 +2,8 @@
 
 验证：create_volume MAX+1 忽略 vol_num + DB 唯一存储 + 计数自增；list_volumes DB 全量树；
 update_volume 标量+子表整体替换；get_volume {ref} 容 .yaml + 卷纲四族组装；
-卷纲结构化字段（扩列+4 子表）读写回环；delete_volume 级联删章+清章族文件；
-create_chapter 章号自增 + 卷 YAML 不落盘（DB 唯一属主）；get_chapter_row 读路径懒补自愈；
+卷纲结构化字段（扩列+4 子表）读写回环；delete_volume 级联删章+清残留文件；
+create_chapter 章号自增 + 章/卷 YAML 均不落盘（DB 唯一属主）；get_chapter_row 无行即 None；
 confirm 写 DB confirmed 态；delete_chapter 删 DB 行/versions + 计数维护。
 
 用法：
@@ -16,6 +16,7 @@ import os
 import tempfile
 
 import pytest
+from sqlalchemy import select
 
 # ── Test environment (isolated temp DB + data root) ──────────────────────
 _tmp_db = tempfile.NamedTemporaryFile(suffix="_crud.db", delete=False)  # noqa: SIM115
@@ -234,23 +235,37 @@ def test_delete_volume_cascades_chapters_and_files():
             await _create_volume(session, proj, title="待删卷")
             await _create_chapter(session, proj, "vol-1", title="第一章")
             await _create_chapter(session, proj, "vol-1", title="第二章")
-            # 章 YAML 存在（PR② 前章族仍是文件存储），稍后断言被级联清理
-            assert await storage.read_yaml(
-                proj.root_path, "chapters/vol-1-ch-1.yaml"
-            )
+            # 写正文：chapter_contents 子行随章行 CASCADE，并产生版本快照文件
+            from chapters.service import save_prose
+
+            await save_prose(session, proj, "vol-1-ch-1", "正文")
+            snap = [
+                f for f in await storage.list_dir(
+                    proj.root_path, "versions/vol-1-ch-1"
+                ) if f.endswith(".yaml")
+            ]
+            assert snap, "prose 变化应生成版本快照"
             await _delete_volume(session, proj, "vol-1")
 
             assert await volume_repo.count_by_project(session, proj.id) == 0
             assert await chapter_repo.count_by_project(session, proj.id) == 0
             assert proj.total_volumes == 0
             assert proj.total_chapters == 0
-            # 章族文件级联删除
-            assert not await storage.read_yaml(
-                proj.root_path, "chapters/vol-1-ch-1.yaml"
-            )
-            assert not await storage.read_yaml(
-                proj.root_path, "chapters/vol-1-ch-2.yaml"
-            )
+            # 正文子行级联清理
+            from models.chapter import Chapter, ChapterContent
+
+            contents = (
+                await session.scalars(
+                    select(ChapterContent).join(
+                        Chapter, Chapter.id == ChapterContent.chapter_id
+                    ).where(Chapter.project_id == proj.id)
+                )
+            ).all()
+            assert contents == []
+            # versions 快照文件也被清（PR③ 前仍文件）
+            assert await storage.list_dir(
+                proj.root_path, "versions/vol-1-ch-1"
+            ) == []
 
     _run_async(_run())
 
@@ -268,14 +283,15 @@ def test_create_chapter_max_plus_one_no_embedded_list():
             c2 = await _create_chapter(session, proj, "vol-1", title="第二章")
             assert c1["ref"] == "vol-1-ch-1"
             assert c2["ref"] == "vol-1-ch-2"
-            # 章文件仍落盘（PR② 切换）
-            data = await storage.read_yaml(
+            # 章族入库：DB 唯一属主，章/卷 YAML 均不落盘
+            assert await storage.read_yaml(
                 proj.root_path, "chapters/vol-1-ch-1.yaml"
-            )
-            assert data["title"] == "第一章"
-            assert data["volume"] == 1 and data["chapter"] == 1
-            # 卷 YAML 不落盘：卷族 DB 唯一属主（§4.3）
+            ) == {}
             assert await storage.read_yaml(proj.root_path, "volumes/vol-1.yaml") == {}
+            # 行内即元数据
+            row = await chapter_repo.get_by_ref(session, proj.id, "vol-1-ch-1")
+            assert row.title == "第一章"
+            assert row.chapter_no == 1
             # 计数同事务
             vol = await volume_repo.get_by_volume_no(session, proj.id, 1)
             assert vol.chapter_count == 2
@@ -284,27 +300,14 @@ def test_create_chapter_max_plus_one_no_embedded_list():
     _run_async(_run())
 
 
-def test_get_chapter_row_self_heals_missing_rows():
+def test_get_chapter_row_missing_returns_none():
     async def _run():
-        # 只写章 YAML（无 DB 行）→ 读路径 ensure_volume_row 懒补
         project = await _new_project("sh1")
-        await storage.write_yaml(
-            project.root_path,
-            "chapters/vol-3-ch-1.yaml",
-            {"volume": 3, "chapter": 1, "title": "自愈章", "status": "draft",
-             "prose": "你好 世界"},
-        )
         async with async_session() as session:
             proj = await session.get(Novel, project.id)
+            # 章族入库：无行即无章（文件自愈已随文件层移除）
             meta = await _get_chapter_row(session, proj, "vol-3-ch-1")
-            assert meta is not None
-            assert meta["word_count"] == 4
-            assert meta["has_prose"] is True
-            assert meta["outline_status"] == "in_progress"
-            # 卷行被懒补（兜底标题「导入卷 3」）
-            vol = await volume_repo.get_by_volume_no(session, proj.id, 3)
-            assert vol is not None
-            assert vol.title == "导入卷 3"
+            assert meta is None
 
     _run_async(_run())
 
@@ -315,13 +318,7 @@ def test_cleanup_chapter_artifacts_removes_archive_and_versions():
 
     async def _run():
         project = await _new_project("ca1")
-        # 造章 + 归档 + 版本快照
-        await storage.write_yaml(
-            project.root_path,
-            "chapters/vol-1-ch-1.yaml",
-            {"volume": 1, "chapter": 1, "title": "第一章", "status": "archived",
-             "prose": "正文内容"},
-        )
+        # 造归档 + 版本快照（PR③/④ 前仍为文件的章族落盘产物）
         await storage.write_md(
             project.root_path,
             "archives/vol-1-ch-1-first-chapter.md",
@@ -365,6 +362,128 @@ def test_cleanup_chapter_artifacts_removes_archive_and_versions():
 
 
 # ── service 包装（模块内统一异步 session 入口）─────────────────────────────
+
+
+def test_chapter_structured_fields_roundtrip():
+    """章纲结构化字段（扩列+11 子表）读写回环：统一写入口拆装、组装还原。"""
+
+    async def _run():
+        project = await _new_project("csfr1")
+        async with async_session() as session:
+            proj = await session.get(Novel, project.id)
+            await _create_volume(session, proj, title="第一卷")
+            await _create_chapter(session, proj, "vol-1", title="第一章")
+
+            from workflow.engine import load_chapter, save_chapter
+
+            full = {
+                "volume": 1, "chapter": 1, "title": "第一章", "prose": "正文开头",
+                "word_target": 2500,
+                "outline": {
+                    "summary": "主角在城中村落脚，地头蛇上门。",
+                    "location": "城中村面馆",
+                    "time": "初秋傍晚",
+                    "narrative_pov": "第三人称有限",
+                    "perspective_guidance": "贴着主角写",
+                    "key_points": ["[推进剧情·对话]主角拒绝上供", "[造悬念]刀疤男在门外"],
+                    "characters": ["林拓", "刀疤男"],
+                },
+                "memo": {
+                    "current_task": "守住面馆不低头",
+                    "reader_expectation": {
+                        "state": "担心主角安危",
+                        "strategy": "must_resolve",
+                        "detail": "读者在等地头蛇出招",
+                    },
+                    "payoff_plan": {
+                        "must_resolve": ["上供冲突落地"],
+                        "must_hold": ["师父死因悬念"],
+                        "partial_advance": ["仇家线索+1"],
+                    },
+                    "downtime_functions": ["收摊夜谈：交代背景"],
+                    "key_choices": ["拒交保护费：验证不低头人设"],
+                    "required_changes": ["关系：与地头蛇撕破脸", "信息：得知哥哥失踪"],
+                    "prohibitions": ["不让主角直接动手"],
+                },
+                "emotional_design": {
+                    "primary_mood": "紧张",
+                    "mood_progression": "平静→警觉→对峙",
+                    "intensity_peak": "保护费摊牌对峙",
+                    "intensity_level": 7,
+                    "emotional_hook": "门外刀疤男",
+                },
+                "scene_cards": [
+                    {"scene_name": "傍晚面馆", "goal": "拒交保护费",
+                     "obstacle": "地头蛇威胁", "hook": "门外来了人"},
+                ],
+                "knowledge_states": [
+                    {"character_name": "林拓", "knows": "哥哥曾来过此城",
+                     "unknowns": "哥哥现状", "gap_relation": "仇家知道哥哥下落",
+                     "gap_change": "无→怀疑"},
+                ],
+                "segments": [
+                    {"summary": "拒交保护费", "target_words": 1200, "goal": "守住底线",
+                     "emotional_tone": "紧张", "characters": ["林拓", "地头蛇"],
+                     "function": "主线推进"},
+                ],
+            }
+            await save_chapter(proj.root_path, "vol-1-ch-1", full)
+            data = await load_chapter(proj.root_path, "vol-1-ch-1")
+
+            assert data["title"] == "第一章"
+            assert data["prose"] == "正文开头"
+            assert data["word_target"] == 2500
+            out = data["outline"]
+            assert out["summary"] == "主角在城中村落脚，地头蛇上门。"
+            assert out["location"] == "城中村面馆"
+            assert out["time"] == "初秋傍晚"
+            assert out["narrative_pov"] == "第三人称有限"
+            assert out["perspective_guidance"] == "贴着主角写"
+            assert out["key_points"] == [
+                "[推进剧情·对话]主角拒绝上供", "[造悬念]刀疤男在门外",
+            ]
+            assert out["characters"] == ["林拓", "刀疤男"]
+            memo = data["memo"]
+            assert memo["current_task"] == "守住面馆不低头"
+            assert memo["reader_expectation"]["state"] == "担心主角安危"
+            assert memo["reader_expectation"]["strategy"] == "must_resolve"
+            assert memo["payoff_plan"]["must_resolve"] == ["上供冲突落地"]
+            assert memo["payoff_plan"]["must_hold"] == ["师父死因悬念"]
+            assert memo["payoff_plan"]["partial_advance"] == ["仇家线索+1"]
+            assert memo["downtime_functions"] == ["收摊夜谈：交代背景"]
+            assert memo["key_choices"] == ["拒交保护费：验证不低头人设"]
+            assert memo["required_changes"] == [
+                "关系：与地头蛇撕破脸", "信息：得知哥哥失踪",
+            ]
+            assert memo["prohibitions"] == ["不让主角直接动手"]
+            emo = data["emotional_design"]
+            assert emo["primary_mood"] == "紧张"
+            assert emo["mood_progression"] == "平静→警觉→对峙"
+            assert emo["intensity_level"] == 7
+            assert emo["emotional_hook"] == "门外刀疤男"
+            assert data["scene_cards"][0]["scene_name"] == "傍晚面馆"
+            assert data["scene_cards"][0]["obstacle"] == "地头蛇威胁"
+            ks = data["knowledge_states"][0]
+            assert ks["character_name"] == "林拓"
+            assert ks["gap_relation"] == "仇家知道哥哥下落"
+            seg = data["segments"][0]
+            assert seg["summary"] == "拒交保护费"
+            assert seg["target_words"] == 1200
+            assert seg["goal"] == "守住底线"
+            assert seg["emotional_tone"] == "紧张"
+            assert seg["characters"] == ["林拓", "地头蛇"]
+            assert seg["function"] == "主线推进"
+
+            # 子表整体替换：key_points 换一条，其余族不动
+            full["outline"]["key_points"] = ["[过渡]收摊打烊"]
+            await save_chapter(proj.root_path, "vol-1-ch-1", full)
+            data2 = await load_chapter(proj.root_path, "vol-1-ch-1")
+            assert data2["outline"]["key_points"] == ["[过渡]收摊打烊"]
+            assert data2["outline"]["characters"] == ["林拓", "刀疤男"]
+            assert len(data2["memo"]["payoff_plan"]["must_resolve"]) == 1
+            assert len(data2["segments"]) == 1
+
+    _run_async(_run())
 
 
 async def _create_volume(session, project, *, title, summary="", vol_num=None):

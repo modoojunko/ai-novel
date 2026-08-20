@@ -75,3 +75,48 @@ def _session_test_db():
 
     asyncio.run(_create_tables())
     yield
+
+
+# ── 章族入库后的通用种子（跨测试文件复用）────────────────────────────────────
+
+
+async def seed_chapter_db(root: str, chapter: dict, *, volume_summary: str = "") -> None:
+    """种 Novel/Volume/Chapter 行并经统一写入口落章数据。
+
+    slug 取 root 目录名保证跨测试唯一（UNIQUE(user_id, slug)）；
+    供 AI 链路测试以 root_path 关联。story/世界观/角色/伏笔仍走文件种子。
+    """
+    import os
+
+    from db import async_session
+    from models import Novel
+    from models.volume import Volume
+    from repositories import chapter_repo
+
+    async with async_session() as session:
+        proj = Novel(
+            user_id="seed_user", name="seed小说",
+            slug=f"seed-{os.path.basename(root)}",
+            root_path=root, source="manual", current_phase="write",
+        )
+        session.add(proj)
+        await session.flush()
+        vol = Volume(
+            project_id=proj.id, volume_no=int(chapter.get("volume", 1) or 1),
+            title="第一卷", summary=volume_summary,
+        )
+        session.add(vol)
+        await session.flush()
+        await chapter_repo.upsert(
+            session, proj.id, vol.id,
+            chapter_no=int(chapter.get("chapter", 1) or 1),
+            ref=f"vol-{chapter.get('volume', 1)}-ch-{chapter.get('chapter', 1)}",
+            title=chapter.get("title", "第1章"),
+        )
+        await session.commit()
+
+    from chapters.store import save_chapter
+
+    await save_chapter(
+        root, f"vol-{chapter.get('volume', 1)}-ch-{chapter.get('chapter', 1)}", chapter
+    )

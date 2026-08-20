@@ -1,7 +1,5 @@
 from fastapi import HTTPException
 
-from filesystem.storage import get_storage
-
 # 每章版本快照上限：编辑器 1.5s 防抖自动保存每次变更都会写快照，
 # 不设上限会随写作时长线性膨胀（读取/列表也跟着变慢）。
 MAX_VERSIONS_PER_CHAPTER = 50
@@ -44,55 +42,14 @@ def update_phase(project, new_phase: str):
 
 
 async def load_chapter(root_path: str, chapter_ref: str) -> dict:
-    return await get_storage().read_yaml(root_path, f"chapters/{chapter_ref}.yaml")
+    """DB 心脏（chapters.store）——表⇆JSON 组装；行缺失返回 {}。"""
+    from chapters.store import load_chapter as _store_load
+
+    return await _store_load(root_path, chapter_ref)
 
 
 async def save_chapter(root_path: str, chapter_ref: str, data: dict):
-    """Save chapter data and create a version snapshot if content changed."""
-    # Read old data before overwriting
-    old_data = await get_storage().read_yaml(root_path, f"chapters/{chapter_ref}.yaml")
+    """统一写入口（chapters.store）：拆装落库 + 元数据派生 + 版本快照。"""
+    from chapters.store import save_chapter as _store_save
 
-    # Write new data
-    await get_storage().write_yaml(root_path, f"chapters/{chapter_ref}.yaml", data)
-
-    # Create version snapshot if content actually changed
-    if old_data:
-        old_prose = old_data.get("prose", "")
-        new_prose = data.get("prose", "")
-        old_outline = old_data.get("outline", {}).get("summary", "")
-        new_outline = data.get("outline", {}).get("summary", "")
-
-        if old_prose != new_prose or old_outline != new_outline:
-            import time
-
-            timestamp = int(time.time() * 1000)
-            version_data = {
-                "version": f"v{timestamp}",
-                "chapter_ref": chapter_ref,
-                "created_at": timestamp,
-                "comment": "自动保存",
-                "snapshot": {
-                    "prose": new_prose,
-                    "outline": data.get("outline", {}),
-                    "status": data.get("status", ""),
-                },
-            }
-            await get_storage().write_yaml(
-                root_path, f"versions/{chapter_ref}/v{timestamp}.yaml", version_data
-            )
-            # 快照上限：每章保留最近 MAX_VERSIONS_PER_CHAPTER 份，超出删最旧。
-            # 版本文件名 v{毫秒时间戳} 同位数（13 位直到 2286 年），字典序即时间序。
-            version_files = [
-                f
-                for f in await get_storage().list_dir(
-                    root_path, f"versions/{chapter_ref}"
-                )
-                if f.endswith(".yaml")
-            ]
-            if len(version_files) > MAX_VERSIONS_PER_CHAPTER:
-                version_files.sort()
-                excess = len(version_files) - MAX_VERSIONS_PER_CHAPTER
-                for old_file in version_files[:excess]:
-                    await get_storage().delete_file(
-                        root_path, f"versions/{chapter_ref}/{old_file}"
-                    )
+    await _store_save(root_path, chapter_ref, data)

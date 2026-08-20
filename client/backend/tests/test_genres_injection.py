@@ -110,10 +110,11 @@ def _seed_assembler(root: str):
         )
     )
     _run_async(get_storage().write_yaml(root, "threads.yaml", {"threads": {}}))
+    from conftest import seed_chapter_db
+
     _run_async(
-        get_storage().write_yaml(
+        seed_chapter_db(
             root,
-            "chapters/vol-1-ch-1.yaml",
             {
                 "volume": 1,
                 "chapter": 1,
@@ -159,7 +160,6 @@ def _seed_writer(root: str):
             },
         )
     )
-    _run_async(get_storage().write_yaml(root, "volumes/vol-1.yaml", {"summary": ""}))
 
 
 # ── resolve_genre_context 优雅降级 ───────────────────────────────────────

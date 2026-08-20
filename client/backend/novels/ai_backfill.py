@@ -4,8 +4,6 @@ import asyncio
 import logging
 from pathlib import Path
 
-from filesystem.storage import get_storage
-
 logger = logging.getLogger("app.backfill")
 
 PROMPT_DIR = Path(__file__).parent.parent / "prompts"
@@ -29,25 +27,10 @@ def _load_prompt(name: str) -> str:
 
 
 async def _collect_prose(root_path: str) -> str:
-    """收集所有章节正文，返回拼接文本。"""
-    storage = get_storage()
-    try:
-        files = await storage.list_dir(root_path, "chapters")
-    except FileNotFoundError:
-        return ""
+    """收集所有章节正文（章族入库：DB 直查拼接）。"""
+    from chapters.store import collect_prose_by_root
 
-    prose_parts: list[str] = []
-    for fname in files:
-        if not fname.endswith(".yaml"):
-            continue
-        try:
-            data = await storage.read_yaml(root_path, f"chapters/{fname}")
-            prose = data.get("prose", "")
-            if prose:
-                prose_parts.append(prose)
-        except Exception:
-            continue
-    return "\n\n".join(prose_parts)
+    return await collect_prose_by_root(root_path)
 
 
 def _estimate_tokens(text: str) -> int:

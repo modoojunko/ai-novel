@@ -7,7 +7,7 @@ from auth_local.middleware import get_current_user
 from db import get_db
 from filesystem.storage import get_storage
 from novels.service import get_novel
-from workflow.engine import _validate_ref, save_chapter
+from workflow.engine import _validate_ref, load_chapter, save_chapter
 
 router = APIRouter(
     prefix="/api/novels/{project_id}/chapters/{chapter_ref}", tags=["versions"]
@@ -103,19 +103,13 @@ async def restore_version(
     if not snapshot:
         raise HTTPException(400, "Version has no snapshot data")
 
-    chapter = (
-        await get_storage().read_yaml(project.root_path, f"chapters/{chapter_ref}.yaml")
-        or {}
-    )
+    chapter = await load_chapter(project.root_path, chapter_ref) or {}
     chapter["prose"] = snapshot.get("prose", chapter.get("prose", ""))
     if "outline" in snapshot:
         chapter["outline"] = snapshot["outline"]
     if "status" in snapshot:
         chapter["status"] = snapshot["status"]
 
+    # 统一写入口：回滚 prose/status 后 word_count/outline_status 随落库同步派生（BE-13）
     await save_chapter(project.root_path, chapter_ref, chapter)
-    # restore 后刷新 DB 元数据（BE-13）：回滚 prose/status 后 word_count/outline_status 需同步
-    from chapters.service import refresh_chapter_meta
-
-    await refresh_chapter_meta(db, project, chapter_ref, chapter)
     return {"ok": True, "restored": version_id}

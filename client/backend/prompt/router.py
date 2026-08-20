@@ -67,9 +67,9 @@ async def run_perspective_conversion(
 
     # C/S: Token tracking removed — user brings own API key
     chapter["outline"]["perspective_guidance"] = guidance
-    await get_storage().write_yaml(
-        project.root_path, f"chapters/{chapter_ref}.yaml", chapter
-    )
+    from workflow.engine import save_chapter
+
+    await save_chapter(project.root_path, chapter_ref, chapter)
 
     return {
         "guidance": guidance,

@@ -407,79 +407,7 @@ async def import_persist(
         for d in SKELETON_DIRS:
             os.makedirs(os.path.join(root_path, d), exist_ok=True)
 
-        # ── 2. Write volumes & chapters ──────────────────────────────
-        storage = get_storage()
-        for vi, vol in enumerate(body.volumes, start=1):
-            vol_data = {
-                "volume": vi,
-                "title": vol.title,
-                "summary": "",
-                "chapters": [],
-            }
-            for ci, ch in enumerate(vol.chapters, start=1):
-                ch_data = {
-                    "volume": vi,
-                    "chapter": ci,
-                    "title": ch.title,
-                    "status": "draft",
-                    "prose": ch.content,
-                }
-                vol_data["chapters"].append(ch_data)
-
-                # ── 3. Write chapter file ────────────────────────────
-                ch_ref = f"vol-{vi}-ch-{ci}"
-                await storage.write_yaml(
-                    root_path, f"chapters/{ch_ref}.yaml", ch_data
-                )
-
-                # ── 4. Write version snapshot ────────────────────────
-                import time
-
-                ts = int(time.time() * 1000)
-                version_data = {
-                    "version": f"v{ts}",
-                    "chapter_ref": ch_ref,
-                    "created_at": ts,
-                    "comment": "导入初始版本",
-                    "snapshot": {
-                        "prose": ch.content,
-                        "outline": {},
-                        "status": "draft",
-                    },
-                }
-                await storage.write_yaml(
-                    root_path, f"versions/{ch_ref}/v{ts}.yaml", version_data
-                )
-
-            # Write volume file
-            await storage.write_yaml(
-                root_path, f"volumes/vol-{vi}.yaml", vol_data
-            )
-
-        # ── 5. Genre detection & synopsis extraction (free-tier) ─────
-        try:
-            # 从第一章正文匹配类型
-            first_ch = body.volumes[0].chapters[0] if body.volumes else None
-            if first_ch and first_ch.content:
-                from novels.genre_matcher import extract_synopsis, match_genre
-
-                synopsis = extract_synopsis(first_ch.content)
-                genre, confidence = match_genre(first_ch.content)
-                if genre:
-                    await storage.write_yaml(
-                        root_path,
-                        "story.yaml",
-                        {
-                            "synopsis": synopsis,
-                            "genre": genre,
-                            "genre_confidence": confidence,
-                            "genre_source": "auto_detect",
-                        },
-                    )
-        except Exception:
-            pass  # 非关键，失败不中断导入
-
-        # ── 6. Create DB record ──────────────────────────────────────
+        # ── 2. Create DB project row first（章族入库：卷/章直写 DB）────
         project = Novel(
             user_id=user["id"],
             name=body.name,
@@ -495,17 +423,55 @@ async def import_persist(
         await db.commit()
         await db.refresh(project)
 
-        # ── 7. 卷/章入 DB 索引（导入即列表可用，不必等下次重启）──────
-        try:
-            from filesystem.index_volumes_chapters import reindex_project
+        # ── 3. Write volumes & chapters to DB ────────────────────────
+        from chapters import store as chapter_store
+        from repositories import chapter_repo, volume_repo
 
-            await reindex_project(str(project.id))
-        except Exception as e:
-            import logging
-
-            logging.getLogger("uvicorn.error").warning(
-                "reindex_project failed after import: %s", e
+        for vi, vol in enumerate(body.volumes, start=1):
+            vol_row = await volume_repo.upsert(
+                db, project.id, vi, title=vol.title, summary=""
             )
+            vol_row.chapter_count = len(vol.chapters)
+            await db.commit()
+            for ci, ch in enumerate(vol.chapters, start=1):
+                ch_ref = f"vol-{vi}-ch-{ci}"
+                await chapter_repo.upsert(
+                    db, project.id, vol_row.id, chapter_no=ci, ref=ch_ref,
+                    title=ch.title, status="draft",
+                )
+                await db.commit()
+                # 统一写入口：章纲/正文落库 + 元数据派生 + 导入初始快照
+                await chapter_store.save_chapter(
+                    root_path, ch_ref,
+                    {
+                        "volume": vi, "chapter": ci, "title": ch.title,
+                        "status": "draft", "prose": ch.content,
+                    },
+                )
+
+        # ── 4. Genre detection & synopsis extraction (free-tier) ─────
+        try:
+            # 从第一章正文匹配类型（story.yaml 属 settings 族，仍走文件）
+            first_ch = body.volumes[0].chapters[0] if body.volumes else None
+            if first_ch and first_ch.content:
+                from novels.genre_matcher import extract_synopsis, match_genre
+
+                synopsis = extract_synopsis(first_ch.content)
+                genre, confidence = match_genre(first_ch.content)
+                if genre:
+                    storage = get_storage()
+                    await storage.write_yaml(
+                        root_path,
+                        "story.yaml",
+                        {
+                            "synopsis": synopsis,
+                            "genre": genre,
+                            "genre_confidence": confidence,
+                            "genre_source": "auto_detect",
+                        },
+                    )
+        except Exception:
+            pass  # 非关键，失败不中断导入
 
         return {"id": str(project.id), "name": body.name}
 

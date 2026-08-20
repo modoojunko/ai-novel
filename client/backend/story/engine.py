@@ -44,14 +44,11 @@ class DeductionEngine:
 
         self.stage.terrain = self._get_nested(world, "geography.scenes", "")
 
-        # Load chapter outline if specified
+        # Load chapter outline if specified（章族入库：DB 统一读入口）
         if chapter_ref:
-            chapter = (
-                await get_storage().read_yaml(
-                    self.root_path, f"chapters/{chapter_ref}.yaml"
-                )
-                or {}
-            )
+            from workflow.engine import load_chapter
+
+            chapter = await load_chapter(self.root_path, chapter_ref) or {}
             outline = chapter.get("outline", {})
             if isinstance(outline, dict):
                 self.stage.terrain = self.stage.terrain or outline.get("location", "")

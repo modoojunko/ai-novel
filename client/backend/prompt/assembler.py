@@ -51,7 +51,9 @@ async def assemble_segment_prompt(
     from prompts import load as load_prompt
 
     _validate_ref(chapter_ref)
-    chapter = await get_storage().read_yaml(root_path, f"chapters/{chapter_ref}.yaml")
+    from workflow.engine import load_chapter
+
+    chapter = await load_chapter(root_path, chapter_ref)
     style = await get_storage().read_yaml(root_path, "settings/writing-style.yaml")
     anti_ai = await get_storage().read_yaml(root_path, "settings/anti-ai.yaml")
     threads = await get_storage().read_yaml(root_path, "threads.yaml")
@@ -120,7 +122,9 @@ async def assemble_all_segments(
     root_path: str, chapter_ref: str, novel_title: str = ""
 ) -> list[str]:
     _validate_ref(chapter_ref)
-    chapter = await get_storage().read_yaml(root_path, f"chapters/{chapter_ref}.yaml")
+    from workflow.engine import load_chapter
+
+    chapter = await load_chapter(root_path, chapter_ref)
     segments = chapter.get("segments", [])
     prompts = []
     for i in range(len(segments)):
