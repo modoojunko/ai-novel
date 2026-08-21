@@ -9,7 +9,8 @@ import { test, expect, type Page, type APIRequestContext, type Dialog } from "@p
 //   ② 写作风格：StyleSettingForm 真实表单（叙事身份 Field + 核心原则 tab ListEditor）
 //   ③ AI痕迹：AntiAiSettingForm 真实表单（疲劳词分类 ListEditor）
 //   ④ 角色：CharacterManager 真实创建角色（创建弹窗 → 基本信息 → 保存）
-//   ⑤ 归档阅读器：正文归档 → 预览小说 → 标题搜索命中/未命中 → 阅读器内容 → 编辑回工作台
+//   ⑤ 归档阅读器（纯阅读布局）：正文归档 → 预览小说左树卷章结构 → 默认定档/
+//      最近阅读恢复 → 搜索 → 前后章 → 编辑正文回工作台 → 恢复编辑（归档管理迁至正文编辑页）
 // =========================================================================
 // 与 creation-flow.spec.ts 共享鉴权与设定确认手法；与 free-writing-flow.spec.ts
 // 共享归档/正文工作台手法。前置条件：docker 4 服务已启动。
@@ -123,6 +124,24 @@ async function apiGetJSON(request: APIRequestContext, token: string, path: strin
     headers: { Authorization: `Bearer ${token}` },
   });
   expect(r.ok()).toBeTruthy();
+  return r.json();
+}
+
+/** 带 Bearer token 的 API POST 并解析 JSON。 */
+async function apiPostJSON(
+  request: APIRequestContext,
+  token: string,
+  path: string,
+  data: unknown,
+) {
+  const r = await request.post(`${ORIGIN}/api${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data,
+  });
+  expect(
+    r.ok(),
+    `${path} → ${r.status()}: ${r.status() >= 400 ? await r.text() : ""}`,
+  ).toBeTruthy();
   return r.json();
 }
 
@@ -359,15 +378,16 @@ test("角色：真实创建角色（创建弹窗 → 基本信息 → 保存 →
 });
 
 // -------------------------------------------------------------------------
-// ⑤ 归档阅读器：正文归档 → 预览小说 → 搜索命中/未命中 → 阅读器 → 编辑回工作台
+// ⑤ 归档阅读器（纯阅读布局）：左树卷章结构 + 阅读区 + 恢复编辑迁至正文编辑页
 // -------------------------------------------------------------------------
 
-test("归档阅读器：预览小说 → 搜索命中/未命中 → 阅读内容 → 编辑回工作台", async ({
+test("归档阅读器：左树卷章 → 默认/最近阅读定档 → 搜索 → 恢复编辑回工作台", async ({
   page,
+  request,
 }) => {
   // PRO(trial) 真实用户路径：直接写第一章（phase 停在 outline）→ 归档。
   // archive 端点为内容驱动（≥100 字已校验），phase 仅记账 force 置 archive，不 500。
-  const { restore } = await setupSession(page, "trial");
+  const { restore, token } = await setupSession(page, "trial");
   try {
     const pid = await createNovel(page, `归档读${Date.now() % 100000}`);
     const editor = await writeFirstChapter(page);
@@ -380,7 +400,30 @@ test("归档阅读器：预览小说 → 搜索命中/未命中 → 阅读内容
     );
     await expect(page.getByText("已保存").first()).toBeVisible({ timeout: 8000 });
 
-    // 归档 → 只读 + 树 📦 同步。trial 会员首次归档连弹两个 confirm
+    // API 备料：第二章直接 API 归档（阅读顺序/最近阅读用，ai_summary=false 不烧 AI），
+    // 第三章仅建章不归档（左树「未归档」灰显用）。须先于 UI 归档——归档事件会
+    // 触发 wb.refresh，卷章列表一次拉全三章。
+    await apiPostJSON(request, token, `/novels/${pid}/volumes/vol-1/chapters`, {
+      title: "风起渡口",
+    });
+    await apiPostJSON(
+      request,
+      token,
+      `/novels/${pid}/chapters/vol-1-ch-2/archive`,
+      {
+        full_text:
+          "渡口的雾还没散尽，船家已经解开了缆绳。林晚把那封匿名信折好收进怀里，" +
+            "回头望了一眼雾中的城墙。船身随浪晃动，她攥紧了船舷的木栏。" +
+            "这一去便再无退路，荒庙里的答案，值得她赌上一切去换。" +
+            "这段内容同样足够长，以满足归档接口对正文长度的校验要求，避免四百错误。",
+        ai_summary: false,
+      },
+    );
+    await apiPostJSON(request, token, `/novels/${pid}/volumes/vol-1/chapters`, {
+      title: "雾中城",
+    });
+
+    // 归档第一章 → 只读 + 树 📦 同步。trial 会员首次归档连弹两个 confirm
     // （#152：AI 摘要额度提示 + 确认归档），免费档只有后者——接受步骤内全部 dialog
     const onDlg = (d: Dialog) => d.accept();
     page.on("dialog", onDlg);
@@ -392,47 +435,61 @@ test("归档阅读器：预览小说 → 搜索命中/未命中 → 阅读内容
     } finally {
       page.off("dialog", onDlg);
     }
-    await expect(page.locator("aside").getByText("📦")).toBeVisible({
+    // 树 📦 即时同步：第一章（UI 归档）+ 第二章（API 备料归档）共 2 枚
+    await expect(page.locator("aside").getByText("📦")).toHaveCount(2, {
       timeout: 5000,
     });
 
-    // 预览小说 → 归档页：标题 + 卷分组按钮（含归档章数）。
-    // 工作台在预览态常驻挂载（hidden），章页位置行也含「第1卷」文本 → 按钮角色精确命中分组头
+    // 预览小说 → 纯阅读布局：默认定档第一个已归档章（首次进入，无 localStorage）
     await page.getByRole("button", { name: "预览小说" }).click();
-    await expect(page.getByRole("heading", { name: "归档", exact: true })).toBeVisible({
-      timeout: 10000,
-    });
-    await expect(page.getByRole("button", { name: "第1卷 1章" })).toBeVisible();
-
-    // 标题搜索命中
-    const search = page.getByPlaceholder("搜索章节标题...");
-    await search.fill("第一章");
-    await expect(page.getByRole("button", { name: "阅读" })).toBeVisible();
-
-    // 标题搜索未命中
-    await search.fill("zzz不存在的章节");
-    await expect(page.getByText(/没有找到匹配/)).toBeVisible();
-    await expect(page.getByRole("button", { name: "阅读" })).toHaveCount(0);
-
-    // 清空恢复 → 阅读 → 阅读器：标题 + 正文内容 + 编辑按钮
-    await search.fill("");
-    await expect(page.getByRole("button", { name: "阅读" })).toBeVisible();
-    await page.getByRole("button", { name: "阅读" }).click();
-    await expect(page.getByRole("heading", { name: "第一章", exact: true })).toBeVisible({
-      timeout: 10000,
-    });
+    await expect(
+      page.getByRole("heading", { name: "第一章", exact: true }),
+    ).toBeVisible({ timeout: 10000 });
     // 阅读器正文：工作台在预览态常驻挂载（hidden），PR2 归档章只读渲染同为
     // p + flex-1.overflow-y-auto 容器 → 加 :visible 限定当前展示的阅读器正文
     await expect(
       page.locator(".flex-1.overflow-y-auto p:visible", { hasText: "旧城墙头" }),
     ).toBeVisible();
-    // 3 label 顶栏含「编辑设定/编辑正文」→ exact 命中阅读器「编辑」
+
+    // 左树：全部卷章结构（2/3 已归档）；未归档章灰显「未归档」
+    const tree = page.getByTestId("preview-tree");
+    await expect(tree.getByText("2/3")).toBeVisible({ timeout: 10000 });
+    await expect(tree.getByText("未归档")).toBeVisible();
+
+    // 点第二章 → 阅读区切换（前后章走已归档章全书顺序，未归档不可点）
+    await tree.getByRole("button", { name: /第2章 风起渡口/ }).click();
+    await expect(page.getByRole("heading", { name: "风起渡口" })).toBeVisible({
+      timeout: 10000,
+    });
     await expect(
-      page.getByRole("button", { name: "编辑", exact: true }),
+      page.locator(".flex-1.overflow-y-auto p:visible", { hasText: "渡口的雾" }),
     ).toBeVisible();
 
-    // 编辑 → 回工作台（树 + 章页恢复）
-    await page.getByRole("button", { name: "编辑", exact: true }).click();
+    // 最近阅读恢复（localStorage 持久化）：离开预览 → 重进（懒挂载重挂）→ 仍停在第二章
+    await page.getByRole("button", { name: "编辑正文" }).click();
+    await page.getByRole("button", { name: "预览小说" }).click();
+    await expect(page.getByRole("heading", { name: "风起渡口" })).toBeVisible({
+      timeout: 10000,
+    });
+
+    // 前后章导航：上一章回第一章；首章上一章禁用
+    await page.getByRole("button", { name: "◀ 上一章" }).click();
+    await expect(
+      page.getByRole("heading", { name: "第一章", exact: true }),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("button", { name: "◀ 上一章" })).toBeDisabled();
+
+    // 标题搜索：命中未归档章（仍灰显不可读）；未命中空态
+    const search = page.getByPlaceholder("搜索章节标题...");
+    await search.fill("雾中城");
+    await expect(tree.getByText(/第3章 雾中城/)).toBeVisible();
+    await expect(tree.getByRole("button", { name: /第1章/ })).toHaveCount(0);
+    await search.fill("zzz不存在的章节");
+    await expect(tree.getByText("没有找到匹配的章节")).toBeVisible();
+    await search.fill("");
+
+    // 编辑正文（顶栏）→ 回工作台（预览页无编辑入口；工作台常驻挂载保选中）
+    await page.getByRole("button", { name: "编辑正文" }).click();
     await expect(page.locator("aside").getByText("第一卷")).toBeVisible({
       timeout: 10000,
     });
@@ -444,6 +501,25 @@ test("归档阅读器：预览小说 → 搜索命中/未命中 → 阅读内容
     await expect(
       page.getByPlaceholder("正文（在此撰写小说内容）"),
     ).toHaveCount(0);
+
+    // 恢复编辑（归档管理迁至正文编辑页）：confirm → 可编辑 + 树 📦 撤下
+    page.once("dialog", (d) => d.accept());
+    await page.getByRole("button", { name: "恢复编辑" }).click();
+    await expect(
+      page.getByPlaceholder("正文（在此撰写小说内容）"),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("本章已归档，正文为只读状态")).toHaveCount(0);
+    // 树 📦 只剩 API 归档的第二章（第一章恢复后撤下）
+    await expect(page.locator("aside").getByText("📦")).toHaveCount(1);
+
+    // 再次进入预览（懒挂载重挂）→ 恢复最近阅读章（localStorage 持久化）
+    await page.getByRole("button", { name: "预览小说" }).click();
+    await expect(page.getByRole("heading", { name: "风起渡口" })).toBeVisible({
+      timeout: 10000,
+    });
+    // 第一章恢复后灰显：已归档 1/3
+    await expect(tree.getByText("1/3")).toBeVisible({ timeout: 10000 });
+    await expect(tree.getByText("未归档")).toHaveCount(2);
   } finally {
     restore();
   }

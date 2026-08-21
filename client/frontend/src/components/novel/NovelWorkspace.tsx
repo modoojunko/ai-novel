@@ -113,8 +113,8 @@ export default function NovelWorkspace() {
         <div className="flex-1 min-h-0">
           <ArchivePage
             projectId={project?.id ?? ""}
-            projectName={project?.name ?? ""}
-            onNavigateToEditor={(ref) => go("workbench", { focusRef: ref })}
+            volumes={wb.volumes}
+            onRefresh={wb.refresh}
             onBack={() => go("workbench")}
           />
         </div>

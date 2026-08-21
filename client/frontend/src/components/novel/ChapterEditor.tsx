@@ -14,6 +14,7 @@ import {
   Archive,
   Eye,
   EyeOff,
+  RotateCcw,
   Search,
   Sparkles,
 } from "lucide-react";
@@ -84,6 +85,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
       setProse,
       retry,
       archive,
+      unarchive,
       reload,
       loading,
       error,
@@ -101,6 +103,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
     const [qcLoading, setQcLoading] = useState(false);
     const [qcResults, setQcResults] = useState<any>(null);
     const [archiving, setArchiving] = useState(false);
+    const [unarchiving, setUnarchiving] = useState(false);
 
     // -----------------------------------------------------------------------
     // AI auxiliary writing state
@@ -464,6 +467,33 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
     const locked = status === "confirmed" || isArchived;
 
     // -----------------------------------------------------------------------
+    // Unarchive handler（恢复归档迁至正文编辑页，预览页纯阅读）
+    // -----------------------------------------------------------------------
+
+    const handleUnarchive = useCallback(async () => {
+      if (!window.confirm("确认恢复本章为可编辑状态？已归档的全文将撤下。")) return;
+      setUnarchiving(true);
+      await unarchive();
+      setUnarchiving(false);
+    }, [unarchive]);
+
+    const restoreButton = (
+      <button
+        onClick={handleUnarchive}
+        disabled={unarchiving}
+        className="btn btn-ghost btn-xs gap-1 text-info hover:text-info disabled:opacity-30"
+        title="撤下归档，恢复为可编辑章节"
+      >
+        {unarchiving ? (
+          <span className="loading loading-spinner loading-xs" />
+        ) : (
+          <RotateCcw className="w-3 h-3" />
+        )}
+        恢复编辑
+      </button>
+    );
+
+    // -----------------------------------------------------------------------
     // Compute cursor-split text for continue streaming display
     // -----------------------------------------------------------------------
 
@@ -511,10 +541,15 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
     if (focusMode) {
       return (
         <div className="h-full flex flex-col bg-base-100">
-          {/* Locked 提示条（已确认/已归档均只读） */}
+          {/* Locked 提示条（已确认/已归档均只读；归档条附恢复编辑入口） */}
           {locked && (
-            <div className="px-4 py-1.5 text-xs bg-info/10 text-info border-b border-info/20">
-              {isArchived ? "📦 本章已归档，正文为只读状态" : "✅ 本章已确认，正文为只读状态"}
+            <div className="px-4 py-1.5 text-xs bg-info/10 text-info border-b border-info/20 flex items-center justify-between gap-2">
+              <span>
+                {isArchived
+                  ? "📦 本章已归档，正文为只读状态"
+                  : "✅ 本章已确认，正文为只读状态"}
+              </span>
+              {isArchived && restoreButton}
             </div>
           )}
 
@@ -551,8 +586,9 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
       <div className="max-w-3xl mx-auto px-6 pb-8 space-y-5">
         {/* ── Locked 提示条 ─────────────────────────────────────────── */}
         {isArchived && (
-          <div className="px-3 py-1.5 text-xs bg-info/10 text-info border border-info/20 rounded-lg">
-            📦 本章已归档，正文为只读状态
+          <div className="px-3 py-1.5 text-xs bg-info/10 text-info border border-info/20 rounded-lg flex items-center justify-between gap-2">
+            <span>📦 本章已归档，正文为只读状态</span>
+            {restoreButton}
           </div>
         )}
         {status === "confirmed" && (
