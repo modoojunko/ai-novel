@@ -83,6 +83,9 @@ export function useWorkbench(): UseWorkbenchReturn {
 
   const selectedRefRef = useRef<string | null>(null);
   selectedRefRef.current = selectedRef;
+  // 删卷后清选中用：卷选中时 selectedRef 为空，需对照 selectedId
+  const selectedIdRef = useRef<string | null>(null);
+  selectedIdRef.current = selectedId;
 
   // -----------------------------------------------------------------------
   // Load volumes（DB 全量树：GET /volumes 一次返回卷+章元数据，change 006）
@@ -300,7 +303,10 @@ export function useWorkbench(): UseWorkbenchReturn {
           }
         } else {
           await api.delete(`/novels/${projectId}/volumes/${nodeId}`);
-          if (selectedRefRef.current?.startsWith(nodeId)) {
+          if (
+            selectedRefRef.current?.startsWith(nodeId) ||
+            selectedIdRef.current === nodeId
+          ) {
             setSelectedId(null);
             setSelectedRef(null);
           }
