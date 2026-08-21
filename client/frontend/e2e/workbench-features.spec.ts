@@ -4,12 +4,14 @@ import { randomUUID } from "crypto";
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 
 // =========================================================================
-// 工作台非 AI 功能 E2E（补测 011：章纲 / 卷抽屉 / 聚焦模式 / 提示词面板）
-//   ① 章纲：选中章 → 章纲子 label → OutlineEditor 真实表单编辑 + 保存
-//   ② 卷抽屉：点卷节点 → 右侧覆盖面板 → 卷名/卷纲编辑 + 保存 + Esc 关闭
+// 工作台非 AI 功能 E2E（补测 011，PR1/PR2 改版后适配：章页页级 tab / 卷工作台 / 聚焦 / 提示词）
+//   ① 章纲：选中章 → 章页「章纲」tab → OutlineEditor 真实表单编辑 + 保存
+//   ② 卷工作台（PR1 去抽屉）：点卷节点 → 主区内联卷页查看/编辑 + 保存
 //   ③ 聚焦模式：专注隐藏左树 + Esc 退出
-//   ④ 提示词面板：PRO-only 子 label；当前章过滤 + 空态 + API 种子后查看/编辑（非 AI 链路）
-//   ⑤ 免费态提示词子 label 不可见（TierGate feature="prompt-panel"）
+//   ④ 提示词面板：章页「提示词」tab；当前章过滤 + 空态 + API 种子后查看/编辑（非 AI 链路）
+//   ⑤ 免费态三 tab 入口均可见（#152 口径：入口可见、使用需会员）
+//   ⑥ PR2 默认 tab 矩阵：新章→章纲；确认·免费→正文；确认·付费→提示词；有正文→正文
+//      （付费信号 /auth/devices/current 路由打桩）+ 右栏章信息/前后章导航
 // =========================================================================
 // 与 creation-flow.spec.ts 共享鉴权手法：S端 真实注册登录 → 写 docker 容器的
 // config.json（tier="trial" 为 PRO）→ localStorage 注入 auth_token。
@@ -99,9 +101,10 @@ async function createNovel(page: Page, name: string): Promise<string> {
   return m[1];
 }
 
-/** 直接写第一章（弹窗版）→ 编辑器就绪（选中章 → 上下文行出现 正文/章纲/提示词 子 label）。
+/** 直接写第一章（弹窗版）→ 编辑器就绪（选中章 → 章页页级 tab 章纲/提示词/正文，PR2）。
  *  无卷先弹「新建卷」（链式）再弹「新建章」，名称必填即标题。
- *  填默认形态名称（第一卷/第一章）→ 树上显示与旧默认标题一致，下游断言不动。 */
+ *  填默认形态名称（第一卷/第一章）→ 树上显示与旧默认标题一致，下游断言不动。
+ *  PR2：新章默认落「章纲」tab（按进度推进）→ 点「正文」tab 进编辑器。 */
 async function writeFirstChapter(page: Page) {
   await page.getByRole("button", { name: /直接写第一章/ }).click();
   const volName = page.getByLabel("卷名");
@@ -112,6 +115,7 @@ async function writeFirstChapter(page: Page) {
   await expect(chName).toBeVisible({ timeout: 5000 });
   await chName.fill("第一章");
   await page.getByRole("button", { name: "创建", exact: true }).click();
+  await page.getByRole("button", { name: "正文", exact: true }).click();
   const editor = page.getByPlaceholder("正文（在此撰写小说内容）");
   await expect(editor).toBeVisible({ timeout: 10000 });
   return editor;
@@ -161,7 +165,7 @@ test("章纲：OutlineEditor 真实表单编辑 + 保存（tab 切换 + 列表�
     const pid = await createNovel(page, `章纲${Date.now() % 100000}`);
     await writeFirstChapter(page);
 
-    // 进入章纲子 label
+    // 进入章页「章纲」tab
     await page.getByRole("button", { name: "章纲" }).click();
     await expect(page.getByText(/细化章节细纲/)).toBeVisible({ timeout: 10000 });
 
@@ -207,46 +211,48 @@ test("章纲：OutlineEditor 真实表单编辑 + 保存（tab 切换 + 列表�
 });
 
 // -------------------------------------------------------------------------
-// ② 卷抽屉：点卷节点 → 右侧覆盖面板 → 卷名/卷纲编辑 + 保存 + Esc 关闭
+// ② 卷工作台（PR1 去抽屉）：点卷节点 → 主区内联卷页查看/编辑 + 保存
 // -------------------------------------------------------------------------
 
-test("卷抽屉：点卷节点弹抽屉 → 卷名/卷纲编辑 + 保存 + Esc 关闭", async ({
+test("卷工作台：点卷节点 → 内联卷页查看态 → 编辑卷名/简述 → 保存", async ({
   page,
   request,
 }) => {
   const { restore, token } = await setupSession(page);
   try {
-    const pid = await createNovel(page, `卷抽屉${Date.now() % 100000}`);
+    const pid = await createNovel(page, `卷页${Date.now() % 100000}`);
     await writeFirstChapter(page);
 
-    // 点卷节点 → 右侧抽屉弹出（含「卷纲」头部与「关闭」按钮）
+    // 点卷节点 → 主区变卷工作台页（无抽屉弹层）；默认查看态 + [✎ 编辑] 入口
     await page.locator("aside").getByText("第一卷").click();
-    const drawer = page.locator('aside[class*="w-[400px]"]');
-    await expect(drawer).toBeVisible();
-    await expect(drawer.getByText("卷纲").first()).toBeVisible();
-    await expect(drawer.getByRole("button", { name: "关闭" })).toBeVisible();
+    await expect(page.getByText("卷故事简述")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("本卷章节")).toBeVisible();
+    await expect(page.locator('aside[class*="w-[400px]"]')).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "编辑", exact: true }),
+    ).toBeVisible();
 
-    // 编辑卷名 + 卷纲
-    await drawer.getByPlaceholder("卷名").fill("第一卷·风起");
-    await drawer
-      .getByPlaceholder("卷纲（概述本卷情节走向）")
+    // 点「编辑」进入编辑态：卷名 + 卷简述
+    await page.getByRole("button", { name: "编辑", exact: true }).click();
+    await page.getByPlaceholder("卷名").fill("第一卷·风起");
+    await page
+      .getByPlaceholder("一段话讲清本卷讲什么")
       .fill("第一卷铺垫主角妹妹失踪的悬念，收尾进入边城。");
 
-    // 保存 → PUT /volumes/vol-1.yaml
+    // 保存 → PUT /volumes/vol-1 → 回查看态，标题已更新
     const volSave = page.waitForResponse(
       (r) =>
         r.request().method() === "PUT" &&
-        r.url().includes("/volumes/vol-1.yaml"),
+        r.url().includes("/volumes/vol-1"),
     );
-    await drawer.getByRole("button", { name: "保存", exact: true }).click();
+    await page.getByRole("button", { name: /保存/ }).click();
     await volSave;
-
-    // Esc 关闭抽屉
-    await page.keyboard.press("Escape");
-    await expect(drawer).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "第一卷·风起" }),
+    ).toBeVisible({ timeout: 5000 });
 
     // 后端直查
-    const vol = await apiGetJSON(request, token, `/novels/${pid}/volumes/vol-1.yaml`);
+    const vol = await apiGetJSON(request, token, `/novels/${pid}/volumes/vol-1`);
     expect(vol.title).toBe("第一卷·风起");
     expect(vol.summary).toContain("妹妹失踪");
   } finally {
@@ -307,7 +313,7 @@ test("提示词面板：当前章过滤 + 种子提示词查看/编辑/已修改
     );
     expect(seed.ok()).toBeTruthy();
 
-    // 进入提示词子 label → 当前章自动展开，显示种子段落
+    // 进入章页「提示词」tab → 当前章自动展开，显示种子段落
     await page.getByRole("button", { name: "提示词" }).click();
     await expect(page.getByText("提示词管理")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("段落 1")).toBeVisible({ timeout: 10000 });
@@ -355,6 +361,135 @@ test("免费态：正文/章纲/提示词入口均可见（#152 入口可见口�
     await expect(page.getByRole("button", { name: "章纲" })).toBeVisible();
     // 提示词不再 TierGate 隐藏——免费可见入口，点击使用时由后端 member_required 拦截
     await expect(page.getByRole("button", { name: "提示词" })).toBeVisible();
+  } finally {
+    restore();
+  }
+});
+
+// -------------------------------------------------------------------------
+// ⑥ PR2 默认 tab 矩阵：新章→章纲；已确认·免费→正文；已确认·付费→提示词；有正文→正文
+// -------------------------------------------------------------------------
+
+test("默认tab矩阵：按进度推进 + 付费分流 + 章信息/前后章导航", async ({
+  page,
+  request,
+}) => {
+  // 付费分流读 activated（设备激活），与会员 tier 是两个信号。为避免「免费 token +
+  // activated 打桩」的矛盾组合在行③落提示词 tab 时触发 member_required 弹窗（真实
+  // 付费用户必是会员），本用例用 trial 会员 + 注入 ApiConfig：prompts 探测/提示词页
+  // 均返回 200 空列表，弹窗与 503 跳转都不发生；免费行为由 activated=false 打桩表达。
+  const { restore, token } = await setupSession(page);
+  try {
+    await ensurePromptAccess(request, token);
+
+    // 付费信号打桩：默认 tab 的提示词/正文分流读 /auth/devices/current（C端 后端
+    // 代理真 S端 设备态，e2e 随机 pc_hash 恒为 activated=false）→ 拦截按需返回
+    let activatedStub = false;
+    await page.route("**/api/auth/devices/current", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          enrolled: true,
+          activated: activatedStub,
+          device_count: 1,
+          active_limit: 3,
+        }),
+      }),
+    );
+
+    const pid = await createNovel(page, `矩阵${Date.now() % 100000}`);
+
+    // 建卷+章后停在新章默认落点（不走 writeFirstChapter——它点正文）
+    await page.getByRole("button", { name: /直接写第一章/ }).click();
+    const volName = page.getByLabel("卷名");
+    await expect(volName).toBeVisible({ timeout: 5000 });
+    await volName.fill("第一卷");
+    await page.getByRole("button", { name: "创建", exact: true }).click();
+    const chName = page.getByLabel("章名");
+    await expect(chName).toBeVisible({ timeout: 5000 });
+    await chName.fill("第一章");
+    await page.getByRole("button", { name: "创建", exact: true }).click();
+
+    // 页级 tab 激活态 = bg-base-300（TabProgressButton active 样式）
+    const tabBtn = (label: string) =>
+      page.getByRole("button", { name: label, exact: true });
+
+    // 行①：新章（未确认/无提示词/无正文）→ 章纲
+    await expect(tabBtn("章纲")).toHaveClass(/bg-base-300/, { timeout: 10000 });
+    await expect(page.getByText(/细化章节细纲/)).toBeVisible();
+
+    // API 备好过 gate 的章纲（核心任务/读者状态/预期策略/必须变化/主情绪/段落规划）→ 完成设定
+    const auth = { Authorization: `Bearer ${token}` };
+    const ready = (await apiGetJSON(
+      request,
+      token,
+      `/novels/${pid}/chapters/vol-1-ch-1`,
+    )) as Record<string, unknown>;
+    ready.memo = {
+      current_task: "查明妹妹失踪的真相",
+      reader_expectation: {
+        state: "担忧妹妹安危",
+        strategy: "抛出线索钩子",
+        detail: "",
+      },
+      required_changes: ["找到匿名信的来源"],
+    };
+    ready.emotional_design = { primary_mood: "悬疑" };
+    ready.segments = [{ summary: "城门口收到匿名信", target_words: 1000 }];
+    const put = await request.put(
+      `${ORIGIN}/api/novels/${pid}/chapters/vol-1-ch-1`,
+      { data: ready, headers: auth },
+    );
+    expect(put.ok()).toBeTruthy();
+    const confirm = await request.post(
+      `${ORIGIN}/api/novels/${pid}/chapters/vol-1-ch-1/confirm`,
+      { headers: auth },
+    );
+    expect(confirm.ok()).toBeTruthy();
+
+    // 章页重挂载（卷↔章切换）→ 默认 tab 重新按进度计算
+    const tree = page.getByTestId("workbench-tree");
+    const remount = async () => {
+      await tree.getByText("第一卷").click();
+      await expect(page.getByText("卷故事简述")).toBeVisible({ timeout: 5000 });
+      await tree.getByText("第一章").click();
+      await expect(page.getByText(/第1卷 · 本卷第1章/)).toBeVisible({
+        timeout: 5000,
+      });
+    };
+
+    // 行②：已确认 + 免费（activated=false）→ 正文；提示词入口仍可见
+    await remount();
+    await expect(tabBtn("正文")).toHaveClass(/bg-base-300/, { timeout: 10000 });
+    await expect(tabBtn("提示词")).toBeVisible();
+
+    // 行③：已确认 + 付费（activated=true）→ 提示词
+    activatedStub = true;
+    await remount();
+    await expect(tabBtn("提示词")).toHaveClass(/bg-base-300/, {
+      timeout: 10000,
+    });
+
+    // 行④：已有正文 → 正文（优先级高于确认+付费）
+    const prose = await request.put(
+      `${ORIGIN}/api/novels/${pid}/chapters/vol-1-ch-1/prose`,
+      {
+        data: { prose: "旧城墙头的风沙穿过坍塌的垛口，林晚攥着那封匿名信。" },
+        headers: auth,
+      },
+    );
+    expect(prose.ok()).toBeTruthy();
+    await remount();
+    await expect(tabBtn("正文")).toHaveClass(/bg-base-300/, { timeout: 10000 });
+
+    // 右栏章信息（PR2）：状态/字数/位置 + 前后章导航（单章两者禁用）
+    await expect(page.getByText("章信息", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "上一章" }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "下一章" }),
+    ).toBeDisabled();
   } finally {
     restore();
   }

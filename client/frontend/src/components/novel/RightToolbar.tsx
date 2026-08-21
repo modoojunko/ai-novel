@@ -11,11 +11,18 @@ import {
   GitBranch,
   Sigma,
   FileText,
+  Info,
+  ChevronLeft,
+  ChevronRight,
   Redo,
   RefreshCw,
   BookOpen,
 } from "lucide-react";
 import type { SelectionCapture } from "@/lib/selection";
+import { computeChapterPosition } from "@/lib/chapterPosition";
+import { useChapterData } from "@/hooks/useChapterData";
+import type { WorkbenchVolume } from "@/hooks/useWorkbench";
+import { ChapterStatusBadge } from "./statusBadge";
 import Section from "./CollapsibleSection";
 
 // ---------------------------------------------------------------------------
@@ -25,6 +32,9 @@ import Section from "./CollapsibleSection";
 interface RightToolbarProps {
   projectId: string;
   chapterRef: string;
+  // 章信息（PR2）：位置/前后章导航
+  volumes: WorkbenchVolume[];
+  onFocusNode: (ref: string) => void;
   // AI Writing
   hasSelection: boolean;
   selectedText: string;
@@ -51,6 +61,8 @@ interface Version {
 export default function RightToolbar({
   projectId,
   chapterRef,
+  volumes,
+  onFocusNode,
   hasSelection,
   selectedText,
   onContinue,
@@ -64,6 +76,10 @@ export default function RightToolbar({
   // ---- Version list state ----
   const [versions, setVersions] = useState<Version[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(true);
+
+  // ---- 章信息：live 状态/字数（与编辑器共享同一 ChapterStore） ----
+  const { status, wordCount } = useChapterData(projectId, chapterRef);
+  const position = computeChapterPosition(volumes, chapterRef);
 
   // ---- Deduction state (simplified - moved from DeductionPanel) ----
   const [deductionId, setDeductionId] = useState<string | null>(null);
@@ -169,6 +185,53 @@ export default function RightToolbar({
 
   return (
     <aside className="w-64 flex-shrink-0 border-l border-base-200/80 bg-base-100/50 overflow-y-auto flex flex-col">
+      {/* ── 章信息（PR2）：状态/字数/位置 + 前后章导航 ─────────────── */}
+      <Section
+        title="章信息"
+        icon={<Info className="w-3.5 h-3.5 text-base-content/50" />}
+      >
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-base-content/50">状态</span>
+            <ChapterStatusBadge status={status} />
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-base-content/50">字数</span>
+            <span className="text-base-content/80 tabular-nums">
+              {wordCount.toLocaleString()}
+            </span>
+          </div>
+          {position && (
+            <>
+              <div className="text-xs text-base-content/50 leading-relaxed tabular-nums">
+                第{position.volumeNo}卷 · 本卷第{position.inVolumeIndex + 1}/
+                {position.inVolumeTotal}章
+                <br />
+                全书第{position.globalIndex + 1} / 共{position.totalChapters}章
+              </div>
+              <div className="flex gap-1.5 pt-1">
+                <button
+                  onClick={() => position.prevRef && onFocusNode(position.prevRef)}
+                  disabled={!position.prevRef}
+                  className="flex-1 flex items-center justify-center gap-0.5 px-2 py-1.5 border border-base-200 bg-base-100 rounded-lg text-xs text-base-content/60 hover:text-base-content hover:border-base-300 transition-colors disabled:opacity-30 disabled:hover:border-base-200 disabled:hover:text-base-content/60"
+                >
+                  <ChevronLeft className="w-3 h-3" />
+                  上一章
+                </button>
+                <button
+                  onClick={() => position.nextRef && onFocusNode(position.nextRef)}
+                  disabled={!position.nextRef}
+                  className="flex-1 flex items-center justify-center gap-0.5 px-2 py-1.5 border border-base-200 bg-base-100 rounded-lg text-xs text-base-content/60 hover:text-base-content hover:border-base-300 transition-colors disabled:opacity-30 disabled:hover:border-base-200 disabled:hover:text-base-content/60"
+                >
+                  下一章
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </Section>
+
       {/* ── AI 写作 ────────────────────────────────────────────── */}
       <Section
         title="AI 写作"

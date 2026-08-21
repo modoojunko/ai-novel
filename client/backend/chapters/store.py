@@ -387,7 +387,12 @@ async def save_chapter(root_path: str, chapter_ref: str, data: dict) -> None:
 
         if data.get("title"):
             row.title = str(data["title"])[:200]
+        prose = data.get("prose") or ""
         status = data.get("status") or row.status
+        # 状态机系统维护：首次落非空正文 outline → writing（页面已无状态选择器，
+        # 覆盖正文保存/AI 写本章/续写三条路径——它们都经本统一写入口）
+        if prose.strip() and status == "outline":
+            status = "writing"
         row.status = status
         _disassemble_scalars(row, data)
         for attr in _CHILD_ATTRS:
@@ -395,7 +400,6 @@ async def save_chapter(root_path: str, chapter_ref: str, data: dict) -> None:
         await session.flush()
         _replace_children(row, data)
 
-        prose = data.get("prose") or ""
         row.word_count = count_chars(prose)
         row.has_prose = bool(prose.strip())
         row.outline_status = _derive_outline_status(status, prose)

@@ -1,33 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import ChapterEditor from "./ChapterEditor";
 import type { ChapterEditorHandle, AIWritingState } from "./ChapterEditor";
 import EmptyState from "./EmptyState";
 import WritingTree from "./WritingTree";
 import Breadcrumb from "./Breadcrumb";
 import BottomStatusBar from "./BottomStatusBar";
-import VersionHistory from "./VersionHistory";
-import RightToolbar from "./RightToolbar";
 import CreateNodeModal from "./CreateNodeModal";
 import VolumePage from "./volume/VolumePage";
-import OutlineEditor, {
-  type ChapterData as OutlineChapterData,
-} from "./outline/OutlineEditor";
-import PromptManagementPage from "./PromptManagementPage";
-import TabProgressButton from "./TabProgressButton";
-import type { SelectionCapture } from "@/lib/selection";
+import ChapterPage from "./chapter/ChapterPage";
 import { cnNum, nodeLabel } from "@/lib/nodeTitle";
 import type { TreeNode } from "./StructureTree";
-import type { UseWorkbenchReturn, WorkbenchNode, WorkbenchVolume } from "@/hooks/useWorkbench";
-import type { UseOutlineReturn } from "@/hooks/useOutline";
+import type { UseWorkbenchReturn, WorkbenchVolume } from "@/hooks/useWorkbench";
 import { useOutline } from "@/hooks/useOutline";
 import { useChapterData } from "@/hooks/useChapterData";
 import { Maximize2 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
-// 章选中中部子 label：正文 / 章纲 / 提示词；卷选中 → 卷工作台页（中栏+右栏）
+// 工作台：左树 + 主区。卷选中 → VolumePage（中栏+右栏）；
+// 章选中 → ChapterPage（tab 归章页最外层：章纲→提示词→正文，PR2）。
+// 上下文条只留面包屑 + 专注开关。
 // ---------------------------------------------------------------------------
-
-type ChapterTab = "prose" | "outline" | "prompt";
 
 interface WorkbenchProps {
   /** 由 NovelWorkspace（useWorkbench 唯一调用方）注入 —— 单一数据源 */
@@ -53,11 +44,9 @@ export default function Workbench({ wb }: WorkbenchProps) {
   } = wb;
 
   const [focusMode, setFocusMode] = useState(false);
-  // 版本历史子面板（workbench 右区，非四态视图）：WritingTree / ChapterEditor 触发
+  // 版本历史子面板（正文 tab 内，Workbench 持有）：WritingTree / ChapterEditor 触发
   const [versionRef, setVersionRef] = useState<string | null>(null);
 
-  // ── 章子 label 状态（011） ───────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<ChapterTab>("prose");
   // ── 卷工作台脏标记（ref 不触发渲染，切节点前拦截确认） ────────────────
   const volumeDirtyRef = useRef(false);
 
@@ -80,22 +69,6 @@ export default function Workbench({ wb }: WorkbenchProps) {
     setAIState(state);
   }, []);
 
-  const handleContinue = useCallback(() => {
-    editorRef.current?.handleContinueWriting();
-  }, []);
-
-  const handlePolish = useCallback((capture: SelectionCapture) => {
-    editorRef.current?.handlePolish(capture);
-  }, []);
-
-  const handleExpand = useCallback((capture: SelectionCapture) => {
-    editorRef.current?.handleExpand(capture);
-  }, []);
-
-  const captureNow = useCallback((): SelectionCapture | null => {
-    return editorRef.current?.captureNow() ?? null;
-  }, []);
-
   // ── Focus mode: Esc 全局退出（C6） ──────────────────────────────────
   useEffect(() => {
     if (!focusMode) return;
@@ -109,11 +82,6 @@ export default function Workbench({ wb }: WorkbenchProps) {
   const projectId = project?.id ?? "";
   const outline = useOutline(projectId);
 
-  // 切到非正文子 label 时清除版本历史（版本历史仅属正文）
-  useEffect(() => {
-    if (activeTab !== "prose" && versionRef) setVersionRef(null);
-  }, [activeTab, versionRef]);
-
   // ── 卷编辑态脏守卫：切节点/跳章前确认（VolumePage 上抛 dirty 到 ref） ──
   const guardedLeave = useCallback(() => {
     if (!volumeDirtyRef.current) return true;
@@ -126,12 +94,10 @@ export default function Workbench({ wb }: WorkbenchProps) {
     volumeDirtyRef.current = dirty;
   }, []);
 
-  // ── 节点选择：点章默认落正文；卷编辑脏时先拦截 ────────────────────────
+  // ── 节点选择：卷编辑脏时先拦截 ──────────────────────────────────────
   const handleSelectNode = useCallback(
     (node: TreeNode) => {
       if (node.id !== selectedId && !guardedLeave()) return;
-      const data = node.data as WorkbenchNode | undefined;
-      if (data?.type === "chapter") setActiveTab("prose");
       onSelectNode(node);
     },
     [onSelectNode, selectedId, guardedLeave],
@@ -141,7 +107,6 @@ export default function Workbench({ wb }: WorkbenchProps) {
   const handleChapterJump = useCallback(
     (ref: string) => {
       if (!guardedLeave()) return;
-      setActiveTab("prose");
       focusNode(ref);
     },
     [focusNode, guardedLeave],
@@ -210,7 +175,7 @@ export default function Workbench({ wb }: WorkbenchProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* 上下文行（012 合并）：面包屑 + 章子 label（正文/章纲/提示词）+ 专注开关 */}
+      {/* 上下文行：面包屑 + 专注开关（章子 label 已归 ChapterPage，PR2） */}
       <div className="flex items-center border-b border-base-300 bg-base-100/60">
         <div className="flex-1 min-w-0">
           <Breadcrumb
@@ -228,43 +193,26 @@ export default function Workbench({ wb }: WorkbenchProps) {
           />
         </div>
         {selectedRef && (
-          <>
-            {/* 章子 label（提示词 PRO-only，011） */}
-            <div className="flex items-center gap-1 px-2 shrink-0">
-              <TabProgressButton
-                label="正文"
-                active={activeTab === "prose"}
-                onClick={() => setActiveTab("prose")}
-              />
-              <TabProgressButton
-                label="章纲"
-                active={activeTab === "outline"}
-                onClick={() => setActiveTab("outline")}
-              />
-              <TabProgressButton
-                label="提示词"
-                active={activeTab === "prompt"}
-                onClick={() => setActiveTab("prompt")}
-              />
-            </div>
-            <button
-              onClick={() => setFocusMode((v) => !v)}
-              className={`btn btn-ghost btn-xs gap-1 mr-2 ${
-                focusMode ? "text-primary" : "text-base-content/50"
-              }`}
-              title={focusMode ? "退出专注模式 (Esc)" : "专注模式"}
-            >
-              <Maximize2 className="w-3.5 h-3.5" />
-              {focusMode ? "退出专注" : "专注"}
-            </button>
-          </>
+          <button
+            onClick={() => setFocusMode((v) => !v)}
+            className={`btn btn-ghost btn-xs gap-1 mr-2 ${
+              focusMode ? "text-primary" : "text-base-content/50"
+            }`}
+            title={focusMode ? "退出专注模式 (Esc)" : "专注模式"}
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+            {focusMode ? "退出专注" : "专注"}
+          </button>
         )}
       </div>
 
       <div className="flex flex-1 overflow-hidden">
         {/* 左树：专注模式隐藏 */}
         {!focusMode && (
-          <aside className="w-56 flex-shrink-0 overflow-hidden border-r border-base-300 bg-base-200/30">
+          <aside
+            data-testid="workbench-tree"
+            className="w-56 flex-shrink-0 overflow-hidden border-r border-base-300 bg-base-200/30"
+          >
             <WritingTree
               volumes={volumes}
               selectedId={selectedId}
@@ -283,61 +231,23 @@ export default function Workbench({ wb }: WorkbenchProps) {
 
         {/* 右编辑器区 */}
         <main className="flex-1 min-w-0 flex flex-col">
-          {/* 章子 label 已并入上下文行（012） */}
           <div className={`flex flex-1 min-h-0 ${focusMode ? "" : "overflow-y-auto"}`}>
             {selectedRef ? (
-              activeTab === "prose" ? (
-                <div className="flex h-full gap-0 flex-1">
-                  <div className="flex-1 min-w-0 overflow-y-auto">
-                    {versionRef === selectedRef ? (
-                      <div className="p-4">
-                        <VersionHistory
-                          projectId={projectId}
-                          chapterRef={selectedRef}
-                          onBack={() => setVersionRef(null)}
-                        />
-                      </div>
-                    ) : (
-                      <ChapterEditor
-                        ref={editorRef}
-                        projectId={projectId}
-                        chapterRef={selectedRef}
-                        onShowVersion={() => setVersionRef(selectedRef)}
-                        onAIStateChange={handleAIStateChange}
-                        focusMode={focusMode}
-                      />
-                    )}
-                  </div>
-                  {/* AI 工具栏：入口对所有人可见，使用由后端会员门控拦截（弹升级引导） */}
-                  <RightToolbar
-                    projectId={projectId}
-                    chapterRef={selectedRef}
-                    hasSelection={aiState.hasSelection}
-                    selectedText={aiState.selectedText}
-                    onContinue={handleContinue}
-                    onPolish={handlePolish}
-                    onExpand={handleExpand}
-                    captureNow={captureNow}
-                    continueLoading={aiState.continueLoading}
-                    polishLoading={aiState.polishLoading}
-                    expandLoading={aiState.expandLoading}
-                  />
-                </div>
-              ) : activeTab === "outline" ? (
-                <ChapterOutlinePanel
-                  projectId={projectId}
-                  chapterRef={selectedRef}
-                  outline={outline}
-                  onBack={() => setActiveTab("prose")}
-                />
-              ) : (
-                <div className="flex-1 min-w-0 overflow-y-auto">
-                  <PromptManagementPage
-                    projectId={projectId}
-                    chapterRef={selectedRef}
-                  />
-                </div>
-              )
+              <ChapterPage
+                key={selectedRef}
+                projectId={projectId}
+                chapterRef={selectedRef}
+                volumes={volumes}
+                outline={outline}
+                focusMode={focusMode}
+                showVersion={versionRef === selectedRef}
+                onShowVersion={() => setVersionRef(selectedRef)}
+                onCloseVersion={() => setVersionRef(null)}
+                onFocusNode={focusNode}
+                editorRef={editorRef}
+                aiState={aiState}
+                onAIStateChange={handleAIStateChange}
+              />
             ) : selectedId && /^vol-\d+$/.test(selectedId) ? (
               <VolumePage
                 projectId={projectId}
@@ -400,80 +310,6 @@ export default function Workbench({ wb }: WorkbenchProps) {
 }
 
 // ---------------------------------------------------------------------------
-// 章纲子 label：useOutline 按需加载单章数据 → OutlineEditor（自包含表单）
-// ---------------------------------------------------------------------------
-
-function ChapterOutlinePanel({
-  projectId,
-  chapterRef,
-  outline,
-  onBack,
-}: {
-  projectId: string;
-  chapterRef: string;
-  outline: UseOutlineReturn;
-  onBack: () => void;
-}) {
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [retryKey, setRetryKey] = useState(0);
-  const data = outline.chaptersMap.get(chapterRef);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoadError(null);
-    void outline
-      .loadChapterData(chapterRef)
-      .catch((e: any) => {
-        if (!cancelled) setLoadError(e?.message || "加载章纲失败");
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chapterRef, outline.loadChapterData, retryKey]);
-
-  if (data) {
-    return (
-      <div className="flex-1 min-w-0 overflow-y-auto p-4">
-        <OutlineEditor
-          projectId={projectId}
-          chapterRef={chapterRef}
-          chapterData={data as OutlineChapterData}
-          onSave={outline.saveChapter}
-          onConfirm={outline.confirmChapter}
-          onBack={onBack}
-        />
-      </div>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <div className="flex flex-col flex-1 items-center justify-center gap-4">
-        <p className="text-error text-sm">{loadError}</p>
-        <div className="flex gap-2">
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={() => setRetryKey((k) => k + 1)}
-          >
-            重试
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={onBack}>
-            返回正文
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-1 items-center justify-center">
-      <span className="loading loading-spinner loading-md text-primary" />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // 内联状态栏：桥接 useChapterData 状态到 BottomStatusBar
 // ---------------------------------------------------------------------------
 
@@ -491,7 +327,6 @@ function ChapterStatusBar({
     saveState,
     save,
     retry,
-    status,
   } = useChapterData(projectId, chapterRef);
 
   return (

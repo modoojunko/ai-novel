@@ -53,7 +53,8 @@ interface OutlineEditorProps {
   onRetry?: () => void;
   onSave: (ref: string, data: Partial<ChapterData>) => Promise<void>;
   onConfirm: (ref: string) => Promise<void>;
-  onBack: () => void;
+  /** 可选返回回调：章页 tab 平级切换后不再需要「返回概览」 */
+  onBack?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -273,6 +274,9 @@ export default function OutlineEditor({
   useEffect(() => {
     if (!chapterData) return;
     const fd = extractFormData(chapterData);
+    // Same server content under a new object identity (refetch / StrictMode
+    // double GET): keep the form as-is so a late response can't wipe edits.
+    if (deepEqual(fd, initialSnapshotRef.current)) return;
     setFormData(fd);
     initialSnapshotRef.current = fd;
     setSaveStatus("idle");
@@ -338,8 +342,9 @@ export default function OutlineEditor({
     }
   }, [formData, chapterRef, onSave]);
 
-  // ── Back with dirty confirm ─────────────────────────────────────────
+  // ── Back with dirty confirm（无 onBack 时 tab 平级切换，不渲染返回） ──
   const handleBack = useCallback(() => {
+    if (!onBack) return;
     if (isDirty) {
       if (
         window.confirm(
@@ -490,9 +495,11 @@ export default function OutlineEditor({
               重试
             </button>
           )}
-          <button onClick={onBack} className="btn btn-ghost btn-sm">
-            返回概览
-          </button>
+          {onBack && (
+            <button onClick={onBack} className="btn btn-ghost btn-sm">
+              返回概览
+            </button>
+          )}
         </div>
       </div>
     );
@@ -506,12 +513,16 @@ export default function OutlineEditor({
     <div className="max-w-3xl mx-auto space-y-5">
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
-        <button
-          onClick={handleBack}
-          className="btn btn-ghost btn-sm gap-1.5 text-base-content/60 hover:text-base-content"
-        >
-          ← 返回概览
-        </button>
+        {onBack ? (
+          <button
+            onClick={handleBack}
+            className="btn btn-ghost btn-sm gap-1.5 text-base-content/60 hover:text-base-content"
+          >
+            ← 返回概览
+          </button>
+        ) : (
+          <span className="w-4" />
+        )}
 
         <h2 className="text-lg font-serif font-semibold text-base-content truncate mx-4">
           {titleContext}

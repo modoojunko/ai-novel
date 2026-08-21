@@ -208,6 +208,10 @@ class ChapterStore {
     if (this.saving) return;
     const { prose: p, status: st, chapter: ch } = this.state;
     if (!ch) return;
+    // 与后端 save_chapter 派生同口径：首次落非空正文 outline → writing。
+    // 前端同步派生，否则 status 停留 outline（徽章错）且与 initial 恒不等
+    // → isDirty 恒真 → 防抖保存死循环。
+    const nextStatus = p.trim() && st === "outline" ? "writing" : st;
     this.saving = true;
     this.update({ saveState: "autosaving" });
     try {
@@ -223,11 +227,18 @@ class ChapterStore {
         const latest: ChapterPayload = await api.get(
           `/novels/${this.projectId}/chapters/${this.ref}`,
         );
-        const updated: ChapterPayload = { ...latest, prose: p, status: st };
+        const updated: ChapterPayload = { ...latest, prose: p, status: nextStatus };
         await api.put(`/novels/${this.projectId}/chapters/${this.ref}`, updated);
         this.update({ chapter: updated });
       }
-      this.update({ initial: { prose: p, status: st }, saveState: "saved" });
+      // 以此刻 store 内 chapter 为底（降级路径刚写入含最新 outline 的 updated）
+      const base = this.state.chapter ?? ch;
+      this.update({
+        chapter: { ...base, status: nextStatus },
+        status: nextStatus,
+        initial: { prose: p, status: nextStatus },
+        saveState: "saved",
+      });
     } catch (e: any) {
       this.update({ saveState: "failed", error: e.message || "保存失败" });
     } finally {
