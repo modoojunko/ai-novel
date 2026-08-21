@@ -8,6 +8,8 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
+  // 静默检测超 2s 仍无结果：多半是云端冷启动（MinNum=0 缩容后首次 30-60s），给出提示避免"假死"观感
+  const [checkingSlow, setCheckingSlow] = useState(false);
   const [error, setError] = useState('');
   const [authUrl, setAuthUrl] = useState('');
   const cancelledRef = useRef(false);
@@ -52,6 +54,12 @@ export default function LoginPage() {
   useEffect(() => {
     return () => { cancelledRef.current = true; };
   }, []);
+
+  useEffect(() => {
+    if (!checking) return;
+    const t = setTimeout(() => setCheckingSlow(true), 2000);
+    return () => clearTimeout(t);
+  }, [checking]);
 
   const handleBrowserAuth = async () => {
     setLoading(true);
@@ -118,8 +126,13 @@ export default function LoginPage() {
   if (checking) {
     return (
       <div className="hero min-h-screen bg-base-200">
-        <div className="hero-content text-center">
+        <div className="hero-content text-center flex-col gap-3">
           <span className="loading loading-spinner loading-lg text-primary" />
+          {checkingSlow && (
+            <p className="text-base-content/50 text-sm">
+              正在唤醒云端服务，首次访问约需 30–60 秒，请稍候…
+            </p>
+          )}
         </div>
       </div>
     );
@@ -134,6 +147,11 @@ export default function LoginPage() {
           {loading ? <span className="loading loading-spinner" /> : '打开浏览器登录'}
         </button>
         {error && <p className="text-error text-sm mt-2">{error}</p>}
+        {loading && authUrl && !error && (
+          <p className="text-base-content/50 text-sm mt-2">
+            已打开授权页面，等待登录完成；云端唤醒中，首次可能需要 30–60 秒
+          </p>
+        )}
         {authUrl && error && (
           <button className="btn btn-outline btn-sm mt-3" onClick={retryCheck} disabled={loading}>
             {loading ? <span className="loading loading-spinner" /> : '重新检测'}
