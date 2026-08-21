@@ -1,8 +1,20 @@
+import fs from 'fs';
+import path from 'path';
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'crypto';
 
 // 获取唯一的用户名
 function uid() { return `e2e_${Date.now()}`; }
+
+// C端 本地会话文件（docker bind mount，与其它 spec 共用）
+const CONFIG_PATH = path.join(
+  process.cwd(),
+  '..',
+  '..',
+  '.docker-data',
+  'client',
+  'config.json',
+);
 
 // =========================================================================
 // NOTE: S端 用户 UI 测试（注册、登录）已迁移至 s-end-user.spec.ts
@@ -182,14 +194,30 @@ test.describe('v0.1 用户场景与反馈验证', () => {
   });
 
   test('U6: test-connection 对假 Key 返回 ok=false', async ({ request }) => {
-    const r = await request.post('http://127.0.0.1:8000/api/v1/api-configs/test-connection', {
-      data: { vendor_id: 'deepseek', api_key: 'sk-fake-key-12345', base_url: 'https://api.deepseek.com/anthropic' },
-      headers: { Authorization: 'Bearer dev' }
-    });
-    expect(r.status()).toBe(200);
-    const body = await r.json();
-    expect(body).toHaveProperty('ok');
-    expect(typeof body.ok).toBe('boolean');
+    // auth middleware 要求 Bearer 与 config.json 的 token 一致：先注入 dev 会话
+    // （清掉可能过期的 expires_at），否则一律 401 打不进 test-connection 逻辑
+    const original = fs.readFileSync(CONFIG_PATH, 'utf-8');
+    const cfg = JSON.parse(original);
+    cfg.token = 'dev';
+    cfg.username = 'e2e_u6';
+    cfg.tier = 'trial';
+    cfg.last_login_at = new Date().toISOString();
+    delete cfg.expires_at;
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
+    try {
+      // 走 docker 栈（5174 nginx → 容器后端）：127.0.0.1:8000 常被本地残留
+      // dev server 抢注，会读到另一份 config.json 导致会话注入失效
+      const r = await request.post('http://localhost:5174/api/v1/api-configs/test-connection', {
+        data: { vendor_id: 'deepseek', api_key: 'sk-fake-key-12345', base_url: 'https://api.deepseek.com/anthropic' },
+        headers: { Authorization: 'Bearer dev' }
+      });
+      expect(r.status()).toBe(200);
+      const body = await r.json();
+      expect(body).toHaveProperty('ok');
+      expect(typeof body.ok).toBe('boolean');
+    } finally {
+      fs.writeFileSync(CONFIG_PATH, original);
+    }
   });
 
 });

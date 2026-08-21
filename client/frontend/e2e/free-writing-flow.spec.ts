@@ -62,6 +62,9 @@ function writeFreeSession(t: string, u: string) {
   cfg.token = t;
   cfg.username = u;
   cfg.tier = "none"; // 免费：限 1 部作品，无 AI
+  // docker config.json 可能残留已过去的会员到期日（auth middleware 见 expires_at
+  // 过期即 401「登录已过期」），注入会话必须清掉，否则全部用例秒挂
+  delete cfg.expires_at;
   cfg.last_login_at = new Date().toISOString();
   // 关键：随机 pc_hash 使 S端 check-auth 无该设备 grant（返回 code 1），useAuthHeal 不覆盖
   // config.json，注入 token 保持有效。保留真实 pc_hash 会命中 modoojunko 已授权设备 → 401。
@@ -89,9 +92,19 @@ async function createNovel(page: Page, name: string): Promise<string> {
   return m[1];
 }
 
-/** 直接写第一章 → 编辑器就绪。 */
+/** 直接写第一章（弹窗版）→ 编辑器就绪。
+ *  无卷先弹「新建卷」（链式）再弹「新建章」，名称必填即标题。
+ *  填默认形态名称（第一卷/第一章）→ 树上显示与旧默认标题一致，下游断言不动。 */
 async function writeFirstChapter(page: Page) {
   await page.getByRole("button", { name: /直接写第一章/ }).click();
+  const volName = page.getByLabel("卷名");
+  await expect(volName).toBeVisible({ timeout: 5000 });
+  await volName.fill("第一卷");
+  await page.getByRole("button", { name: "创建", exact: true }).click();
+  const chName = page.getByLabel("章名");
+  await expect(chName).toBeVisible({ timeout: 5000 });
+  await chName.fill("第一章");
+  await page.getByRole("button", { name: "创建", exact: true }).click();
   const editor = page.getByPlaceholder("正文（在此撰写小说内容）");
   await expect(editor).toBeVisible({ timeout: 10000 });
   return editor;
