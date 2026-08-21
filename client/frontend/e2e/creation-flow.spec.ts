@@ -70,6 +70,9 @@ function writeOAuthSession(t: string, u: string, tier = "trial") {
   cfg.token = t;
   cfg.username = u;
   cfg.tier = tier;
+  // docker config.json 可能残留已过去的会员到期日（auth middleware 见 expires_at
+  // 过期即 401「登录已过期」），注入会话必须清掉，否则全部用例秒挂
+  delete cfg.expires_at;
   cfg.last_login_at = new Date().toISOString();
   // 关键：随机 pc_hash 使 S端 check-auth 无该设备 grant（返回 code 1），useAuthHeal 不覆盖
   // config.json，注入 token 保持有效。保留真实 pc_hash 会命中 modoojunko 已授权设备 → 401。
@@ -272,11 +275,37 @@ test("EmptyState 无门控：建书即写，直接写第一章即达编辑器", 
     await expect(page.getByText("设定尚未全部完成")).toHaveCount(0);
     await expect(page.getByText(/尚未完成设定/)).toHaveCount(0);
 
-    // 「直接写第一章」→ 即达编辑器
+    // 「直接写第一章」→ 无卷先弹「新建卷」（链式）：序号只读徽章 + 卷名必填
     await page.getByRole("button", { name: /直接写第一章/ }).click();
+    const volModal = page
+      .locator("h3", { hasText: "新建卷" })
+      .locator("xpath=ancestor::div[1]");
+    await expect(volModal).toBeVisible({ timeout: 5000 });
+    await expect(volModal.getByText("第一卷", { exact: true })).toBeVisible();
+    await expect(volModal.getByText("自动排定")).toBeVisible();
+    const volCreate = volModal.getByRole("button", { name: "创建", exact: true });
+    await expect(volCreate).toBeDisabled();
+    await volModal.getByLabel("卷名").fill("风起晋北");
+    await expect(volCreate).toBeEnabled();
+    await volCreate.click();
+
+    // 卷创建成功 → 链式弹「新建章」：目标卷 + 第 1 章序号程序排定
+    const chModal = page
+      .locator("h3", { hasText: "新建章" })
+      .locator("xpath=ancestor::div[1]");
+    await expect(chModal).toBeVisible({ timeout: 5000 });
+    await expect(chModal.getByText("第一卷 · 风起晋北 · 第一章")).toBeVisible();
+    await chModal.getByLabel("章名").fill("城门初见");
+    await chModal.getByRole("button", { name: "创建", exact: true }).click();
+
+    // 即达编辑器；树上展示「第一卷 · 风起晋北」「第一章 · 城门初见」
     await expect(
       page.getByPlaceholder("正文（在此撰写小说内容）"),
     ).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.locator("aside").getByText("第一卷 · 风起晋北"),
+    ).toBeVisible({ timeout: 5000 });
+    await expect(page.locator("aside").getByText("第一章 · 城门初见")).toBeVisible();
   } finally {
     restore();
   }

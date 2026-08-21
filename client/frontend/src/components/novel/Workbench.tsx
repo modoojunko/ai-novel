@@ -143,9 +143,16 @@ export default function Workbench({ wb }: WorkbenchProps) {
     [onSelectNode],
   );
 
-  // createVolume 路径（不经 handleSelectNode）：仅新卷首次出现时开抽屉
+  // 程序路径选中收敛（不经 handleSelectNode 的那些）：建卷落卷 → 开抽屉；
+  // 链式建章/面包屑落章 → 关抽屉（否则链式建章后抽屉+遮罩残留，拦截编辑器点击）
   useEffect(() => {
-    if (selectedRef) return;
+    if (selectedRef) {
+      if (lastDrawerVolRef.current !== null || drawerVol !== null) {
+        lastDrawerVolRef.current = null;
+        setDrawerVol(null);
+      }
+      return;
+    }
     if (selectedId && /^vol-\d+$/.test(selectedId)) {
       if (lastDrawerVolRef.current !== selectedId) {
         lastDrawerVolRef.current = selectedId;
@@ -154,7 +161,7 @@ export default function Workbench({ wb }: WorkbenchProps) {
     } else {
       lastDrawerVolRef.current = null;
     }
-  }, [selectedId, selectedRef]);
+  }, [selectedId, selectedRef, drawerVol]);
 
   const addChapterIn = useCallback(
     (volumeName: string) => {

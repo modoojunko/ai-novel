@@ -65,6 +65,9 @@ function writeOAuthSession(t: string, u: string, tier = "trial") {
   cfg.token = t;
   cfg.username = u;
   cfg.tier = tier;
+  // docker config.json 可能残留已过去的会员到期日（auth middleware 见 expires_at
+  // 过期即 401「登录已过期」），注入会话必须清掉，否则全部用例秒挂
+  delete cfg.expires_at;
   cfg.last_login_at = new Date().toISOString();
   // 关键：随机 pc_hash 使 S端 check-auth 无该设备 grant（返回 code 1），useAuthHeal 不覆盖
   // config.json，注入 token 保持有效。保留真实 pc_hash 会命中 modoojunko 已授权设备 → 401。
@@ -96,9 +99,19 @@ async function createNovel(page: Page, name: string): Promise<string> {
   return m[1];
 }
 
-/** 直接写第一章 → 编辑器就绪（选中章 → 上下文行出现 正文/章纲/提示词 子 label）。 */
+/** 直接写第一章（弹窗版）→ 编辑器就绪（选中章 → 上下文行出现 正文/章纲/提示词 子 label）。
+ *  无卷先弹「新建卷」（链式）再弹「新建章」，名称必填即标题。
+ *  填默认形态名称（第一卷/第一章）→ 树上显示与旧默认标题一致，下游断言不动。 */
 async function writeFirstChapter(page: Page) {
   await page.getByRole("button", { name: /直接写第一章/ }).click();
+  const volName = page.getByLabel("卷名");
+  await expect(volName).toBeVisible({ timeout: 5000 });
+  await volName.fill("第一卷");
+  await page.getByRole("button", { name: "创建", exact: true }).click();
+  const chName = page.getByLabel("章名");
+  await expect(chName).toBeVisible({ timeout: 5000 });
+  await chName.fill("第一章");
+  await page.getByRole("button", { name: "创建", exact: true }).click();
   const editor = page.getByPlaceholder("正文（在此撰写小说内容）");
   await expect(editor).toBeVisible({ timeout: 10000 });
   return editor;
@@ -327,10 +340,10 @@ test("提示词面板：当前章过滤 + 种子提示词查看/编辑/已修改
 });
 
 // -------------------------------------------------------------------------
-// ⑤ 免费态提示词子 label 不可见（TierGate feature="prompt-panel" PRO-only）
+// ⑤ 免费态三 label 入口均可见（#152 口径：入口可见、使用需会员，后端拦截）
 // -------------------------------------------------------------------------
 
-test("免费态：提示词子 label 不可见，正文/章纲可见（TierGate PRO-only）", async ({
+test("免费态：正文/章纲/提示词入口均可见（#152 入口可见口径）", async ({
   page,
 }) => {
   const { restore } = await setupSession(page, "none");
@@ -340,7 +353,8 @@ test("免费态：提示词子 label 不可见，正文/章纲可见（TierGate 
 
     await expect(page.getByRole("button", { name: "正文", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "章纲" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "提示词" })).toHaveCount(0);
+    // 提示词不再 TierGate 隐藏——免费可见入口，点击使用时由后端 member_required 拦截
+    await expect(page.getByRole("button", { name: "提示词" })).toBeVisible();
   } finally {
     restore();
   }

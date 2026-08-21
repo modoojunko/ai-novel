@@ -64,47 +64,189 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass  # 列已存在
 
+    # ── Migrate: drop legacy projects.index_status ────────────────────
+    # 模型已删列（PR⑤），但存量库该列 NOT NULL 无默认值——不删的话
+    # INSERT projects 不写此列必违反约束（建项目 500）。列不存在 /
+    # sqlite < 3.35 无 DROP COLUMN 时报错，按幂等吞掉。
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE projects DROP COLUMN index_status")
+            )
+    except Exception:
+        pass
+
     # ── 卷族入库：volumes 扩列（新库走 create_all；存量表幂等补列）─────
-    for _col_ddl in (
-        "ALTER TABLE volumes ADD COLUMN direction_method VARCHAR(50)",
-        "ALTER TABLE volumes ADD COLUMN template_name VARCHAR(50)",
-        "ALTER TABLE volumes ADD COLUMN core_conflict VARCHAR(150)",
-        "ALTER TABLE volumes ADD COLUMN emotional_arc VARCHAR(150)",
-        "ALTER TABLE volumes ADD COLUMN arc_mode VARCHAR(50)",
-        "ALTER TABLE volumes ADD COLUMN primary_drive VARCHAR(50)",
-        "ALTER TABLE volumes ADD COLUMN info_gap_start VARCHAR(300)",
-        "ALTER TABLE volumes ADD COLUMN info_gap_end VARCHAR(300)",
-        "ALTER TABLE volumes ADD COLUMN chapter_target INTEGER",
-    ):
-        try:
-            async with engine.begin() as conn:
-                await conn.exec_driver_sql(_col_ddl)
-        except Exception:
-            pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE volumes ADD COLUMN direction_method VARCHAR(50)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE volumes ADD COLUMN template_name VARCHAR(50)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE volumes ADD COLUMN core_conflict VARCHAR(150)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE volumes ADD COLUMN emotional_arc VARCHAR(150)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE volumes ADD COLUMN arc_mode VARCHAR(50)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE volumes ADD COLUMN primary_drive VARCHAR(50)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE volumes ADD COLUMN info_gap_start VARCHAR(300)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE volumes ADD COLUMN info_gap_end VARCHAR(300)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE volumes ADD COLUMN chapter_target INTEGER")
+            )
+    except Exception:
+        pass  # 列已存在
 
     # ── 章族入库：chapters 扩列（新库走 create_all；存量表幂等补列）─────
-    for _col_ddl in (
-        "ALTER TABLE chapters ADD COLUMN summary VARCHAR(300)",
-        "ALTER TABLE chapters ADD COLUMN location VARCHAR(200)",
-        "ALTER TABLE chapters ADD COLUMN story_time VARCHAR(150)",
-        "ALTER TABLE chapters ADD COLUMN narrative_pov VARCHAR(50)",
-        "ALTER TABLE chapters ADD COLUMN current_task VARCHAR(300)",
-        "ALTER TABLE chapters ADD COLUMN word_target INTEGER",
-        "ALTER TABLE chapters ADD COLUMN primary_mood VARCHAR(50)",
-        "ALTER TABLE chapters ADD COLUMN mood_progression VARCHAR(300)",
-        "ALTER TABLE chapters ADD COLUMN intensity_peak VARCHAR(300)",
-        "ALTER TABLE chapters ADD COLUMN intensity_level INTEGER",
-        "ALTER TABLE chapters ADD COLUMN emotional_hook VARCHAR(150)",
-        "ALTER TABLE chapters ADD COLUMN expectation_state VARCHAR(150)",
-        "ALTER TABLE chapters ADD COLUMN expectation_strategy VARCHAR(50)",
-        "ALTER TABLE chapters ADD COLUMN expectation_detail VARCHAR(300)",
-        "ALTER TABLE chapters ADD COLUMN perspective_guidance VARCHAR(300)",
-    ):
-        try:
-            async with engine.begin() as conn:
-                await conn.exec_driver_sql(_col_ddl)
-        except Exception:
-            pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE chapters ADD COLUMN summary VARCHAR(300)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE chapters ADD COLUMN location VARCHAR(200)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE chapters ADD COLUMN story_time VARCHAR(150)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE chapters ADD COLUMN narrative_pov VARCHAR(50)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE chapters ADD COLUMN current_task VARCHAR(300)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE chapters ADD COLUMN word_target INTEGER")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE chapters ADD COLUMN primary_mood VARCHAR(50)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE chapters ADD COLUMN mood_progression VARCHAR(300)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE chapters ADD COLUMN intensity_peak VARCHAR(300)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE chapters ADD COLUMN intensity_level INTEGER")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE chapters ADD COLUMN emotional_hook VARCHAR(150)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE chapters ADD COLUMN expectation_state VARCHAR(150)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE chapters ADD COLUMN expectation_strategy VARCHAR(50)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE chapters ADD COLUMN expectation_detail VARCHAR(300)")
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("ALTER TABLE chapters ADD COLUMN perspective_guidance VARCHAR(300)")
+            )
+    except Exception:
+        pass  # 列已存在
 
     # ── Seed preset genres ──────────────────────────────────────────
     try:
