@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "@/lib/api";
+import { api, request } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { getToken } from "@/lib/auth";
 import { getApiBaseUrl } from "@/lib/env";
@@ -10,6 +10,7 @@ import {
   Edit3,
   Eye,
   FileText,
+  KeyRound,
   Loader2,
   RefreshCw,
   Save,
@@ -112,6 +113,8 @@ export default function PromptManagementPage({
     Record<string, ChapterPromptInfo>
   >({});
   const [overviewLoading, setOverviewLoading] = useState(true);
+  // 未配 AI Key（prompts 端点 503）：就地提示 + 去配置，不再整页跳 /config
+  const [aiUnavailable, setAiUnavailable] = useState(false);
   const [generatingChapters, setGeneratingChapters] = useState<Set<string>>(
     new Set(),
   );
@@ -192,12 +195,14 @@ export default function PromptManagementPage({
 
     async function loadAllPrompts() {
       const allChapters = visibleChapters;
+      setAiUnavailable(false);
 
       const newMap: Record<string, ChapterPromptInfo> = {};
       for (const ch of allChapters) {
         try {
-          const files: string[] = await api.get(
+          const files: string[] = await request(
             `/novels/${projectId}/chapters/${ch.ref}/prompts`,
+            { soft503: true },
           );
           const segments: PromptFile[] = files
             .map((f) => {
@@ -225,7 +230,12 @@ export default function PromptManagementPage({
             segments,
             status,
           };
-        } catch {
+        } catch (e: any) {
+          // 503 = 会员但未配 AI Key：就地提示并终止加载（其余章必然同样 503）
+          if (e?.status === 503) {
+            if (!cancelled) setAiUnavailable(true);
+            return;
+          }
           newMap[ch.ref] = {
             chapterRef: ch.ref,
             chapterTitle: ch.title,
@@ -258,8 +268,9 @@ export default function PromptManagementPage({
         toast.success("提示词生成完成");
 
         // Reload prompts for this chapter
-        const files: string[] = await api.get(
+        const files: string[] = await request(
           `/novels/${projectId}/chapters/${chapterRef}/prompts`,
+          { soft503: true },
         );
         const segments: PromptFile[] = files
           .map((f) => {
@@ -465,6 +476,24 @@ export default function PromptManagementPage({
       return (
         <div className="flex items-center justify-center py-20">
           <span className="loading loading-spinner loading-md text-primary" />
+        </div>
+      );
+    }
+
+    // 未配 AI Key：提示词读写全链路不可用 → 就地引导配置（不整页跳转）
+    if (aiUnavailable) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <KeyRound className="w-12 h-12 text-base-content/30" />
+          <div className="text-center space-y-1.5">
+            <p className="text-base text-base-content/70">尚未配置大模型 API Key</p>
+            <p className="text-sm text-base-content/40">
+              提示词的生成与查看需要 AI 能力，请先配置 API Key 后再使用。
+            </p>
+          </div>
+          <a href="#/config" className="btn btn-primary btn-sm">
+            去配置
+          </a>
         </div>
       );
     }

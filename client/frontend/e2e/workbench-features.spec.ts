@@ -346,6 +346,36 @@ test("提示词面板：当前章过滤 + 种子提示词查看/编辑/已修改
 });
 
 // -------------------------------------------------------------------------
+// ④b 未配 API Key（trial 会员）：点提示词 tab 就地提示去配置，不整页跳 /config
+// -------------------------------------------------------------------------
+
+test("提示词无Key：进入提示词tab就地提示去配置，不整页跳转", async ({
+  page,
+}) => {
+  const { restore } = await setupSession(page); // trial 会员但未注入 ApiConfig
+  try {
+    await createNovel(page, `无Key提示词${Date.now() % 100000}`);
+    await writeFirstChapter(page);
+
+    // 点「提示词」tab：prompts 端点 503 → 就地提示（而非 503 全局跳 /config）
+    await page.getByRole("button", { name: "提示词" }).click();
+    await expect(page.getByText("尚未配置大模型 API Key")).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.getByRole("link", { name: "去配置" })).toBeVisible();
+
+    // 关键回归断言：仍留在章页
+    await expect(page).toHaveURL(/#\/novel\//);
+
+    // 「去配置」为用户主动导航 → 可达配置页
+    await page.getByRole("link", { name: "去配置" }).click();
+    await expect(page).toHaveURL(/#\/config/);
+  } finally {
+    restore();
+  }
+});
+
+// -------------------------------------------------------------------------
 // ⑤ 免费态三 label 入口均可见（#152 口径：入口可见、使用需会员，后端拦截）
 // -------------------------------------------------------------------------
 

@@ -22,6 +22,8 @@ export async function request(
     headers?: Record<string, string>;
     /** 静默能力探测：不触发全局副作用（member_required 升级弹窗、503 跳转 /config） */
     quiet?: boolean;
+    /** 503（未配 AI Key）不跳 /config：抛带 status 的错误，由调用方就地提示 */
+    soft503?: boolean;
   },
 ): Promise<any> {
   const method = options?.method || 'GET';
@@ -48,10 +50,12 @@ export async function request(
   }
 
   if (res.status === 503) {
-    if (!options?.quiet) {
+    if (!options?.quiet && !options?.soft503) {
       window.location.href = "/#/config";
     }
-    throw new Error('Service unavailable');
+    const e = new Error("Service unavailable") as Error & { status?: number };
+    e.status = 503;
+    throw e;
   }
 
   if (!res.ok) {
