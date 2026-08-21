@@ -27,6 +27,7 @@ export default function StatusBadge({ status }: { status?: string }) {
 const CHAPTER_STATUS_LABELS: Record<string, string> = {
   outline: "章纲",
   writing: "写作中",
+  draft: "写作中", // unarchive 恢复态（后端历史值：有正文可编辑 = 写作中）
   review: "待修改", // 已退役手动值，存量数据兜底展示
   confirmed: "已确认",
   archived: "已归档",
@@ -41,7 +42,7 @@ export function ChapterStatusBadge({ status }: { status?: string }) {
   const tone =
     status === "confirmed"
       ? "badge-success"
-      : status === "writing"
+      : status === "writing" || status === "draft"
         ? "badge-warning"
         : status === "archived"
           ? "badge-ghost"
