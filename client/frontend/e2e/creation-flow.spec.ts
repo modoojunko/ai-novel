@@ -298,7 +298,11 @@ test("EmptyState 无门控：建书即写，直接写第一章即达编辑器", 
     await chModal.getByLabel("章名").fill("城门初见");
     await chModal.getByRole("button", { name: "创建", exact: true }).click();
 
-    // 即达编辑器；树上展示「第一卷 · 风起晋北」「第一章 · 城门初见」
+    // 即达章页（PR2：新章默认「章纲」tab）→ 点「正文」进编辑器；
+    // 树上展示「第一卷 · 风起晋北」「第一章 · 城门初见」
+    await page
+      .getByRole("button", { name: "正文", exact: true })
+      .click({ timeout: 10000 });
     await expect(
       page.getByPlaceholder("正文（在此撰写小说内容）"),
     ).toBeVisible({ timeout: 10000 });

@@ -306,6 +306,57 @@ def test_create_chapter_max_plus_one_no_embedded_list():
     _run_async(_run())
 
 
+def test_save_prose_status_derivation_outline_to_writing():
+    """状态机系统维护（PR2）：首次落非空正文 outline → writing。
+
+    派生点在统一写入口 store.save_chapter —— 正文自动保存 / AI 写本章 /
+    续写三条路径共用；空正文不动；writing 幂等；confirmed 不被改写。
+    """
+
+    async def _run():
+        project = await _new_project("spd1")
+        async with async_session() as session:
+            proj = await session.get(Novel, project.id)
+            await _create_volume(session, proj, title="第一卷")
+            await _create_chapter(session, proj, "vol-1", title="第一章")
+
+            from chapters.service import save_prose
+
+            # save_prose 在独立 session 提交，用全新 session 读回防身份映射陈旧行
+            async def _reload():
+                async with async_session() as fresh:
+                    return await chapter_repo.get_by_ref(fresh, proj.id, "vol-1-ch-1")
+
+            # 空正文保存 → 仍是 outline（未开始写作不算派生）
+            await save_prose(session, proj, "vol-1-ch-1", "")
+            row = await _reload()
+            assert row.status == "outline"
+
+            # 首次非空正文 → 派生 writing（has_prose / outline_status 同步）
+            await save_prose(session, proj, "vol-1-ch-1", "正文第一段。")
+            row = await _reload()
+            assert row.status == "writing"
+            assert row.has_prose is True
+            assert row.outline_status == "in_progress"
+
+            # 再次保存幂等（仍是 writing，不回退）
+            await save_prose(session, proj, "vol-1-ch-1", "正文第一段。续写。")
+            row = await _reload()
+            assert row.status == "writing"
+
+            # confirmed 章保存正文不被派生改写（确认态由 confirm 端点独占）
+            confirmed_row = await chapter_repo.get_by_ref(
+                session, proj.id, "vol-1-ch-1"
+            )
+            confirmed_row.status = "confirmed"
+            await session.commit()
+            await save_prose(session, proj, "vol-1-ch-1", "确认后的正文修订。")
+            row = await _reload()
+            assert row.status == "confirmed"
+
+    _run_async(_run())
+
+
 def test_get_chapter_row_missing_returns_none():
     async def _run():
         project = await _new_project("sh1")

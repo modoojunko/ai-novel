@@ -99,7 +99,8 @@ async function createNovel(page: Page, name: string): Promise<string> {
 
 /** 直接写第一章（弹窗版）→ 编辑器就绪。
  *  无卷先弹「新建卷」（链式）再弹「新建章」，名称必填即标题。
- *  填默认形态名称（第一卷/第一章）→ 树上显示与旧默认标题一致，下游断言不动。 */
+ *  填默认形态名称（第一卷/第一章）→ 树上显示与旧默认标题一致，下游断言不动。
+ *  PR2：新章默认落「章纲」tab（按进度推进）→ 点「正文」tab 进编辑器。 */
 async function writeFirstChapter(page: Page) {
   await page.getByRole("button", { name: /直接写第一章/ }).click();
   const volName = page.getByLabel("卷名");
@@ -110,6 +111,7 @@ async function writeFirstChapter(page: Page) {
   await expect(chName).toBeVisible({ timeout: 5000 });
   await chName.fill("第一章");
   await page.getByRole("button", { name: "创建", exact: true }).click();
+  await page.getByRole("button", { name: "正文", exact: true }).click();
   const editor = page.getByPlaceholder("正文（在此撰写小说内容）");
   await expect(editor).toBeVisible({ timeout: 10000 });
   return editor;
@@ -394,12 +396,13 @@ test("归档阅读器：预览小说 → 搜索命中/未命中 → 阅读内容
       timeout: 5000,
     });
 
-    // 预览小说 → 归档页：标题 + 卷分组 + 归档章数
+    // 预览小说 → 归档页：标题 + 卷分组按钮（含归档章数）。
+    // 工作台在预览态常驻挂载（hidden），章页位置行也含「第1卷」文本 → 按钮角色精确命中分组头
     await page.getByRole("button", { name: "预览小说" }).click();
     await expect(page.getByRole("heading", { name: "归档", exact: true })).toBeVisible({
       timeout: 10000,
     });
-    await expect(page.getByText("第1卷")).toBeVisible();
+    await expect(page.getByRole("button", { name: "第1卷 1章" })).toBeVisible();
 
     // 标题搜索命中
     const search = page.getByPlaceholder("搜索章节标题...");
@@ -418,23 +421,29 @@ test("归档阅读器：预览小说 → 搜索命中/未命中 → 阅读内容
     await expect(page.getByRole("heading", { name: "第一章", exact: true })).toBeVisible({
       timeout: 10000,
     });
-    // 阅读器正文：工作台（含只读 textarea）经 hidden 属性常驻挂载 → 页级 getByText
-    // 必命中两处。reader 滚动区 className="flex-1 overflow-y-auto"，同类的编辑器/工作台
-    // 容器内是 <textarea> 非 <p> → 该组合 p 唯一命中阅读器正文。
+    // 阅读器正文：工作台在预览态常驻挂载（hidden），PR2 归档章只读渲染同为
+    // p + flex-1.overflow-y-auto 容器 → 加 :visible 限定当前展示的阅读器正文
     await expect(
-      page.locator(".flex-1.overflow-y-auto p", { hasText: "旧城墙头" }),
+      page.locator(".flex-1.overflow-y-auto p:visible", { hasText: "旧城墙头" }),
     ).toBeVisible();
     // 3 label 顶栏含「编辑设定/编辑正文」→ exact 命中阅读器「编辑」
     await expect(
       page.getByRole("button", { name: "编辑", exact: true }),
     ).toBeVisible();
 
-    // 编辑 → 回工作台（树 + 编辑器恢复）
+    // 编辑 → 回工作台（树 + 章页恢复）
     await page.getByRole("button", { name: "编辑", exact: true }).click();
     await expect(page.locator("aside").getByText("第一卷")).toBeVisible({
       timeout: 10000,
     });
-    await expect(page.getByPlaceholder("正文（在此撰写小说内容）")).toBeVisible();
+    // PR2 查看/编辑门：归档章正文为只读渲染（textarea 不再挂载）+ 锁定提示条
+    await expect(
+      page.getByText("📦 本章已归档，正文为只读状态").first(),
+    ).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("旧城墙头").first()).toBeVisible();
+    await expect(
+      page.getByPlaceholder("正文（在此撰写小说内容）"),
+    ).toHaveCount(0);
   } finally {
     restore();
   }

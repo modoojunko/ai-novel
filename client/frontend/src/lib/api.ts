@@ -14,7 +14,16 @@ export async function apiFetch(input: RequestInfo, init?: RequestInit): Promise<
   return resp;
 }
 
-export async function request(path: string, options?: { method?: string; body?: string; headers?: Record<string, string> }): Promise<any> {
+export async function request(
+  path: string,
+  options?: {
+    method?: string;
+    body?: string;
+    headers?: Record<string, string>;
+    /** 静默能力探测：不触发全局副作用（member_required 升级弹窗、503 跳转 /config） */
+    quiet?: boolean;
+  },
+): Promise<any> {
   const method = options?.method || 'GET';
   const headers: Record<string, string> = { ...(options?.headers || {}) };
 
@@ -39,7 +48,9 @@ export async function request(path: string, options?: { method?: string; body?: 
   }
 
   if (res.status === 503) {
-    window.location.href = "/#/config";
+    if (!options?.quiet) {
+      window.location.href = "/#/config";
+    }
     throw new Error('Service unavailable');
   }
 
@@ -49,9 +60,11 @@ export async function request(path: string, options?: { method?: string; body?: 
     // → 广播全局升级引导（MemberBlockPrompt 监听），错误继续抛给调用方
     if (res.status === 403 && err?.detail?.reason === "member_required") {
       const message = err.detail.message || "AI 是会员功能";
-      window.dispatchEvent(
-        new CustomEvent("member-block", { detail: { message } }),
-      );
+      if (!options?.quiet) {
+        window.dispatchEvent(
+          new CustomEvent("member-block", { detail: { message } }),
+        );
+      }
       const e = new Error(message) as Error & { reason?: string; status?: number };
       e.reason = "member_required";
       e.status = res.status;

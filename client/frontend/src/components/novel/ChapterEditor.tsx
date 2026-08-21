@@ -63,18 +63,6 @@ export interface ChapterEditorHandle {
 }
 
 // ---------------------------------------------------------------------------
-// Status options
-// ---------------------------------------------------------------------------
-
-const STATUS_OPTIONS = [
-  { value: "outline", label: "章纲" },
-  { value: "writing", label: "写作中" },
-  { value: "review", label: "待修改" },
-  { value: "confirmed", label: "已完成" },
-  { value: "archived", label: "已归档" },
-];
-
-// ---------------------------------------------------------------------------
 // ChapterEditor
 // ---------------------------------------------------------------------------
 
@@ -92,11 +80,8 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
       isDirty,
       saveState,
       wordCount,
-      targetWords,
-      setTargetWords,
       save,
       setProse,
-      setStatus,
       retry,
       archive,
       reload,
@@ -475,6 +460,8 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
 
     // 归档只读：status === "archived" 时 textarea readOnly + 顶部提示条
     const isArchived = status === "archived";
+    // 查看/编辑门（系统状态驱动）：已确认/已归档 → 只读渲染；章纲/写作中 → 编辑态
+    const locked = status === "confirmed" || isArchived;
 
     // -----------------------------------------------------------------------
     // Compute cursor-split text for continue streaming display
@@ -524,16 +511,16 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
     if (focusMode) {
       return (
         <div className="h-full flex flex-col bg-base-100">
-          {/* Archived 提示条 */}
-          {isArchived && (
+          {/* Locked 提示条（已确认/已归档均只读） */}
+          {locked && (
             <div className="px-4 py-1.5 text-xs bg-info/10 text-info border-b border-info/20">
-              📦 本章已归档，正文为只读状态
+              {isArchived ? "📦 本章已归档，正文为只读状态" : "✅ 本章已确认，正文为只读状态"}
             </div>
           )}
 
-          {/* Prose area */}
+          {/* Prose area：锁定态渲染只读预览 */}
           <div className="flex-1 p-6 lg:p-10 overflow-y-auto">
-            {previewMode ? (
+            {previewMode || locked ? (
               <div
                 className="max-w-3xl mx-auto font-serif text-base leading-[2] text-base-content prose-headings:font-serif prose-headings:text-xl prose-headings:mt-8 prose-headings:mb-4"
                 dangerouslySetInnerHTML={{ __html: previewHtml }}
@@ -557,49 +544,22 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
     }
 
     // -----------------------------------------------------------------------
-    // Normal mode — full editor layout
+    // Normal mode — full editor layout（标题/状态在 ChapterPage 页壳，此处不再重复）
     // -----------------------------------------------------------------------
 
     return (
-      <div className="max-w-3xl mx-auto space-y-5">
-        {/* ── Archived 提示条 ──────────────────────────────────────── */}
+      <div className="max-w-3xl mx-auto px-6 pb-8 space-y-5">
+        {/* ── Locked 提示条 ─────────────────────────────────────────── */}
         {isArchived && (
           <div className="px-3 py-1.5 text-xs bg-info/10 text-info border border-info/20 rounded-lg">
             📦 本章已归档，正文为只读状态
           </div>
         )}
-
-        {/* ── Chapter title + ref badge ──────────────────────────────── */}
-        <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-serif font-semibold text-base-content">
-            {chapter.title || `第${chapter.chapter}章`}
-          </h2>
-          <span className="badge badge-ghost badge-sm">{chapterRef}</span>
-        </div>
-
-        {/* ── Meta bar: status + word count + dirty badge ────────────── */}
-        <div className="flex items-center gap-4 text-sm">
-          <select
-            value={status}
-            onChange={(e) => setStatus?.(e.target.value)}
-            disabled={isArchived}
-            className="select select-bordered select-sm max-w-[140px]"
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <span className="text-base-content/40 tabular-nums">
-            {wordCount} 字
-          </span>
-          {isDirty && (
-            <span className="badge badge-warning badge-sm gap-1">
-              ⚠️ 未保存
-            </span>
-          )}
-        </div>
+        {status === "confirmed" && (
+          <div className="px-3 py-1.5 text-xs bg-success/10 text-success border border-success/20 rounded-lg">
+            ✅ 本章已确认，正文为只读状态
+          </div>
+        )}
 
         {/* ── Version bar ────────────────────────────────────────────── */}
         <div className="flex items-center justify-between text-sm text-base-content/40 select-none">
@@ -621,26 +581,29 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
           }
         `}</style>
         <div className="space-y-1.5">
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPreviewMode(!previewMode)}
-              className={`btn btn-ghost btn-xs gap-1 ${
-                previewMode ? "text-primary" : "text-base-content/50"
-              }`}
-              title={previewMode ? "切换到编辑" : "预览 Markdown"}
-            >
-              {previewMode ? (
-                <EyeOff className="w-3.5 h-3.5" />
-              ) : (
-                <Eye className="w-3.5 h-3.5" />
-              )}
-              {previewMode ? "编辑" : "预览"}
-            </button>
-          </div>
+          {/* 预览开关（解锁态可用；锁定态恒为只读渲染，无需切换） */}
+          {!locked && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPreviewMode(!previewMode)}
+                className={`btn btn-ghost btn-xs gap-1 ${
+                  previewMode ? "text-primary" : "text-base-content/50"
+                }`}
+                title={previewMode ? "切换到编辑" : "预览 Markdown"}
+              >
+                {previewMode ? (
+                  <EyeOff className="w-3.5 h-3.5" />
+                ) : (
+                  <Eye className="w-3.5 h-3.5" />
+                )}
+                {previewMode ? "编辑" : "预览"}
+              </button>
+            </div>
+          )}
 
           <div className="space-y-3">
-              {/* AI 入口可见，非会员点击由后端拦截弹升级引导 */}
-              {!streaming && !continueLoading && (
+            {/* AI 入口可见，非会员点击由后端拦截弹升级引导；锁定态（已确认/归档）隐藏 */}
+            {!streaming && !continueLoading && !locked && (
                 <div className="flex items-center gap-3">
                   <button
                     onClick={handleStartWriting}
@@ -678,7 +641,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
                     ⏹ 停止
                   </button>
                 </div>
-              ) : previewMode ? (
+              ) : previewMode || locked ? (
                 <div
                   className="w-full font-serif text-base leading-[2] min-h-[300px] p-4 rounded-lg border border-base-300 bg-base-100/50 text-base-content"
                   dangerouslySetInnerHTML={{ __html: previewHtml }}
@@ -698,31 +661,33 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
           </div>
         </div>
 
-        {/* ── Toolbar: save + status + toggles ─────────────────────────── */}
-        <div className="flex items-center justify-between pt-4 border-t border-base-300">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={save}
-              disabled={saveState === "autosaving" || !isDirty || isArchived}
-              className="btn btn-primary btn-sm min-w-[72px]"
-            >
-              {saveState === "autosaving" && <span className="loading loading-spinner loading-xs" />}
-              {saveState === "autosaving" ? "保存中…" : "保存"}
-            </button>
-            <span className={`text-xs ${saveStatusColor}`}>
-              {saveStatusLabel}
-            </span>
-            {saveState === "failed" && (
-              <button onClick={retry} className="btn btn-ghost btn-xs text-error">
-                重试
+        {/* ── Toolbar: save + status + toggles（锁定态无编辑，整条隐藏） ── */}
+        {!locked && (
+          <div className="flex items-center justify-between pt-4 border-t border-base-300">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={save}
+                disabled={saveState === "autosaving" || !isDirty || isArchived}
+                className="btn btn-primary btn-sm min-w-[72px]"
+              >
+                {saveState === "autosaving" && <span className="loading loading-spinner loading-xs" />}
+                {saveState === "autosaving" ? "保存中…" : "保存"}
               </button>
-            )}
-          </div>
+              <span className={`text-xs ${saveStatusColor}`}>
+                {saveStatusLabel}
+              </span>
+              {saveState === "failed" && (
+                <button onClick={retry} className="btn btn-ghost btn-xs text-error">
+                  重试
+                </button>
+              )}
+            </div>
 
-          <div className="flex items-center gap-2 text-xs text-base-content/50">
-            <span className="tabular-nums">{wordCount} 字</span>
+            <div className="flex items-center gap-2 text-xs text-base-content/50">
+              <span className="tabular-nums">{wordCount} 字</span>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── Quality Check + Archive（质量检查为会员功能，非会员点击弹升级引导） ── */}
         <div className="flex items-center gap-3 pt-3">
