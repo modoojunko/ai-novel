@@ -795,7 +795,7 @@ export default function PromptManagementPage({
   // =====================================================================
 
   return (
-    <div className="p-6">
+    <div className="max-w-3xl mx-auto w-full px-6 py-6">
       {view === "overview" && renderOverview()}
       {view === "viewer" && renderViewer()}
       {view === "editor" && renderEditor()}
