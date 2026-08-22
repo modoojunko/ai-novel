@@ -598,8 +598,7 @@ const ChapterEditor = forwardRef<ChapterEditorHandle, ChapterEditorProps>(
         )}
 
         {/* ── Version bar ────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between text-sm text-base-content/40 select-none">
-          <span>v1 · —</span>
+        <div className="flex items-center justify-end text-sm text-base-content/40 select-none">
           <button
             onClick={onShowVersion}
             className="btn btn-ghost btn-xs gap-1"

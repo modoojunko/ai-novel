@@ -9,7 +9,6 @@ import {
   Settings2,
   Clock,
   GitBranch,
-  Sigma,
   FileText,
   Info,
   ChevronLeft,
@@ -86,9 +85,6 @@ export default function RightToolbar({
   const [deductionRound, setDeductionRound] = useState(0);
   const [deductionLoading, setDeductionLoading] = useState(false);
   const [deductionMissing, setDeductionMissing] = useState<string[]>([]);
-
-  // Word count - computed from editor (we'll show the chapterRef as placeholder)
-  // In a real app, this would be passed from the editor state or fetched
 
   // -----------------------------------------------------------------------
   // Load versions
@@ -441,39 +437,6 @@ export default function RightToolbar({
             ))}
           </div>
         )}
-      </Section>
-
-      {/* ── 字数统计 ──────────────────────────────────────────── */}
-      <Section
-        title="字数统计"
-        icon={<Sigma className="w-3.5 h-3.5 text-base-content/50" />}
-      >
-        <div className="grid grid-cols-2 gap-2">
-          <div className="px-3 py-2 bg-base-100 border border-base-200 rounded-lg text-center">
-            <div className="font-serif text-lg font-bold text-base-content tabular-nums">
-              —
-            </div>
-            <div className="text-[10px] text-base-content/40 mt-0.5">本章字数</div>
-          </div>
-          <div className="px-3 py-2 bg-base-100 border border-base-200 rounded-lg text-center">
-            <div className="font-serif text-lg font-bold text-base-content tabular-nums">
-              —
-            </div>
-            <div className="text-[10px] text-base-content/40 mt-0.5">全书总字数</div>
-          </div>
-          <div className="px-3 py-2 bg-base-100 border border-base-200 rounded-lg text-center">
-            <div className="font-serif text-lg font-bold text-base-content tabular-nums">
-              —
-            </div>
-            <div className="text-[10px] text-base-content/40 mt-0.5">本卷页数</div>
-          </div>
-          <div className="px-3 py-2 bg-base-100 border border-base-200 rounded-lg text-center">
-            <div className="font-serif text-lg font-bold text-base-content tabular-nums">
-              —
-            </div>
-            <div className="text-[10px] text-base-content/40 mt-0.5">今日新增</div>
-          </div>
-        </div>
       </Section>
     </aside>
   );
