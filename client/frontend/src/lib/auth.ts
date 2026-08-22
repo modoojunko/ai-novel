@@ -17,3 +17,11 @@ export function getUsername(): string | null {
 export function isLoggedIn(): boolean {
   return !!getToken();
 }
+
+/** 手动退出（区别于会话过期）：清凭据并回首页。 */
+export function logout() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USERNAME_KEY);
+  sessionStorage.setItem('manual_logout', '1');
+  window.location.hash = '#/';
+}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Modal from "@/components/design/Modal";
 
 interface DeleteConfirmModalProps {
   title: string;
@@ -8,44 +9,46 @@ interface DeleteConfirmModalProps {
   onCancel: () => void;
 }
 
+/** 删除确认（设计 .mcard 容器语言；确认按钮 btn-danger） */
 export default function DeleteConfirmModal({ title, confirmText, description, onConfirm, onCancel }: DeleteConfirmModalProps) {
   const [input, setInput] = useState("");
+  const canDelete = input === confirmText;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
-      <div
-        className="bg-base-100 border border-base-300 rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold font-serif text-base-content mb-2">删除{title}</h3>
-        <p className="text-sm text-base-content/60 leading-relaxed mb-1">
-          {description ?? "此操作不可撤销。所有卷、章节和设定将被永久删除。"}
-        </p>
-        <p className="text-sm text-base-content/60 mb-4">
-          请输入 <strong className="text-base-content">{confirmText}</strong> 确认删除：
-        </p>
+    <Modal
+      open={true}
+      onClose={onCancel}
+      title={`删除${title}`}
+      width={380}
+      footer={
+        <>
+          <button onClick={onCancel} className="btn btn-secondary">
+            取消
+          </button>
+          <button onClick={onConfirm} disabled={!canDelete} className="btn btn-danger">
+            确认删除
+          </button>
+        </>
+      }
+    >
+      <p style={{ fontSize: 13.5, color: "var(--muted)", lineHeight: 1.7, margin: "0 0 10px" }}>
+        {description ?? "此操作不可撤销。所有卷、章节和设定将被永久删除。"}
+      </p>
+      <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "0 0 10px" }}>
+        请输入 <b style={{ color: "var(--fg)", fontWeight: 500 }}>{confirmText}</b> 确认删除：
+      </p>
+      <div className="field" style={{ marginBottom: 4 }}>
         <input
           type="text"
+          className="input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={confirmText}
-          className="input input-bordered w-full text-sm mb-4"
-          onKeyDown={(e) => e.key === "Enter" && input === confirmText && onConfirm()}
+          onKeyDown={(e) => e.key === "Enter" && canDelete && onConfirm()}
           autoFocus
+          aria-label={`输入${confirmText}确认删除`}
         />
-        <div className="flex justify-end gap-2">
-          <button onClick={onCancel} className="btn btn-ghost btn-sm text-base-content/60">
-            取消
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={input !== confirmText}
-            className="btn btn-error btn-sm disabled:opacity-40"
-          >
-            确认删除
-          </button>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -4,14 +4,22 @@
 // 出现未登记的任意值或档位外 opacity → design:lint 失败。
 
 // ── 严格模式的扫描范围 ──────────────────────────────────────────
-// 原型永远严格；strictSrcGlobs 是「已收编」屏的源码，随校准逐屏加入（PR B 起）。
-// 首批收编：书列表屏页面 + 该屏渲染路径上的全局组件（Footer/Navbar/ThemeToggle）。
-export const strictGlobs = ["../../docs/design-c/prototypes/**/*.html"];
+// 原型永远严格；strictSrcGlobs 是「已收编」屏的源码，随校准逐屏加入。
+// PR 1 收编：书架屏 + 设计系统地基（图标/弹窗/Toast/PrefsModal + 旧弹窗收编）。
+export const strictGlobs = ["../../docs/design-c/prototypes/list.html", "../../docs/design-c/prototypes/model-config.html", "../../docs/design-c/prototypes/book.html", "../../docs/design-c/prototypes/index.html"];
 export const strictSrcGlobs = [
   "src/pages/NovelListPage.tsx",
   "src/components/Footer.tsx",
   "src/components/Navbar.tsx",
-  "src/components/novel/ThemeToggle.tsx",
+  "src/components/PrefsModal.tsx",
+  "src/components/icons.tsx",
+  "src/components/design/Modal.tsx",
+  "src/components/novel/CreateProjectModal.tsx",
+  "src/components/novel/RenameModal.tsx",
+  "src/components/novel/DeleteConfirmModal.tsx",
+  "src/lib/toast.tsx",
+  "src/lib/prefs.ts",
+  "src/lib/auth.ts",
 ];
 
 // ── 只统计、不阻断的范围（存量冻结，供定档观察）────────────────
@@ -19,8 +27,10 @@ export const reportGlobs = ["src/**/*.{tsx,ts}"];
 
 // ── 任意值登记簿 ────────────────────────────────────────────────
 // Tailwind 任意值语法（[...]）默认一律禁止；确需使用的在此登记并注明用途。
+// （非类名字符串 —— CSS 选择器含 [attr] 语法 —— 也在此登记，注明是选择器）
 export const allowedArbitrary = new Set([
   "min-h-[100px]", // 书列表虚线卡最小高（tailwind 3.4 无 100px 档）
+  "a[href],", // Modal 焦点圈选择器片段（querySelectorAll，非类名）
 ]);
 
 // ── opacity 档位（按属性族）────────────────────────────────────

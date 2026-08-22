@@ -1,0 +1,62 @@
+/* ═══════════════════════════════════════════════════════════════════
+   书架屏（/novels）—— list.html 原样提取 + 标注的应用侧扩展。
+   「扩展」块为原型未建模的产品行为（悬浮操作菜单 / 提示条），
+   不进 parity 基线（悬浮态与提示条在比对截图里不可见）。
+   ═══════════════════════════════════════════════════════════════════ */
+
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+@media (max-width: 900px) { .cards { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .cards { grid-template-columns: 1fr; } }
+.book-card { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; cursor: pointer; transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease; }
+.book-card:hover { border-color: color-mix(in oklch, var(--accent) 45%, var(--border)); box-shadow: var(--shadow-card); transform: translateY(-2px); }
+.book-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.book-card .top { display: flex; align-items: center; gap: 8px; }
+.mono { flex: none; width: 40px; height: 40px; border-radius: 10px; background: var(--fg-soft); border: 1px solid var(--border); display: grid; place-items: center; font-family: var(--font-display); font-size: 19px; color: var(--fg); }
+.genre { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border: 1px solid var(--border); border-radius: 999px; font-size: 11.5px; color: var(--muted); background: var(--bg); }
+.genre svg { width: 12px; height: 12px; }
+.top .b { margin-left: auto; }
+.b { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 500; }
+.b.writing { background: var(--warn-soft); color: var(--warn); }
+.b.setting { background: var(--fg-soft); color: var(--muted); }
+.b.done { background: var(--ok-soft); color: var(--ok); }
+.b svg { width: 11px; height: 11px; }
+.book-card h3 { font-family: var(--font-display); font-size: 21px; font-weight: 600; margin: 14px 0 0; letter-spacing: 0.01em; }
+.book-card .summary { font-size: 12.5px; color: var(--muted); margin: 8px 0 0; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* daisyUI 同名 .stats 会铺底色 —— 显式清除 */
+.book-card .stats { display: flex; gap: 18px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); background: none; border-radius: 0; }
+.book-card .stats b { display: block; color: var(--fg); font-weight: 500; margin-bottom: 1px; }
+.book-card .foot { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; }
+.book-card .updated { font-size: 11.5px; color: var(--muted); }
+.book-card .go { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--fg); }
+.book-card:hover .go { color: var(--accent); }
+.book-card .go svg { width: 14px; height: 14px; }
+
+/* ─── 应用侧扩展（原型未建模）─────────────────────────────────
+   卡片悬浮操作：⋯ 菜单（重命名/删除）。默认透明，悬浮/聚焦才出现，
+   与 parity 截图（无悬浮）互不影响。 */
+/* ⋯ 悬浮钮：绝对定位不占 flex 流——否则 .b 的 margin-left:auto 推不到最右（原型无此钮） */
+.book-card .card-menu-btn { position: absolute; top: 8px; right: 8px; flex: none; opacity: 0; transition: opacity 0.15s ease; }
+.book-card:hover .card-menu-btn, .book-card:focus-within .card-menu-btn { opacity: 1; }
+.card-menu { position: absolute; top: 42px; right: 8px; z-index: 10; min-width: 132px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-card); padding: 4px; }
+.card-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; border-radius: 7px; font-size: 13px; color: var(--fg); }
+.card-menu button:hover { background: var(--fg-soft); }
+.card-menu button.danger { color: var(--warn); }
+.card-menu button.danger:hover { background: var(--warn-soft); }
+.card-menu svg { width: 14px; height: 14px; }
+.book-card { position: relative; }
+
+/* 提示条（试用/过期/Key 未配置）：书架屏上方的账务与配置提示，
+   用设计 token 的 soft 色带表达，非 parity 对象（比对态全部隐藏）。 */
+.notice { display: flex; align-items: center; gap: 12px; border: 1px solid color-mix(in oklch, var(--warn) 28%, var(--border)); background: var(--warn-soft); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 14px; font-size: 13px; }
+.notice.info { border-color: color-mix(in oklch, var(--accent) 30%, var(--border)); background: var(--accent-soft); }
+.notice .nt { flex: 1; }
+.notice .nt b { font-weight: 500; }
+.notice .nt span { color: var(--muted); font-size: 12.5px; margin-left: 8px; }
+
+/* 加载骨架：卡片网格占位（design token 灰阶，无 parity 态） */
+.card-skeleton { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); padding: 22px; }
+.card-skeleton .bar { height: 12px; border-radius: 6px; background: var(--fg-soft); margin-bottom: 10px; animation: skeleton-pulse 1.4s ease-in-out infinite; }
+.card-skeleton .bar.w40 { width: 40%; }
+.card-skeleton .bar.w70 { width: 70%; }
+.card-skeleton .bar.w90 { width: 90%; }
+@keyframes skeleton-pulse { 50% { opacity: 0.45; } }

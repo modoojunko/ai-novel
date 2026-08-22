@@ -92,9 +92,9 @@ async function setupSession(
 /** 通过真实 UI 创建小说，返回 project id。 */
 async function createNovel(page: Page, name: string): Promise<string> {
   await page.goto(`${ORIGIN}/#/novels`);
-  await page.getByRole("button", { name: "开始新小说" }).first().click();
-  await page.locator("input#novel-name").fill(name);
-  await page.getByRole("button", { name: "创建小说" }).click();
+  await page.getByRole("button", { name: "新建作品" }).first().click();
+  await page.locator("input#bkTitle").fill(name);
+  await page.getByRole("button", { name: "创建并开始写作" }).click();
   await page.waitForURL(/#\/novel\/[0-9a-fA-F-]+/);
   const m = page.url().match(/\/novel\/([0-9a-fA-F-]+)/);
   if (!m) throw new Error(`无法解析 novel id: ${page.url()}`);

@@ -98,9 +98,9 @@ async function setupSession(
 /** 通过真实 UI 创建小说（书名即创建），返回 project id。 */
 async function createNovel(page: Page, name: string): Promise<string> {
   await page.goto(`${ORIGIN}/#/novels`);
-  await page.getByRole("button", { name: "开始新小说" }).first().click();
-  await page.locator("input#novel-name").fill(name);
-  await page.getByRole("button", { name: "创建小说" }).click();
+  await page.getByRole("button", { name: "新建作品" }).first().click();
+  await page.locator("input#bkTitle").fill(name);
+  await page.getByRole("button", { name: "创建并开始写作" }).click();
   await page.waitForURL(/#\/novel\/[0-9a-fA-F-]+/);
   const m = page.url().match(/\/novel\/([0-9a-fA-F-]+)/);
   if (!m) throw new Error(`无法解析 novel id: ${page.url()}`);
@@ -194,23 +194,23 @@ test("创建小说：仅书名即可创建并进入小说页", async ({ page }) 
   const { restore } = await setupSession(page);
   try {
     await page.goto(`${ORIGIN}/#/novels`);
-    await expect(page.getByRole("button", { name: "开始新小说" }).first()).toBeVisible({
+    await expect(page.getByRole("button", { name: "新建作品" }).first()).toBeVisible({
       timeout: 10000,
     });
 
-    await page.getByRole("button", { name: "开始新小说" }).first().click();
+    await page.getByRole("button", { name: "新建作品" }).first().click();
     // AC-1.4：空书名创建按钮不可用
-    await expect(page.getByRole("button", { name: "创建小说" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "创建并开始写作" })).toBeDisabled();
 
     const bookName = `穿越测试${Date.now() % 10000}`;
-    await page.locator("input#novel-name").fill(bookName);
-    await page.getByRole("button", { name: "创建小说" }).click();
+    await page.locator("input#bkTitle").fill(bookName);
+    await page.getByRole("button", { name: "创建并开始写作" }).click();
 
     // AC-1.6：创建成功直接进入小说页
     await page.waitForURL(/#\/novel\/[0-9a-fA-F-]+/, { timeout: 10000 });
     // 顶栏显示书名
     await expect(page.getByText(bookName).first()).toBeVisible({ timeout: 10000 });
-    // AC-1.2/1.3：弹窗只有书名输入，无简介/类型/导入入口 —— 由极简弹窗本身保证
+    // AC-1.2/1.3（设计 v2 修订）：弹窗保持极简 —— 书名 + 类型（选填），无简介/导入入口
   } finally {
     restore();
   }

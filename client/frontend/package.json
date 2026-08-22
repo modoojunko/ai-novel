@@ -9,9 +9,8 @@
     "preview": "vite preview",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
-    "design:css": "tailwindcss -c tailwind.config.js -i src/index.css -o ../../docs/design-c/prototypes/assets/tw.css",
     "design:lint": "node scripts/design-lint.mjs",
-    "design:check": "npm run design:css && npm run design:lint && DESIGN_PARITY=1 playwright test e2e/design-parity.spec.ts"
+    "design:check": "npm run design:lint && DESIGN_PARITY=1 playwright test e2e/design-parity.spec.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",

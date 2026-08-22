@@ -1,56 +1,43 @@
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { isLoggedIn } from "../lib/auth";
-import { BookOpen } from "lucide-react";
-import ThemeToggle from "../components/novel/ThemeToggle";
+import PrefsModal from "../components/PrefsModal";
 
+/** 顶栏（list.html appbar 原样）：logo + 导航 + spacer + 设置。 */
 export default function Navbar() {
   const location = useLocation();
   const loggedIn = isLoggedIn();
+  const [showPrefs, setShowPrefs] = useState(false);
 
   // Landing page has its own full-page layout
   if (location.pathname === "/") return null;
 
+  const on = (prefix: string) =>
+    location.pathname === prefix || location.pathname.startsWith(prefix + "/") ? "on" : undefined;
+
   return (
-    <div className="navbar bg-base-200/80 backdrop-blur-sm border-b border-base-300 px-4 lg:px-8">
-      <div className="navbar-start">
-        <Link to="/" className="btn btn-ghost text-xl font-display gap-2">
-          <BookOpen className="w-5 h-5 text-primary" />
-          爱小说
+    <header className="appbar">
+      <Link className="logo" to="/novels">
+        <span className="logo-mark">爱</span>爱小说
+      </Link>
+      <nav className="nav">
+        <Link to="/novels" className={on("/novels")} aria-current={on("/novels") ? "page" : undefined}>
+          我的作品
         </Link>
-      </div>
-      <div className="navbar-end gap-2">
-        <ThemeToggle />
-        {loggedIn ? (
-          <>
-            <Link to="/novels" className="btn btn-ghost btn-sm">
-              我的作品
-            </Link>
-            <Link to="/config" className="btn btn-ghost btn-sm">
-              模型配置
-            </Link>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => {
-                localStorage.removeItem("auth_token");
-                localStorage.removeItem("auth_username");
-                sessionStorage.setItem("manual_logout", "1");
-                window.location.hash = "#/";
-              }}
-            >
-              退出
-            </button>
-          </>
-        ) : (
-          <>
-            <Link to="/login" className="btn btn-ghost btn-sm">
-              登录
-            </Link>
-            <Link to="/login" className="btn btn-primary btn-sm">
-              开始使用
-            </Link>
-          </>
-        )}
-      </div>
-    </div>
+        <Link to="/config" className={on("/config")}>
+          模型配置
+        </Link>
+      </nav>
+      <span className="spacer" />
+      {!loggedIn && (
+        <Link className="btn btn-ghost btn-sm" to="/login">
+          登录
+        </Link>
+      )}
+      <button className="btn btn-ghost btn-sm" onClick={() => setShowPrefs(true)}>
+        设置
+      </button>
+      <PrefsModal open={showPrefs} onClose={() => setShowPrefs(false)} />
+    </header>
   );
 }

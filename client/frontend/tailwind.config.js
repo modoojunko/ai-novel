@@ -1,11 +1,10 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  // ../../docs/design-c/prototypes 是设计原型（仓库根 docs/，本地资产不入 git）：
-  // 原型与应用共用本配置编译出同一套 CSS——类名相同即像素相同（design:css / design:check）
+  // 过渡期：daisyUI + 工具类服务未迁移屏（书工作台/登录/营销），PR 收尾退役。
+  // 设计系统走 src/design/*.css（自包含，不进 tailwind 编译）。
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
-    "../../docs/design-c/prototypes/**/*.html",
   ],
   theme: {
     extend: {
