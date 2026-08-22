@@ -24,11 +24,12 @@ const apiState = vi.hoisted(() => ({
   put: vi.fn(),
   patch: vi.fn(),
   delete: vi.fn(),
+  request: vi.fn(),
   fetchPhaseStatus: vi.fn(),
   fetchStory: vi.fn(),
 }));
 
-vi.mock("@/lib/api", () => ({ api: apiState }));
+vi.mock("@/lib/api", () => ({ api: apiState, request: apiState.request }));
 
 function TierProvider({ tier, children }: { tier: string; children: ReactNode }) {
   const isMember = tier !== "none";
@@ -165,7 +166,10 @@ beforeEach(() => {
   apiState.put.mockReset();
   apiState.patch.mockReset();
   apiState.delete.mockReset();
+  apiState.request.mockReset();
   apiState.fetchStory.mockReset();
+  // 默认无提示词文件（ChapterPage quiet 探测 request；[] → hasPrompts=false）
+  apiState.request.mockResolvedValue([]);
   localStorage.clear();
 });
 
@@ -205,17 +209,22 @@ describe("免费态：无阶段催促 UI、无 AI 字段入口", () => {
     );
   });
 
-  it("免费态选中章渲染 正文/章纲/提示词 子 label（AI 入口可见，使用由后端拦截）", async () => {
+  it("免费态选中章渲染 章纲/提示词/正文 页面级 tab（AI 入口可见，使用由后端拦截）", async () => {
     mockOneChapterTree();
     renderWorkspace("none");
     await screen.findByText("第一卷");
     fireEvent.click(screen.getByText("▸"));
     fireEvent.click(screen.getByText("第一章"));
-    await screen.findByPlaceholderText("正文（在此撰写小说内容）");
-    // 章选中 → 中部子 label：正文 / 章纲 / 提示词 全可见（2026-08-18 口径）
-    expect(screen.getByRole("button", { name: "正文" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "章纲" })).toBeDefined();
+    // 新章（未确认、无提示词/正文）→ 默认 tab=章纲（PR2：按进度智能分流）
+    expect(await screen.findByRole("button", { name: "章纲" })).toBeDefined();
     expect(screen.getByRole("button", { name: "提示词" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "正文" })).toBeDefined();
+    // 点「正文」→ 编辑器 + AI 入口可见（免费态按钮在，使用由后端 403 拦截）
+    fireEvent.click(screen.getByRole("button", { name: "正文" }));
+    expect(
+      await screen.findByPlaceholderText("正文（在此撰写小说内容）"),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "AI 写本章" })).toBeDefined();
   });
 });
 
@@ -249,9 +258,10 @@ describe("workbench 常驻挂载：切视图 prose 不丢", () => {
     renderWorkspace("none");
     await screen.findByText("第一卷");
 
-    // 展开卷 → 点击第一章 → 编辑器
+    // 展开卷 → 点击第一章 → 默认落章纲 tab，点「正文」进编辑器
     fireEvent.click(screen.getByText("▸"));
     fireEvent.click(screen.getByText("第一章"));
+    fireEvent.click(await screen.findByRole("button", { name: "正文" }));
     const textarea = await screen.findByPlaceholderText("正文（在此撰写小说内容）");
     fireEvent.change(textarea, { target: { value: "我在专注写作" } });
     expect(screen.getByDisplayValue("我在专注写作")).toBeDefined();
@@ -321,16 +331,15 @@ describe("PRO 态：阶段催促 UI 渲染", () => {
     expect(screen.queryByTitle("高级配置（设定/大纲）")).toBeNull();
   });
 
-  it("PRO 态选中章渲染 提示词 子 label（PRO-only）", async () => {
+  it("PRO 态选中章渲染 章纲/提示词/正文 页面级 tab", async () => {
     mockOneChapterTreePro();
     renderWorkspace("monthly");
     await screen.findByText("第一卷");
     fireEvent.click(screen.getByText("▸"));
     fireEvent.click(screen.getByText("第一章"));
-    await screen.findByPlaceholderText("正文（在此撰写小说内容）");
-    // 章选中 → 子 label 正文/章纲/提示词 全可见（PRO）
-    expect(screen.getByRole("button", { name: "正文" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "章纲" })).toBeDefined();
+    // 章选中 → 页面级 tab 三 label 全可见；新章默认落章纲
+    expect(await screen.findByRole("button", { name: "章纲" })).toBeDefined();
     expect(screen.getByRole("button", { name: "提示词" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "正文" })).toBeDefined();
   });
 });
