@@ -22,7 +22,7 @@ export default function App() {
   return (
     <ClientShell>
       <Navbar />
-      <div className="flex-1 page-enter" key={location.pathname}>
+      <div className="flex-1 flex flex-col page-enter" key={location.pathname}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />

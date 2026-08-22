@@ -1,8 +1,14 @@
-// 设计一致性视觉比对（design:check 第 1 层）—— 原型即基线。
+// 设计一致性视觉比对（design:check 第 2 层）—— 原型即基线。
 // 同一次 run 内截「原型 file:// 页」与「应用页（打桩固定数据）」，
-// pixelmatch 逐像素比对，双主题 × 全状态；差异图落 docs/design-c/baselines/。
+// pixelmatch 逐像素比对；差异图落 docs/design-c/baselines/。
 // 仅 design:check（DESIGN_PARITY=1）运行；常规 `playwright test` 跳过，
 // 且 docs/design-c/ 本地资产缺失时自动跳过（不入 git，fresh clone 无此目录）。
+//
+// 基线 = Open Design v2 原型 list.html（自包含单文件，系统字体栈，无 tw.css）。
+// 原型状态注入：localStorage ainovel.books（显式空数组=空态，见 ADJUSTMENTS.md）。
+// 应用侧打桩 /api/novels 与原型 SEED_BOOKS 逐字段对齐；updated_at 用相对 now
+// 计算，使「N 小时前/昨天/N 天前」文案与原型字面量一致。
+// 设计为单一亮色主题——无主题矩阵（旧 novelforge/parchment 双主题已废）。
 import fs from "fs";
 import path from "path";
 import { test, expect } from "@playwright/test";
@@ -10,102 +16,142 @@ import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
 
 // process.cwd() = client/frontend（playwright 运行目录，与既有 spec 一致；type:module 下无 __dirname）
-const PROTO_FILE = path.resolve(process.cwd(), "../../docs/design-c/prototypes/01-novel-list.html");
+const PROTO_FILE = path.resolve(process.cwd(), "../../docs/design-c/prototypes/list.html");
 const BASELINE_DIR = path.resolve(process.cwd(), "../../docs/design-c/baselines");
 const RUN_PARITY = process.env.DESIGN_PARITY === "1";
 const VIEWPORT = { width: 1440, height: 900, deviceScaleFactor: 1 } as const;
 const MAX_DIFF_RATIO = 0.002; // 0.2% 像素阈值（抗锯齿容差）
 
-// 与原型 data-state=books 完全一致的固定数据（日期取 UTC 午间，任何时区同日）
-const FIXED_NOVELS = [
+// 与原型 SEED_BOOKS 完全一致的固定数据（相对时间由 stub 时动态计算）
+const H = 3600_000;
+const FIXED_NOVELS = () => [
   {
     id: "parity-1",
-    name: "剑起苍澜",
+    name: "星海拾遗",
     slug: "parity-1",
-    current_phase: "write",
+    current_phase: "write", // → 写作中
     total_volumes: 2,
-    total_chapters: 12,
-    updated_at: "2026-08-20T10:30:00.000Z",
+    total_chapters: 4,
+    word_count: 1371,
+    genre: "科幻",
+    synopsis: "废弃星港上，导航员沉舟捡到一枚不属于人类纪元的导航信标，决定修好旧船去追一段回声。",
+    updated_at: new Date(Date.now() - 2 * H).toISOString(), // → 2 小时前
+  },
+  {
+    id: "parity-2",
+    name: "长夜灯",
+    slug: "parity-2",
+    current_phase: "settings", // → 设定中
+    total_volumes: 1,
+    total_chapters: 2,
+    word_count: 0,
+    genre: "悬疑",
+    synopsis: "一座永远天亮不了的县城，一个在深夜点灯的人。",
+    updated_at: new Date(Date.now() - 24 * H).toISOString(), // → 昨天
+  },
+  {
+    id: "parity-3",
+    name: "雾中法庭",
+    slug: "parity-3",
+    current_phase: "archive", // → 已归档
+    total_volumes: 3,
+    total_chapters: 9,
+    word_count: 12842,
+    genre: "都市",
+    synopsis: "律所新人姜序被卷入一场横跨十二年的旧案，迷雾散去时，法槌落下。",
+    updated_at: new Date(Date.now() - 72 * H).toISOString(), // → 3 天前
   },
 ];
 
+// 原型侧 localStorage 注入用（字段名与 SEED_BOOKS 一致；stage/stageLabel/updated 为原型字面量）
+const PROTO_BOOKS = [
+  {
+    title: "星海拾遗", genre: "科幻", stage: "writing", stageLabel: "写作中",
+    vols: 2, chs: 4, words: 1371, updated: "2 小时前",
+    summary: "废弃星港上，导航员沉舟捡到一枚不属于人类纪元的导航信标，决定修好旧船去追一段回声。",
+  },
+  {
+    title: "长夜灯", genre: "悬疑", stage: "setting", stageLabel: "设定中",
+    vols: 1, chs: 2, words: 0, updated: "昨天",
+    summary: "一座永远天亮不了的县城，一个在深夜点灯的人。",
+  },
+  {
+    title: "雾中法庭", genre: "都市", stage: "done", stageLabel: "已归档",
+    vols: 3, chs: 9, words: 12842, updated: "3 天前",
+    summary: "律所新人姜序被卷入一场横跨十二年的旧案，迷雾散去时，法槌落下。",
+  },
+];
+
+const MEMBER_VERIFY = { tier: "monthly", is_member: true, expired: false, trial_remaining_days: 0 };
+
 const CASES = [
-  {
-    state: "books",
-    novels: FIXED_NOVELS,
-    verify: { tier: "monthly", is_member: true, expired: false, trial_remaining_days: 0 },
-  },
-  {
-    state: "empty",
-    novels: [],
-    verify: { tier: "none", is_member: false, expired: false, trial_remaining_days: 0 },
-  },
+  { state: "books", books: PROTO_BOOKS },
+  { state: "empty", books: [] as unknown[] },
 ] as const;
 
-const THEMES = ["novelforge", "parchment"] as const;
-
-test.describe("design-parity 书列表屏", () => {
+test.describe("design-parity 书架屏（list.html）", () => {
   test.skip(
     !RUN_PARITY || !fs.existsSync(PROTO_FILE),
     !RUN_PARITY ? "仅 design:check 运行（DESIGN_PARITY=1）" : "原型缺失：docs/design-c/ 为本地资产"
   );
 
-  for (const theme of THEMES) {
-    for (const c of CASES) {
-      test(`${theme} · ${c.state}`, async ({ browser }) => {
-        // ── 原型侧（设计真值）──────────────────────────────────
-        const protoCtx = await browser.newContext({ viewport: VIEWPORT });
-        const protoPage = await protoCtx.newPage();
-        await protoPage.goto(`file://${PROTO_FILE}?theme=${theme}&state=${c.state}`);
-        await protoPage.evaluate(() => document.fonts.ready);
-        await protoPage.waitForTimeout(700); // page-enter 0.4s + 全局过渡 0.2s 收敛
-        const protoShot = await protoPage.screenshot();
-        await protoCtx.close();
+  for (const c of CASES) {
+    test(c.state, async ({ browser }) => {
+      // ── 原型侧（设计真值）──────────────────────────────────
+      const protoCtx = await browser.newContext({ viewport: VIEWPORT });
+      await protoCtx.addInitScript((books) => {
+        localStorage.setItem("ainovel.books", JSON.stringify(books));
+      }, c.books);
+      const protoPage = await protoCtx.newPage();
+      await protoPage.goto(`file://${PROTO_FILE}`);
+      await protoPage.evaluate(() => document.fonts.ready);
+      await protoPage.waitForTimeout(700);
+      const protoShot = await protoPage.screenshot();
+      await protoCtx.close();
 
-        // ── 应用侧（打桩固定数据）──────────────────────────────
-        const appCtx = await browser.newContext({ viewport: VIEWPORT });
-        await appCtx.addInitScript((t) => {
-          localStorage.setItem("auth_token", "parity-stub-token");
-          localStorage.setItem("auth_username", "parity");
-          localStorage.setItem("ai-novel-theme", t);
-        }, theme);
-        const appPage = await appCtx.newPage();
-        await appPage.route("**/api/novels", (r) => r.fulfill({ json: c.novels }));
-        await appPage.route("**/api/auth/verify", (r) => r.fulfill({ json: c.verify }));
-        await appPage.route("**/api/auth/config", (r) =>
-          r.fulfill({ json: { has_api_key: true, portal_url: "" } })
-        );
-        await appPage.route("**/api/auth/check-auth", (r) => r.fulfill({ json: { code: 1 } }));
-        await appPage.goto("/#/novels");
-        await appPage.waitForLoadState("networkidle");
-        await appPage.evaluate(() => document.fonts.ready);
-        await appPage.waitForTimeout(700);
-        const appShot = await appPage.screenshot();
-        await appCtx.close();
-
-        // ── 比对 ────────────────────────────────────────────────
-        const a = PNG.sync.read(protoShot);
-        const b = PNG.sync.read(appShot);
-        if (a.width !== b.width || a.height !== b.height) {
-          throw new Error(
-            `截图尺寸不一致（结构差异）：原型 ${a.width}x${a.height} vs 应用 ${b.width}x${b.height}`
-          );
-        }
-        const diff = new PNG({ width: a.width, height: a.height });
-        const diffCount = pixelmatch(a.data, b.data, diff.data, a.width, a.height, {
-          threshold: 0.1,
-        });
-        fs.mkdirSync(BASELINE_DIR, { recursive: true });
-        const base = `01-novel-list.${theme}.${c.state}`;
-        fs.writeFileSync(path.join(BASELINE_DIR, `${base}.proto.png`), protoShot);
-        fs.writeFileSync(path.join(BASELINE_DIR, `${base}.app.png`), appShot);
-        fs.writeFileSync(path.join(BASELINE_DIR, `${base}.diff.png`), PNG.sync.write(diff));
-        const ratio = diffCount / (a.width * a.height);
-        expect(
-          ratio,
-          `像素差异率 ${(ratio * 100).toFixed(3)}%（阈值 0.2%）— 三张对比图见 docs/design-c/baselines/${base}.*`
-        ).toBeLessThan(MAX_DIFF_RATIO);
+      // ── 应用侧（打桩固定数据）──────────────────────────────
+      const appCtx = await browser.newContext({ viewport: VIEWPORT });
+      await appCtx.addInitScript(() => {
+        localStorage.setItem("auth_token", "parity-stub-token");
+        localStorage.setItem("auth_username", "parity");
       });
-    }
+      const appPage = await appCtx.newPage();
+      const novels = c.state === "books" ? FIXED_NOVELS() : [];
+      await appPage.route("**/api/novels", (r) => r.fulfill({ json: novels }));
+      await appPage.route("**/api/auth/verify", (r) => r.fulfill({ json: MEMBER_VERIFY }));
+      await appPage.route("**/api/auth/config", (r) =>
+        r.fulfill({ json: { has_api_key: true, portal_url: "" } })
+      );
+      await appPage.route("**/api/auth/check-auth", (r) => r.fulfill({ json: { code: 1 } }));
+      await appPage.goto("/#/novels");
+      await appPage.waitForLoadState("networkidle");
+      await appPage.evaluate(() => document.fonts.ready);
+      await appPage.waitForTimeout(700); // page-enter 0.4s 收敛
+      const appShot = await appPage.screenshot();
+      await appCtx.close();
+
+      // ── 比对 ────────────────────────────────────────────────
+      const a = PNG.sync.read(protoShot);
+      const b = PNG.sync.read(appShot);
+      if (a.width !== b.width || a.height !== b.height) {
+        throw new Error(
+          `截图尺寸不一致（结构差异）：原型 ${a.width}x${a.height} vs 应用 ${b.width}x${b.height}`
+        );
+      }
+      const diff = new PNG({ width: a.width, height: a.height });
+      const diffCount = pixelmatch(a.data, b.data, diff.data, a.width, a.height, {
+        threshold: 0.1,
+      });
+      fs.mkdirSync(BASELINE_DIR, { recursive: true });
+      const base = `list.${c.state}`;
+      fs.writeFileSync(path.join(BASELINE_DIR, `${base}.proto.png`), protoShot);
+      fs.writeFileSync(path.join(BASELINE_DIR, `${base}.app.png`), appShot);
+      fs.writeFileSync(path.join(BASELINE_DIR, `${base}.diff.png`), PNG.sync.write(diff));
+      const ratio = diffCount / (a.width * a.height);
+      expect(
+        ratio,
+        `像素差异率 ${(ratio * 100).toFixed(3)}%（阈值 0.2%）— 三张对比图见 docs/design-c/baselines/${base}.*`
+      ).toBeLessThan(MAX_DIFF_RATIO);
+    });
   }
 });

@@ -38,6 +38,7 @@ class CreateProjectBody(BaseModel):
     name: str
     synopsis: str = ""
     genre_profile: str = ""
+    genre: str = ""  # 展示名（书架卡片类型胶囊），写入 story.yaml.genre
     source: str = "manual"
 
 
@@ -78,6 +79,7 @@ async def create(
         body.name,
         synopsis=body.synopsis,
         genre_profile=body.genre_profile,
+        genre=body.genre,
         source=body.source,
     )
     return novel_to_dict(project)
@@ -138,7 +140,80 @@ async def list_all(
     db: AsyncSession = Depends(get_db),
 ):
     projects = await list_projects(db, user["id"])
-    return [novel_to_dict(p) for p in projects]
+
+    # 书架卡片富化（只读、附加字段，数据模型不动）：
+    #   word_count — 章表 word_count 聚合
+    #   synopsis   — story.yaml（创建/导入时写入）
+    #   genre      — story.yaml.genre 展示名；缺失时回退 KV 题材（设定视图选择的题材）
+    words: dict[str, int] = {}
+    if projects:
+        from collections import Counter
+
+        from models.chapter import Chapter
+        from sqlalchemy.orm import load_only
+
+        ch_rows = (
+            await db.scalars(
+                select(Chapter)
+                .where(Chapter.project_id.in_([p.id for p in projects]))
+                .options(load_only(Chapter.project_id, Chapter.word_count))
+            )
+        ).all()
+        counter = Counter()
+        for ch in ch_rows:
+            counter[str(ch.project_id)] += ch.word_count or 0
+        words = dict(counter)
+
+    kv_genres = await _batch_kv_genre_names(db, projects)
+    storage = get_storage()
+    out = []
+    for p in projects:
+        d = novel_to_dict(p)
+        d["word_count"] = words.get(str(p.id), 0)
+        try:
+            story = await storage.read_yaml(p.root_path, "story.yaml") or {}
+        except Exception:
+            story = {}
+        d["synopsis"] = story.get("synopsis") or ""
+        d["genre"] = story.get("genre") or kv_genres.get(str(p.id))
+        out.append(d)
+    return out
+
+
+async def _batch_kv_genre_names(db: AsyncSession, projects) -> dict[str, str]:
+    """project_settings KV key=genre → genres.name，按 root_path 批量对齐。"""
+    if not projects:
+        return {}
+    try:
+        from models.genre import Genre
+        from models.project_setting import ProjectSetting
+
+        settings = (
+            await db.scalars(
+                select(ProjectSetting).where(
+                    ProjectSetting.root_path.in_([p.root_path for p in projects]),
+                    ProjectSetting.key == "genre",
+                )
+            )
+        ).all()
+        gid_by_root: dict[str, str | None] = {}
+        for row in settings:
+            try:
+                gid_by_root[row.root_path] = json.loads(row.content).get("genre_id")
+            except Exception:
+                gid_by_root[row.root_path] = None
+        gids = {g for g in gid_by_root.values() if g}
+        names = {}
+        if gids:
+            for g in (await db.scalars(select(Genre).where(Genre.id.in_(gids)))).all():
+                names[g.id] = g.name
+        return {
+            str(p.id): names.get(gid_by_root[p.root_path])
+            for p in projects
+            if gid_by_root.get(p.root_path)
+        }
+    except Exception:
+        return {}  # KV 缺失/损坏不 500，卡片少一个类型胶囊而已
 
 
 @router.get("/by-slug/{slug}")

@@ -14,8 +14,8 @@ export default function ClientShell({ children }: { children: React.ReactNode })
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col bg-base-100 text-base-content">
-      <div className="flex-1 flex flex-col">{children}</div>
+    <div className="app-shell">
+      {children}
       <Toaster />
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import Modal from "@/components/design/Modal";
 
 interface RenameModalProps {
   /** 当前书名 */
@@ -8,7 +8,7 @@ interface RenameModalProps {
   onCancel: () => void;
 }
 
-/** 小号改名弹窗（与 DeleteConfirmModal 同容器语言，确认按钮用 btn-primary） */
+/** 改名弹窗（设计 .mcard 容器语言） */
 export default function RenameModal({ name, onConfirm, onCancel }: RenameModalProps) {
   const [value, setValue] = useState(name);
   const [saving, setSaving] = useState(false);
@@ -26,51 +26,38 @@ export default function RenameModal({ name, onConfirm, onCancel }: RenameModalPr
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={saving ? undefined : onCancel}
+    <Modal
+      open={true}
+      onClose={onCancel}
+      locked={saving}
+      title="重命名小说"
+      width={380}
+      footer={
+        <>
+          <button onClick={onCancel} className="btn btn-secondary" disabled={saving}>
+            取消
+          </button>
+          <button onClick={() => void submit()} disabled={invalid || saving} className="btn btn-primary">
+            {saving ? "保存中…" : "保存"}
+          </button>
+        </>
+      }
     >
-      <div
-        className="bg-base-100 border border-base-300 rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold font-serif text-base-content mb-2">
-          重命名小说
-        </h3>
+      <div className="field" style={{ marginBottom: 4 }}>
+        <label htmlFor="rename-input">书名</label>
         <input
-          className="input input-bordered w-full text-sm mb-1"
+          id="rename-input"
+          autoFocus
+          className="input"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") submit();
-            if (e.key === "Escape" && !saving) onCancel();
+            if (e.key === "Enter") void submit();
           }}
           maxLength={60}
           disabled={saving}
-          autoFocus
-          aria-label="小说书名"
         />
-        <p className="text-xs text-base-content/40 mb-4 text-right tabular-nums">
-          {value.length}/60
-        </p>
-        <div className="flex justify-end gap-2">
-          <button
-            onClick={onCancel}
-            className="btn btn-ghost btn-sm text-base-content/60"
-            disabled={saving}
-          >
-            取消
-          </button>
-          <button
-            onClick={submit}
-            disabled={invalid || saving}
-            className="btn btn-primary btn-sm"
-          >
-            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-            保存
-          </button>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }

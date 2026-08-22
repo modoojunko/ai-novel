@@ -37,18 +37,24 @@ function collect(glob) {
   return walk(dir).filter((f) => !exts || exts.some((e) => f.endsWith("." + e)));
 }
 
-// ── 类名提取：抓取源码/HTML 里所有字符串字面量，按空白切分 ──────
-function extractTokens(source) {
+// ── 类名提取 ────────────────────────────────────────────────────
+//   tsx/ts：抓所有字符串字面量（Tailwind 类藏在其中）
+//   html（v2 原型）：只抓 class="…" 属性 —— 原型内联 JS 的数组下标/选择器
+//   不是类名，字符串字面量扫描会把它们误报成任意值
+function extractTokens(source, isHtml = false) {
   const tokens = new Set();
-  const re = /(["'`])((?:\\.|(?!\1)[^\\])*)\1/gs;
-  let m;
-  while ((m = re.exec(source))) {
-    for (const t of m[2].split(/\s+/)) {
-      if (t && /[a-zA-Z]/.test(t)) tokens.add(t);
+  if (!isHtml) {
+    const re = /(["'`])((?:\\.|(?!\1)[^\\])*)\1/gs;
+    let m;
+    while ((m = re.exec(source))) {
+      for (const t of m[2].split(/\s+/)) {
+        if (t && /[a-zA-Z]/.test(t)) tokens.add(t);
+      }
     }
   }
-  // HTML：class="..." 已被上面覆盖；再兜底扫 class= 属性
+  // class= 属性兜底（html 主路径 / tsx 无害）
   const clsRe = /class\s*=\s*"([^"]*)"/g;
+  let m;
   while ((m = clsRe.exec(source))) {
     for (const t of m[1].split(/\s+/)) {
       if (t) tokens.add(t);
@@ -96,14 +102,12 @@ const reportFiles = reportGlobs.flatMap(collect);
 const violations = [];
 for (const file of strictFiles) {
   const src = readFileSync(file, "utf-8");
-  const lines = src.split("\n");
-  for (const token of extractTokens(src)) {
+  for (const token of extractTokens(src, file.endsWith(".html"))) {
     for (const p of checkToken(token)) {
       const line = src.slice(0, src.indexOf(token) + 1).split("\n").length;
       violations.push({ file: path.relative(ROOT, file), line, ...p });
     }
   }
-  void lines;
 }
 
 // 存量统计（只看分布）

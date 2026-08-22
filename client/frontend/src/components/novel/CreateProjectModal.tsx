@@ -1,16 +1,18 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { toast } from "@/lib/toast";
-import { AlertTriangle, Feather, Loader2, X } from "lucide-react";
+import Modal from "@/components/design/Modal";
+import { Ico, P } from "@/components/icons";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type ModalAction = { type: "SET_NAME"; value: string } | { type: "DISMISS" };
+type ModalAction = { type: "SET_NAME"; value: string } | { type: "SET_GENRE"; value: string } | { type: "DISMISS" };
 
 interface ModalState {
   name: string;
+  genre: string;
 }
 
 interface CreateProjectModalProps {
@@ -24,23 +26,28 @@ interface CreateProjectModalProps {
 }
 
 // ---------------------------------------------------------------------------
-// Reducer — single-stage minimal: only a book name is collected
+// Reducer — 极简两字段：书名 + 类型（选填），list.html modalCreate 原样
 // ---------------------------------------------------------------------------
 
 const INITIAL: ModalState = {
   name: "",
+  genre: "",
 };
 
 function reducer(state: ModalState, action: ModalAction): ModalState {
   switch (action.type) {
     case "SET_NAME":
       return { ...state, name: action.value };
+    case "SET_GENRE":
+      return { ...state, genre: action.value };
     case "DISMISS":
       return { ...INITIAL };
     default:
       return state;
   }
 }
+
+const GENRE_OPTIONS = ["玄幻", "科幻", "都市", "悬疑", "武侠", "历史", "其他"];
 
 // ---------------------------------------------------------------------------
 // Component
@@ -65,32 +72,24 @@ export default function CreateProjectModal({
     }
   }, [open]);
 
-  // Focus the name input when the modal opens
+  // Focus the name input when the modal opens（原型 60ms 后聚焦）
   useEffect(() => {
     if (!open) return;
-    const id = requestAnimationFrame(() => inputRef.current?.focus());
-    return () => cancelAnimationFrame(id);
+    const t = setTimeout(() => inputRef.current?.focus(), 60);
+    return () => clearTimeout(t);
   }, [open]);
-
-  // Esc closes (locked while submitting)
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      if (submitting) return;
-      onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, submitting, onClose]);
 
   async function handleCreate() {
     const name = state.name.trim();
     if (!name || submitting) return;
     setSubmitting(true);
     try {
-      const novel = await api.createNovel({ name, source: "manual" });
-      toast.success(`「${novel.name}」已创建`);
+      const novel = await api.createNovel({
+        name,
+        source: "manual",
+        genre: state.genre,
+      });
+      toast.success(`已创建《${novel.name}》，正在进入这本书…`);
       onCreated(novel.id);
     } catch {
       toast.error("创建失败");
@@ -99,106 +98,70 @@ export default function CreateProjectModal({
     }
   }
 
-  function handleClose() {
-    if (submitting) return;
-    onClose();
-  }
-
   // 口径=页面级 !isMember（过期会员也拦，与后端 require_project_limit 一致）
   const freeLimitReached =
     isMember === false && novelCount !== undefined && novelCount >= 1;
-  const canCreate = state.name.trim().length > 0 && !freeLimitReached;
-
-  if (!open) return null;
+  const canCreate = state.name.trim().length > 0 && !freeLimitReached && !submitting;
 
   return (
-    <>
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(4px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
-
-      <div className="modal modal-open" onClick={handleClose}>
-        <div className="modal-box max-w-md" onClick={(e) => e.stopPropagation()}>
-          {/* Header */}
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-bold font-serif text-lg">开始一部新小说</h3>
-            <button
-              onClick={handleClose}
-              className="btn btn-sm btn-circle btn-ghost disabled:opacity-30 disabled:pointer-events-none"
-              aria-label="关闭"
-              disabled={submitting}
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Content */}
-          <div style={{ animation: "fadeIn 300ms ease" }}>
-            <div className="space-y-5">
-              {/* 书名输入 */}
-              <div>
-                <label className="label py-1" htmlFor="novel-name">
-                  <span className="label-text text-xs font-medium">书名</span>
-                </label>
-                <input
-                  id="novel-name"
-                  ref={inputRef}
-                  className="input input-bordered w-full text-base"
-                  placeholder="给你的小说起个名字"
-                  maxLength={60}
-                  value={state.name}
-                  onChange={(e) =>
-                    dispatch({ type: "SET_NAME", value: e.target.value })
-                  }
-                  onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                  disabled={submitting}
-                  aria-label="小说书名"
-                />
-                {/* 改名提示 + 字数计数 */}
-                <div className="flex items-center justify-between mt-1.5">
-                  <p className="text-xs text-base-content/50 leading-relaxed">
-                    可以先取个简单的名字，创建后随时能改
-                  </p>
-                  <span className="text-xs text-base-content/40 tabular-nums shrink-0 ml-2">
-                    {state.name.length}/60
-                  </span>
-                </div>
-              </div>
-
-              {/* 主按钮：创建小说 */}
-              <button
-                className="btn btn-primary w-full"
-                onClick={handleCreate}
-                disabled={!canCreate || submitting}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    创建中…
-                  </>
-                ) : (
-                  <>
-                    <Feather className="w-4 h-4" />
-                    创建小说
-                  </>
-                )}
-              </button>
-
-              {/* 免费限 1 本 */}
-              {freeLimitReached && (
-                <div className="alert alert-warning text-xs py-2">
-                  <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>免费用户限 1 本。升级套餐可创建更多小说。</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="modal-backdrop" onClick={handleClose} />
+    <Modal
+      open={open}
+      onClose={onClose}
+      locked={submitting}
+      title="新建作品"
+      footer={
+        <>
+          <button className="btn btn-secondary" onClick={onClose} disabled={submitting}>
+            取消
+          </button>
+          <button className="btn btn-primary" onClick={() => void handleCreate()} disabled={!canCreate}>
+            {submitting ? "创建中…" : "创建并开始写作"}
+          </button>
+        </>
+      }
+    >
+      <div className="field">
+        <label htmlFor="bkTitle">书名</label>
+        <input
+          id="bkTitle"
+          ref={inputRef}
+          className="input"
+          placeholder="起个名字，10 秒内就能开始写"
+          maxLength={30}
+          value={state.name}
+          onChange={(e) => dispatch({ type: "SET_NAME", value: e.target.value })}
+          onKeyDown={(e) => e.key === "Enter" && void handleCreate()}
+          disabled={submitting}
+        />
       </div>
-    </>
+      <div className="field">
+        <label htmlFor="bkGenre">
+          类型 <span style={{ color: "var(--muted)", fontSize: 11 }}>选填</span>
+        </label>
+        <select
+          id="bkGenre"
+          className="input"
+          value={state.genre}
+          onChange={(e) => dispatch({ type: "SET_GENRE", value: e.target.value })}
+          disabled={submitting}
+        >
+          {/* 空值=暂不选择（「选填」语义；原型 option 表无此项，产品侧扩展） */}
+          <option value="">暂不选择</option>
+          {GENRE_OPTIONS.map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </select>
+      </div>
+      <p className="hint">
+        创建后<b>直接进入这本书</b>。一本书两个模块：设定与大纲——大纲里点章，即可配章纲、看提示词、写正文；设定随时可补。
+      </p>
+      {freeLimitReached && (
+        <p className="hint" style={{ marginTop: 10, background: "var(--warn-soft)" }}>
+          免费用户限 1 本。升级套餐可创建更多小说。
+        </p>
+      )}
+    </Modal>
   );
 }

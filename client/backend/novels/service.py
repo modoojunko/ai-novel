@@ -30,6 +30,7 @@ async def create_project(
     name: str,
     synopsis: str = "",
     genre_profile: str = "",
+    genre: str = "",
     source: str = "ai",
 ) -> Novel:
     slug = slugify(name)
@@ -47,10 +48,13 @@ async def create_project(
         await get_storage().init_skeleton(root_path)
 
         # Write AI-suggested metadata into project files
-        if synopsis or genre_profile:
+        # genre 为展示名（书架卡片类型胶囊；与 AI 流程的 genre_profile slug 无关）
+        if synopsis or genre_profile or genre:
             story = await get_storage().read_yaml(root_path, "story.yaml")
             if synopsis:
                 story["synopsis"] = synopsis
+            if genre:
+                story["genre"] = genre
             await get_storage().write_yaml(root_path, "story.yaml", story)
 
         if genre_profile:

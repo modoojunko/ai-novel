@@ -128,7 +128,7 @@ export const api = {
   fetchPhaseStatus: (novelId: string) =>
     request(`/novels/${novelId}/workflow/phase-status`),
   /** Create a new novel. */
-  createNovel: (body: { name: string; source?: string; synopsis?: string; genre_profile?: string }): Promise<{ id: string; name: string }> =>
+  createNovel: (body: { name: string; source?: string; synopsis?: string; genre_profile?: string; genre?: string }): Promise<{ id: string; name: string }> =>
     request('/novels', { method: 'POST', body: JSON.stringify(body) }),
   /** Rename a novel (display name only). */
   renameNovel: (novelId: string, name: string): Promise<{ id: string; name: string }> =>

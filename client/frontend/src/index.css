@@ -1,3 +1,9 @@
+/*
+ * Tailwind 过渡期入口：daisyUI/工具类服务于未迁移屏（书工作台/登录/营销），
+ * 设计系统在 design/base.css 之后加载并覆盖共享类；PR 收尾退役本文件里的 daisyUI。
+ * 视觉一律走 design/（oklch token + 组件类），此处只保留布局工具类所需的
+ * tailwind 指令、全链高度，以及未迁移屏仍在用的旧动画。
+ */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,51 +14,15 @@ body,
   height: 100%;
 }
 
-body {
-  font-family: "Noto Sans SC", sans-serif;
-  /* 暖光晕背景 */
-  background-image: radial-gradient(ellipse at 50% 0%, oklch(var(--p) / 0.04) 0%, transparent 65%);
-  background-attachment: fixed;
+/* #root/.app-shell 透传 body 的纵向 flex 链（设计 body 是 flex column） */
+#root,
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
-/* 选中颜色 — 暖琥珀 */
-::selection {
-  background: oklch(var(--p) / 0.25);
-  color: inherit;
-}
-
-/* 自定义滚动条 — WebKit */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: oklch(var(--p) / 0.15);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: oklch(var(--p) / 0.3);
-}
-
-/* 自定义滚动条 — Firefox */
-html {
-  scrollbar-width: thin;
-  scrollbar-color: oklch(var(--p) / 0.15) transparent;
-}
-
-/* 字体 */
-.font-serif {
-  font-family: "Noto Serif SC", "EB Garamond", serif;
-}
-
-.font-display {
-  font-family: "EB Garamond", "Noto Serif SC", serif;
-}
-
-/* 页面切入动画 — 带微缩放效果 */
+/* ── 未迁移屏的旧动画（收尾 PR 随 daisyUI 一起清） ── */
 @keyframes page-fade-in {
   from {
     opacity: 0;
@@ -68,7 +38,6 @@ html {
   animation: page-fade-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* 渐入效果通用类 */
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -89,23 +58,6 @@ html {
 .animate-fade-up-3 { animation-delay: 0.3s; }
 .animate-fade-up-4 { animation-delay: 0.4s; }
 
-/* Shimmer 骨架屏动画 */
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-.skeleton-custom {
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    oklch(var(--p) / 0.08) 50%,
-    transparent 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
-}
-
 /* GateBanner 滑入动画 */
 @keyframes gate-slide-down {
   from {
@@ -120,13 +72,4 @@ html {
 
 .gate-slide-down {
   animation: gate-slide-down 200ms ease-out both;
-}
-
-/* 背景色/边框色切换过渡 */
-*,
-*::before,
-*::after {
-  transition-property: background-color, border-color;
-  transition-duration: 0.2s;
-  transition-timing-function: ease;
 }

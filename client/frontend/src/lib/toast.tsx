@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Ico, P } from "@/components/icons";
 
 type ToastType = "error" | "success" | "info";
 
@@ -53,25 +54,27 @@ export function useToasts() {
   return toasts;
 }
 
+/** 设计系统 toast（list.html .toast-wrap/.toast）：底部居中深底胶囊。 */
 export function Toaster() {
   const toasts = useToasts();
   if (toasts.length === 0) return null;
 
-  const bgMap: Record<ToastType, string> = {
-    error: "alert alert-error",
-    success: "alert alert-success",
-    info: "alert alert-info",
-  };
-
   return (
-    <div className="toast toast-end toast-bottom z-50">
+    <div className="toast-wrap" role="status" aria-live="polite">
       {toasts.map((t) => (
-        <div key={t.id} className={`${bgMap[t.type]} flex items-center gap-3`}>
+        <div key={t.id} className={"toast" + (t.type === "error" ? " err" : "")}>
+          {t.type === "success" ? (
+            <Ico d={P.check} sw={2.2} />
+          ) : t.type === "error" ? (
+            <Ico d={P.close} sw={2.2} />
+          ) : (
+            <Ico d={P.other} sw={2.2} />
+          )}
           <span>{t.message}</span>
           {t.action && (
             <button
               onClick={t.action.onClick}
-              className="btn btn-ghost btn-xs text-current font-medium opacity-70 hover:opacity-100"
+              style={{ color: "inherit", fontWeight: 500, textDecoration: "underline", textUnderlineOffset: 2 }}
             >
               {t.action.label}
             </button>
