@@ -17,7 +17,7 @@ const TITLE_MAP: Record<string, string> = {
   "anti-ai": "🛡️ AI痕迹控制",
   hooks: "⚓ 伏笔管理",
   characters: "👥 角色管理",
-  "ai-model": "🧠 AI 模型",
+  "ai-model": "🧠 本书模型",
 };
 
 interface SettingsFormFieldProps {

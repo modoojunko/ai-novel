@@ -556,14 +556,17 @@ export default function OutlineEditor({
         <div className="space-y-5">
           <Field
             label="章纲概要"
+            hint="≤300 字"
             value={formData.outline.summary}
             onChange={(v) => updateOutline("summary", v)}
+            maxLength={300}
           />
           <FormSection label="关键事件">
             <ListEditor
               items={formData.outline.key_points}
               onChange={(v) => updateOutline("key_points", v)}
               placeholder="一个关键事件"
+              maxLength={300}
             />
           </FormSection>
           <FormSection label="出场角色">
@@ -571,34 +574,43 @@ export default function OutlineEditor({
               items={formData.outline.characters}
               onChange={(v) => updateOutline("characters", v)}
               placeholder="角色名"
+              maxLength={50}
             />
           </FormSection>
           <div className="grid grid-cols-2 gap-4">
             <InputField
               label="地点"
+              hint="≤200 字"
               value={formData.outline.location}
               onChange={(v) => updateOutline("location", v)}
               placeholder="本章主要场景地点"
+              maxLength={200}
             />
             <InputField
               label="时间"
+              hint="≤150 字"
               value={formData.outline.time}
               onChange={(v) => updateOutline("time", v)}
               placeholder="本章时间背景"
+              maxLength={150}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <InputField
               label="叙事视角"
+              hint="≤50 字"
               value={formData.outline.narrative_pov}
               onChange={(v) => updateOutline("narrative_pov", v)}
               placeholder="如：第三人称有限"
+              maxLength={50}
             />
             <InputField
               label="视角指导"
+              hint="≤300 字"
               value={formData.outline.perspective_guidance}
               onChange={(v) => updateOutline("perspective_guidance", v)}
               placeholder="视角切换注意事项"
+              maxLength={300}
             />
           </div>
         </div>
@@ -611,14 +623,17 @@ export default function OutlineEditor({
         <div className="space-y-5">
           <Field
             label="核心任务"
+            hint="≤300 字"
             value={formData.memo.current_task}
             onChange={(v) => updateMemo("current_task", v)}
+            maxLength={300}
           />
           <FormSection label="必须完成的变化">
             <ListEditor
               items={formData.memo.required_changes}
               onChange={(v) => updateMemo("required_changes", v)}
               placeholder="一个必须发生的变化"
+              maxLength={300}
             />
           </FormSection>
           <FormSection label="禁止事项">
@@ -626,6 +641,7 @@ export default function OutlineEditor({
               items={formData.memo.prohibitions}
               onChange={(v) => updateMemo("prohibitions", v)}
               placeholder="一个禁止发生的事"
+              maxLength={300}
             />
           </FormSection>
         </div>
@@ -639,21 +655,27 @@ export default function OutlineEditor({
           <div className="grid grid-cols-2 gap-4">
             <InputField
               label="读者当前状态"
+              hint="≤150 字"
               value={formData.memo.reader_expectation.state}
               onChange={(v) => updateReaderExpectation("state", v)}
               placeholder="读者此时的情感状态"
+              maxLength={150}
             />
             <InputField
               label="预期策略"
+              hint="≤50 字"
               value={formData.memo.reader_expectation.strategy}
               onChange={(v) => updateReaderExpectation("strategy", v)}
               placeholder="希望读者如何感受"
+              maxLength={50}
             />
           </div>
           <Field
             label="预期细节说明"
+            hint="≤300 字"
             value={formData.memo.reader_expectation.detail}
             onChange={(v) => updateReaderExpectation("detail", v)}
+            maxLength={300}
           />
 
           {/* Separator */}
@@ -668,6 +690,7 @@ export default function OutlineEditor({
               items={formData.memo.payoff_plan.must_resolve}
               onChange={(v) => updatePayoffPlan("must_resolve", v)}
               placeholder="一个必须回收的伏笔"
+              maxLength={300}
             />
           </FormSection>
           <FormSection label="必须维持悬念">
@@ -675,6 +698,7 @@ export default function OutlineEditor({
               items={formData.memo.payoff_plan.must_hold}
               onChange={(v) => updatePayoffPlan("must_hold", v)}
               placeholder="一个必须维持的悬念"
+              maxLength={300}
             />
           </FormSection>
           <FormSection label="可部分推进">
@@ -682,6 +706,7 @@ export default function OutlineEditor({
               items={formData.memo.payoff_plan.partial_advance}
               onChange={(v) => updatePayoffPlan("partial_advance", v)}
               placeholder="一个可部分推进的线索"
+              maxLength={300}
             />
           </FormSection>
         </div>
@@ -696,6 +721,9 @@ export default function OutlineEditor({
             <label className="text-xs text-base-content/60 font-medium block tracking-wide mb-1.5">
               主情绪
             </label>
+            <p className="text-[11px] text-base-content/30 mb-1.5">
+              本章实际的主导情绪；卷纲章节规划里的「情绪锚点」是该章的预期情绪
+            </p>
             <select
               className="w-full bg-base-200/40 border border-base-300/60 rounded-lg px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-primary/40 focus:bg-base-200/60"
               value={
@@ -736,7 +764,8 @@ export default function OutlineEditor({
                 onChange={(e) =>
                   updateEmotionalDesign("primary_mood", e.target.value)
                 }
-                placeholder="输入自定义情绪"
+                placeholder="输入自定义情绪（≤50 字）"
+                maxLength={50}
               />
             )}
           </div>

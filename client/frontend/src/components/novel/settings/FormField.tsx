@@ -19,8 +19,8 @@ interface AIPrefilledProps {
 export type SettingSaveHandle = { save: () => Promise<boolean> };
 
 // ── Field ─────────────────────────────────────────────────────────
-export function Field({ label, hint, value, onChange, aiGeneratable, onAIGenerate, aiLoading, aiPrefilled }: {
-  label: string; hint?: string; value: string; onChange: (v: string) => void
+export function Field({ label, hint, value, onChange, maxLength, aiGeneratable, onAIGenerate, aiLoading, aiPrefilled }: {
+  label: string; hint?: string; value: string; onChange: (v: string) => void; maxLength?: number
 } & AIProps & AIPrefilledProps) {
   return (
     <div className={aiPrefilled ? 'border-l-2 border-primary/30 pl-3' : ''}>
@@ -46,14 +46,15 @@ export function Field({ label, hint, value, onChange, aiGeneratable, onAIGenerat
         className="w-full bg-base-200/40 border border-base-300/60 rounded-lg px-3.5 py-2.5 text-sm leading-relaxed outline-none transition-colors focus:border-primary/40 focus:bg-base-200/60 resize-y min-h-[80px] placeholder:text-base-content/20"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        maxLength={maxLength}
       />
     </div>
   );
 }
 
 // ── InputField ────────────────────────────────────────────────────
-export function InputField({ label, hint, value, onChange, placeholder, aiGeneratable, onAIGenerate, aiLoading, aiPrefilled }: {
-  label: string; hint?: string; value: string; onChange: (v: string) => void; placeholder?: string
+export function InputField({ label, hint, value, onChange, placeholder, maxLength, aiGeneratable, onAIGenerate, aiLoading, aiPrefilled }: {
+  label: string; hint?: string; value: string; onChange: (v: string) => void; placeholder?: string; maxLength?: number
 } & AIProps & AIPrefilledProps) {
   return (
     <div className={aiPrefilled ? 'border-l-2 border-primary/30 pl-3' : ''}>
@@ -80,14 +81,15 @@ export function InputField({ label, hint, value, onChange, placeholder, aiGenera
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        maxLength={maxLength}
       />
     </div>
   );
 }
 
 // ── ListEditor ────────────────────────────────────────────────────
-export function ListEditor({ items, onChange, placeholder, aiGeneratable, onAIGenerate, aiLoading, aiPrefilled }: {
-  items: string[]; onChange: (v: string[]) => void; placeholder?: string
+export function ListEditor({ items, onChange, placeholder, maxLength, aiGeneratable, onAIGenerate, aiLoading, aiPrefilled }: {
+  items: string[]; onChange: (v: string[]) => void; placeholder?: string; maxLength?: number
 } & AIProps & AIPrefilledProps) {
   return (
     <div className={`space-y-2 ${aiPrefilled ? 'border-l-2 border-primary/30 pl-3' : ''}`}>
@@ -115,6 +117,7 @@ export function ListEditor({ items, onChange, placeholder, aiGeneratable, onAIGe
             value={item}
             onChange={(e) => { const n = [...items]; n[i] = e.target.value; onChange(n); }}
             placeholder={placeholder}
+            maxLength={maxLength}
           />
           <button
             onClick={() => onChange(items.filter((_, j) => j !== i))}
