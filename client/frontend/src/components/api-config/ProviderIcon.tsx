@@ -1,22 +1,18 @@
 import type { VendorId } from "../../types/api-config";
+import { Ico, VENDOR_ICON } from "../icons";
 
-interface ProviderIconProps {
-  vendor: VendorId;
-  size?: number;
-}
+export const VENDORS = [
+  { id: "openai", label: "OpenAI", baseUrl: "https://api.openai.com" },
+  { id: "anthropic", label: "Anthropic", baseUrl: "https://api.anthropic.com" },
+  { id: "deepseek", label: "DeepSeek", baseUrl: "https://api.deepseek.com" },
+  { id: "glm", label: "GLM", baseUrl: "https://open.bigmodel.cn/api/paas/v4" },
+  { id: "kimi", label: "Kimi", baseUrl: "https://api.moonshot.cn/v1" },
+  { id: "qwen", label: "Qwen", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
+  { id: "ollama", label: "Ollama", baseUrl: "http://localhost:11434" },
+  { id: "openai-compat", label: "OpenAI 兼容", baseUrl: "" },
+] as const;
 
-const ICONS = {
-  openai: "⚡",
-  anthropic: "🤖",
-  deepseek: "🔍",
-  glm: "📊",
-  kimi: "🌙",
-  qwen: "🐉",
-  ollama: "🦙",
-  "openai-compat": "🔗",
-} satisfies Record<VendorId, string>;
-
-export const VENDOR_LABELS = {
+export const VENDOR_LABELS: Record<VendorId, string> = {
   openai: "OpenAI",
   anthropic: "Anthropic",
   deepseek: "DeepSeek",
@@ -25,16 +21,18 @@ export const VENDOR_LABELS = {
   qwen: "Qwen",
   ollama: "Ollama",
   "openai-compat": "OpenAI 兼容",
-} satisfies Record<VendorId, string>;
+};
 
-export function ProviderIcon({ vendor, size = 36 }: ProviderIconProps) {
+/** 供应商图标（model-config.html iconSvg 原样：1.7 圆头线帽，尺寸由上下文 CSS 控制） */
+export function VendorGlyph({ vendor }: { vendor: string }) {
+  return <Ico d={VENDOR_ICON[vendor] || VENDOR_ICON["openai-compat"]} sw={1.7} round />;
+}
+
+/** 配置卡左上角的供应商格（.pv-icon 38px） */
+export function ProviderIcon({ vendor }: { vendor: VendorId }) {
   return (
-    <div
-      className="flex items-center justify-center rounded-lg bg-base-200 text-base-content"
-      style={{ width: size, height: size, fontSize: size * 0.5 }}
-      title={VENDOR_LABELS[vendor] || vendor}
-    >
-      {ICONS[vendor] || "🔗"}
-    </div>
+    <span className="pv-icon" title={VENDOR_LABELS[vendor] || vendor}>
+      <VendorGlyph vendor={vendor} />
+    </span>
   );
 }

@@ -63,7 +63,9 @@ input, textarea, select { font: inherit; }
 .icon-btn:hover { color: var(--fg); background: var(--fg-soft); }
 .icon-btn svg { width: 15px; height: 15px; }
 
-.appbar { height: 48px; display: flex; align-items: center; padding: 0 20px; gap: 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+/* 过渡期 index.css 的 html/body/#root{height:100%}（未迁移屏依赖）把壳变成
+   有界高度 flex 列，内容超高时默认 flex-shrink 会把固定 48px 头压扁 —— 显式禁缩 */
+.appbar { height: 48px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
 .logo { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-display); font-size: 16px; font-weight: 600; }
 .logo-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: var(--surface); display: grid; place-items: center; font-family: var(--font-display); font-size: 14px; }
 .appbar .nav { display: inline-flex; gap: 4px; margin-left: 14px; }
@@ -102,8 +104,9 @@ input, textarea, select { font: inherit; }
 .hint b { color: var(--fg); font-weight: 500; }
 
 .toast-wrap { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 80; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
-/* daisyUI 同名 .toast 是 fixed 容器组件（position/flex-direction 会抢走芯片布局）——还原行内芯片 */
-.toast { display: inline-flex; flex-direction: row; position: static; align-items: center; gap: 8px; background: var(--fg); color: var(--surface); padding: 9px 16px; border-radius: 10px; font-size: 13px; box-shadow: var(--shadow-card); animation: toast-in 0.22s ease; }
+/* daisyUI 同名 .toast 是 fixed 容器组件（position/flex-direction 会抢走芯片布局）——还原行内芯片；
+   pointer-events:auto 让可交互 toast（撤销按钮）不被 .toast-wrap 的 none 穿透 */
+.toast { display: inline-flex; flex-direction: row; position: static; align-items: center; gap: 8px; background: var(--fg); color: var(--surface); padding: 9px 16px; border-radius: 10px; font-size: 13px; box-shadow: var(--shadow-card); animation: toast-in 0.22s ease; pointer-events: auto; }
 .toast svg { width: 14px; height: 14px; color: var(--ok); }
 .toast.err svg { color: var(--err); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
@@ -117,7 +120,7 @@ input, textarea, select { font: inherit; }
 .seg button:hover { color: var(--fg); }
 .seg button.on { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px color-mix(in oklch, var(--fg) 8%, transparent); font-weight: 500; }
 
-.pagefoot { border-top: 1px solid var(--border); padding: 20px 0; color: var(--muted); font-size: 12px; text-align: center; }
+.pagefoot { flex-shrink: 0; border-top: 1px solid var(--border); padding: 20px 0; color: var(--muted); font-size: 12px; text-align: center; }
 
 /* 窄屏：收拢 appbar，主 CTA 换行成全宽，防止横向溢出 */
 @media (max-width: 480px) {

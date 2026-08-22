@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Ico, P } from "../icons";
 
 const STORAGE_KEY = "migration_banner_dismissed";
 
@@ -6,6 +7,7 @@ interface MigrationBannerProps {
   migrationCompleted?: boolean;
 }
 
+/** 老用户迁移提示（应用侧扩展，原型未建模；用本屏 notice 版式表达） */
 export function MigrationBanner({ migrationCompleted }: MigrationBannerProps) {
   const [visible, setVisible] = useState(false);
 
@@ -30,21 +32,17 @@ export function MigrationBanner({ migrationCompleted }: MigrationBannerProps) {
   };
 
   return (
-    <div className="alert alert-info flex-row items-start gap-3 rounded-xl border-l-4 border-info mb-4">
-      <div className="flex-1">
-        <h4 className="font-semibold text-sm">API Key 管理已升级</h4>
-        <p className="text-xs text-base-content/70 mt-1">
-          你的 API Key 已升级为多配置管理方式。现在你可以管理多个 API Key，为不同小说选择不同模型。
-        </p>
-      </div>
-      <div className="flex gap-2 shrink-0">
-        <button className="btn btn-sm btn-ghost" onClick={dismiss}>
-          知道了
-        </button>
-        <button className="btn btn-sm btn-primary" onClick={scrollToConfigs}>
-          去查看
-        </button>
-      </div>
+    <div className="notice">
+      <Ico d={P.info} sw={1.8} />
+      <span style={{ flex: 1 }}>
+        API Key 管理已升级为多配置方式，现在可以管理多个 API Key，为不同小说选择不同模型。
+      </span>
+      <button className="btn btn-secondary btn-sm" onClick={scrollToConfigs}>
+        去查看
+      </button>
+      <button className="btn btn-ghost btn-sm" onClick={dismiss}>
+        知道了
+      </button>
     </div>
   );
 }

@@ -25,7 +25,22 @@ export const P = {
   wuxia: '<path d="M4 20c6-2 12-8 15-15M13 7l4 4M6 14l4 4"/>',
   history: '<path d="M12 8a4 4 0 100 8 4 4 0 000-8z"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
   other: '<path d="M12 3v18M3 12h18"/>',
+  // 模型配置（model-config.html）
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+  spinner: '<path d="M21 12a9 9 0 11-6.2-8.56"/>',
 } as const;
+
+/** 供应商图标（model-config.html VENDORS 原样；原型唯一用圆头线帽的图标组） */
+export const VENDOR_ICON: Record<string, string> = {
+  openai: '<path d="M12 4.5l2.1 5.4 5.4 2.1-5.4 2.1-2.1 5.4-2.1-5.4-5.4-2.1 5.4-2.1z"/>',
+  anthropic: '<path d="M12 5v14M5 12h14M7.5 7.5l9 9M16.5 7.5l-9 9"/>',
+  deepseek: '<path d="M11 5a6 6 0 100 12 6 6 0 000-12zM18.5 18.5l-3.4-3.4"/>',
+  glm: '<path d="M5 20V10M12 20V5M19 20v-6"/>',
+  kimi: '<path d="M20 15a8 8 0 01-10.8-5.2A8 8 0 1020 15z"/>',
+  qwen: '<path d="M12 5a7 7 0 110 14 7 7 0 010-14zM12 9a3 3 0 110 6 3 3 0 010-6z"/>',
+  ollama: '<path d="M6 6h12v12H6zM10 6V4M14 6V4M10 20v-2M14 20v-2"/>',
+  "openai-compat": '<path d="M9 15l6-6M11 7l1.6-1.6a3 3 0 014.2 4.2L15 11M13 17l-1.6 1.6a3 3 0 01-4.2-4.2L9 13"/>',
+};
 
 /** 题材名 → 图标：含 8 题材库全名（悬疑刑侦/都市言情…）到原型 7 图标的归类 */
 export function genreIconPath(genre?: string | null): string {
@@ -43,19 +58,23 @@ interface IcoProps {
   d: string;
   /** 线宽：原型惯例 2（通用）/ 2.2-2.4（强调）；默认 2 */
   sw?: number;
+  /** 圆头线帽（供应商图标组专用：stroke-linecap/join round） */
+  round?: boolean;
   size?: number;
   style?: CSSProperties;
   className?: string;
 }
 
 /** 原型内联 SVG 的 React 等价物：viewBox 24、stroke currentColor、fill none */
-export function Ico({ d, sw = 2, size, style, className }: IcoProps) {
+export function Ico({ d, sw = 2, round, size, style, className }: IcoProps) {
   return (
     <svg
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
       strokeWidth={sw}
+      strokeLinecap={round ? "round" : undefined}
+      strokeLinejoin={round ? "round" : undefined}
       width={size}
       height={size}
       style={style}

@@ -1,53 +1,53 @@
 import type { ApiConfig } from "../../types/api-config";
+import Modal from "../design/Modal";
 
 interface DeleteConfirmDialogProps {
   config: ApiConfig;
-  affectedCount: number;
   onConfirm: () => Promise<void>;
   onCancel: () => void;
   deleting?: boolean;
 }
 
-export function DeleteConfirmDialog({
-  config,
-  affectedCount,
-  onConfirm,
-  onCancel,
-  deleting,
-}: DeleteConfirmDialogProps) {
+/** 删除确认（model-config.html modalDelete 原样：影响盘点红 chips + 可撤销提示） */
+export function DeleteConfirmDialog({ config, onConfirm, onCancel, deleting }: DeleteConfirmDialogProps) {
+  const models = config.models || [];
+  const inventory: string[] = [];
+  if (models.length) inventory.push(`模型 ${models.length} 个`);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="modal-overlay fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
-      <div className="modal-dialog relative z-10 bg-base-100 rounded-2xl shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto mx-4">
-        <div className="text-center mb-4">
-          <div className="text-4xl mb-2">⚠️</div>
-          <h3 className="text-lg font-bold">确认删除</h3>
-          <p className="text-sm text-base-content/70 mt-1">
-            确定要删除「{config.name}」吗？此操作不可撤销。
-          </p>
-        </div>
-
-        {affectedCount > 0 && (
-          <div className="alert alert-warning text-sm mb-4">
-            该配置当前被 <strong data-testid="affected-novels-count">{affectedCount}</strong>{" "}
-            {affectedCount === 1 ? "部小说" : "部小说"}使用，删除后这些小说将无法使用 AI 功能。
-          </div>
-        )}
-
-        <div className="flex gap-2 justify-end">
-          <button className="btn btn-ghost" onClick={onCancel} disabled={deleting}>
+    <Modal
+      open
+      onClose={onCancel}
+      locked={deleting}
+      width={460}
+      title="删除配置"
+      footer={
+        <>
+          <button className="btn btn-secondary" onClick={onCancel} disabled={deleting}>
             取消
           </button>
-          <button
-            className="btn btn-error"
-            onClick={onConfirm}
-            disabled={deleting}
-          >
-            {deleting && <span className="loading loading-spinner" />}
+          <button className="btn btn-danger" onClick={() => void onConfirm()} disabled={deleting}>
             确认删除
           </button>
+        </>
+      }
+    >
+      <p style={{ margin: 0, fontSize: "13.5px", lineHeight: 1.7 }}>
+        确定删除配置 <b>「{config.name}」</b>？
+      </p>
+      {inventory.length > 0 && (
+        <div className="del-inventory">
+          <span className="inv-title">删除影响</span>
+          {inventory.map((x) => (
+            <span key={x} className="inv-chip">
+              {x}
+            </span>
+          ))}
         </div>
-      </div>
-    </div>
+      )}
+      <p style={{ margin: "8px 0 0", fontSize: "12.5px", color: "var(--muted)" }}>
+        删除后引用它的书将回退到「未配置」状态，此操作可撤销。
+      </p>
+    </Modal>
   );
 }
