@@ -267,13 +267,13 @@ export default function Workbench({ wb }: WorkbenchProps) {
               </div>
             )}
           </div>
+
+          {/* 底部状态栏（专注模式保留，C6）：置于编辑区列内，不横贯左树；需选中章才显示字数/进度 */}
+          {selectedRef && (
+            <ChapterStatusBar key={selectedRef} projectId={projectId} chapterRef={selectedRef} />
+          )}
         </main>
       </div>
-
-      {/* 底部状态栏（专注模式保留，C6）：需选中章才显示字数/进度 */}
-      {selectedRef && (
-        <ChapterStatusBar key={selectedRef} projectId={projectId} chapterRef={selectedRef} />
-      )}
 
       {/* 新建卷弹窗：序号程序排定（第N卷），卷名必填即标题 */}
       {volDialogOpen && (
