@@ -3,7 +3,6 @@ import type { ChapterEditorHandle, AIWritingState } from "./ChapterEditor";
 import EmptyState from "./EmptyState";
 import WritingTree from "./WritingTree";
 import Breadcrumb from "./Breadcrumb";
-import BottomStatusBar from "./BottomStatusBar";
 import CreateNodeModal from "./CreateNodeModal";
 import VolumePage from "./volume/VolumePage";
 import ChapterPage from "./chapter/ChapterPage";
@@ -11,7 +10,6 @@ import { cnNum, nodeLabel } from "@/lib/nodeTitle";
 import type { TreeNode } from "./StructureTree";
 import type { UseWorkbenchReturn, WorkbenchVolume } from "@/hooks/useWorkbench";
 import { useOutline } from "@/hooks/useOutline";
-import { useChapterData } from "@/hooks/useChapterData";
 import { Maximize2 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -267,11 +265,6 @@ export default function Workbench({ wb }: WorkbenchProps) {
               </div>
             )}
           </div>
-
-          {/* 底部状态栏（专注模式保留，C6）：置于编辑区列内，不横贯左树；需选中章才显示字数/进度 */}
-          {selectedRef && (
-            <ChapterStatusBar key={selectedRef} projectId={projectId} chapterRef={selectedRef} />
-          )}
         </main>
       </div>
 
@@ -306,37 +299,5 @@ export default function Workbench({ wb }: WorkbenchProps) {
         />
       )}
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 内联状态栏：桥接 useChapterData 状态到 BottomStatusBar
-// ---------------------------------------------------------------------------
-
-function ChapterStatusBar({
-  projectId,
-  chapterRef,
-}: {
-  projectId: string;
-  chapterRef: string;
-}) {
-  const {
-    wordCount,
-    targetWords,
-    setTargetWords,
-    saveState,
-    save,
-    retry,
-  } = useChapterData(projectId, chapterRef);
-
-  return (
-    <BottomStatusBar
-      wordCount={wordCount}
-      targetWords={targetWords}
-      onSetTargetWords={setTargetWords}
-      saveState={saveState}
-      onSave={save}
-      onRetry={retry}
-    />
   );
 }

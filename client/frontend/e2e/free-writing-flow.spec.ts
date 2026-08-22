@@ -198,7 +198,7 @@ test("直接写第一章：即达编辑器，实时字数 + 自动保存，空�
     const editor = page.getByPlaceholder("正文（在此撰写小说内容）");
     await expect(editor).toBeVisible({ timeout: 5000 });
     await editor.fill("你好 世界");
-    await expect(page.getByText("4 字").first()).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("4/2000 字").first()).toBeVisible({ timeout: 5000 });
     // 自动保存（1.5s 防抖）→ 已保存
     await expect(page.getByText("已保存").first()).toBeVisible({ timeout: 8000 });
   } finally {
