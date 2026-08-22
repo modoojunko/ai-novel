@@ -14,7 +14,7 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={() => setTheme((t) => (t === "novelforge" ? "parchment" : "novelforge"))}
-      className="text-sm text-base-content/50 hover:text-base-content transition-colors p-2 rounded-md border border-base-content/10 hover:border-base-content/30"
+      className="text-sm text-base-content/60 hover:text-base-content transition-colors p-2 rounded-md border border-base-content/10 hover:border-base-content/30"
       title={theme === "novelforge" ? "切换到浅色主题" : "切换到深色主题"}
     >
       {theme === "novelforge" ? (

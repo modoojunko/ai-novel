@@ -232,14 +232,14 @@ function NovelList() {
               <div
                 key={p.id}
                 className="card bg-base-200/70 border border-base-300/40 cursor-pointer
-                          hover:bg-base-200 hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5
+                          hover:bg-base-200 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5
                           transition-all duration-300 group"
               >
                 <div className="card-body py-5" onClick={() => navigate(`/novel/${p.id}`)}>
                   <div className="flex items-start justify-between">
                     <div className="min-w-0">
                       <h3 className="font-serif text-base truncate group-hover:text-primary transition-colors">{p.name}</h3>
-                      <p className="text-xs text-base-content/50 mt-1">
+                      <p className="text-xs text-base-content/60 mt-1">
                         {p.total_chapters}章 · 更新于{new Date(p.updated_at).toLocaleDateString("zh-CN")}
                       </p>
                     </div>
@@ -247,7 +247,7 @@ function NovelList() {
                       <button
                         tabIndex={0}
                         onClick={(e) => e.stopPropagation()}
-                        className="btn btn-ghost btn-xs btn-square text-base-content/50 hover:text-base-content transition-all"
+                        className="btn btn-ghost btn-xs btn-square text-base-content/60 hover:text-base-content transition-all"
                         title="更多操作"
                         aria-label="更多操作"
                       >
@@ -270,7 +270,7 @@ function NovelList() {
                         </li>
                         <li>
                           <button
-                            className="text-error/70 hover:text-error"
+                            className="text-error/80 hover:text-error"
                             onClick={(e) => {
                               e.stopPropagation();
                               setDeleteTarget(p);
@@ -283,7 +283,7 @@ function NovelList() {
                       </ul>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 mt-3 text-xs text-base-content/50">
+                  <div className="flex items-center gap-3 mt-3 text-xs text-base-content/60">
                     <span>{p.total_volumes || 0} 卷</span>
                     <span>·</span>
                     <span>{p.total_chapters || 0} 章</span>

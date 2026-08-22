@@ -20,7 +20,11 @@ function walk(dir, out = []) {
 }
 
 function collect(glob) {
-  // 仅支持本 lint 需要的形状：<dir>/**/*、<dir>/**/*.ext、<dir>/**/*.{ext1,ext2}
+  // 支持两种形状：精确文件路径（无通配）、<dir>/**/*[…ext]
+  if (!glob.includes("*")) {
+    const f = path.resolve(ROOT, glob);
+    return existsSync(f) ? [f] : [];
+  }
   const [dirPart, extPart] = glob.split("/**/");
   const dir = path.resolve(ROOT, dirPart);
   if (!existsSync(dir)) return [];
@@ -66,9 +70,10 @@ function checkToken(token) {
   if (bracketAt > 0 && token.includes("]") && !allowedArbitrary.has(token)) {
     problems.push({ kind: "arbitrary", token });
   }
-  // 2) opacity 档位（先剥 hover:/group-hover:/断点 等变体前缀再判属性族）
+  // 2) opacity 档位（先剥 hover:/group-hover:/断点 等变体前缀再判属性族；
+  //    w-1/2、w-3/4 等是宽度分数工具类，不是 opacity，跳过）
   const m = token.match(/^(.+?)\/(\d{1,3})$/);
-  if (m) {
+  if (m && !/^(?:[a-zA-Z0-9-]+:)*(?:w|h)-\d+$/.test(m[1])) {
     const base = m[1].replace(/^(?:[a-zA-Z0-9-]+:)+/, "");
     const val = parseInt(m[2], 10);
     const family = OPACITY_PROP_FAMILIES.find((f) => base === f || base.startsWith(f + "-"));

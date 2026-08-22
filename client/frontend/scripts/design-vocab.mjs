@@ -5,8 +5,14 @@
 
 // ── 严格模式的扫描范围 ──────────────────────────────────────────
 // 原型永远严格；strictSrcGlobs 是「已收编」屏的源码，随校准逐屏加入（PR B 起）。
+// 首批收编：书列表屏页面 + 该屏渲染路径上的全局组件（Footer/Navbar/ThemeToggle）。
 export const strictGlobs = ["../../docs/design-c/prototypes/**/*.html"];
-export const strictSrcGlobs = [];
+export const strictSrcGlobs = [
+  "src/pages/NovelListPage.tsx",
+  "src/components/Footer.tsx",
+  "src/components/Navbar.tsx",
+  "src/components/novel/ThemeToggle.tsx",
+];
 
 // ── 只统计、不阻断的范围（存量冻结，供定档观察）────────────────
 export const reportGlobs = ["src/**/*.{tsx,ts}"];
