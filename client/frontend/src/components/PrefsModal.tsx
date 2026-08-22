@@ -9,8 +9,10 @@ import Modal from "@/components/design/Modal";
 import { api } from "@/lib/api";
 import { isLoggedIn, logout } from "@/lib/auth";
 import {
+  getArchiveAiSummaryEnabled,
   getDefaultFontSize,
   getDefaultLineHeight,
+  setArchiveAiSummaryEnabled,
   setDefaultFontSize,
   setDefaultLineHeight,
   type FontSizePref,
@@ -40,12 +42,14 @@ function tierLabel(r: any): string {
 export default function PrefsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [fs, setFs] = useState<FontSizePref>("fs-m");
   const [lh, setLh] = useState<LineHeightPref>("lh-comfy");
+  const [aiSummary, setAiSummary] = useState(true);
   const [tier, setTier] = useState<string>("");
 
   useEffect(() => {
     if (!open) return;
     setFs(getDefaultFontSize());
     setLh(getDefaultLineHeight());
+    setAiSummary(getArchiveAiSummaryEnabled());
     api
       .post("/auth/verify")
       .then((r: any) => setTier(tierLabel(r)))
@@ -55,6 +59,7 @@ export default function PrefsModal({ open, onClose }: { open: boolean; onClose: 
   function save() {
     setDefaultFontSize(fs);
     setDefaultLineHeight(lh);
+    setArchiveAiSummaryEnabled(aiSummary);
     onClose();
   }
 
@@ -93,6 +98,20 @@ export default function PrefsModal({ open, onClose }: { open: boolean; onClose: 
               {o.label}
             </button>
           ))}
+        </span>
+      </div>
+      <div className="pref-row">
+        <div>
+          <div className="pl">归档 AI 摘要</div>
+          <div className="pm">归档时用 AI 生成章节摘要（消耗额度）；关闭后截取正文开头</div>
+        </div>
+        <span className="seg">
+          <button className={aiSummary ? "on" : ""} onClick={() => setAiSummary(true)}>
+            开
+          </button>
+          <button className={!aiSummary ? "on" : ""} onClick={() => setAiSummary(false)}>
+            关
+          </button>
         </span>
       </div>
       <div className="pref-row">

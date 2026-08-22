@@ -6,23 +6,22 @@ import type { ApiConfig, UsageSummary } from "../types/api-config";
 import { MigrationBanner } from "../components/api-config/MigrationBanner";
 import { UsageStatsCard } from "../components/api-config/UsageStatsCard";
 import { ApiConfigCard } from "../components/api-config/ApiConfigCard";
-import { ApiConfigCardSkeleton } from "../components/api-config/ApiConfigCardSkeleton";
 import { ApiConfigForm } from "../components/api-config/ApiConfigForm";
 import type { ApiConfigFormData } from "../components/api-config/ApiConfigForm";
 import { DeleteConfirmDialog } from "../components/api-config/DeleteConfirmDialog";
 import { UndoToast } from "../components/api-config/UndoToast";
+import { Ico, P } from "../components/icons";
 import { getToken, isLoggedIn } from "../lib/auth";
 import { getApiBaseUrl } from "../lib/env";
-import {
-  getArchiveAiSummaryEnabled,
-  setArchiveAiSummaryEnabled,
-} from "../lib/prefs";
+import { relTime } from "../lib/reltime";
+import { toast } from "../lib/toast";
 
 function authHeaders(): Record<string, string> {
   const token = getToken();
   return token ? { "Authorization": `Bearer ${token}` } : {};
 }
 
+/** 模型配置屏（model-config.html parity：notice + 用量面板 + cfg-cards + 弹窗群） */
 export default function ApiKeyConfigPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -38,9 +37,8 @@ export default function ApiKeyConfigPage() {
   const [editConfig, setEditConfig] = useState<ApiConfig | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApiConfig | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [undoToast, setUndoToast] = useState<{ config: ApiConfig; data: { affected_projects: number } } | null>(null);
+  const [undoToast, setUndoToast] = useState<ApiConfig | null>(null);
   const [migrationStatus, setMigrationStatus] = useState<{ completed: boolean; configName?: string } | undefined>(undefined);
-  const [archiveAiSummary, setArchiveAiSummary] = useState(() => getArchiveAiSummaryEnabled());
 
   // Check #add anchor
   useEffect(() => {
@@ -65,11 +63,17 @@ export default function ApiKeyConfigPage() {
     if (editConfig) {
       await updateConfig(editConfig.id, data);
       setEditConfig(null);
+      toast.success(`已保存「${data.name}」`);
     } else {
       const newConfig = await addConfig(data);
-      // Auto-test after create so the card shows real status
-      try { await testConfig(newConfig.id); } catch { /* non-blocking */ }
+      // 创建后自动测试，让卡片带上真实状态（原型同款行为）
+      let ok = false;
+      try {
+        const r = await testConfig(newConfig.id);
+        ok = r.ok;
+      } catch { /* non-blocking */ }
       setShowForm(false);
+      toast.success(`已添加「${data.name}」${ok ? " · 连接正常" : " · 请检查 Key"}`);
     }
   }, [editConfig, updateConfig, addConfig, testConfig]);
 
@@ -77,9 +81,9 @@ export default function ApiKeyConfigPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const result = await deleteConfig(deleteTarget.id);
+      await deleteConfig(deleteTarget.id);
       setDeleteTarget(null);
-      setUndoToast({ config: deleteTarget, data: result });
+      setUndoToast(deleteTarget);
     } catch {
       // Keep dialog open on error
     } finally {
@@ -91,15 +95,16 @@ export default function ApiKeyConfigPage() {
     if (!undoToast) return;
     try {
       // 撤销 = 后端软删 restore，恢复同一 id（配置名/key/base_url 原样回来）
-      await restoreConfig(undoToast.config.id);
-      setUndoToast(null);
+      await restoreConfig(undoToast.id);
+      toast.success(`已恢复「${undoToast.name}」`);
     } catch {
       // undo failed silently（配置已不存在等）
     }
   }, [undoToast, restoreConfig]);
 
-  const handleUndoExpire = useCallback(() => {
-    setUndoToast(null);
+  const closeForm = useCallback(() => {
+    setShowForm(false);
+    setEditConfig(null);
   }, []);
 
   // Refresh status when configs change
@@ -110,115 +115,86 @@ export default function ApiKeyConfigPage() {
     refreshUsage();
   }, [configs.length, refreshStatus, refreshUsage]);
 
+  const usage = usageData as UsageSummary | null;
+
   return (
-    <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <main className="main pg-config">
+      <div className="page-head">
         <div>
-          <h1 className="text-2xl font-bold">模型配置</h1>
-          <p className="text-sm text-base-content/60 mt-1">
-            管理你的 AI 服务 API Key，为不同小说选择不同模型
-          </p>
+          <h1>模型配置</h1>
+          <p className="sub">管理你的 AI 服务 API Key，为不同小说选择不同模型</p>
         </div>
-        {!showForm && !editConfig && (
-          <button
-            className="btn btn-primary"
-            onClick={() => { setShowForm(true); setEditConfig(null); }}
-          >
-            添加 API Key
-          </button>
-        )}
+        <button
+          className="btn btn-primary"
+          onClick={() => { setShowForm(true); setEditConfig(null); }}
+        >
+          <Ico d={P.plus} />
+          添加 API Key
+        </button>
       </div>
 
       {/* 新手提示：不配置也能先开始手工创作 */}
-      <div className="alert alert-info text-sm mb-4 shadow-sm">
-        <span className="font-medium">新手提示</span>
-        <p className="text-xs">
-          不配置也能先开始手动创作，随时可以回来添加。本地模型（如 Ollama）不需要 API Key；云端模型请选择对应供应商并填入 Base URL 与 Key。
-        </p>
+      <div className="notice">
+        <Ico d={P.info} sw={1.8} />
+        <span>
+          不配置也能先开始<b>手动创作</b>，随时可以回来添加。本地模型（如
+          Ollama）<b>不需要</b> API Key；云端模型请选择对应供应商并填入 Base URL 与 Key。
+        </span>
       </div>
 
-      {/* Migration Banner */}
-      {migrationStatus && !migrationStatus.completed && (
-        <MigrationBanner migrationCompleted={migrationStatus.completed} />
-      )}
+      {/* Migration Banner（应用侧扩展：仅老用户未迁移时出现） */}
+      <MigrationBanner migrationCompleted={migrationStatus?.completed} />
 
-      {/* Usage Stats */}
-      <UsageStatsCard data={(usageData as UsageSummary) ?? null} loading={usageLoading} />
-
-      {/* AI 偏好：归档 AI 摘要开关（本地偏好，仅影响归档时的摘要生成方式） */}
-      <div className="card bg-base-100 border border-base-300 p-5">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold">AI 偏好</h2>
-            <p className="text-sm text-base-content/60 mt-1">
-              归档时使用 AI 生成章节摘要（消耗 API Key 额度）。关闭后改为截取正文开头作为摘要，不消耗额度。
-            </p>
-          </div>
-          <input
-            type="checkbox"
-            className="toggle toggle-primary"
-            checked={archiveAiSummary}
-            onChange={(e) => {
-              setArchiveAiSummary(e.target.checked);
-              setArchiveAiSummaryEnabled(e.target.checked);
-            }}
-            aria-label="归档时使用 AI 生成章节摘要"
-          />
-        </div>
-      </div>
-
-      {/* Form (create/edit) */}
-      {(showForm || editConfig) && (
-        <div className="card bg-base-100 border border-base-300 p-5">
-          <h2 className="text-lg font-semibold mb-4">
-            {editConfig ? "编辑配置" : "添加 API Key"}
-          </h2>
-          <ApiConfigForm
-            config={editConfig ?? undefined}
-            onSubmit={handleFormSubmit}
-            onCancel={() => { setShowForm(false); setEditConfig(null); }}
-            onTest={async (data) => testRawConfig({ vendor_id: data.vendor_id, base_url: data.base_url, api_key: data.api_key })}
-          />
-        </div>
-      )}
+      {/* 用量统计 */}
+      <UsageStatsCard
+        data={usage}
+        loading={usageLoading}
+        updatedLabel={usage?.queried_at ? relTime(usage.queried_at) : undefined}
+      />
 
       {/* Config List */}
       <div id="api-config-list">
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => <ApiConfigCardSkeleton key={i} />)}
+          <div className="cards">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="card-skeleton">
+                <div className="bar w40" />
+                <div className="bar w90" />
+                <div className="bar w70" />
+              </div>
+            ))}
           </div>
         ) : error ? (
-          <div className="alert alert-error flex-col items-start gap-3">
-            <span>{error}</span>
-            <button className="btn btn-outline btn-sm" onClick={() => void refresh()}>
-              重新加载
-            </button>
+          <div className="empty">
+            <div className="serif">配置加载失败</div>
+            <p>{error}</p>
+            <div style={{ marginTop: 16 }}>
+              <button className="btn btn-secondary" onClick={() => void refresh()}>
+                重新加载
+              </button>
+            </div>
           </div>
         ) : configs.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-4xl mb-3">🔑</div>
-            <h3 className="text-lg font-semibold">还没有模型配置</h3>
-            <p className="text-sm text-base-content/50 mt-1 mb-4">
-              添加你的第一个 API Key 来开始使用 AI 写作
-            </p>
-            <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-              添加 API Key
-            </button>
-            <div className="mt-4">
-              <Link to="/novels" className="btn btn-outline btn-sm">
-                先开始手动创作
-              </Link>
+          /* 原型口径：empty 是 .cards 网格里的单个网格项 */
+          <div className="cards">
+            <div className="empty">
+              <div className="serif">还没有模型配置</div>
+              <p>添加你的第一个 API Key 来开始使用 AI 写作。</p>
+              <p style={{ marginTop: 14 }}>
+                <Link className="btn btn-secondary btn-sm" to="/novels">
+                  先开始手动创作
+                </Link>
+              </p>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="cards">
             {configs.map((c) => (
               <ApiConfigCard
                 key={c.id}
                 config={c}
                 onEdit={() => { setEditConfig(c); setShowForm(false); }}
-                onDelete={() => { setDeleteTarget(c); }}
+                onDelete={() => setDeleteTarget(c)}
                 onTest={async (cfg) => testConfig(cfg.id)}
               />
             ))}
@@ -226,25 +202,33 @@ export default function ApiKeyConfigPage() {
         )}
       </div>
 
-      {/* Delete Confirmation Dialog */}
+      {/* 添加 / 编辑弹窗（常挂载保 Modal 退场动画；表单随目标在渲染期重置） */}
+      <ApiConfigForm
+        open={showForm || !!editConfig}
+        config={editConfig}
+        onSubmit={handleFormSubmit}
+        onCancel={closeForm}
+        onTest={async (data) => testRawConfig({ vendor_id: data.vendor_id, base_url: data.base_url, api_key: data.api_key })}
+      />
+
+      {/* 删除确认 */}
       {deleteTarget && (
         <DeleteConfirmDialog
           config={deleteTarget}
-          affectedCount={0}
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
           deleting={deleting}
         />
       )}
 
-      {/* Undo Toast */}
+      {/* 撤销 toast（8 秒窗口） */}
       {undoToast && (
         <UndoToast
-          configName={undoToast.config.name}
+          configName={undoToast.name}
           onUndo={handleUndoDelete}
-          onExpire={handleUndoExpire}
+          onExpire={() => setUndoToast(null)}
         />
       )}
-    </div>
+    </main>
   );
 }

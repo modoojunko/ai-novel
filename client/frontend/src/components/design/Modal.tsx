@@ -86,7 +86,7 @@ export default function Modal({ open, onClose, title, locked, width = 420, child
       >
         <div className="mcard" style={width !== 420 ? { width: `min(${width}px, 92vw)` } : undefined}>
           <div className="mcard-head">
-            <span className="mh serif" id={labelId}>
+            <span className="mh serif" id={labelId} role="heading" aria-level={2}>
               {title}
             </span>
             <button className="icon-btn x" aria-label="关闭" onClick={() => !locked && onClose()} disabled={locked}>

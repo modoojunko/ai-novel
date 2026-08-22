@@ -1,0 +1,96 @@
+/* ═══════════════════════════════════════════════════════════════════
+   模型配置屏（/config）—— model-config.html 原样提取。
+   屏级节奏与 list.html 有意不同（main 顶距 44 vs 48、page-head 28 vs 36、
+   empty 56 vs 64、cards gap 16 vs 20、notice 版式）→ 统一用 .pg-config
+   按屏覆盖，不污染书架屏。
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─── 屏级节奏覆盖 ──────────────────────────────────────── */
+.pg-config { padding-top: 44px; }
+.pg-config .page-head { margin-bottom: 28px; }
+.pg-config .empty { padding: 56px 32px; }
+.pg-config .cards { gap: 16px; }
+
+/* 提示条（本屏版式：图标 + 富文本；书架屏的账务提示条是另一版式，见 list.css） */
+.pg-config .notice { display: flex; gap: 11px; align-items: flex-start; padding: 13px 15px; background: var(--accent-soft); border: 1px solid color-mix(in oklch, var(--accent) 22%, var(--border)); border-radius: var(--radius); font-size: 13px; line-height: 1.65; margin-bottom: 22px; }
+.pg-config .notice svg { flex: none; width: 16px; height: 16px; color: var(--accent-strong); margin-top: 1px; }
+.pg-config .notice b { font-weight: 500; color: var(--fg); }
+
+/* ─── 用量统计 ──────────────────────────────────────────── */
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; margin-bottom: 16px; }
+.panel-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+.panel-h h2 { font-family: var(--font-display); font-size: 16px; font-weight: 600; margin: 0; }
+.panel-h .note { font-size: 11.5px; color: var(--muted); }
+.stat-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+.stat { background: var(--fg-soft); border-radius: var(--radius); padding: 14px 16px; }
+.stat .k { font-size: 12px; color: var(--muted); }
+.stat .v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 24px; font-weight: 600; margin-top: 3px; letter-spacing: -0.01em; }
+.stat .v small { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 3px; }
+.usage-rows { display: flex; flex-direction: column; gap: 10px; }
+.usage-row { display: grid; grid-template-columns: 132px minmax(0, 1fr) 84px; align-items: center; gap: 12px; font-size: 12.5px; }
+.usage-row .nm { color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usage-row .bar { height: 6px; border-radius: 999px; background: var(--fg-soft); overflow: hidden; }
+.usage-row .bar i { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+.usage-row .tok { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted); text-align: right; }
+
+/* ─── 配置卡片 ──────────────────────────────────────────── */
+.cfg-card { display: flex; flex-direction: column; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; gap: 12px; transition: box-shadow 0.15s ease, border-color 0.15s ease; }
+.cfg-card:hover { box-shadow: var(--shadow-card); }
+.cfg-card.b-err { border-color: color-mix(in oklch, var(--err) 45%, var(--border)); }
+.cfg-card.b-warn { border-color: color-mix(in oklch, var(--warn) 55%, var(--border)); }
+.cfg-card.b-muted { border-color: color-mix(in oklch, var(--muted) 35%, var(--border)); }
+.cfg-top { display: flex; align-items: center; gap: 11px; }
+.pv-icon { flex: none; width: 38px; height: 38px; border-radius: 10px; background: var(--fg-soft); border: 1px solid var(--border); display: grid; place-items: center; color: var(--fg); }
+.pv-icon svg { width: 20px; height: 20px; }
+.cfg-top .id { flex: 1; min-width: 0; }
+.cfg-top .nm { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cfg-top .url { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
+/* 状态徽标四态（.b 基类在 list.css；书架三态 writing/setting/done 不受影响） */
+.b.ok { background: var(--ok-soft); color: var(--ok); }
+.b.err { background: var(--err-soft); color: var(--err); }
+.b.warn { background: var(--warn-soft); color: var(--warn); }
+.b.muted { background: var(--fg-soft); color: var(--muted); }
+.b.ok, .b.err, .b.warn, .b.muted { white-space: nowrap; }
+.keyline { font-size: 11.5px; color: var(--muted); font-family: var(--font-mono); overflow-wrap: anywhere; }
+.models { display: flex; flex-wrap: wrap; gap: 6px; min-height: 0; }
+.m-chip { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: var(--fg-soft); color: var(--muted); font-family: var(--font-mono); }
+.m-chip.more { background: transparent; border: 1px dashed var(--border); }
+.cfg-foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 4px; }
+.cfg-foot .res { font-size: 12px; }
+.cfg-foot .res.ok { color: var(--ok); }
+.cfg-foot .res.bad { color: var(--err); }
+.cfg-acts { display: flex; gap: 2px; }
+
+/* ─── 表单（弹窗内） ────────────────────────────────────── */
+.spin { animation: rot 0.9s linear infinite; }
+@keyframes rot { to { transform: rotate(360deg); } }
+.field .req { color: var(--err); }
+.input.mono { font-family: var(--font-mono); font-size: 13px; }
+.field .alt { font-size: 11.5px; color: var(--muted); font-family: var(--font-mono); }
+.vgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.vbtn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: 62px; padding: 8px 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--muted); transition: border-color 0.14s ease, background 0.14s ease, color 0.14s ease; }
+.vbtn svg { width: 22px; height: 22px; flex: none; }
+.vbtn span { font-size: 11px; line-height: 1; white-space: nowrap; }
+.vbtn:hover { border-color: var(--fg); color: var(--fg); }
+.vbtn.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-strong); }
+.vfix { display: flex; align-items: center; gap: 9px; padding: 9px 12px; background: var(--fg-soft); border-radius: 9px; font-size: 13px; }
+.vfix svg { width: 18px; height: 18px; }
+.tresult { font-size: 13px; padding: 9px 12px; border-radius: 9px; margin-top: 4px; }
+.tresult.ok { background: var(--ok-soft); color: var(--ok); }
+.tresult.bad { background: var(--err-soft); color: var(--err); }
+.ferr { font-size: 13px; padding: 9px 12px; border-radius: 9px; background: var(--err-soft); color: var(--err); margin-bottom: 4px; }
+
+/* ─── 删除确认盘点 ──────────────────────────────────────── */
+.del-inventory { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.inv-title { width: 100%; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+.inv-chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: var(--err-soft); color: var(--err); white-space: nowrap; }
+
+/* ─── 撤销 toast（.toast/.toast-wrap 基类在 base.css） ──── */
+.toast .undo { color: var(--accent-soft); border: 0; background: none; font: inherit; font-weight: 500; cursor: pointer; margin-left: 4px; padding: 0; }
+.toast .undo:hover { text-decoration: underline; }
+
+@media (max-width: 900px) { .stat-tiles { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 480px) {
+  .vgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pg-config .page-head { gap: 14px; margin-bottom: 24px; }
+}

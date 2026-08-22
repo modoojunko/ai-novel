@@ -1,78 +1,51 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Ico, P } from "../icons";
 
 interface UndoToastProps {
   configName: string;
   onUndo: () => Promise<void>;
   onExpire: () => void;
+  /** 撤销窗口（原型 8s） */
   duration?: number;
 }
 
-export function UndoToast({ configName, onUndo, onExpire, duration = 10000 }: UndoToastProps) {
-  const [remaining, setRemaining] = useState(duration);
+/** 删除撤销 toast（model-config.html undoToast 原样：8 秒窗口 + 链接式撤销） */
+export function UndoToast({ configName, onUndo, onExpire, duration = 8000 }: UndoToastProps) {
   const [undoing, setUndoing] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const clearTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
+  const [fading, setFading] = useState(false);
+  const expireRef = useRef(onExpire);
+  expireRef.current = onExpire;
 
   useEffect(() => {
-    const interval = 100;
-    timerRef.current = setInterval(() => {
-      setRemaining((prev) => {
-        if (prev <= interval) {
-          clearTimer();
-          onExpire();
-          return 0;
-        }
-        return prev - interval;
-      });
-    }, interval);
-
-    return clearTimer;
-  }, [clearTimer, onExpire]);
+    const fade = setTimeout(() => setFading(true), duration);
+    const remove = setTimeout(() => expireRef.current(), duration + 300);
+    return () => {
+      clearTimeout(fade);
+      clearTimeout(remove);
+    };
+  }, [duration]);
 
   const handleUndo = async () => {
     setUndoing(true);
     try {
       await onUndo();
-      clearTimer();
-      onExpire();
+      expireRef.current();
     } finally {
       setUndoing(false);
     }
   };
 
-  const progressPct = (remaining / duration) * 100;
-  const isUrgent = remaining <= 3000;
-
   return (
-    <div className="toast toast-bottom toast-center z-50">
-      <div className="alert alert-info shadow-lg flex-row items-center gap-3 px-4 py-3 min-w-[320px]">
-        <div className="flex-1 text-sm">
-          已删除「{configName}」
-        </div>
-        <span className={`text-xs font-mono ${isUrgent ? "text-error" : "text-base-content/60"}`}>
-          {Math.ceil(remaining / 1000)}s
-        </span>
-        <button
-          className="btn btn-sm btn-primary"
-          onClick={handleUndo}
-          disabled={undoing}
-        >
-          {undoing ? <span className="loading loading-spinner loading-xs" /> : null}
-          撤销
+    <div className="toast-wrap" role="status" aria-live="polite">
+      <div
+        className="toast"
+        style={fading ? { transition: "opacity 0.3s", opacity: 0 } : undefined}
+      >
+        <Ico d={P.check} sw={2.2} />
+        <span>已删除「{configName}」</span>
+        <button className="undo" onClick={handleUndo} disabled={undoing}>
+          {undoing ? "恢复中…" : "撤销"}
         </button>
-        {/* Progress bar */}
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-base-300 rounded-b-xl overflow-hidden">
-          <div
-            className={`h-full transition-all duration-100 ${isUrgent ? "bg-error" : "bg-primary"}`}
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
       </div>
     </div>
   );

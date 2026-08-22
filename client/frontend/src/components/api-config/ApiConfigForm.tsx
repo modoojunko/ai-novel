@@ -1,10 +1,12 @@
 import { useState } from "react";
 import type { ApiConfig } from "../../types/api-config";
-import { ProviderIcon, VENDOR_LABELS } from "./ProviderIcon";
-import { Loader2 } from "lucide-react";
+import Modal from "../design/Modal";
+import { Ico, P } from "../icons";
+import { VENDORS, VENDOR_LABELS, VendorGlyph } from "./ProviderIcon";
 
 interface ApiConfigFormProps {
-  config?: ApiConfig; // If provided, edit mode
+  open: boolean;
+  config?: ApiConfig | null; // 有值 = 编辑态
   onSubmit: (data: ApiConfigFormData) => Promise<void>;
   onCancel: () => void;
   onTest?: (data: ApiConfigFormData) => Promise<{ ok: boolean; status: string; error?: string }>;
@@ -17,18 +19,8 @@ export interface ApiConfigFormData {
   api_key: string;
 }
 
-const VENDORS = [
-  { id: "openai", label: "OpenAI", baseUrl: "https://api.openai.com" },
-  { id: "anthropic", label: "Anthropic", baseUrl: "https://api.anthropic.com" },
-  { id: "deepseek", label: "DeepSeek", baseUrl: "https://api.deepseek.com" },
-  { id: "glm", label: "GLM", baseUrl: "https://open.bigmodel.cn/api/paas/v4" },
-  { id: "kimi", label: "Kimi", baseUrl: "https://api.moonshot.cn/v1" },
-  { id: "qwen", label: "Qwen", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
-  { id: "ollama", label: "Ollama", baseUrl: "http://localhost:11434" },
-  { id: "openai-compat", label: "OpenAI 兼容", baseUrl: "" },
-];
-
-export function ApiConfigForm({ config, onSubmit, onCancel, onTest }: ApiConfigFormProps) {
+/** 添加/编辑配置弹窗（model-config.html modalConfig 原样：460px、vgrid 供应商格、编辑态 vfix） */
+export function ApiConfigForm({ open, config, onSubmit, onCancel, onTest }: ApiConfigFormProps) {
   const isEdit = !!config;
   const [name, setName] = useState(config?.name || "");
   const [vendorId, setVendorId] = useState(config?.vendor || "");
@@ -39,31 +31,52 @@ export function ApiConfigForm({ config, onSubmit, onCancel, onTest }: ApiConfigF
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedVendor = VENDORS.find((v) => v.id === vendorId);
+  // 弹窗常挂载（Modal 退场动画需要），切换编辑目标/重开新建时在渲染期重置表单
+  const formKey = config?.id ?? "new";
+  const [trackedKey, setTrackedKey] = useState(formKey);
+  if (formKey !== trackedKey) {
+    setTrackedKey(formKey);
+    setName(config?.name || "");
+    setVendorId(config?.vendor || "");
+    setBaseUrl(config?.base_url || "");
+    setApiKey("");
+    setError(null);
+    setTestResult(null);
+  }
 
   const handleVendorSelect = (id: string) => {
     if (isEdit) return;
     setVendorId(id);
     const v = VENDORS.find((x) => x.id === id);
-    if (v && v.baseUrl) {
-      setBaseUrl(v.baseUrl);
-    }
+    setBaseUrl(v && v.baseUrl ? v.baseUrl : "");
+    setTestResult(null);
+  };
+
+  const validate = (): string | null => {
+    if (!name.trim()) return "请输入配置名称";
+    if (!vendorId) return "请选择供应商";
+    if (!baseUrl.trim()) return "请输入 Base URL";
+    // 编辑态留空 = 保留当前密钥；Ollama 本地模型免 Key
+    if (vendorId !== "ollama" && !isEdit && !apiKey.trim()) return "请输入 API Key";
+    return null;
   };
 
   const handleTest = async () => {
-    if (!vendorId) { setTestResult({ ok: false, message: "请选择供应商" }); return; }
-    if (!baseUrl.trim()) { setTestResult({ ok: false, message: "请输入 Base URL" }); return; }
-    if (!isEdit && vendorId !== "ollama" && !apiKey.trim()) { setTestResult({ ok: false, message: "请输入 API Key" }); return; }
-
-    if (!onTest) return;
+    const err = validate();
+    setError(err);
+    if (err || !onTest) return;
     setTesting(true);
     setTestResult(null);
-    setError(null);
     try {
-      const res = await onTest({ name: name.trim(), vendor_id: vendorId, base_url: baseUrl.trim(), api_key: apiKey });
-      setTestResult({ ok: res.ok, message: res.ok ? "✅ 连接正常" : `❌ ${res.error || "测试失败"}` });
+      const r = await onTest({
+        name: name.trim(),
+        vendor_id: vendorId,
+        base_url: baseUrl.trim(),
+        api_key: apiKey,
+      });
+      setTestResult({ ok: r.ok, message: r.ok ? "连接正常" : r.error || "测试失败" });
     } catch {
-      setTestResult({ ok: false, message: "❌ 测试请求失败" });
+      setTestResult({ ok: false, message: "测试请求失败" });
     } finally {
       setTesting(false);
     }
@@ -71,14 +84,10 @@ export function ApiConfigForm({ config, onSubmit, onCancel, onTest }: ApiConfigF
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { setError("请输入配置名称"); return; }
-    if (!vendorId) { setError("请选择供应商"); return; }
-    if (!baseUrl.trim()) { setError("请输入 Base URL"); return; }
-    // edit mode: empty api key means keep the existing key
-    if (!isEdit && vendorId !== "ollama" && !apiKey.trim()) { setError("请输入 API Key"); return; }
-
+    const err = validate();
+    setError(err);
+    if (err) return;
     setSaving(true);
-    setError(null);
     try {
       await onSubmit({ name: name.trim(), vendor_id: vendorId, base_url: baseUrl.trim(), api_key: apiKey });
     } catch (e) {
@@ -88,111 +97,119 @@ export function ApiConfigForm({ config, onSubmit, onCancel, onTest }: ApiConfigF
     }
   };
 
+  const keyPlaceholder =
+    vendorId === "ollama"
+      ? "Ollama 不需要 API Key"
+      : isEdit
+        ? "留空则保留当前密钥"
+        : "sk-...";
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <div className="alert alert-error text-sm">{error}</div>}
-
-      {/* Name */}
-      <div className="form-control">
-        <label className="label"><span className="label-text">配置名称</span></label>
-        <input
-          className="input input-bordered"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="例如：我的 OpenAI"
-          disabled={saving}
-          required
-        />
-      </div>
-
-      {/* Vendor selector (only in create mode) */}
-      {!isEdit && (
-        <div className="form-control">
-          <label className="label"><span className="label-text">供应商</span></label>
-          <div className="grid grid-cols-4 gap-2">
-            {VENDORS.map((v) => (
-              <button
-                key={v.id}
-                type="button"
-                className={`btn btn-outline btn-sm flex-col gap-1 h-auto py-3 ${vendorId === v.id ? "btn-primary" : ""}`}
-                onClick={() => handleVendorSelect(v.id)}
-              >
-                <ProviderIcon vendor={v.id as any} size={24} />
-                <span className="text-xs">{v.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Edit mode: show selected vendor */}
-      {isEdit && selectedVendor && (
-        <div className="form-control">
-          <label className="label"><span className="label-text">供应商</span></label>
-          <div className="flex items-center gap-2 p-3 bg-base-200 rounded-lg">
-            <ProviderIcon vendor={config!.vendor} size={24} />
-            <span>{selectedVendor.label}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Base URL */}
-      <div className="form-control">
-        <label className="label"><span className="label-text">Base URL</span></label>
-        <input
-          className="input input-bordered"
-          value={baseUrl}
-          onChange={(e) => setBaseUrl(e.target.value)}
-          placeholder="https://api.openai.com"
-          disabled={saving}
-          required
-        />
-      </div>
-
-      {/* API Key */}
-      <div className="form-control">
-        <label className="label"><span className="label-text">API Key</span></label>
-        <input
-          className="input input-bordered"
-          type="password"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-          placeholder={vendorId === "ollama" ? "Ollama 不需要 API Key" : isEdit ? "留空则保留当前密钥" : "sk-..."}
-          disabled={saving || vendorId === "ollama"}
-          required={!isEdit && vendorId !== "ollama"}
-        />
-        {isEdit && config?.api_key_masked && (
-          <label className="label">
-            <span className="label-text-alt text-base-content/50">
-              当前密钥：{config.api_key_masked}
-            </span>
-          </label>
-        )}
-      </div>
-
-      {/* Test result */}
-      {testResult && (
-        <div className={`text-sm px-3 py-2 rounded-lg ${testResult.ok ? "bg-success/10 text-success" : "bg-error/10 text-error"}`}>
-          {testResult.message}
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex justify-end gap-2 pt-2">
-        {onTest && (
-          <button type="button" className="btn btn-outline" onClick={handleTest} disabled={testing || saving}>
-            {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {testing ? "测试中…" : "测试连接"}
+    <Modal
+      open={open}
+      onClose={onCancel}
+      locked={saving}
+      width={460}
+      title={isEdit ? "编辑配置" : "添加 API Key"}
+      footer={
+        <>
+          <button
+            className="btn btn-secondary"
+            type="button"
+            onClick={handleTest}
+            disabled={testing || saving}
+          >
+            {testing ? (
+              <>
+                <Ico d={P.spinner} sw={2.4} className="spin" />
+                测试中…
+              </>
+            ) : (
+              "测试连接"
+            )}
           </button>
+          <button className="btn btn-secondary" type="button" onClick={onCancel} disabled={saving}>
+            取消
+          </button>
+          <button className="btn btn-primary" type="submit" form="api-config-form" disabled={saving}>
+            {isEdit ? "保存" : "保存并测试连接"}
+          </button>
+        </>
+      }
+    >
+      <form id="api-config-form" onSubmit={handleSubmit}>
+        {error && <div className="ferr">{error}</div>}
+        <div className="field">
+          <label htmlFor="cfName">
+            配置名称 <span className="req">*</span>
+          </label>
+          <input
+            className="input"
+            id="cfName"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="例如：主线 · OpenAI"
+            maxLength={30}
+            disabled={saving}
+          />
+        </div>
+        <div className="field">
+          <label>供应商</label>
+          {!isEdit ? (
+            <div className="vgrid">
+              {VENDORS.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  className={"vbtn" + (vendorId === v.id ? " on" : "")}
+                  aria-pressed={vendorId === v.id}
+                  onClick={() => handleVendorSelect(v.id)}
+                >
+                  <VendorGlyph vendor={v.id} />
+                  <span>{v.label}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="vfix">
+              <VendorGlyph vendor={config!.vendor} />
+              <span>{VENDOR_LABELS[config!.vendor]}</span>
+            </div>
+          )}
+        </div>
+        <div className="field">
+          <label htmlFor="cfBase">
+            Base URL <span className="req">*</span>
+          </label>
+          <input
+            className="input mono"
+            id="cfBase"
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+            placeholder="https://api.openai.com"
+            disabled={saving}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="cfKey">API Key</label>
+          <input
+            className="input mono"
+            id="cfKey"
+            type="password"
+            autoComplete="off"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder={keyPlaceholder}
+            disabled={saving || vendorId === "ollama"}
+          />
+          {isEdit && config?.api_key_masked && (
+            <span className="alt">当前密钥：{config.api_key_masked}</span>
+          )}
+        </div>
+        {testResult && (
+          <div className={"tresult " + (testResult.ok ? "ok" : "bad")}>{testResult.message}</div>
         )}
-        <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={saving}>
-          取消
-        </button>
-        <button type="submit" className="btn btn-primary" disabled={saving}>
-          {saving ? <span className="loading loading-spinner" /> : null}
-          {isEdit ? "保存" : "保存并测试连接"}
-        </button>
-      </div>
-    </form>
+      </form>
+    </Modal>
   );
 }

@@ -108,7 +108,7 @@ test("模型配置：空态 + 表单顺序校验（名称→供应商→Base URL
     await expect(page.getByText("请输入配置名称")).toBeVisible();
 
     // 填名称 → 供应商
-    await page.getByPlaceholder("例如：我的 OpenAI").fill("e2e配置");
+    await page.getByPlaceholder("例如：主线 · OpenAI").fill("e2e配置");
     await page.getByRole("button", { name: "保存并测试连接" }).click();
     await expect(page.getByText("请选择供应商")).toBeVisible();
 
@@ -144,7 +144,7 @@ test("模型配置：添加（网络错误）→ 删除 → Undo toast 展示", 
 
     // 添加：填写完整 → 保存并测试连接
     await page.getByRole("button", { name: "添加 API Key" }).first().click();
-    await page.getByPlaceholder("例如：我的 OpenAI").fill("e2e测试配置");
+    await page.getByPlaceholder("例如：主线 · OpenAI").fill("e2e测试配置");
     await page.getByRole("button", { name: "OpenAI 兼容" }).click();
     await page.getByPlaceholder("https://api.openai.com").fill("http://127.0.0.1:1");
     await page.getByPlaceholder("sk-...").fill("sk-e2e-invalid");
@@ -159,15 +159,15 @@ test("模型配置：添加（网络错误）→ 删除 → Undo toast 展示", 
     await page.getByRole("button", { name: "保存并测试连接" }).click();
     await created;
 
-    // 卡片出现（form 卡片无该文本 → hasText 只命中配置卡片）+ 网络错误徽标
-    const card = page.locator(".card", { hasText: "e2e测试配置" });
+    // 卡片出现（表单弹窗无该文本 → hasText 只命中配置卡片）+ 网络错误徽标
+    const card = page.locator(".cfg-card", { hasText: "e2e测试配置" });
     await expect(card).toBeVisible({ timeout: 10000 });
     await expect(card.getByText("网络错误")).toBeVisible({ timeout: 10000 });
 
     // 删除 → 确认对话框
     await card.getByRole("button", { name: "删除" }).click();
     await expect(
-      page.getByRole("heading", { name: "确认删除" }),
+      page.getByRole("heading", { name: "删除配置" }),
     ).toBeVisible();
     await page.getByRole("button", { name: "确认删除" }).click();
 
