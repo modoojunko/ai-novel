@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { request } from '../lib/api';
 import { toast } from '../lib/toast';
 import { useDeviceActivation } from '../hooks/useDeviceActivation';
@@ -158,6 +158,7 @@ export default function LoginPage() {
           </button>
         )}
         <p className="text-xs text-base-content/40 mt-4">将在系统浏览器中打开登录页面</p>
+        <Link to="/" className="link link-hover text-sm text-base-content/60 mt-3">返回首页</Link>
       </div>
     </div>
   );

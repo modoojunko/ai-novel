@@ -15,7 +15,7 @@ interface NovelBarProps {
 
 export default function NovelBar({ view, onNavigate, onDelete }: NovelBarProps) {
   const { project, updateProject } = useProject();
-  const { tier, isFree } = useTier();
+  const { tier, isFree, expiresAt, trialRemainingDays } = useTier();
 
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
@@ -109,14 +109,26 @@ export default function NovelBar({ view, onNavigate, onDelete }: NovelBarProps) 
         </nav>
       </div>
 
-      {/* Free / PRO hint */}
+      {/* Free / PRO hint（title 悬浮=轻量账户摘要：到期日/试用剩余） */}
       <div className="flex items-center gap-1 shrink-0">
         {isFree ? (
-          <span className="badge badge-outline badge-sm text-base-content/60">
+          <span
+            className="badge badge-outline badge-sm text-base-content/60"
+            title="免费待遇：完整人工写作，限 1 部作品"
+          >
             免费 · 完整人工写作（限 1 部作品）
           </span>
         ) : (
-          <span className="badge badge-primary badge-sm">PRO · {tier}</span>
+          <span
+            className="badge badge-primary badge-sm"
+            title={[
+              `PRO · ${tier}`,
+              expiresAt ? `到期 ${new Date(expiresAt).toLocaleDateString("zh-CN")}` : "",
+              trialRemainingDays > 0 ? `试用剩 ${trialRemainingDays} 天` : "",
+            ].filter(Boolean).join(" · ")}
+          >
+            PRO · {tier}
+          </span>
         )}
 
         <button

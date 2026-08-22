@@ -292,13 +292,15 @@ function NovelList() {
               </div>
             );
           })}
-          <div
-            className="border border-dashed border-base-300/40 rounded-xl flex items-center justify-center min-h-[100px] cursor-pointer
-                      hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm hover:shadow-primary/5 transition-all duration-300"
-            onClick={() => setShowCreate(true)}
-          >
-            <span className="text-base-content/40 text-sm group-hover:text-base-content/60">+ 开始新小说</span>
-          </div>
+          {freeLimitReached ? null : (
+            <div
+              className="border border-dashed border-base-300/40 rounded-xl flex items-center justify-center min-h-[100px] cursor-pointer
+                        hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm hover:shadow-primary/5 transition-all duration-300"
+              onClick={() => setShowCreate(true)}
+            >
+              <span className="text-base-content/40 text-sm group-hover:text-base-content/60">+ 开始新小说</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -307,7 +309,7 @@ function NovelList() {
         open={showCreate}
         onClose={() => { setShowCreate(false); }}
         onCreated={handleCreated}
-        tier={tier}
+        isMember={isMember}
         novelCount={novels.length}
       />
 

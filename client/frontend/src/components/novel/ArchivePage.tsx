@@ -282,6 +282,9 @@ export default function ArchivePage({
               className="input input-sm input-bordered w-full pl-7 bg-base-100 text-xs placeholder:text-base-content/30"
             />
           </div>
+          <p className="mt-1.5 text-[10px] leading-relaxed text-base-content/40">
+            章节归档后即可在此通读全书，未归档章节灰显暂不可读
+          </p>
         </div>
 
         <nav className="flex-1 overflow-y-auto p-1.5" data-testid="preview-tree">
