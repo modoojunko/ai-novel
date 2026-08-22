@@ -1,0 +1,346 @@
+// 正文页（book.html editor 复刻）：宋体 17/2.0 · 680 版心 · 段落缩进 ·
+// contenteditable 段落化输入 · 自动保存三态（useChapterData store）·
+// AI 流式写入（.generating + contentEditable=false + 停止）· 归档只读。
+// 润色/扩写沿用 ContrastPreviewModal（过渡期 daisyUI 皮，PR 5 重皮）。
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
+import ContrastPreviewModal from "@/components/novel/ContrastPreviewModal";
+import { useChapterData } from "@/hooks/useChapterData";
+import { toast } from "@/lib/toast";
+import {
+  expandText,
+  polishText,
+  streamChapterContinue,
+  streamChapterWrite,
+} from "@/lib/ai";
+import type { SelectionCapture } from "@/lib/selection";
+import type { FontSizePref, LineHeightPref } from "@/lib/prefs";
+
+export interface ProseAIState {
+  hasSelection: boolean;
+  selectedText: string;
+  continueLoading: boolean;
+  polishLoading: boolean;
+  expandLoading: boolean;
+  streaming: boolean;
+}
+
+export const INITIAL_PROSE_AI_STATE: ProseAIState = {
+  hasSelection: false,
+  selectedText: "",
+  continueLoading: false,
+  polishLoading: false,
+  expandLoading: false,
+  streaming: false,
+};
+
+export interface ProseHandle {
+  focus(): void;
+  captureNow(): SelectionCapture | null;
+  startWriting(): void;
+  stopWriting(): void;
+  continueWriting(): void;
+  polish(capture: SelectionCapture): void;
+  expand(capture: SelectionCapture): void;
+}
+
+interface ProsePaneProps {
+  projectId: string;
+  chapterRef: string;
+  fs: FontSizePref;
+  lh: LineHeightPref;
+  /** 三页签切换：仅隐藏保持挂载（正文脏状态 / 流式现场不丢） */
+  hidden?: boolean;
+  /** 状态上抛（updater 形态：调用方直接传 React setState） */
+  onAIStateChange: (update: (prev: ProseAIState) => ProseAIState) => void;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (m) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[m] ?? m,
+  );
+}
+
+/** prose（\n 分段）→ 段落 HTML；空串清空编辑器（:empty ::placeholder 生效）。 */
+function proseToHtml(prose: string): string {
+  if (!prose) return "";
+  return prose
+    .split("\n")
+    .map((p) => `<p>${escapeHtml(p) || "<br>"}</p>`)
+    .join("");
+}
+
+/** DOM → 段落数组；裸文本节点（空编辑器首击）包进 <p>，div 兜底同收。 */
+function collectParagraphs(div: HTMLDivElement): string[] {
+  Array.from(div.childNodes).forEach((n) => {
+    if (n.nodeType === Node.TEXT_NODE && (n.textContent ?? "").length > 0) {
+      const p = document.createElement("p");
+      div.replaceChild(p, n);
+      p.appendChild(n);
+    }
+  });
+  return Array.from(div.children)
+    .filter((el) => el.tagName === "P" || el.tagName === "DIV")
+    .map((el) => (el.textContent ?? "").replace(/\u00A0/g, " "));
+}
+
+const ProsePane = forwardRef<ProseHandle, ProsePaneProps>(function ProsePane(
+  { projectId, chapterRef, fs, lh, hidden, onAIStateChange },
+  ref,
+) {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const store = useChapterData(projectId, chapterRef);
+  const { prose, status, setProse } = store;
+  const archived = status === "archived";
+  const [streaming, setStreaming] = useState(false);
+
+  // 本地输入回路标记：store.prose 变化若来自本地输入则跳过重渲（保光标）
+  const lastRenderedRef = useRef<string | null>(null);
+  const streamingRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+  // 流式现场（停止时收尾用）
+  const streamBaseRef = useRef("");
+  const streamReceivedRef = useRef("");
+  const [preview, setPreview] = useState<{
+    mode: "polish" | "expand";
+    capture: SelectionCapture;
+    text: string | null;
+    loading: boolean;
+    error: string | null;
+  } | null>(null);
+
+  // 外部 prose 变化（加载/归档恢复/AI 完成/润色替换）→ 重渲 DOM
+  useEffect(() => {
+    const div = editorRef.current;
+    if (!div) return;
+    if (lastRenderedRef.current === prose) return;
+    lastRenderedRef.current = prose;
+    div.innerHTML = proseToHtml(prose);
+  }, [prose, chapterRef]);
+
+  // Enter 产生 <p> 而非 <div>（与 collectParagraphs 双保险）
+  useEffect(() => {
+    try {
+      document.execCommand("defaultParagraphSeparator", false, "p");
+    } catch {
+      // 旧浏览器忽略；collectParagraphs 已兜底 div
+    }
+  }, []);
+
+  // 卸载/切章：中断流式
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      streamingRef.current = false;
+    };
+  }, [chapterRef]);
+
+  // ── 选区跟踪（AI 润色/扩写需要选中段落） ──────────────────────────────
+  const captureNow = useCallback((): SelectionCapture | null => {
+    const div = editorRef.current;
+    const sel = window.getSelection();
+    if (!div || !sel || sel.rangeCount === 0) return null;
+    const range = sel.getRangeAt(0);
+    if (!div.contains(range.commonAncestorContainer)) return null;
+    const text = range.toString();
+    if (!text.trim()) return null;
+    const pre = document.createRange();
+    pre.selectNodeContents(div);
+    pre.setEnd(range.startContainer, range.startOffset);
+    const start = pre.toString().length;
+    const fullText = div.textContent ?? "";
+    return { start, end: start + text.length, text, fullText };
+  }, []);
+
+  useEffect(() => {
+    const onSel = () => {
+      const cap = captureNow();
+      onAIStateChange((prev) => ({
+        ...prev,
+        hasSelection: !!cap,
+        selectedText: cap?.text ?? "",
+      }));
+    };
+    document.addEventListener("selectionchange", onSel);
+    return () => document.removeEventListener("selectionchange", onSel);
+  }, [captureNow, onAIStateChange]);
+
+  // ── 输入 → store（自动保存由 store 防抖；1.5s） ───────────────────────
+  const handleInput = useCallback(() => {
+    if (archived || streamingRef.current) return;
+    const div = editorRef.current;
+    if (!div) return;
+    const next = collectParagraphs(div).join("\n");
+    lastRenderedRef.current = next;
+    setProse(next);
+  }, [archived, setProse]);
+
+  // ── AI 流式写入 ────────────────────────────────────────────────────────
+  const renderStreamed = useCallback((base: string, generated: string) => {
+    const div = editorRef.current;
+    if (!div) return;
+    const paras = [...(base ? base.split("\n") : []), ...generated.split("\n")];
+    div.innerHTML = paras.map((p) => `<p>${escapeHtml(p) || "<br>"}</p>`).join("");
+  }, []);
+
+  const finishStream = useCallback(
+    (fullText: string, ok: boolean) => {
+      if (!streamingRef.current) return; // 已收尾（停止后又 onDone 等）
+      streamingRef.current = false;
+      setStreaming(false);
+      onAIStateChange((prev) => ({ ...prev, streaming: false }));
+      const base = streamBaseRef.current;
+      const generated = fullText || streamReceivedRef.current;
+      const next = [base, generated].filter((s) => s && s.trim()).join("\n");
+      lastRenderedRef.current = next;
+      setProse(next);
+      if (ok) toast.success("AI 生成完成 · 已保存");
+    },
+    [setProse, onAIStateChange],
+  );
+
+  const startStream = useCallback(
+    (continuation: boolean) => {
+      const div = editorRef.current;
+      if (!div || streamingRef.current) return;
+      if (archived) {
+        toast.error("已归档章节不可生成");
+        return;
+      }
+      const base = lastRenderedRef.current ?? prose;
+      const cap = captureNow();
+      const pos = continuation ? (cap ? cap.end : base.length) : base.length;
+      streamBaseRef.current = base;
+      streamReceivedRef.current = "";
+      streamingRef.current = true;
+      setStreaming(true);
+      onAIStateChange((prev) => ({ ...prev, streaming: true }));
+      const cbs = {
+        onChunk: (t: string) => {
+          streamReceivedRef.current += t;
+          renderStreamed(streamBaseRef.current, streamReceivedRef.current);
+        },
+        onDone: (full: string) => finishStream(full, true),
+        onError: (e: string) => {
+          toast.error(e);
+          finishStream(streamReceivedRef.current, false);
+        },
+      };
+      abortRef.current = continuation
+        ? streamChapterContinue(projectId, chapterRef, pos, cbs)
+        : streamChapterWrite(projectId, chapterRef, cbs);
+    },
+    [projectId, chapterRef, prose, archived, captureNow, renderStreamed, finishStream, onAIStateChange],
+  );
+
+  // ── 润色 / 扩写（选中段落 → 对照预览 → 接受替换） ─────────────────────
+  const runTransform = useCallback(
+    async (mode: "polish" | "expand", capture: SelectionCapture) => {
+      const ctxBefore = capture.fullText.slice(Math.max(0, capture.start - 200), capture.start);
+      const ctxAfter = capture.fullText.slice(capture.end, capture.end + 200);
+      setPreview({ mode, capture, text: null, loading: true, error: null });
+      onAIStateChange((prev) => ({
+        ...prev,
+        polishLoading: mode === "polish",
+        expandLoading: mode === "expand",
+      }));
+      try {
+        const text =
+          mode === "polish"
+            ? await polishText(projectId, chapterRef, capture.text, ctxBefore, ctxAfter)
+            : await expandText(projectId, chapterRef, capture.text, ctxBefore, ctxAfter);
+        setPreview({ mode, capture, text, loading: false, error: null });
+      } catch (e) {
+        setPreview({
+          mode,
+          capture,
+          text: null,
+          loading: false,
+          error: (e as Error)?.message || "请求出错",
+        });
+      } finally {
+        onAIStateChange((prev) => ({
+          ...prev,
+          polishLoading: false,
+          expandLoading: false,
+        }));
+      }
+    },
+    [projectId, chapterRef, onAIStateChange],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => editorRef.current?.focus(),
+      captureNow,
+      startWriting: () => startStream(false),
+      stopWriting: () => {
+        // 中断 + 立即收尾（fetch abort 不回调 onDone/onError）
+        abortRef.current?.abort();
+        finishStream(streamReceivedRef.current, false);
+      },
+      continueWriting: () => startStream(true),
+      polish: (capture: SelectionCapture) => void runTransform("polish", capture),
+      expand: (capture: SelectionCapture) => void runTransform("expand", capture),
+    }),
+    [captureNow, startStream, finishStream, runTransform],
+  );
+
+  const words = prose.replace(/\s/g, "").length;
+
+  return (
+    <>
+      <div className="editor-wrap" hidden={hidden}>
+        {/* contentEditable 用字符串 "false"：布尔 false 会被 React 整个丢掉属性，
+            归档/流式态需要 contenteditable="false" 保住只读语义（a11y + e2e 可判定） */}
+        <div
+          ref={editorRef}
+          className={`editor ${fs} ${lh}${streaming ? " generating" : ""}`}
+          contentEditable={!archived && !streaming ? true : "false"}
+          data-placeholder={words ? "" : "从这一章开始写……"}
+          suppressContentEditableWarning
+          onInput={handleInput}
+        />
+      </div>
+
+      {preview && (
+        <ContrastPreviewModal
+          open
+          mode={preview.mode}
+          originalText={preview.capture.text}
+          modifiedText={preview.text}
+          loading={preview.loading}
+          error={preview.error}
+          onClose={() => setPreview(null)}
+          onAccept={() => {
+            const { capture, text } = preview;
+            if (text) {
+              const next =
+                capture.fullText.slice(0, capture.start) +
+                text +
+                capture.fullText.slice(capture.end);
+              lastRenderedRef.current = next;
+              setProse(next);
+              toast.success(preview.mode === "polish" ? "已应用润色" : "已应用扩写");
+            }
+            setPreview(null);
+          }}
+          onReject={() => {
+            setPreview(null);
+            toast.info("已放弃修改");
+          }}
+          onRetry={() => void runTransform(preview.mode, preview.capture)}
+        />
+      )}
+    </>
+  );
+});
+
+export default ProsePane;

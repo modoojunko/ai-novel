@@ -98,22 +98,20 @@ async function createNovel(page: Page, name: string): Promise<string> {
   return m[1];
 }
 
-/** 直接写第一章（弹窗版）→ 编辑器就绪。
- *  无卷先弹「新建卷」（链式）再弹「新建章」，名称必填即标题。
- *  填默认形态名称（第一卷/第一章）→ 树上显示与旧默认标题一致，下游断言不动。
- *  PR2：新章默认落「章纲」tab（按进度推进）→ 点「正文」tab 进编辑器。 */
+/** 加卷 + 初始 1 章 → 点章 → 切「正文」→ 编辑器就绪（PR3：添加卷弹窗 + 点章强制落章纲）。 */
 async function writeFirstChapter(page: Page) {
-  await page.getByRole("button", { name: /直接写第一章/ }).click();
-  const volName = page.getByLabel("卷名");
-  await expect(volName).toBeVisible({ timeout: 5000 });
-  await volName.fill("第一卷");
-  await page.getByRole("button", { name: "创建", exact: true }).click();
-  const chName = page.getByLabel("章名");
-  await expect(chName).toBeVisible({ timeout: 5000 });
-  await chName.fill("第一章");
-  await page.getByRole("button", { name: "创建", exact: true }).click();
-  await page.getByRole("button", { name: "正文", exact: true }).click();
-  const editor = page.getByPlaceholder("正文（在此撰写小说内容）");
+  await page.getByTitle("添加卷").click();
+  await page.getByLabel("卷名", { exact: true }).fill("第一卷");
+  await page.getByLabel(/初始章数/).fill("1");
+  await page.getByRole("button", { name: "创建卷" }).click();
+  const chRow = page.locator(".col-tree .ch", { hasText: "第一章" });
+  await expect(chRow).toBeVisible({ timeout: 10000 });
+  await chRow.click();
+  await expect(page.getByRole("tab", { name: /^章纲/ })).toBeVisible({
+    timeout: 10000,
+  });
+  await page.getByRole("tab", { name: /^正文/ }).click();
+  const editor = page.locator(".editor");
   await expect(editor).toBeVisible({ timeout: 10000 });
   return editor;
 }
@@ -196,7 +194,7 @@ test("题材：真实题材选择器（空态 → 选 都市日常 → 应用题
   const { restore, token } = await setupSession(page);
   try {
     const pid = await createNovel(page, `题材${Date.now() % 100000}`);
-    await page.getByRole("button", { name: "编辑设定" }).click();
+    await page.getByRole("button", { name: /^设定/ }).click();
     await openSetting(page, "题材设定");
 
     // 空态（未选题材）
@@ -250,7 +248,7 @@ test("写作风格：真实表单（叙事身份 + 核心原则 tab）→ 保存
   const { restore, token } = await setupSession(page);
   try {
     const pid = await createNovel(page, `风格${Date.now() % 100000}`);
-    await page.getByRole("button", { name: "编辑设定" }).click();
+    await page.getByRole("button", { name: /^设定/ }).click();
     await openSetting(page, "写作风格");
 
     // 叙事身份 tab（默认）：Field 文本
@@ -296,7 +294,7 @@ test("AI痕迹：真实表单（疲劳词分类列表）→ 保存 → 完成设
   const { restore, token } = await setupSession(page);
   try {
     const pid = await createNovel(page, `痕迹${Date.now() % 100000}`);
-    await page.getByRole("button", { name: "编辑设定" }).click();
+    await page.getByRole("button", { name: /^设定/ }).click();
     await openSetting(page, "AI痕迹控制");
 
     // 疲劳词 tab（默认）：第一个分类（总结叙事）ListEditor 填词
@@ -335,7 +333,7 @@ test("角色：真实创建角色（创建弹窗 → 基本信息 → 保存 →
   const { restore, token } = await setupSession(page);
   try {
     const pid = await createNovel(page, `角色${Date.now() % 100000}`);
-    await page.getByRole("button", { name: "编辑设定" }).click();
+    await page.getByRole("button", { name: /^设定/ }).click();
     await openSetting(page, "角色管理");
 
     // 空列表
@@ -398,7 +396,7 @@ test("归档阅读器：左树卷章 → 默认/最近阅读定档 → 搜索 �
         "谁都不愿提起城外的事。但妹妹失踪的第七天，他不能再等了。" +
         "这段内容足够长，以通过归档接口对正文长度的校验要求。",
     );
-    await expect(page.getByText("已保存").first()).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText("已自动保存").first()).toBeVisible({ timeout: 8000 });
 
     // API 备料：第二章直接 API 归档（阅读顺序/最近阅读用，ai_summary=false 不烧 AI），
     // 第三章仅建章不归档（左树「未归档」灰显用）。须先于 UI 归档——归档事件会
@@ -423,25 +421,25 @@ test("归档阅读器：左树卷章 → 默认/最近阅读定档 → 搜索 �
       title: "雾中城",
     });
 
-    // 归档第一章 → 只读 + 树 📦 同步。trial 会员首次归档连弹两个 confirm
+    // 归档第一章 → 只读 + 树「已归档」同步。trial 会员首次归档连弹两个 confirm
     // （#152：AI 摘要额度提示 + 确认归档），免费档只有后者——接受步骤内全部 dialog
     const onDlg = (d: Dialog) => d.accept();
     page.on("dialog", onDlg);
-    await page.locator("main").getByRole("button", { name: "归档" }).click();
+    await page.getByRole("button", { name: "归档本章" }).click();
     try {
-      await expect(
-        page.getByText("本章已归档，正文为只读状态").first(),
-      ).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText(/本章已归档 · 只读/).first()).toBeVisible({
+        timeout: 10000,
+      });
     } finally {
       page.off("dialog", onDlg);
     }
-    // 树 📦 即时同步：第一章（UI 归档）+ 第二章（API 备料归档）共 2 枚
-    await expect(page.locator("aside").getByText("📦")).toHaveCount(2, {
+    // 树「已归档」即时同步：第一章（UI 归档）+ 第二章（API 备料归档）共 2 枚
+    await expect(page.locator(".col-tree .arch-tag")).toHaveCount(2, {
       timeout: 5000,
     });
 
     // 预览小说 → 纯阅读布局：默认定档第一个已归档章（首次进入，无 localStorage）
-    await page.getByRole("button", { name: "预览小说" }).click();
+    await page.getByRole("button", { name: "预览", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "第一章", exact: true }),
     ).toBeVisible({ timeout: 10000 });
@@ -466,8 +464,8 @@ test("归档阅读器：左树卷章 → 默认/最近阅读定档 → 搜索 �
     ).toBeVisible();
 
     // 最近阅读恢复（localStorage 持久化）：离开预览 → 重进（懒挂载重挂）→ 仍停在第二章
-    await page.getByRole("button", { name: "编辑正文" }).click();
-    await page.getByRole("button", { name: "预览小说" }).click();
+    await page.getByRole("button", { name: /^写作/ }).click();
+    await page.getByRole("button", { name: "预览", exact: true }).click();
     await expect(page.getByRole("heading", { name: "风起渡口" })).toBeVisible({
       timeout: 10000,
     });
@@ -488,32 +486,34 @@ test("归档阅读器：左树卷章 → 默认/最近阅读定档 → 搜索 �
     await expect(tree.getByText("没有找到匹配的章节")).toBeVisible();
     await search.fill("");
 
-    // 编辑正文（顶栏）→ 回工作台（预览页无编辑入口；工作台常驻挂载保选中）
-    await page.getByRole("button", { name: "编辑正文" }).click();
-    await expect(page.locator("aside").getByText("第一卷")).toBeVisible({
+    // 编辑正文（modnav「写作」）→ 回工作台（预览页无编辑入口；工作台常驻挂载保选中）
+    await page.getByRole("button", { name: /^写作/ }).click();
+    await expect(page.locator(".col-tree").getByText("第一卷")).toBeVisible({
       timeout: 10000,
     });
-    // PR2 查看/编辑门：归档章正文为只读渲染（textarea 不再挂载）+ 锁定提示条
-    await expect(
-      page.getByText("📦 本章已归档，正文为只读状态").first(),
-    ).toBeVisible({ timeout: 5000 });
+    // PR2 查看/编辑门：归档章正文只读（contenteditable=false）+ 只读横幅
+    await expect(page.getByText(/本章已归档 · 只读/).first()).toBeVisible({
+      timeout: 5000,
+    });
     await expect(page.getByText("旧城墙头").first()).toBeVisible();
-    await expect(
-      page.getByPlaceholder("正文（在此撰写小说内容）"),
-    ).toHaveCount(0);
+    // not.toBeEditable() 对 div[contenteditable="false"] 会直接抛「无法判定」——
+    // 断言属性与 isContentEditable 语义等价且可判定
+    await expect(page.locator(".editor")).toHaveAttribute("contenteditable", "false");
 
-    // 恢复编辑（归档管理迁至正文编辑页）：confirm → 可编辑 + 树 📦 撤下
+    // 恢复编辑（readonly-banner 内入口，换皮不减功能）：confirm → 可编辑 + 树标记撤下
     page.once("dialog", (d) => d.accept());
     await page.getByRole("button", { name: "恢复编辑" }).click();
-    await expect(
-      page.getByPlaceholder("正文（在此撰写小说内容）"),
-    ).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText("本章已归档，正文为只读状态")).toHaveCount(0);
-    // 树 📦 只剩 API 归档的第二章（第一章恢复后撤下）
-    await expect(page.locator("aside").getByText("📦")).toHaveCount(1);
+    // toBeEditable() 对 div[contenteditable="false"] 立即抛「无法判定」（不可重试）——
+    // 恢复是异步 POST + 重拉，属性翻转有窗口期，须用可重试的属性断言等它变 "true"
+    await expect(page.locator(".editor")).toHaveAttribute("contenteditable", "true", {
+      timeout: 10000,
+    });
+    await expect(page.getByText(/本章已归档 · 只读/)).toHaveCount(0);
+    // 树「已归档」只剩 API 归档的第二章（第一章恢复后撤下）
+    await expect(page.locator(".col-tree .arch-tag")).toHaveCount(1);
 
     // 再次进入预览（懒挂载重挂）→ 恢复最近阅读章（localStorage 持久化）
-    await page.getByRole("button", { name: "预览小说" }).click();
+    await page.getByRole("button", { name: "预览", exact: true }).click();
     await expect(page.getByRole("heading", { name: "风起渡口" })).toBeVisible({
       timeout: 10000,
     });
@@ -533,7 +533,7 @@ test("P2-1 面板切换守卫：脏表单切换需确认，取消保留输入", 
   const { restore, token } = await setupSession(page);
   try {
     const pid = await createNovel(page, `守卫${Date.now() % 100000}`);
-    await page.getByRole("button", { name: "编辑设定" }).click();
+    await page.getByRole("button", { name: /^设定/ }).click();
 
     // 默认面板=世界设定（地理 tab），等表单加载完成
     const scene = page
@@ -579,7 +579,7 @@ test("P2-1b 角色切换守卫：脏表单切换需确认，取消保留输入",
   const { restore } = await setupSession(page);
   try {
     const pid = await createNovel(page, `守卫角色${Date.now() % 100000}`);
-    await page.getByRole("button", { name: "编辑设定" }).click();
+    await page.getByRole("button", { name: /^设定/ }).click();
     await openSetting(page, "角色管理");
 
     // 创建两个角色（走真实创建弹窗）
@@ -638,7 +638,7 @@ test("P2-1c 离开设定视图守卫：脏表单离开需确认，取消保留",
   const { restore } = await setupSession(page);
   try {
     await createNovel(page, `守卫离开${Date.now() % 100000}`);
-    await page.getByRole("button", { name: "编辑设定" }).click();
+    await page.getByRole("button", { name: /^设定/ }).click();
 
     const scene = page
       .locator("label", { hasText: "主要场景" })
@@ -653,14 +653,14 @@ test("P2-1c 离开设定视图守卫：脏表单离开需确认，取消保留",
       dialogShown = true;
       void d.dismiss();
     });
-    await page.getByRole("button", { name: "编辑正文" }).click();
+    await page.getByRole("button", { name: /^写作/ }).click();
     expect(dialogShown).toBe(true);
     await expect(scene).toBeVisible();
     await expect(scene).toHaveValue("边境城邦：临海要塞，北接荒漠");
 
     // 确认分支：accept → 离开设定视图（世界设定面板卸载）
     page.once("dialog", (d) => void d.accept());
-    await page.getByRole("button", { name: "编辑正文" }).click();
+    await page.getByRole("button", { name: /^写作/ }).click();
     await expect(scene).toHaveCount(0);
   } finally {
     restore();
@@ -674,7 +674,7 @@ test("P2-1d 脏表单完成设定：自动保存再确认（内容落库 + 已�
   const { restore, token } = await setupSession(page);
   try {
     const pid = await createNovel(page, `守卫完成${Date.now() % 100000}`);
-    await page.getByRole("button", { name: "编辑设定" }).click();
+    await page.getByRole("button", { name: /^设定/ }).click();
 
     // 填 ≥4 个子字段（3 地理 + 1 政治，readiness 阈值=4），不点保存（脏表单）
     const scene = page

@@ -86,6 +86,10 @@ export function useWorkbench(): UseWorkbenchReturn {
   // 删卷后清选中用：卷选中时 selectedRef 为空，需对照 selectedId
   const selectedIdRef = useRef<string | null>(null);
   selectedIdRef.current = selectedId;
+  // 建卷→建章链路（AddVolumeModal 循环）里闭包 volumes 是 refresh 前的旧值，
+  // 会把刚建的卷当不存在（「请先创建卷」误报）。创建类操作一律读 ref 拿最新树。
+  const volumesRef = useRef<WorkbenchVolume[]>([]);
+  volumesRef.current = volumes;
 
   // -----------------------------------------------------------------------
   // Load volumes（DB 全量树：GET /volumes 一次返回卷+章元数据，change 006）
@@ -106,23 +110,24 @@ export function useWorkbench(): UseWorkbenchReturn {
           archived?: boolean;
         }>;
       }> = await api.get(`/novels/${projectId}/volumes`);
-      setVolumes(
-        vols.map((v) => ({
-          name: v.ref,
-          title: v.title,
-          chapters: (v.chapters || []).map((c) => {
-            const hasProse = c.has_prose ?? c.word_count > 0;
-            return {
-              chapter: c.chapter,
-              title: c.title,
-              word_count: c.word_count || 0,
-              status: c.status || "outline",
-              has_prose: hasProse,
-              archived: c.archived ?? c.status === "archived",
-            };
-          }),
-        })),
-      );
+      const mapped = vols.map((v) => ({
+        name: v.ref,
+        title: v.title,
+        chapters: (v.chapters || []).map((c) => {
+          const hasProse = c.has_prose ?? c.word_count > 0;
+          return {
+            chapter: c.chapter,
+            title: c.title,
+            word_count: c.word_count || 0,
+            status: c.status || "outline",
+            has_prose: hasProse,
+            archived: c.archived ?? c.status === "archived",
+          };
+        }),
+      }));
+      // ref 即时同步：建卷→建章链路在 React 重渲染 flush 之前就要读最新树
+      volumesRef.current = mapped;
+      setVolumes(mapped);
     } catch {
       // volumes might not be available yet
     }
@@ -173,6 +178,19 @@ export function useWorkbench(): UseWorkbenchReturn {
     setViewPayload(null);
   }, []);
 
+  // 初次进入：书里有章但未选中 → 自动聚焦第一章（book.html 默认 selCh=c1）。
+  // 仅首次生效（ref 消费后不再触发），删除章节清空选中不回跳。
+  // 守卫须同时看 selectedId（卷选中）：否则选卷查看时任何树刷新（如卷保存
+  // 触发的 refresh）都会把选中重置回首章。
+  const didInitSelectRef = useRef(false);
+  useEffect(() => {
+    if (didInitSelectRef.current || selectedRefRef.current || selectedIdRef.current) return;
+    const first = volumes.find((v) => v.chapters.length > 0);
+    if (!first) return;
+    didInitSelectRef.current = true;
+    focusNode(`${first.name}-ch-${first.chapters[0].chapter}`);
+  }, [volumes, focusNode]);
+
   const onToggle = useCallback((id: string) => {
     setExpandedIds((prev) => {
       const next = new Set(prev);
@@ -198,7 +216,7 @@ export function useWorkbench(): UseWorkbenchReturn {
   const createVolume = useCallback(
     async (title: string): Promise<string | null> => {
       if (!projectId) return null;
-      const volNum = volumes.length + 1;
+      const volNum = volumesRef.current.length + 1;
       try {
         const result = await api.post(`/novels/${projectId}/volumes`, { title });
         await refresh();
@@ -216,7 +234,7 @@ export function useWorkbench(): UseWorkbenchReturn {
         return null;
       }
     },
-    [projectId, volumes.length, refresh],
+    [projectId, refresh],
   );
 
   // -----------------------------------------------------------------------
@@ -227,10 +245,12 @@ export function useWorkbench(): UseWorkbenchReturn {
     async (title: string, volName?: string): Promise<string | null> => {
       if (!projectId) return null;
       // 指定卷 > 选中卷 > 第一卷；无卷由调用方（Workbench）先走建卷弹窗
+      // （读 volumesRef/selectedIdRef：建卷弹窗连续建章时闭包 state 尚未更新）
+      const vols = volumesRef.current;
       const targetVol =
-        (volName && volumes.find((v) => v.name === volName)) ||
-        volumes.find((v) => v.name === selectedId) ||
-        volumes[0];
+        (volName && vols.find((v) => v.name === volName)) ||
+        vols.find((v) => v.name === selectedIdRef.current) ||
+        vols[0];
       if (!targetVol) {
         toast.error("请先创建卷");
         return null;
@@ -251,7 +271,7 @@ export function useWorkbench(): UseWorkbenchReturn {
         return null;
       }
     },
-    [projectId, volumes, selectedId, refresh, focusNode],
+    [projectId, refresh, focusNode],
   );
 
   // -----------------------------------------------------------------------

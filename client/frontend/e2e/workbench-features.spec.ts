@@ -4,14 +4,13 @@ import { randomUUID } from "crypto";
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 
 // =========================================================================
-// 工作台非 AI 功能 E2E（补测 011，PR1/PR2 改版后适配：章页页级 tab / 卷工作台 / 聚焦 / 提示词）
-//   ① 章纲：选中章 → 章页「章纲」tab → OutlineEditor 真实表单编辑 + 保存
-//   ② 卷工作台（PR1 去抽屉）：点卷节点 → 主区内联卷页查看/编辑 + 保存
-//   ③ 聚焦模式：专注隐藏左树 + Esc 退出
-//   ④ 提示词面板：章页「提示词」tab；当前章过滤 + 空态 + API 种子后查看/编辑（非 AI 链路）
-//   ⑤ 免费态三 tab 入口均可见（#152 口径：入口可见、使用需会员）
-//   ⑥ PR2 默认 tab 矩阵：新章→章纲；确认·免费→正文；确认·付费→提示词；有正文→正文
-//      （付费信号 /auth/devices/current 路由打桩）+ 右栏章信息/前后章导航
+// 工作台非 AI 功能 E2E（PR3 book.html 复刻后适配：章对象三页签 / 卷工作台 / 专注 / 提示词）
+//   ① 章纲：选中章 →「章纲」页签 → OgPane 平面全字段表单编辑 + 保存草稿
+//   ② 卷工作台（过渡期 VolumePage）：点卷节点 → 主区内联卷页查看/编辑 + 保存
+//   ③ 专注模式：body.focus 隐藏左树右栏 + Esc 退出
+//   ④ 提示词面板：「提示词」页签；当前章过滤 + 空态 + API 种子后查看/编辑（非 AI 链路）
+//   ⑤ 免费态三页签入口均可见（#152 口径：入口可见、使用需会员）
+//   ⑥ PR3 行为：点章恒落「章纲」页签（设计稿拍板，取代 PR2 按进度分流）+ 右栏本章进度卡
 // =========================================================================
 // 与 creation-flow.spec.ts 共享鉴权手法：S端 真实注册登录 → 写 docker 容器的
 // config.json（tier="trial" 为 PRO）→ localStorage 注入 auth_token。
@@ -101,22 +100,20 @@ async function createNovel(page: Page, name: string): Promise<string> {
   return m[1];
 }
 
-/** 直接写第一章（弹窗版）→ 编辑器就绪（选中章 → 章页页级 tab 章纲/提示词/正文，PR2）。
- *  无卷先弹「新建卷」（链式）再弹「新建章」，名称必填即标题。
- *  填默认形态名称（第一卷/第一章）→ 树上显示与旧默认标题一致，下游断言不动。
- *  PR2：新章默认落「章纲」tab（按进度推进）→ 点「正文」tab 进编辑器。 */
+/** 加卷 + 初始 1 章 → 点章 → 切「正文」→ 编辑器就绪（PR3：添加卷弹窗 + 点章强制落章纲）。 */
 async function writeFirstChapter(page: Page) {
-  await page.getByRole("button", { name: /直接写第一章/ }).click();
-  const volName = page.getByLabel("卷名");
-  await expect(volName).toBeVisible({ timeout: 5000 });
-  await volName.fill("第一卷");
-  await page.getByRole("button", { name: "创建", exact: true }).click();
-  const chName = page.getByLabel("章名");
-  await expect(chName).toBeVisible({ timeout: 5000 });
-  await chName.fill("第一章");
-  await page.getByRole("button", { name: "创建", exact: true }).click();
-  await page.getByRole("button", { name: "正文", exact: true }).click();
-  const editor = page.getByPlaceholder("正文（在此撰写小说内容）");
+  await page.getByTitle("添加卷").click();
+  await page.getByLabel("卷名", { exact: true }).fill("第一卷");
+  await page.getByLabel(/初始章数/).fill("1");
+  await page.getByRole("button", { name: "创建卷" }).click();
+  const chRow = page.locator(".col-tree .ch", { hasText: "第一章" });
+  await expect(chRow).toBeVisible({ timeout: 10000 });
+  await chRow.click();
+  await expect(page.getByRole("tab", { name: /^章纲/ })).toBeVisible({
+    timeout: 10000,
+  });
+  await page.getByRole("tab", { name: /^正文/ }).click();
+  const editor = page.locator(".editor");
   await expect(editor).toBeVisible({ timeout: 10000 });
   return editor;
 }
@@ -144,19 +141,11 @@ async function ensurePromptAccess(request: APIRequestContext, token: string) {
   expect(r.ok()).toBeTruthy();
 }
 
-/** 填一个表单 Field：label 文本 → 其 wrapper div 内的 textarea。 */
-async function fillSettingField(page: Page, label: string, value: string) {
-  const wrapper = page
-    .locator("label", { hasText: label })
-    .locator("xpath=ancestor::div[2]");
-  await wrapper.locator("textarea").fill(value);
-}
-
 // -------------------------------------------------------------------------
-// ① 章纲：OutlineEditor 真实表单（tab 切换 + 关键事件 + 主情绪）→ 保存
+// ① 章纲：OgPane 平面全字段表单（概要/关键事件/核心任务/主情绪）→ 保存草稿
 // -------------------------------------------------------------------------
 
-test("章纲：OutlineEditor 真实表单编辑 + 保存（tab 切换 + 列表项 + 主情绪）", async ({
+test("章纲：OgPane 真实表单编辑 + 保存草稿（概要/关键事件/核心任务/主情绪）", async ({
   page,
   request,
 }) => {
@@ -165,39 +154,28 @@ test("章纲：OutlineEditor 真实表单编辑 + 保存（tab 切换 + 列表�
     const pid = await createNovel(page, `章纲${Date.now() % 100000}`);
     await writeFirstChapter(page);
 
-    // 进入章页「章纲」tab
-    await page.getByRole("button", { name: "章纲" }).click();
-    await expect(page.getByText(/细化章节细纲/)).toBeVisible({ timeout: 10000 });
+    // 回「章纲」页签（writeFirstChapter 停在正文）：平面全字段表单 + 必填缺口 chip
+    await page.getByRole("tab", { name: /^章纲/ }).click();
+    await expect(
+      page.getByText(/章纲：明确「这一章写什么」/),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(".gap-chip").first()).toBeVisible();
 
-    // 章纲概要 tab（默认）：填概要 + 关键事件列表
-    await fillSettingField(page, "章纲概要", "主角在边境城邦发现妹妹失踪的线索");
-    // 新章 key_points 为空数组 → ListEditor 渲染零输入行 → 先「添加一项」
-    const keyEvents = page
-      .locator("label", { hasText: "关键事件" })
-      .locator("xpath=ancestor::div[1]");
-    await keyEvents.getByRole("button", { name: "添加一项" }).click();
-    await keyEvents.getByPlaceholder("一个关键事件").first().fill("收到匿名信");
+    // 填 4 个代表字段（概要 / 关键事件列表 / 核心任务 / 主情绪选择）
+    await page.locator("#wf-summary").fill("主角在边境城邦发现妹妹失踪的线索");
+    await page.locator("#wf-keys").fill("收到匿名信");
+    await page.locator("#wf-task").fill("查明妹妹失踪的真相");
+    await page.locator("#wf-mood select").selectOption({ label: "悬疑" });
 
-    // 核心任务 tab：填核心任务
-    await page.getByRole("button", { name: "核心任务", exact: true }).click();
-    await fillSettingField(page, "核心任务", "查明妹妹失踪的真相");
-
-    // 情绪设计 tab：选主情绪（作用域到含「悬疑」option 的 select）
-    await page.getByRole("button", { name: "情绪设计", exact: true }).click();
-    await page
-      .locator("select")
-      .filter({ has: page.locator("option", { hasText: "悬疑" }) })
-      .selectOption({ label: "悬疑" });
-
-    // 手动保存 → PUT /chapters/vol-1-ch-1 落盘
+    // 保存草稿 → PUT /chapters/vol-1-ch-1 落盘（仍有必填缺口 → 不自动确认）
     const save = page.waitForResponse(
       (r) =>
         r.request().method() === "PUT" &&
         r.url().includes(`/chapters/vol-1-ch-1`),
     );
-    await page.getByRole("button", { name: "💾 保存" }).click();
+    await page.getByRole("button", { name: "保存草稿" }).click();
     await save;
-    await expect(page.getByText("已保存").first()).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("草稿已保存")).toBeVisible({ timeout: 5000 });
 
     // 后端直查：outline / memo / emotional_design 均已落盘
     const ch = await apiGetJSON(request, token, `/novels/${pid}/chapters/vol-1-ch-1`);
@@ -211,7 +189,7 @@ test("章纲：OutlineEditor 真实表单编辑 + 保存（tab 切换 + 列表�
 });
 
 // -------------------------------------------------------------------------
-// ② 卷工作台（PR1 去抽屉）：点卷节点 → 主区内联卷页查看/编辑 + 保存
+// ② 卷工作台（过渡期 VolumePage）：点卷节点 → 主区内联卷页查看/编辑 + 保存
 // -------------------------------------------------------------------------
 
 test("卷工作台：点卷节点 → 内联卷页查看态 → 编辑卷名/简述 → 保存", async ({
@@ -223,11 +201,10 @@ test("卷工作台：点卷节点 → 内联卷页查看态 → 编辑卷名/简
     const pid = await createNovel(page, `卷页${Date.now() % 100000}`);
     await writeFirstChapter(page);
 
-    // 点卷节点 → 主区变卷工作台页（无抽屉弹层）；默认查看态 + [✎ 编辑] 入口
-    await page.locator("aside").getByText("第一卷").click();
+    // 点卷头 → 主区变卷工作台页（内联，非弹层）；默认查看态 + [编辑] 入口
+    await page.locator(".col-tree .vol-head", { hasText: "第一卷" }).click();
     await expect(page.getByText("卷故事简述")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("本卷章节")).toBeVisible();
-    await expect(page.locator('aside[class*="w-[400px]"]')).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "编辑", exact: true }),
     ).toBeVisible();
@@ -247,8 +224,9 @@ test("卷工作台：点卷节点 → 内联卷页查看态 → 编辑卷名/简
     );
     await page.getByRole("button", { name: /保存/ }).click();
     await volSave;
+    // 标题展示走 nodeLabel 口径（#164）：序号 · 名称
     await expect(
-      page.getByRole("heading", { name: "第一卷·风起" }),
+      page.getByRole("heading", { name: "第一卷 · 第一卷·风起" }),
     ).toBeVisible({ timeout: 5000 });
 
     // 后端直查
@@ -261,27 +239,30 @@ test("卷工作台：点卷节点 → 内联卷页查看态 → 编辑卷名/简
 });
 
 // -------------------------------------------------------------------------
-// ③ 聚焦模式：专注隐藏左树 + Esc 退出
+// ③ 专注模式：body.focus 隐藏左树右栏 + Esc 退出
 // -------------------------------------------------------------------------
 
-test("聚焦模式：专注隐藏左树 + Esc 退出", async ({ page }) => {
+test("专注模式：隐藏左树右栏 + Esc 退出", async ({ page }) => {
   const { restore } = await setupSession(page);
   try {
     await createNovel(page, `聚焦${Date.now() % 100000}`);
     await writeFirstChapter(page);
 
-    // 初始左树可见
-    await expect(page.locator("aside").getByText("第一卷")).toBeVisible();
+    // 初始左树/右栏均可见
+    const tree = page.locator(".col-tree");
+    const rail = page.locator(".col-ai");
+    await expect(tree).toBeVisible();
+    await expect(rail).toBeVisible();
 
-    // 专注 → 左树（新建卷/章）卸载，按钮变「退出专注」
-    await page.getByRole("button", { name: "专注", exact: true }).click();
-    await expect(page.getByTitle("新建卷")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "退出专注", exact: true })).toBeVisible();
+    // 专注（工具栏 icon，title 恒为「专注模式」）→ body.focus 隐藏左树右栏
+    await page.getByTitle("专注模式").click();
+    await expect(tree).toBeHidden({ timeout: 5000 });
+    await expect(rail).toBeHidden();
 
-    // Esc → 退出专注，左树恢复
+    // Esc → 退出专注，左树右栏恢复
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("button", { name: "专注", exact: true })).toBeVisible();
-    await expect(page.locator("aside").getByText("第一卷")).toBeVisible();
+    await expect(tree).toBeVisible();
+    await expect(rail).toBeVisible();
   } finally {
     restore();
   }
@@ -313,8 +294,8 @@ test("提示词面板：当前章过滤 + 种子提示词查看/编辑/已修改
     );
     expect(seed.ok()).toBeTruthy();
 
-    // 进入章页「提示词」tab → 当前章自动展开，显示种子段落
-    await page.getByRole("button", { name: "提示词" }).click();
+    // 切到章「提示词」页签 → 当前章自动展开，显示种子段落
+    await page.getByRole("tab", { name: /^提示词/ }).click();
     await expect(page.getByText("提示词管理")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("段落 1")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("1 段")).toBeVisible();
@@ -326,7 +307,7 @@ test("提示词面板：当前章过滤 + 种子提示词查看/编辑/已修改
     });
 
     // 编辑 → 修改 → 保存 → 已修改
-    // （3 label 顶栏含「编辑设定/编辑正文」→ 必须 exact 命中提示词编辑器「编辑」）
+    // （章页签含「章纲/正文」文案 → 必须 exact 命中提示词编辑器「编辑」）
     await page.getByRole("button", { name: "编辑", exact: true }).click();
     await page.locator("textarea").last().fill("# 段落任务\n\n描写主角收到匿名信后追出城门的场景。");
     const save = page.waitForResponse(
@@ -357,8 +338,8 @@ test("提示词无Key：进入提示词tab就地提示去配置，不整页跳�
     await createNovel(page, `无Key提示词${Date.now() % 100000}`);
     await writeFirstChapter(page);
 
-    // 点「提示词」tab：prompts 端点 503 → 就地提示（而非 503 全局跳 /config）
-    await page.getByRole("button", { name: "提示词" }).click();
+    // 点「提示词」页签：prompts 端点 503 → 就地提示（而非 503 全局跳 /config）
+    await page.getByRole("tab", { name: /^提示词/ }).click();
     await expect(page.getByText("尚未配置模型 API Key")).toBeVisible({
       timeout: 10000,
     });
@@ -376,7 +357,7 @@ test("提示词无Key：进入提示词tab就地提示去配置，不整页跳�
 });
 
 // -------------------------------------------------------------------------
-// ⑤ 免费态三 label 入口均可见（#152 口径：入口可见、使用需会员，后端拦截）
+// ⑤ 免费态三页签入口均可见（#152 口径：入口可见、使用需会员，后端拦截）
 // -------------------------------------------------------------------------
 
 test("免费态：正文/章纲/提示词入口均可见（#152 入口可见口径）", async ({
@@ -387,68 +368,44 @@ test("免费态：正文/章纲/提示词入口均可见（#152 入口可见口�
     await createNovel(page, `免费提示词${Date.now() % 100000}`);
     await writeFirstChapter(page);
 
-    await expect(page.getByRole("button", { name: "正文", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "章纲" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /^正文/ })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /^章纲/ })).toBeVisible();
     // 提示词不再 TierGate 隐藏——免费可见入口，点击使用时由后端 member_required 拦截
-    await expect(page.getByRole("button", { name: "提示词" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /^提示词/ })).toBeVisible();
   } finally {
     restore();
   }
 });
 
 // -------------------------------------------------------------------------
-// ⑥ PR2 默认 tab 矩阵：新章→章纲；已确认·免费→正文；已确认·付费→提示词；有正文→正文
+// ⑥ PR3 行为：点章恒落「章纲」页签（设计稿拍板，取代 PR2 按进度/付费分流）
+//    + 右栏 Rail 本章进度卡（大百分数 / 目标字数 / mini 统计）
 // -------------------------------------------------------------------------
 
-test("默认tab矩阵：按进度推进 + 付费分流 + 章信息/前后章导航", async ({
+test("点章强制落章纲：确认/有正文后重挂载仍落章纲 + 右栏本章进度卡", async ({
   page,
   request,
 }) => {
-  // 付费分流读 activated（设备激活），与会员 tier 是两个信号。为避免「免费 token +
-  // activated 打桩」的矛盾组合在行③落提示词 tab 时触发 member_required 弹窗（真实
-  // 付费用户必是会员），本用例用 trial 会员 + 注入 ApiConfig：prompts 探测/提示词页
-  // 均返回 200 空列表，弹窗与 503 跳转都不发生；免费行为由 activated=false 打桩表达。
   const { restore, token } = await setupSession(page);
   try {
-    await ensurePromptAccess(request, token);
-
-    // 付费信号打桩：默认 tab 的提示词/正文分流读 /auth/devices/current（C端 后端
-    // 代理真 S端 设备态，e2e 随机 pc_hash 恒为 activated=false）→ 拦截按需返回
-    let activatedStub = false;
-    await page.route("**/api/auth/devices/current", (route) =>
-      route.fulfill({
-        contentType: "application/json",
-        body: JSON.stringify({
-          enrolled: true,
-          activated: activatedStub,
-          device_count: 1,
-          active_limit: 3,
-        }),
-      }),
-    );
-
     const pid = await createNovel(page, `矩阵${Date.now() % 100000}`);
 
-    // 建卷+章后停在新章默认落点（不走 writeFirstChapter——它点正文）
-    await page.getByRole("button", { name: /直接写第一章/ }).click();
-    const volName = page.getByLabel("卷名");
-    await expect(volName).toBeVisible({ timeout: 5000 });
-    await volName.fill("第一卷");
-    await page.getByRole("button", { name: "创建", exact: true }).click();
-    const chName = page.getByLabel("章名");
-    await expect(chName).toBeVisible({ timeout: 5000 });
-    await chName.fill("第一章");
-    await page.getByRole("button", { name: "创建", exact: true }).click();
+    // 建卷 + 初始 1 章（停在默认落点「章纲」页签）
+    await page.getByTitle("添加卷").click();
+    await page.getByLabel("卷名", { exact: true }).fill("第一卷");
+    await page.getByLabel(/初始章数/).fill("1");
+    await page.getByRole("button", { name: "创建卷" }).click();
+    const chRow = page.locator(".col-tree .ch", { hasText: "第一章" });
+    await expect(chRow).toBeVisible({ timeout: 10000 });
 
-    // 页级 tab 激活态 = bg-base-300（TabProgressButton active 样式）
-    const tabBtn = (label: string) =>
-      page.getByRole("button", { name: label, exact: true });
+    // 行①：新章（未确认/无提示词/无正文）→ 章纲选中
+    await chRow.click();
+    const ogTab = page.getByRole("tab", { name: /^章纲/ });
+    await expect(ogTab).toBeVisible({ timeout: 10000 });
+    await expect(ogTab).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByText(/章纲：明确「这一章写什么」/)).toBeVisible();
 
-    // 行①：新章（未确认/无提示词/无正文）→ 章纲
-    await expect(tabBtn("章纲")).toHaveClass(/bg-base-300/, { timeout: 10000 });
-    await expect(page.getByText(/细化章节细纲/)).toBeVisible();
-
-    // API 备好过 gate 的章纲（核心任务/读者状态/预期策略/必须变化/主情绪/段落规划）→ 完成设定
+    // API 备齐必填（核心任务/读者状态/预期策略/必须变化/主情绪/段落规划）→ 确认
     const auth = { Authorization: `Bearer ${token}` };
     const ready = (await apiGetJSON(
       request,
@@ -477,30 +434,21 @@ test("默认tab矩阵：按进度推进 + 付费分流 + 章信息/前后章导�
     );
     expect(confirm.ok()).toBeTruthy();
 
-    // 章页重挂载（卷↔章切换）→ 默认 tab 重新按进度计算
-    const tree = page.getByTestId("workbench-tree");
+    // 章工作台重挂载（卷↔章切换）：行②已确认 → 仍落章纲；页签徽标「已确认」
+    const tree = page.locator(".col-tree");
     const remount = async () => {
-      await tree.getByText("第一卷").click();
+      await tree.locator(".vol-head", { hasText: "第一卷" }).click();
       await expect(page.getByText("卷故事简述")).toBeVisible({ timeout: 5000 });
-      await tree.getByText("第一章").click();
-      await expect(page.getByText(/第1卷 · 本卷第1章/)).toBeVisible({
-        timeout: 5000,
-      });
+      await tree.locator(".ch", { hasText: "第一章" }).click();
+      await expect(ogTab).toBeVisible({ timeout: 10000 });
     };
-
-    // 行②：已确认 + 免费（activated=false）→ 正文；提示词入口仍可见
     await remount();
-    await expect(tabBtn("正文")).toHaveClass(/bg-base-300/, { timeout: 10000 });
-    await expect(tabBtn("提示词")).toBeVisible();
+    await expect(ogTab).toHaveAttribute("aria-selected", "true", { timeout: 5000 });
+    await expect(
+      page.locator(".chtab.on", { hasText: "章纲" }).getByText("已确认"),
+    ).toBeVisible({ timeout: 5000 });
 
-    // 行③：已确认 + 付费（activated=true）→ 提示词
-    activatedStub = true;
-    await remount();
-    await expect(tabBtn("提示词")).toHaveClass(/bg-base-300/, {
-      timeout: 10000,
-    });
-
-    // 行④：已有正文 → 正文（优先级高于确认+付费）
+    // 行③：已有正文 → 重挂载仍落章纲（不再按进度跳正文）
     const prose = await request.put(
       `${ORIGIN}/api/novels/${pid}/chapters/vol-1-ch-1/prose`,
       {
@@ -510,16 +458,13 @@ test("默认tab矩阵：按进度推进 + 付费分流 + 章信息/前后章导�
     );
     expect(prose.ok()).toBeTruthy();
     await remount();
-    await expect(tabBtn("正文")).toHaveClass(/bg-base-300/, { timeout: 10000 });
+    await expect(ogTab).toHaveAttribute("aria-selected", "true", { timeout: 5000 });
 
-    // 右栏章信息（PR2）：状态/字数/位置 + 前后章导航（单章两者禁用）
-    await expect(page.getByText("章信息", { exact: true })).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "上一章" }),
-    ).toBeDisabled();
-    await expect(
-      page.getByRole("button", { name: "下一章" }),
-    ).toBeDisabled();
+    // 右栏 Rail（PR3）：本章进度卡 + 目标字数 + mini 统计
+    await expect(page.getByText("本章进度", { exact: true })).toBeVisible();
+    await expect(page.getByText("目标字数", { exact: true })).toBeVisible();
+    await expect(page.getByText("本书总字数")).toBeVisible();
+    await expect(page.getByText("本章草稿")).toBeVisible();
   } finally {
     restore();
   }

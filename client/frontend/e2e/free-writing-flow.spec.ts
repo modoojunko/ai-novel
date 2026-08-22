@@ -6,9 +6,9 @@ import { test, expect, type Page } from "@playwright/test";
 // =========================================================================
 // 免费主流程 E2E（FE-34 / TE-17，change 004）—— P0 断点 1 第 8 条纵切
 //   免费 = 完整手动写作（限 1 部作品）；PRO = 同一界面 + AI 解锁。
-//   覆盖：① 建书直达正文工作台可写 ② 树常驻「+新建卷/章」→ 新建第一章即达编辑器
-//   ③ 树 CRUD + hover 重命名/删除 + 空章「未写」弱化 ⑤ 自动保存 + 实时字数
-//   ⑥ 归档只读 + 树 📦 同步 + 免费归档不 500 ⑦ 3 label 导航（编辑设定/编辑正文/预览小说）
+//   覆盖：① 建书直达写作工作台可写 ② 树头「+添加卷」→ 加章即达编辑器
+//   ③ 树 CRUD + hover 铅笔重命名/删除 + 空章三态点 ⑤ 自动保存 + 实时字数
+//   ⑥ 归档只读 + 树「已归档」同步 + 免费归档不 500 ⑦ modnav 三态（设定/写作/预览）
 //   ⑧ 全程无阶段催促 UI、无 AI 字段、免费零 phase-status 请求
 // =========================================================================
 // 与 creation-flow.spec.ts 共享鉴权手法：S端 真实注册登录 → 写 docker 容器的
@@ -92,22 +92,21 @@ async function createNovel(page: Page, name: string): Promise<string> {
   return m[1];
 }
 
-/** 直接写第一章（弹窗版）→ 编辑器就绪。
- *  无卷先弹「新建卷」（链式）再弹「新建章」，名称必填即标题。
- *  填默认形态名称（第一卷/第一章）→ 树上显示与旧默认标题一致，下游断言不动。
- *  PR2：新章默认落「章纲」tab（按进度推进）→ 点「正文」tab 进编辑器。 */
+/** 加卷 + 初始 1 章 → 点章 → 切「正文」→ 编辑器就绪（PR3：添加卷弹窗 + 点章强制落章纲）。
+ *  卷名「第一卷」为默认序号形态（树上只显示序号），章标题=程序默认「第一章」。 */
 async function writeFirstChapter(page: Page) {
-  await page.getByRole("button", { name: /直接写第一章/ }).click();
-  const volName = page.getByLabel("卷名");
-  await expect(volName).toBeVisible({ timeout: 5000 });
-  await volName.fill("第一卷");
-  await page.getByRole("button", { name: "创建", exact: true }).click();
-  const chName = page.getByLabel("章名");
-  await expect(chName).toBeVisible({ timeout: 5000 });
-  await chName.fill("第一章");
-  await page.getByRole("button", { name: "创建", exact: true }).click();
-  await page.getByRole("button", { name: "正文", exact: true }).click();
-  const editor = page.getByPlaceholder("正文（在此撰写小说内容）");
+  await page.getByTitle("添加卷").click();
+  await page.getByLabel("卷名", { exact: true }).fill("第一卷");
+  await page.getByLabel(/初始章数/).fill("1");
+  await page.getByRole("button", { name: "创建卷" }).click();
+  const chRow = page.locator(".col-tree .ch", { hasText: "第一章" });
+  await expect(chRow).toBeVisible({ timeout: 10000 });
+  await chRow.click();
+  await expect(page.getByRole("tab", { name: /^章纲/ })).toBeVisible({
+    timeout: 10000,
+  });
+  await page.getByRole("tab", { name: /^正文/ }).click();
+  const editor = page.locator(".editor");
   await expect(editor).toBeVisible({ timeout: 10000 });
   return editor;
 }
@@ -116,7 +115,7 @@ async function writeFirstChapter(page: Page) {
 // ①⑦⑧ 免费建书直达正文工作台：无阶段催促、无 AI 字段、3 label 导航
 // -------------------------------------------------------------------------
 
-test("免费建书直达正文工作台：零 phase-status，无阶段催促，3 label 导航", async ({
+test("免费建书直达写作工作台：零 phase-status，无阶段催促，modnav 三态", async ({
   page,
 }) => {
   const { restore } = await setupFreeSession(page);
@@ -129,35 +128,32 @@ test("免费建书直达正文工作台：零 phase-status，无阶段催促，3
 
     await createNovel(page, `免费${Date.now() % 100000}`);
 
-    // ① 落点即正文工作台（而非设定页），EmptyState 三入口
-    await expect(page.getByText("开始写你的第一部小说")).toBeVisible({
-      timeout: 10000,
-    });
-    // 免费标识
+    // ① 落点即写作工作台（而非设定页）：空面板 + 左树空态
+    await expect(page.getByText("开始创作")).toBeVisible({ timeout: 10000 });
     await expect(
-      page.getByText("免费 · 完整人工写作（限 1 部作品）"),
+      page.getByText("还没有卷与章节。点击左上「＋」添加第一卷。"),
     ).toBeVisible();
-    // ⑦ 3 label 纯导航（两态共用）：编辑设定 / 编辑正文 / 预览小说，无「高级配置」按钮
-    await expect(page.getByRole("button", { name: "编辑设定" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "编辑正文" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "预览小说" })).toBeVisible();
-    await expect(page.getByTitle("高级配置（设定/大纲）")).toHaveCount(0);
-    // ⑧ 无 PRO 阶段 tab；空项目无章 → 无章页「正文」tab
-    // （Playwright name 为子串匹配：需 exact 避开顶栏「编辑正文」label）
-    await expect(page.getByRole("button", { name: "正文", exact: true })).toHaveCount(0);
+    // 免费标识（novelbar free-hint）
+    await expect(page.getByText(/免费模式 · 写作功能完整/)).toBeVisible();
+    // ⑦ modnav 三态（PR3 设计稿）：设定 / 写作 / 预览
+    await expect(page.getByRole("button", { name: /^设定/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^写作/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "预览", exact: true })).toBeVisible();
+    // ⑧ 空项目无章 → 无章页签
+    await expect(page.getByRole("tab", { name: /^正文/ })).toHaveCount(0);
     // ⑧ 无阶段催促 UI（GateBanner/软门控文案）
     await expect(page.getByText(/尚未完成设定/)).toHaveCount(0);
     await expect(page.getByText("设定尚未全部完成")).toHaveCount(0);
     // ⑧ 全程零 phase-status 请求
     expect(phaseReqs.length).toBe(0);
 
-    // ⑦ 3 label 免费可进设定视图 → 经顶栏「编辑正文」返回（012：设定头部行已删）
-    await page.getByRole("button", { name: "编辑设定" }).click();
+    // ⑦ 免费可进设定视图 → 经 modnav「写作」返回
+    await page.getByRole("button", { name: /^设定/ }).click();
     await expect(page.getByText("世界设定").first()).toBeVisible({
       timeout: 5000,
     });
-    await page.getByRole("button", { name: "编辑正文" }).click();
-    await expect(page.getByText("开始写你的第一部小说")).toBeVisible();
+    await page.getByRole("button", { name: /^写作/ }).click();
+    await expect(page.getByText("开始创作")).toBeVisible();
     // 全程仍零 phase-status（设定确认 refetch 免费态为 no-op）
     expect(phaseReqs.length).toBe(0);
   } finally {
@@ -169,7 +165,7 @@ test("免费建书直达正文工作台：零 phase-status，无阶段催促，3
 // ①②⑤ 直接写第一章即达编辑器：实时字数 + 自动保存 + 空章「未写」弱化
 // -------------------------------------------------------------------------
 
-test("直接写第一章：即达编辑器，实时字数 + 自动保存，空章「未写」弱化", async ({
+test("加卷加章：即达编辑器，实时字数 + 自动保存，空章三态点", async ({
   page,
 }) => {
   const { restore } = await setupFreeSession(page);
@@ -177,70 +173,73 @@ test("直接写第一章：即达编辑器，实时字数 + 自动保存，空�
     await createNovel(page, `直写${Date.now() % 100000}`);
     await writeFirstChapter(page);
 
-    // ② 树常驻「+新建卷/章」；新章在树上可见（exact：避开「在卷下新建章节」）
-    await expect(page.getByTitle("新建卷", { exact: true })).toBeVisible();
-    await expect(page.getByTitle("新建章", { exact: true })).toBeVisible();
-    // 左树专属 testid：卷页/章页右栏也是 aside，裸 aside 选择器会撞严格模式
-    const tree = page.getByTestId("workbench-tree");
+    // ② 树头「+添加卷」常驻；新章在树上可见（三态点：未填=空心）
+    await expect(page.getByTitle("添加卷")).toBeVisible();
+    const tree = page.locator(".col-tree");
     await expect(tree.getByText("第一卷")).toBeVisible();
     await expect(tree.getByText("第一章")).toBeVisible();
+    await expect(tree.locator(".ch .dot-empty").first()).toBeVisible();
 
-    // ③ 空章「未写」弱化徽标可见（N1 不硬过滤）——点卷节点 → 卷工作台页（PR1 去抽屉）
-    await tree.getByText("第一卷").click();
-    await expect(tree.getByText("未写")).toBeVisible();
+    // 点卷节点 → 卷工作台页（过渡期 VolumePage，PR4 换卷纲面板）
+    await tree.locator(".vol-head", { hasText: "第一卷" }).click();
     await expect(page.getByText("卷故事简述")).toBeVisible({ timeout: 10000 });
     await expect(page.locator('aside[class*="w-[400px]"]')).toHaveCount(0);
 
-    // 点回第一章 → 默认「章纲」tab（PR2 按进度）→ 切「正文」→ 编辑器恢复 → ⑤ 实时字数 + 自动保存
-    await tree.getByText("第一章").click();
-    await expect(page.getByRole("button", { name: "正文", exact: true })).toBeVisible({ timeout: 10000 });
-    await page.getByRole("button", { name: "正文", exact: true }).click();
-    const editor = page.getByPlaceholder("正文（在此撰写小说内容）");
+    // 点回第一章 → 强制落「章纲」页签 → 切「正文」→ 编辑器恢复 → ⑤ 实时字数 + 自动保存
+    await tree.locator(".ch", { hasText: "第一章" }).click();
+    await expect(page.getByRole("tab", { name: /^章纲/ })).toBeVisible({ timeout: 10000 });
+    await page.getByRole("tab", { name: /^正文/ }).click();
+    const editor = page.locator(".editor");
     await expect(editor).toBeVisible({ timeout: 5000 });
     await editor.fill("你好 世界");
-    await expect(page.getByText("4/2000 字").first()).toBeVisible({ timeout: 5000 });
-    // 自动保存（1.5s 防抖）→ 已保存
-    await expect(page.getByText("已保存").first()).toBeVisible({ timeout: 8000 });
+    await expect(page.locator(".editor-status").getByText("4 字")).toBeVisible({
+      timeout: 5000,
+    });
+    // 自动保存（防抖）→ 已自动保存
+    await expect(page.getByText("已自动保存").first()).toBeVisible({ timeout: 8000 });
   } finally {
     restore();
   }
 });
 
 // -------------------------------------------------------------------------
-// ③ 树 CRUD：双击重命名 + hover 删除（N2）
+// ③ 树 CRUD：hover 铅笔行内重命名 + hover 删除（N2 / ADJUSTMENTS #6）
 // -------------------------------------------------------------------------
 
-test("树 CRUD：双击重命名 + 删除（N2）", async ({ page }) => {
+test("树 CRUD：hover 铅笔重命名 + 删除（N2）", async ({ page }) => {
   const { restore } = await setupFreeSession(page);
   try {
     await createNovel(page, `树${Date.now() % 100000}`);
     await writeFirstChapter(page);
-    const tree = page.locator("aside");
+    const tree = page.locator(".col-tree");
 
-    // 双击章名 → 行内重命名 → Enter
-    await tree.getByText("第一章").dblclick();
-    const renameInput = tree.locator("input");
+    // hover 章 → 铅笔 → 行内重命名（预填空：默认序号形态 = 没起过名）→ Enter
+    const chRow = tree.locator(".ch", { hasText: "第一章" });
+    await chRow.hover();
+    await chRow.getByTitle("重命名章节").click();
+    const renameInput = tree.locator(".ch input");
     await renameInput.fill("改名第一章");
     await renameInput.press("Enter");
-    await expect(tree.getByText("改名第一章")).toBeVisible({ timeout: 5000 });
-
-    // hover 章节点 → 删除 → 行内确认 → 树清空回 EmptyState
-    await tree.getByText("改名第一章").hover();
-    await tree.getByTitle("删除").click();
-    await tree.getByText("确认删除?").click();
-    await expect(page.getByText("开始写你的第一部小说")).toBeVisible({
+    await expect(tree.getByText("第一章 · 改名第一章")).toBeVisible({
       timeout: 5000,
     });
+
+    // hover 章节点 → 删除 → confirm → 树清空回空面板
+    const delRow = tree.locator(".ch", { hasText: "改名第一章" });
+    await delRow.hover();
+    page.once("dialog", (d) => d.accept());
+    await delRow.getByTitle("删除章节").click();
+    await expect(page.getByText("开始创作")).toBeVisible({ timeout: 5000 });
   } finally {
     restore();
   }
 });
 
 // -------------------------------------------------------------------------
-// ⑥ 免费归档不 500 + 树 📦 即时同步（N9）
+// ⑥ 免费归档不 500 + 树「已归档」即时同步（N9）
 // -------------------------------------------------------------------------
 
-test("免费归档：不 500，正文只读，树 📦 即时同步", async ({ page }) => {
+test("免费归档：不 500，正文只读，树已归档即时同步", async ({ page }) => {
   const { restore } = await setupFreeSession(page);
   try {
     await createNovel(page, `归档${Date.now() % 100000}`);
@@ -251,18 +250,20 @@ test("免费归档：不 500，正文只读，树 📦 即时同步", async ({ p
         "这个段落需要足够长，因为后端归档接口要求至少一百个字符的内容才会接受归档请求。" +
         "所以这里再补充一些叙述，确保总量超过一百字符，从而能够正常进入归档流程验证。",
     );
-    await expect(page.getByText("已保存").first()).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText("已自动保存").first()).toBeVisible({ timeout: 8000 });
 
-    // 触发归档（window.confirm 需 accept）
+    // 触发归档（window.confirm 需 accept；免费档仅确认归档一个弹窗）
     page.once("dialog", (d) => d.accept());
-    await page.locator("main").getByRole("button", { name: "归档" }).click();
+    await page.getByRole("button", { name: "归档本章" }).click();
 
-    // 归档成功 → 只读提示条（免费归档不 500）
-    await expect(
-      page.getByText("本章已归档，正文为只读状态").first(),
-    ).toBeVisible({ timeout: 10000 });
-    // 树 📦 即时同步（useChapterData dispatch → useWorkbench 刷新）
-    await expect(page.locator("aside").getByText("📦")).toBeVisible({
+    // 归档成功 → 只读横幅（免费归档不 500）+ 编辑器不可编辑
+    await expect(page.getByText(/本章已归档 · 只读/).first()).toBeVisible({
+      timeout: 10000,
+    });
+    // not.toBeEditable() 对 div[contenteditable="false"] 会直接抛「无法判定」——改断言属性
+    await expect(page.locator(".editor")).toHaveAttribute("contenteditable", "false");
+    // 树「已归档」即时同步（useChapterData dispatch → useWorkbench 刷新）
+    await expect(page.locator(".col-tree .arch-tag").first()).toBeVisible({
       timeout: 5000,
     });
   } finally {
