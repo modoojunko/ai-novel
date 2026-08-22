@@ -13,9 +13,11 @@ import {
 } from "@/components/novel/license/LicenseProvider";
 
 // ---------------------------------------------------------------------------
-// TE-16 — NovelWorkspace 四态视图机：
-//   默认落点 workbench；免费态零 phase-status 请求；advanced 懒挂载/离开卸载；
-//   workbench 常驻挂载（切视图不丢 prose 输入）
+// TE-16 — NovelWorkspace（PR3 book.html 复刻）：
+//   modnav 三态（设定/写作/预览），默认落写作视图（three-col 常驻挂载）；
+//   免费态零 phase-status 请求；点章强制落章纲页签；正文脏状态切视图不丢；
+//   PRO 态工具栏 AI 生成正文入口 + 右栏真实工具卡。
+// jsdom 无 CSS：视图切换断言走 .view.three-col 的 on class 而非可见性。
 // ---------------------------------------------------------------------------
 
 const apiState = vi.hoisted(() => ({
@@ -55,12 +57,10 @@ function ProjectProvider({ children }: { children: ReactNode }) {
     error: null,
     updateProject: vi.fn(),
   };
-  return (
-    <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>
-  );
+  return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;
 }
 
-/** 空卷树：workbench 呈现 EmptyState。 */
+/** 空卷树：中栏呈现「开始创作」空面板。 */
 function mockEmptyTree() {
   apiState.get.mockImplementation((path: string) => {
     if (path === "/novels/p1/volumes") return Promise.resolve([]);
@@ -71,7 +71,7 @@ function mockEmptyTree() {
   apiState.fetchStory.mockResolvedValue({ synopsis: "" });
 }
 
-/** 一卷一章 mock 数据（子 label / 抽屉测试复用）。 */
+/** 一卷一章 mock 数据（选中章 → 章对象工作台）。 */
 const ONE_VOL_ONE_CHAPTER = [
   {
     ref: "vol-1",
@@ -103,35 +103,32 @@ const ONE_CHAPTER_DATA = {
   prose: "",
 };
 
-/** 一卷一章：可展开树 → 选章 → 编辑器。 */
+/** 一卷一章：默认全展开 → 直接点章 → 章对象工作台。 */
 function mockOneChapterTree() {
   apiState.get.mockImplementation((path: string) => {
-    if (path === "/novels/p1/volumes")
-      return Promise.resolve(ONE_VOL_ONE_CHAPTER);
+    if (path === "/novels/p1/volumes") return Promise.resolve(ONE_VOL_ONE_CHAPTER);
     if (path === "/novels/p1/chapters/vol-1-ch-1")
       return Promise.resolve(ONE_CHAPTER_DATA);
     if (path === "/novels/p1/readiness")
       return Promise.resolve({ complete: false, missing: [], warning: "" });
     return Promise.resolve({});
   });
+  apiState.request.mockResolvedValue([]); // 提示词 quiet 探测 → 自动组装
   apiState.fetchStory.mockResolvedValue({ synopsis: "" });
   apiState.put.mockResolvedValue({});
   apiState.post.mockResolvedValue({});
 }
 
-/** PRO 一卷一章：额外 mock phase-status（PRO 常驻 useNovelState）+ 版本列表（RightToolbar 挂载拉取）。 */
+/** PRO 一卷一章：额外 mock phase-status（settings done → 无 OnboardingCard）。 */
 function mockOneChapterTreePro() {
   apiState.get.mockImplementation((path: string) => {
-    if (path === "/novels/p1/volumes")
-      return Promise.resolve(ONE_VOL_ONE_CHAPTER);
+    if (path === "/novels/p1/volumes") return Promise.resolve(ONE_VOL_ONE_CHAPTER);
     if (path === "/novels/p1/chapters/vol-1-ch-1")
       return Promise.resolve(ONE_CHAPTER_DATA);
-    if (path === "/novels/p1/chapters/vol-1-ch-1/versions")
-      return Promise.resolve([]);
     if (path === "/novels/p1/workflow/phase-status")
       return Promise.resolve({
         phases: {
-          settings: "pending",
+          settings: "done",
           outline: "pending",
           prompt: "pending",
           write: "pending",
@@ -141,6 +138,7 @@ function mockOneChapterTreePro() {
       });
     return Promise.resolve({});
   });
+  apiState.request.mockResolvedValue([]);
   apiState.fetchStory.mockResolvedValue({ synopsis: "" });
   apiState.put.mockResolvedValue({});
   apiState.post.mockResolvedValue({});
@@ -160,6 +158,16 @@ function renderWorkspace(tier = "none") {
   );
 }
 
+/** 选中第一章并等待章对象工作台挂载（树默认全展开，无需先点卷）。 */
+async function selectFirstChapter() {
+  fireEvent.click(await screen.findByText("第一章"));
+  await screen.findByRole("tab", { name: /^章纲/ });
+}
+
+function threeColClass(): string {
+  return document.querySelector(".view.three-col")?.className ?? "";
+}
+
 beforeEach(() => {
   apiState.get.mockReset();
   apiState.post.mockReset();
@@ -168,26 +176,29 @@ beforeEach(() => {
   apiState.delete.mockReset();
   apiState.request.mockReset();
   apiState.fetchStory.mockReset();
-  // 默认无提示词文件（ChapterPage quiet 探测 request；[] → hasPrompts=false）
   apiState.request.mockResolvedValue([]);
   localStorage.clear();
 });
 
-describe("默认落点 workbench（免费）", () => {
-  it("渲染后即呈现写作工作台，无阶段催促 UI", async () => {
+describe("默认落写作视图（免费）", () => {
+  it("渲染后即呈现 three-col 写作工作台，无阶段催促 UI", async () => {
     mockEmptyTree();
     renderWorkspace("none");
-    // workbench EmptyState 可见
-    expect(await screen.findByText("开始写你的第一部小说")).toBeVisible();
-    // 顶栏书名（书名同时出现在顶栏与面包屑，取≥1）
+    // 中栏空面板 + 左树空态
+    expect(await screen.findByText("开始创作")).toBeVisible();
+    expect(
+      screen.getByText("还没有卷与章节。点击左上「＋」添加第一卷。"),
+    ).toBeVisible();
+    // novelbar：书名 + 免费提示
     expect(screen.getAllByText("测试小说").length).toBeGreaterThan(0);
-    // 3 label 导航（011）：编辑设定 / 编辑正文 / 预览小说（纯导航无徽标，两态共用）
-    expect(screen.getByRole("button", { name: "编辑设定" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "编辑正文" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "预览小说" })).toBeDefined();
-    // 顶栏「高级配置 ▾」下拉已退役
-    expect(screen.queryByTitle("高级配置（设定/大纲）")).toBeNull();
-    // 免费态零 phase-status 请求
+    expect(screen.getByText(/免费模式 · 写作功能完整/)).toBeVisible();
+    // modnav 三态 + 写作 tab on + three-col on（jsdom 无 CSS → 断言 class）
+    expect(screen.getByRole("button", { name: /^设定/ })).toBeDefined();
+    expect(screen.getByRole("button", { name: /^写作/ })).toBeDefined();
+    expect(screen.getByRole("button", { name: "预览" })).toBeDefined();
+    expect(screen.getByRole("button", { name: /^写作/ }).className).toContain("on");
+    expect(threeColClass()).toContain("on");
+    // 免费态零 phase-status 请求（ProContainer 整棵不渲染）
     expect(apiState.get).not.toHaveBeenCalledWith(
       "/novels/p1/workflow/phase-status",
     );
@@ -195,151 +206,103 @@ describe("默认落点 workbench（免费）", () => {
   });
 });
 
-describe("免费态：无阶段催促 UI、无 AI 字段入口", () => {
-  it("免费态不渲染 GateBanner/OnboardingCard/TABS", async () => {
-    mockEmptyTree();
-    renderWorkspace("none");
-    await screen.findByText("开始写你的第一部小说");
-    expect(screen.queryByText(/尚未完成设定/)).toBeNull();
-    // 3 label 纯导航（编辑正文 而非「正文」）；空项目无章 → 无章子 label「正文」
-    expect(screen.getByRole("button", { name: "编辑正文" })).toBeDefined();
-    expect(screen.queryByRole("button", { name: "正文" })).toBeNull();
-    expect(apiState.get).not.toHaveBeenCalledWith(
-      "/novels/p1/workflow/phase-status",
-    );
-  });
-
-  it("免费态选中章渲染 章纲/提示词/正文 页面级 tab（AI 入口可见，使用由后端拦截）", async () => {
+describe("免费态：选中章 → 章对象工作台", () => {
+  it("点章强制落章纲页签；正文页有编辑器、无 AI 入口；右栏 locked", async () => {
     mockOneChapterTree();
     renderWorkspace("none");
-    await screen.findByText("第一卷");
-    fireEvent.click(screen.getByText("▸"));
-    fireEvent.click(screen.getByText("第一章"));
-    // 新章（未确认、无提示词/正文）→ 默认 tab=章纲（PR2：按进度智能分流）
-    expect(await screen.findByRole("button", { name: "章纲" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "提示词" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "正文" })).toBeDefined();
-    // 点「正文」→ 编辑器 + AI 入口可见（免费态按钮在，使用由后端 403 拦截）
-    fireEvent.click(screen.getByRole("button", { name: "正文" }));
-    expect(
-      await screen.findByPlaceholderText("正文（在此撰写小说内容）"),
-    ).toBeVisible();
-    expect(screen.getByRole("button", { name: "AI 写本章" })).toBeDefined();
+    await selectFirstChapter();
+    // 三页签（章纲默认选中）
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.length).toBe(3);
+    const ogTab = screen.getByRole("tab", { name: /^章纲/ });
+    expect(ogTab.getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: /^提示词/ })).toBeDefined();
+    expect(screen.getByRole("tab", { name: /^正文/ })).toBeDefined();
+    // 工具栏章名（树行 + 工具栏两处「第一章」→ chMeta 对齐成功的证据）
+    expect(screen.getAllByText("第一章").length).toBeGreaterThanOrEqual(2);
+    // 章纲面板必填字段在渲染
+    expect(screen.queryAllByText(/核心任务/).length).toBeGreaterThan(0);
+    // 点「正文」→ contenteditable 编辑器挂载；免费无 AI 按钮
+    fireEvent.click(screen.getByRole("tab", { name: /^正文/ }));
+    await waitFor(() => expect(document.querySelector(".editor")).toBeTruthy());
+    expect(screen.queryByRole("button", { name: "AI 生成正文" })).toBeNull();
+    // 右栏免费 locked 卡 + 规划中（章模式三卡）
+    expect(screen.getByText(/解锁后可由「设定 \+ 章纲」生成正文/)).toBeVisible();
+    expect(screen.getByText("续写建议")).toBeVisible();
   });
 });
 
-describe("advanced-settings 懒挂载 / 离开卸载", () => {
-  it("经顶部「编辑设定」进入设定视图，点「编辑正文」返回后卸载", async () => {
+describe("设定视图懒挂载 / 离开卸载", () => {
+  it("经 modnav「设定」进入设定视图，点「写作」返回后卸载", async () => {
     mockEmptyTree();
     renderWorkspace("none");
-    await screen.findByText("开始写你的第一部小说");
+    await screen.findByText("开始创作");
+    expect(threeColClass()).toContain("on");
 
-    // 点顶部「编辑设定」label 进入设定视图（头部行已删：返回靠顶栏「编辑正文」label，012）
-    fireEvent.click(screen.getByRole("button", { name: "编辑设定" }));
-    // 设定视图挂载（设定树；无「返回正文」按钮）
+    fireEvent.click(screen.getByRole("button", { name: /^设定/ }));
     await waitFor(() =>
       expect(screen.getAllByText("世界设定").length).toBeGreaterThan(0),
     );
-    // workbench 被 hidden 隐藏而非卸载（EmptyState 仍在 DOM 但不可见）
-    expect(screen.getByText("开始写你的第一部小说")).not.toBeVisible();
+    // 写作视图常驻挂载：仅摘掉 on class（jsdom 断言 class 而非可见性）
+    expect(threeColClass()).not.toContain("on");
 
-    // 点顶部「编辑正文」label → 设定视图卸载
-    fireEvent.click(screen.getByRole("button", { name: "编辑正文" }));
+    fireEvent.click(screen.getByRole("button", { name: /^写作/ }));
     await waitFor(() =>
       expect(screen.queryAllByText("世界设定").length).toBe(0),
     );
-    expect(screen.getByText("开始写你的第一部小说")).toBeVisible();
+    expect(threeColClass()).toContain("on");
   });
 });
 
-describe("workbench 常驻挂载：切视图 prose 不丢", () => {
+describe("写作视图常驻挂载：切视图 prose 不丢", () => {
   it("选中章输入后切到设定再返回，正文内容保留", async () => {
     mockOneChapterTree();
     renderWorkspace("none");
-    await screen.findByText("第一卷");
+    await selectFirstChapter();
+    fireEvent.click(screen.getByRole("tab", { name: /^正文/ }));
+    const editor = await waitFor(() => {
+      const el = document.querySelector(".editor");
+      expect(el).toBeTruthy();
+      return el as HTMLElement;
+    });
+    editor.innerHTML = "<p>我在专注写作</p>";
+    fireEvent.input(editor);
 
-    // 展开卷 → 点击第一章 → 默认落章纲 tab，点「正文」进编辑器
-    fireEvent.click(screen.getByText("▸"));
-    fireEvent.click(screen.getByText("第一章"));
-    fireEvent.click(await screen.findByRole("button", { name: "正文" }));
-    const textarea = await screen.findByPlaceholderText("正文（在此撰写小说内容）");
-    fireEvent.change(textarea, { target: { value: "我在专注写作" } });
-    expect(screen.getByDisplayValue("我在专注写作")).toBeDefined();
-
-    // 切到设定 → 经顶栏「编辑正文」返回
-    fireEvent.click(screen.getByRole("button", { name: "编辑设定" }));
+    // 切到设定 → 经 modnav「写作」返回
+    fireEvent.click(screen.getByRole("button", { name: /^设定/ }));
     await waitFor(() =>
       expect(screen.getAllByText("世界设定").length).toBeGreaterThan(0),
     );
-    fireEvent.click(screen.getByRole("button", { name: "编辑正文" }));
+    fireEvent.click(screen.getByRole("button", { name: /^写作/ }));
 
-    // prose 保留（workbench 未卸载）
-    expect(await screen.findByDisplayValue("我在专注写作")).toBeDefined();
+    // prose 保留（ProsePane hidden 切换、不卸载）
+    await waitFor(() =>
+      expect(document.querySelector(".editor")?.textContent).toBe("我在专注写作"),
+    );
   });
 });
 
-describe("PRO 态：阶段催促 UI 渲染", () => {
-  it("PRO 渲染阶段 tab 与 phase-status 请求", async () => {
-    mockEmptyTree();
-    apiState.get.mockImplementation((path: string) => {
-      if (path === "/novels/p1/volumes") return Promise.resolve([]);
-      if (path === "/novels/p1/workflow/phase-status")
-        return Promise.resolve({
-          phases: {
-            settings: "pending",
-            outline: "pending",
-            prompt: "pending",
-            write: "pending",
-            archive: "pending",
-          },
-          warnings: [],
-        });
-      return Promise.resolve({});
-    });
+describe("PRO 态：徽标 + phase-status + AI 入口", () => {
+  it("PRO 渲染 pill 徽并请求 phase-status；正文页可见 AI 生成正文", async () => {
+    mockOneChapterTreePro();
     renderWorkspace("monthly");
-    expect(screen.getByRole("button", { name: "编辑正文" })).toBeDefined();
+    expect(document.querySelector(".pill-pro")).toBeTruthy();
+    expect(screen.queryByText(/免费模式/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "升级 PRO" })).toBeNull();
     await waitFor(() =>
       expect(apiState.get).toHaveBeenCalledWith(
         "/novels/p1/workflow/phase-status",
       ),
     );
-  });
 
-  it("PRO 态 3 label 导航（编辑设定/编辑正文/预览小说），顶栏无下拉", async () => {
-    mockEmptyTree();
-    apiState.get.mockImplementation((path: string) => {
-      if (path === "/novels/p1/volumes") return Promise.resolve([]);
-      if (path === "/novels/p1/workflow/phase-status")
-        return Promise.resolve({
-          phases: {
-            settings: "pending",
-            outline: "pending",
-            prompt: "pending",
-            write: "pending",
-            archive: "pending",
-          },
-          warnings: [],
-        });
-      return Promise.resolve({});
-    });
-    renderWorkspace("monthly");
-    // 3 label 纯导航（011）：编辑设定 / 编辑正文 / 预览小说
-    expect(screen.getByRole("button", { name: "编辑设定" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "编辑正文" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "预览小说" })).toBeDefined();
-    // 顶栏下拉不再渲染（任何态）
-    expect(screen.queryByTitle("高级配置（设定/大纲）")).toBeNull();
-  });
-
-  it("PRO 态选中章渲染 章纲/提示词/正文 页面级 tab", async () => {
-    mockOneChapterTreePro();
-    renderWorkspace("monthly");
-    await screen.findByText("第一卷");
-    fireEvent.click(screen.getByText("▸"));
-    fireEvent.click(screen.getByText("第一章"));
-    // 章选中 → 页面级 tab 三 label 全可见；新章默认落章纲
-    expect(await screen.findByRole("button", { name: "章纲" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "提示词" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "正文" })).toBeDefined();
+    await selectFirstChapter();
+    fireEvent.click(screen.getByRole("tab", { name: /^正文/ }));
+    // 工具栏 AI 入口（PRO-only）+ 右栏真实工具卡
+    expect(
+      await screen.findByRole("button", { name: "AI 生成正文" }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "续写" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "润色选段" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "扩写选段" })).toBeDefined();
   });
 });

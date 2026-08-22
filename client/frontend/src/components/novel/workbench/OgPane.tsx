@@ -1,0 +1,483 @@
+// 章纲面板（book.html renderOgPane 复刻）：5 个 details.cfg 字段组全字段
+// + 主情绪选择（9 选 + 自定义 ≤50）+ 段落规划行（增删/上移/合计）
+// + gap-line 缺字段 chip（点击滚动 flash 1400ms + focus）+ 底部三按钮。
+// 必填口径 = 后端 gate_chapter_ready 六项（task/rstate/rstrat/changes/mood/segs）。
+import type { OgForm } from "./chapterForm";
+
+interface OgPaneProps {
+  form: OgForm;
+  /** 完整章标题（第X章 · 名称，nodeLabel 派生）——原型 panel-head 口径 */
+  label: string;
+  onPatch: (patch: Partial<OgForm>) => void;
+  gaps: { key: string; label: string }[];
+  confirmed: boolean;
+  saving: boolean;
+  onSaveDraft: () => void;
+  onConfirm: () => void;
+  onGoWrite: () => void;
+}
+
+const MOODS = ["紧张", "悬疑", "温暖", "悲伤", "激昂", "轻松", "压抑", "浪漫", "惊悚"];
+
+function flashField(key: string) {
+  const el = document.getElementById(`wf-${key}`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
+  el.classList.add("flash");
+  setTimeout(() => el.classList.remove("flash"), 1400);
+  const focusable = el.querySelector("input, textarea, select") as HTMLElement | null;
+  focusable?.focus({ preventScroll: true });
+}
+
+export default function OgPane({
+  form,
+  label,
+  onPatch,
+  gaps,
+  confirmed,
+  saving,
+  onSaveDraft,
+  onConfirm,
+  onGoWrite,
+}: OgPaneProps) {
+  const moodVal = form.mood || "";
+  const moodCustom = moodVal && !MOODS.includes(moodVal) ? moodVal : "";
+  const moodSel = moodCustom ? "__custom" : moodVal;
+  const segTotal = form.segs.reduce((a, s) => a + (parseInt(String(s.w), 10) || 0), 0);
+
+  return (
+    <div className="og-pane">
+      <div className="panel">
+        <div className="panel-head">
+          <h2>章纲 · {label}</h2>
+          {confirmed ? (
+            <span className="badge ok">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <path d="M5 13l4 4L19 7" />
+              </svg>
+              章纲已确认
+            </span>
+          ) : gaps.length ? (
+            <span className="badge err">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <circle cx="12" cy="12" r="5" fill="currentColor" stroke="none" />
+              </svg>
+              待配章纲
+            </span>
+          ) : (
+            <span className="badge warn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <circle cx="12" cy="12" r="5" fill="currentColor" stroke="none" />
+              </svg>
+              草稿
+            </span>
+          )}
+        </div>
+        <p className="desc">章纲：明确「这一章写什么」，确认后可作为 AI 生成正文的章级上下文。</p>
+
+        <details className="cfg" open>
+          <summary>
+            章纲概要 <Chev />
+          </summary>
+          <div className="inner">
+            <div className="field">
+              <label>章纲概要</label>
+              <textarea
+                className="textarea"
+                id="wf-summary"
+                placeholder="这一章写什么，一两句话说清"
+                value={form.summary}
+                onChange={(e) => onPatch({ summary: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>
+                关键事件 <span className="opt">一行一个</span>
+              </label>
+              <textarea
+                className="textarea"
+                id="wf-keys"
+                placeholder="一个关键事件"
+                value={form.keys}
+                onChange={(e) => onPatch({ keys: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>
+                出场角色 <span className="opt">一行一个角色名</span>
+              </label>
+              <textarea
+                className="textarea"
+                id="wf-chars"
+                placeholder="角色名"
+                value={form.chars}
+                onChange={(e) => onPatch({ chars: e.target.value })}
+              />
+            </div>
+            <div className="tpl-row">
+              <div className="field tpl-select">
+                <label>地点</label>
+                <input
+                  className="input"
+                  id="wf-loc"
+                  placeholder="本章主要场景地点"
+                  value={form.loc}
+                  onChange={(e) => onPatch({ loc: e.target.value })}
+                />
+              </div>
+              <div className="field stage-map">
+                <label>时间</label>
+                <input
+                  className="input"
+                  id="wf-time"
+                  placeholder="本章时间背景"
+                  value={form.time}
+                  onChange={(e) => onPatch({ time: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="field">
+              <label>叙事视角</label>
+              <input
+                className="input"
+                id="wf-pov"
+                placeholder="如：第三人称有限"
+                value={form.pov}
+                onChange={(e) => onPatch({ pov: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>视角指导</label>
+              <textarea
+                className="textarea"
+                id="wf-pguid"
+                placeholder="视角切换注意事项"
+                value={form.pguid}
+                onChange={(e) => onPatch({ pguid: e.target.value })}
+              />
+            </div>
+          </div>
+        </details>
+
+        <details className="cfg" open>
+          <summary>
+            核心任务 <Chev />
+          </summary>
+          <div className="inner">
+            <div className="field">
+              <label>
+                核心任务 <span className="req">*</span>
+              </label>
+              <textarea
+                className="textarea"
+                id="wf-task"
+                placeholder="这一章必须完成什么"
+                value={form.task}
+                onChange={(e) => onPatch({ task: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>
+                读者当前状态 <span className="req">*</span>
+              </label>
+              <textarea
+                className="textarea"
+                id="wf-rstate"
+                placeholder="读者此时的情感状态"
+                value={form.rstate}
+                onChange={(e) => onPatch({ rstate: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>
+                预期策略 <span className="req">*</span>
+              </label>
+              <textarea
+                className="textarea"
+                id="wf-rstrat"
+                placeholder="希望读者如何感受"
+                value={form.rstrat}
+                onChange={(e) => onPatch({ rstrat: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>
+                预期细节说明 <span className="opt">可后补</span>
+              </label>
+              <textarea
+                className="textarea"
+                id="wf-rdetail"
+                placeholder="策略的展开方式与分寸"
+                value={form.rdetail}
+                onChange={(e) => onPatch({ rdetail: e.target.value })}
+              />
+            </div>
+          </div>
+        </details>
+
+        <details className="cfg" open>
+          <summary>
+            兑现与约束 <Chev />
+          </summary>
+          <div className="inner">
+            <div className="field">
+              <label>
+                必须在本章回收 <span className="opt">一行一个</span>
+              </label>
+              <textarea
+                className="textarea"
+                id="wf-mres"
+                placeholder="一个必须回收的伏笔"
+                value={form.mres}
+                onChange={(e) => onPatch({ mres: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>
+                必须维持悬念 <span className="opt">一行一个</span>
+              </label>
+              <textarea
+                className="textarea"
+                id="wf-mhold"
+                placeholder="一个必须维持的悬念"
+                value={form.mhold}
+                onChange={(e) => onPatch({ mhold: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>
+                可部分推进 <span className="opt">一行一个</span>
+              </label>
+              <textarea
+                className="textarea"
+                id="wf-padv"
+                placeholder="一个可部分推进的线索"
+                value={form.padv}
+                onChange={(e) => onPatch({ padv: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>
+                必须完成的变化 <span className="req">*</span>
+              </label>
+              <textarea
+                className="textarea"
+                id="wf-changes"
+                placeholder="一个必须发生的变化"
+                value={form.changes}
+                onChange={(e) => onPatch({ changes: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>
+                禁止事项 <span className="opt">一行一个</span>
+              </label>
+              <textarea
+                className="textarea"
+                id="wf-ban"
+                placeholder="一个禁止发生的事"
+                value={form.ban}
+                onChange={(e) => onPatch({ ban: e.target.value })}
+              />
+            </div>
+          </div>
+        </details>
+
+        <details className="cfg" open>
+          <summary>
+            情绪设计 <Chev />
+          </summary>
+          <div className="inner">
+            <div className="field" id="wf-mood">
+              <label>
+                主情绪 <span className="req">*</span>
+              </label>
+              <div className="mood-row">
+                <select
+                  className="input"
+                  value={moodSel}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    onPatch({ mood: v === "__custom" ? "" : v });
+                  }}
+                >
+                  <option value="">请选择主情绪</option>
+                  {MOODS.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                  <option value="__custom">自定义…</option>
+                </select>
+                {moodSel === "__custom" && (
+                  <input
+                    className="input"
+                    placeholder="输入自定义情绪（≤50 字）"
+                    maxLength={50}
+                    value={moodCustom}
+                    onChange={(e) => onPatch({ mood: e.target.value })}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <details className="cfg" id="wf-segs" open>
+          <summary>
+            段落规划 <span className="req">*</span>{" "}
+            <span className="tag">每段 = 一次 AI 生成的单元</span>
+            <Chev />
+          </summary>
+          <div className="inner">
+            <div className="seg-list">
+              {form.segs.length === 0 && (
+                <p
+                  className="note"
+                  style={{ fontSize: "12.5px", color: "var(--muted)", margin: "0 0 10px" }}
+                >
+                  尚未规划段落 · 至少一段才能确认章纲
+                </p>
+              )}
+              {form.segs.map((s, i) => (
+                <div className="seg-row" key={i}>
+                  <span className="num seg-i">{i + 1}</span>
+                  <input
+                    className="input"
+                    data-seg="s"
+                    placeholder="段落概要，如：港区之夜 · 信标亮起"
+                    value={s.s}
+                    onChange={(e) => {
+                      const segs = form.segs.slice();
+                      segs[i] = { ...segs[i], s: e.target.value };
+                      onPatch({ segs });
+                    }}
+                  />
+                  <input
+                    className="input num"
+                    data-seg="w"
+                    type="number"
+                    min={100}
+                    step={100}
+                    value={s.w}
+                    onChange={(e) => {
+                      const segs = form.segs.slice();
+                      segs[i] = { ...segs[i], w: parseInt(e.target.value, 10) || 0 };
+                      onPatch({ segs });
+                    }}
+                  />
+                  <span className="acts">
+                    <button
+                      className="icon-btn"
+                      title="上移"
+                      disabled={i === 0}
+                      onClick={() => {
+                        const segs = form.segs.slice();
+                        const [x] = segs.splice(i, 1);
+                        segs.splice(i - 1, 0, x);
+                        onPatch({ segs });
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M6 15l6-6 6 6" />
+                      </svg>
+                    </button>
+                    <button
+                      className="icon-btn"
+                      title="删除段落"
+                      onClick={() => {
+                        const segs = form.segs.slice();
+                        segs.splice(i, 1);
+                        onPatch({ segs });
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+                      </svg>
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="seg-add-row">
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => onPatch({ segs: [...form.segs, { s: "", w: 800 }] })}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                添加段落
+              </button>
+              <span className="seg-total">
+                合计 <b className="num">{segTotal.toLocaleString("zh-CN")}</b> 字
+              </span>
+            </div>
+          </div>
+        </details>
+
+        <div className="panel-foot">
+          {gaps.length > 0 ? (
+            <span className="gap-line">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 8v4M12 16h.01" />
+              </svg>
+              缺：
+              {gaps.map((g) => (
+                <span key={g.key} className="gap-chip" onClick={() => flashField(g.key)}>
+                  {g.label}
+                </span>
+              ))}
+            </span>
+          ) : confirmed ? (
+            <span className="done-note">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M5 13l4 4L19 7" />
+              </svg>
+              章纲已确认
+            </span>
+          ) : null}
+          <span style={{ flex: 1 }} />
+          <button className="btn btn-secondary" onClick={onSaveDraft} disabled={saving}>
+            保存草稿
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={onConfirm}
+            disabled={confirmed || gaps.length > 0 || saving}
+          >
+            确认章纲
+          </button>
+          <button
+            className="btn btn-primary"
+            style={{ background: "var(--accent-strong)" }}
+            onClick={onGoWrite}
+            disabled={saving}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+            去写正文
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Chev() {
+  return (
+    <svg
+      className="chev"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      width="13"
+      height="13"
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}

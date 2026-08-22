@@ -7,6 +7,7 @@ import "./index.css";
 import "./design/base.css";
 import "./design/list.css";
 import "./design/model-config.css";
+import "./design/book.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

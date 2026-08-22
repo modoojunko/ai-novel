@@ -28,6 +28,15 @@ export const P = {
   // 模型配置（model-config.html）
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
   spinner: '<path d="M21 12a9 9 0 11-6.2-8.56"/>',
+  // 书工作台（book.html）
+  back: '<path d="M15 6l-6 6 6 6"/>',
+  list: '<path d="M4 6h16M4 12h16M4 18h10"/>',
+  eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/>',
+  focus: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
+  lock: '<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/>',
+  star: '<path d="M12 2l2.4 6.2L21 9l-5 4.4 1.6 6.6L12 16.6 6.4 20 8 13.4 3 9l6.6-.8z"/>',
+  up: '<path d="M6 15l6-6 6 6"/>',
+  dot: '<circle cx="12" cy="12" r="5" fill="currentColor" stroke="none"/>',
 } as const;
 
 /** 供应商图标（model-config.html VENDORS 原样；原型唯一用圆头线帽的图标组） */
@@ -60,19 +69,21 @@ interface IcoProps {
   sw?: number;
   /** 圆头线帽（供应商图标组专用：stroke-linecap/join round） */
   round?: boolean;
+  /** 填充图标（star 等原型 fill=currentColor 的用法） */
+  fill?: boolean;
   size?: number;
   style?: CSSProperties;
   className?: string;
 }
 
 /** 原型内联 SVG 的 React 等价物：viewBox 24、stroke currentColor、fill none */
-export function Ico({ d, sw = 2, round, size, style, className }: IcoProps) {
+export function Ico({ d, sw = 2, round, fill, size, style, className }: IcoProps) {
   return (
     <svg
       viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={sw}
+      fill={fill ? "currentColor" : "none"}
+      stroke={fill ? undefined : "currentColor"}
+      strokeWidth={fill ? undefined : sw}
       strokeLinecap={round ? "round" : undefined}
       strokeLinejoin={round ? "round" : undefined}
       width={size}

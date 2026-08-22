@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { isLoggedIn } from "../lib/auth";
 import PrefsModal from "../components/PrefsModal";
+import { Ico, P } from "../components/icons";
 
 /** 顶栏（list.html appbar 原样）：logo + 导航 + spacer + 设置。 */
 export default function Navbar() {
@@ -11,6 +12,27 @@ export default function Navbar() {
 
   // Landing page has its own full-page layout
   if (location.pathname === "/") return null;
+
+  // 书工作台变体（book.html）：logo + 分隔线 + 返回我的小说 + 设置，无导航/登录
+  if (location.pathname.startsWith("/novel/")) {
+    return (
+      <header className="appbar appbar-wb">
+        <Link className="logo" to="/novels">
+          <span className="logo-mark">爱</span>爱小说
+        </Link>
+        <span className="sep" />
+        <Link className="back" to="/novels">
+          <Ico d={P.back} sw={1.8} />
+          我的小说
+        </Link>
+        <span className="spacer" />
+        <button className="btn btn-ghost btn-sm" onClick={() => setShowPrefs(true)}>
+          设置
+        </button>
+        <PrefsModal open={showPrefs} onClose={() => setShowPrefs(false)} />
+      </header>
+    );
+  }
 
   const on = (prefix: string) =>
     location.pathname === prefix || location.pathname.startsWith(prefix + "/") ? "on" : undefined;

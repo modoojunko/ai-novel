@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { PencilLine } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "@/lib/toast";
+import { nodeLabel } from "@/lib/nodeTitle";
 import type { WorkbenchVolume } from "@/hooks/useWorkbench";
 import VolumeOutlineView from "./VolumeOutlineView";
 import VolumeOutlineEditor from "./VolumeOutlineEditor";
@@ -139,7 +140,7 @@ export default function VolumePage({
                 <header className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <h1 className="truncate font-serif text-2xl font-semibold text-base-content">
-                      {detail.title || `第${detail.volume}卷`}
+                      {nodeLabel("卷", detail.volume, detail.title)}
                     </h1>
                     <VolumeMeta detail={detail} volIndex={volIndex} volTotal={volTotal} />
                   </div>

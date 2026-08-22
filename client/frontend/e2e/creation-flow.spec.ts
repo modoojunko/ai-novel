@@ -228,8 +228,8 @@ test("简介空不可完成设定，保存后可确认（AC-4.2）", async ({ pa
     const pid = await createNovel(page, `简介${Date.now() % 100000}`);
     await page.goto(`${ORIGIN}/#/novel/${pid}`);
 
-    // 新落点：默认正文工作台。简介卡在设定视图内，经顶部「编辑设定」label 进入（两态共用，011）。
-    await page.getByRole("button", { name: "编辑设定" }).click();
+    // 新落点：默认写作工作台。简介卡在设定视图内，经 modnav「设定」tab 进入（PR3 设计稿）。
+    await page.getByRole("button", { name: /^设定/ }).click();
 
     // 简介卡全局常驻（设定视图内每面板可见）
     const synCard = page.locator("#synopsis-card");
@@ -255,61 +255,51 @@ test("简介空不可完成设定，保存后可确认（AC-4.2）", async ({ pa
 });
 
 // -------------------------------------------------------------------------
-// change 004：EmptyState 无门控（AC-4.3 替代）——建书即写，直接写第一章，
+// change 004：空书无门控（AC-4.3 替代）——建书即写，加卷加章直达编辑器，
 // 全程无「设定未完成」阶段催促（P0 断点 1 第 8 条）
 // -------------------------------------------------------------------------
 
-test("EmptyState 无门控：建书即写，直接写第一章即达编辑器", async ({ page }) => {
+test("空书无门控：建书即写，加卷加章直达编辑器", async ({ page }) => {
   const { restore } = await setupSession(page);
   try {
     const pid = await createNovel(page, `直接写${Date.now() % 100000}`);
 
-    // 落点即正文工作台（非设定页），EmptyState 三入口无门控
-    await expect(page.getByText("开始写你的第一部小说")).toBeVisible({
-      timeout: 10000,
-    });
-    await expect(page.getByRole("button", { name: /创建第一卷/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /直接写第一章/ })).toBeVisible();
+    // 落点即写作工作台（非设定页）：空面板 + 左树空态
+    await expect(page.getByText("开始创作")).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByText("还没有卷与章节。点击左上「＋」添加第一卷。"),
+    ).toBeVisible();
 
     // 全程无阶段催促 UI（软门控已移除）
     await expect(page.getByText("设定尚未全部完成")).toHaveCount(0);
     await expect(page.getByText(/尚未完成设定/)).toHaveCount(0);
 
-    // 「直接写第一章」→ 无卷先弹「新建卷」（链式）：序号只读徽章 + 卷名必填
-    await page.getByRole("button", { name: /直接写第一章/ }).click();
-    const volModal = page
-      .locator("h3", { hasText: "新建卷" })
-      .locator("xpath=ancestor::div[1]");
-    await expect(volModal).toBeVisible({ timeout: 5000 });
-    await expect(volModal.getByText("第一卷", { exact: true })).toBeVisible();
-    await expect(volModal.getByText("自动排定")).toBeVisible();
-    const volCreate = volModal.getByRole("button", { name: "创建", exact: true });
-    await expect(volCreate).toBeDisabled();
-    await volModal.getByLabel("卷名").fill("风起晋北");
-    await expect(volCreate).toBeEnabled();
+    // 树头「＋」→「添加卷」弹窗：卷名必填 + 初始章数（程序批量建章，默认序号形态标题）
+    await page.getByTitle("添加卷").click();
+    await expect(
+      page.getByRole("heading", { name: "添加卷" }),
+    ).toBeVisible({ timeout: 5000 });
+    const volCreate = page.getByRole("button", { name: "创建卷" });
+    await expect(volCreate).toBeEnabled(); // 初始章数 0 也允许（卷名才是必填）
+    await page.getByLabel("卷名", { exact: true }).fill("风起晋北");
+    await page.getByLabel(/初始章数/).fill("1");
     await volCreate.click();
 
-    // 卷创建成功 → 链式弹「新建章」：目标卷 + 第 1 章序号程序排定
-    const chModal = page
-      .locator("h3", { hasText: "新建章" })
-      .locator("xpath=ancestor::div[1]");
-    await expect(chModal).toBeVisible({ timeout: 5000 });
-    await expect(chModal.getByText("第一卷 · 风起晋北 · 第一章")).toBeVisible();
-    await chModal.getByLabel("章名").fill("城门初见");
-    await chModal.getByRole("button", { name: "创建", exact: true }).click();
-
-    // 即达章页（PR2：新章默认「章纲」tab）→ 点「正文」进编辑器；
-    // 树上展示「第一卷 · 风起晋北」「第一章 · 城门初见」
-    await page
-      .getByRole("button", { name: "正文", exact: true })
-      .click({ timeout: 10000 });
+    // 卷章创建成功 → 树上「第一卷 · 风起晋北」「第一章」（默认标题=纯序号形态）
     await expect(
-      page.getByPlaceholder("正文（在此撰写小说内容）"),
+      page.locator(".col-tree").getByText("第一卷 · 风起晋北"),
     ).toBeVisible({ timeout: 10000 });
-    await expect(
-      page.locator("aside").getByText("第一卷 · 风起晋北"),
-    ).toBeVisible({ timeout: 5000 });
-    await expect(page.locator("aside").getByText("第一章 · 城门初见")).toBeVisible();
+    const chRow = page.locator(".col-tree .ch", { hasText: "第一章" });
+    await expect(chRow).toBeVisible({ timeout: 5000 });
+
+    // 点章 → 强制落「章纲」页签（PR3 设计稿行为）→ 切「正文」即达编辑器
+    await chRow.click();
+    await expect(page.getByRole("tab", { name: /^章纲/ })).toBeVisible({
+      timeout: 10000,
+    });
+    await page.getByRole("tab", { name: /^正文/ }).click();
+    await expect(page.locator(".editor")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(".editor")).toBeEditable();
   } finally {
     restore();
   }
@@ -330,8 +320,8 @@ test("设定 7 项全确认（settings-status 全绿）", async ({ page, request
     // 013：设定未确认也不渲染「以下阶段尚未就绪」门控横幅（GateBanner 已移除）
     await expect(page.getByText(/尚未完成设定/)).toHaveCount(0);
 
-    // 新落点：默认正文工作台。设定面板经顶部「编辑设定」label 进入（两态共用，011）。
-    await page.getByRole("button", { name: "编辑设定" }).click();
+    // 新落点：默认写作工作台。设定面板经 modnav「设定」tab 进入（PR3 设计稿）。
+    await page.getByRole("button", { name: /^设定/ }).click();
 
     // ── world：真实表单填 ≥4 个子字段（3 地理 + 1 政治）→ 保存 → 完成设定
     await openSetting(page, "世界设定");
@@ -408,16 +398,18 @@ test("设定 7 项全确认（settings-status 全绿）", async ({ page, request
 // CRUD：改名（顶栏就地编辑）
 // -------------------------------------------------------------------------
 
-test("改名：顶栏就地改名即时生效（AC-2.x）", async ({ page }) => {
+test("改名：novelbar 书名双击就地改名即时生效（AC-2.x）", async ({ page }) => {
   const { restore } = await setupSession(page);
   try {
     const origName = `原始${Date.now() % 100000}`;
     await createNovel(page, origName);
     const nextName = `新名字${Date.now() % 100000}`;
 
-    // 顶栏书名按钮（aria-label="点击修改书名"）→ 进入就地编辑
-    await page.getByRole("button", { name: "点击修改书名" }).click();
-    await page.locator('input[aria-label="小说书名"]').fill(nextName);
+    // novelbar 书名（双击重命名，#164 名称即标题口径）→ Enter 提交
+    await page.locator(".novel-title").dblclick();
+    const nameInput = page.locator(".novelbar input");
+    await expect(nameInput).toBeVisible({ timeout: 5000 });
+    await nameInput.fill(nextName);
     await page.keyboard.press("Enter");
 
     // 页面即时反映新名
