@@ -17,8 +17,8 @@ interface CreateProjectModalProps {
   open: boolean;
   onClose: () => void;
   onCreated: (novelId: string) => void;
-  /** 'none' when user is on the free tier */
-  tier?: string;
+  /** 是否有效会员（免费层或套餐过期均为 false，与后端 require_project_limit 口径一致） */
+  isMember?: boolean;
   /** Current novel count, for free-limit check */
   novelCount?: number;
 }
@@ -50,7 +50,7 @@ export default function CreateProjectModal({
   open,
   onClose,
   onCreated,
-  tier,
+  isMember,
   novelCount,
 }: CreateProjectModalProps) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
@@ -104,8 +104,9 @@ export default function CreateProjectModal({
     onClose();
   }
 
+  // 口径=页面级 !isMember（过期会员也拦，与后端 require_project_limit 一致）
   const freeLimitReached =
-    tier === "none" && novelCount !== undefined && novelCount >= 1;
+    isMember === false && novelCount !== undefined && novelCount >= 1;
   const canCreate = state.name.trim().length > 0 && !freeLimitReached;
 
   if (!open) return null;
