@@ -40,8 +40,11 @@ async def get_current_user(
     if not stored_token or credentials.credentials != stored_token:
         raise HTTPException(status_code=401, detail="登录状态无效，请重新登录")
 
-    # 会话新鲜度（S端 OAuth 下发时写入）：过期/超期则强制重新登录
-    from datetime import UTC, date, datetime, timedelta
+    # 会话新鲜度（S端 OAuth 下发时写入）：超期则强制重新登录。
+    # 注意 expires_at 是套餐/试用到期日（产品口径：过期降免费待遇，限 1 项目，
+    # 由 S端 verify + 前端横幅呈现），不是会话有效性，不得据此 401——
+    # 否则过期用户会陷入「check-auth 成功 ↔ 业务 401 踢回登录页」死循环。
+    from datetime import UTC, datetime, timedelta
 
     last_login = cfg.get("last_login_at", "")
     if last_login:
@@ -51,14 +54,6 @@ async def get_current_user(
                 login_time = login_time.replace(tzinfo=UTC)
             if datetime.now(UTC) - login_time > timedelta(days=30):
                 raise HTTPException(status_code=401, detail="登录已超过 30 天，请重新登录")
-        except ValueError:
-            pass
-    expires_at = cfg.get("expires_at", "")
-    if expires_at:
-        try:
-            expiry = date.fromisoformat(expires_at[:10])
-            if datetime.now(UTC).date() > expiry:
-                raise HTTPException(status_code=401, detail="登录已过期，请重新登录")
         except ValueError:
             pass
 
