@@ -26,7 +26,7 @@ export default function Navbar() {
               我的作品
             </Link>
             <Link to="/config" className="btn btn-ghost btn-sm">
-              大模型
+              模型配置
             </Link>
             <button
               className="btn btn-ghost btn-sm"

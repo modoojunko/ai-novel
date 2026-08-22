@@ -36,6 +36,7 @@ const SegmentRow = memo(function SegmentRow({
         value={summary}
         onChange={(e) => onChange(e.target.value, targetWords)}
         placeholder="段落概要"
+        maxLength={300}
       />
 
       {/* Target words */}

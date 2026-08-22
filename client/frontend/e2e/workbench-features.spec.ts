@@ -359,7 +359,7 @@ test("提示词无Key：进入提示词tab就地提示去配置，不整页跳�
 
     // 点「提示词」tab：prompts 端点 503 → 就地提示（而非 503 全局跳 /config）
     await page.getByRole("button", { name: "提示词" }).click();
-    await expect(page.getByText("尚未配置大模型 API Key")).toBeVisible({
+    await expect(page.getByText("尚未配置模型 API Key")).toBeVisible({
       timeout: 10000,
     });
     await expect(page.getByRole("link", { name: "去配置" })).toBeVisible();

@@ -342,7 +342,7 @@ export default function VolumeOutlineEditor({
                 maxLength={150}
                 value={p.emotional_anchor}
                 onChange={(e) => setPlan(i, { emotional_anchor: e.target.value })}
-                placeholder="情绪锚点"
+                placeholder="情绪锚点（本章预期情绪）"
               />
               <input
                 className={inputCls}

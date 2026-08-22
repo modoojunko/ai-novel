@@ -79,7 +79,7 @@ async function setupSession(page: Page): Promise<{ restore: () => void }> {
 // ① 空态 + 表单顺序校验
 // -------------------------------------------------------------------------
 
-test("API Key 配置：空态 + 表单顺序校验（名称→供应商→Base URL→API Key）", async ({
+test("模型配置：空态 + 表单顺序校验（名称→供应商→Base URL→API Key）", async ({
   page,
 }) => {
   const { restore } = await setupSession(page);
@@ -88,9 +88,9 @@ test("API Key 配置：空态 + 表单顺序校验（名称→供应商→Base U
 
     // 空态：h1 + 空态文案（header 与空态各有「添加 API Key」按钮 → .first()）
     await expect(
-      page.getByRole("heading", { name: "API Key 配置", exact: true }),
+      page.getByRole("heading", { name: "模型配置", exact: true }),
     ).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText("还没有 API Key 配置")).toBeVisible();
+    await expect(page.getByText("还没有模型配置")).toBeVisible();
 
     // 打开表单
     await page.getByRole("button", { name: "添加 API Key" }).first().click();
@@ -124,7 +124,7 @@ test("API Key 配置：空态 + 表单顺序校验（名称→供应商→Base U
 
     // 取消关闭表单 → 空态回归
     await page.getByRole("button", { name: "取消" }).click();
-    await expect(page.getByText("还没有 API Key 配置")).toBeVisible();
+    await expect(page.getByText("还没有模型配置")).toBeVisible();
   } finally {
     restore();
   }
@@ -134,11 +134,11 @@ test("API Key 配置：空态 + 表单顺序校验（名称→供应商→Base U
 // ② 添加 + 删除 + Undo toast 展示
 // -------------------------------------------------------------------------
 
-test("API Key 配置：添加（网络错误）→ 删除 → Undo toast 展示", async ({ page }) => {
+test("模型配置：添加（网络错误）→ 删除 → Undo toast 展示", async ({ page }) => {
   const { restore } = await setupSession(page);
   try {
     await page.goto(`${ORIGIN}/#/config`);
-    await expect(page.getByText("还没有 API Key 配置")).toBeVisible({
+    await expect(page.getByText("还没有模型配置")).toBeVisible({
       timeout: 10000,
     });
 
@@ -173,7 +173,7 @@ test("API Key 配置：添加（网络错误）→ 删除 → Undo toast 展示"
 
     // 卡片消失 → 空态回归
     await expect(card).toHaveCount(0);
-    await expect(page.getByText("还没有 API Key 配置")).toBeVisible({
+    await expect(page.getByText("还没有模型配置")).toBeVisible({
       timeout: 5000,
     });
 

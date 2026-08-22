@@ -486,7 +486,7 @@ export default function PromptManagementPage({
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <KeyRound className="w-12 h-12 text-base-content/30" />
           <div className="text-center space-y-1.5">
-            <p className="text-base text-base-content/70">尚未配置大模型 API Key</p>
+            <p className="text-base text-base-content/70">尚未配置模型 API Key</p>
             <p className="text-sm text-base-content/40">
               提示词的生成与查看需要 AI 能力，请先配置 API Key 后再使用。
             </p>
