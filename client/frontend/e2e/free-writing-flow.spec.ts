@@ -83,7 +83,7 @@ async function setupFreeSession(page: Page): Promise<{ restore: () => void }> {
 /** 通过真实 UI 创建小说（免费限 1 部，测试内仅建一本）。 */
 async function createNovel(page: Page, name: string): Promise<string> {
   await page.goto(`${ORIGIN}/#/novels`);
-  await page.getByRole("button", { name: "开始新小说" }).click();
+  await page.getByRole("button", { name: "开始新小说" }).first().click();
   await page.locator("input#novel-name").fill(name);
   await page.getByRole("button", { name: "创建小说" }).click();
   await page.waitForURL(/#\/novel\/[0-9a-fA-F-]+/);
