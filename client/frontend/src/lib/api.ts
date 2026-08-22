@@ -1,17 +1,35 @@
 import { getToken } from "./auth";
 
 import { getApiBaseUrl } from "./env";
+import { toast } from "./toast";
 
 const BASE = `${getApiBaseUrl()}/api`;
 
-/** Fetch wrapper that redirects to /config on 503 (AI config required). */
-export async function apiFetch(input: RequestInfo, init?: RequestInit): Promise<Response> {
-  const resp = await fetch(input, init);
-  if (resp.status === 503) {
-    window.location.href = "/#/config";
-    throw new Error('Service unavailable');
+/** 503 全局提示节流：挂载期并发请求同时失败只弹一条 */
+let _last503ToastAt = 0;
+const TOAST_503_THROTTLE_MS = 8000;
+
+/**
+ * 503 就地提示（不强跳 /config，避免丢编辑上下文）：
+ * - app 级：未配 AI Key（后端 require_ai_access 抛 JSON detail 含「未配置」），引导去配置
+ * - infra 级：云托管冷启动（瞬时 30–60s，HTML/空响应体），提示稍后重试
+ */
+function notify503(kind: "app" | "infra") {
+  const now = Date.now();
+  if (now - _last503ToastAt < TOAST_503_THROTTLE_MS) return;
+  _last503ToastAt = now;
+  if (kind === "app") {
+    toast.error("尚未配置模型 API Key，AI 功能暂不可用", {
+      action: {
+        label: "去配置",
+        onClick: () => {
+          window.location.hash = "/config";
+        },
+      },
+    });
+  } else {
+    toast.info("云端服务唤醒中（约 30–60 秒），请稍后重试");
   }
-  return resp;
 }
 
 export async function request(
@@ -20,9 +38,9 @@ export async function request(
     method?: string;
     body?: string;
     headers?: Record<string, string>;
-    /** 静默能力探测：不触发全局副作用（member_required 升级弹窗、503 跳转 /config） */
+    /** 静默能力探测：不触发全局副作用（member_required 升级弹窗、503 全局提示） */
     quiet?: boolean;
-    /** 503（未配 AI Key）不跳 /config：抛带 status 的错误，由调用方就地提示 */
+    /** 503 不弹全局提示：抛带 status 的错误，由调用方就地提示（如 PromptManagementPage） */
     soft503?: boolean;
   },
 ): Promise<any> {
@@ -50,10 +68,19 @@ export async function request(
   }
 
   if (res.status === 503) {
-    if (!options?.quiet && !options?.soft503) {
-      window.location.href = "/#/config";
+    const text = await res.text().catch(() => "");
+    let detail = "";
+    try {
+      const parsed = JSON.parse(text);
+      if (typeof parsed?.detail === "string") detail = parsed.detail;
+    } catch {
+      /* infra 级 503 响应体非 JSON（云托管冷启动） */
     }
-    const e = new Error("Service unavailable") as Error & { status?: number };
+    const appLevel = detail.includes("未配置");
+    if (!options?.quiet && !options?.soft503) {
+      notify503(appLevel ? "app" : "infra");
+    }
+    const e = new Error(detail || "Service unavailable") as Error & { status?: number };
     e.status = 503;
     throw e;
   }
@@ -160,8 +187,10 @@ export async function importParse(
     throw new Error("Unauthorized");
   }
   if (res.status === 503) {
-    window.location.href = "/#/config";
-    throw new Error("Service unavailable");
+    // 导入端点与 AI Key 无关，503 只会是云托管冷启动：交由调用方就地提示
+    const e = new Error("云端服务暂时不可用，请稍后重试") as Error & { status?: number };
+    e.status = 503;
+    throw e;
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
