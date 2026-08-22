@@ -1,6 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  // ../../docs/design-c/prototypes 是设计原型（仓库根 docs/，本地资产不入 git）：
+  // 原型与应用共用本配置编译出同一套 CSS——类名相同即像素相同（design:css / design:check）
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+    "../../docs/design-c/prototypes/**/*.html",
+  ],
   theme: {
     extend: {
       fontFamily: {
