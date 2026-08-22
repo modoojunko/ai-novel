@@ -264,10 +264,10 @@ export default function OutlineEditor({
   const savingRef = useRef(false);
   const isDirtyRef = useRef(false);
 
-  const isDirty = useMemo(
-    () => !deepEqual(formData, initialSnapshotRef.current),
-    [formData]
-  );
+  // 不能 useMemo：快照存的是 ref，手动/自动保存后更新 ref 不触发重渲染，
+  // memo 缓存的旧 isDirty=true 会把刚保存的状态立刻打回「未保存」，
+  // 并反复触发防抖自动保存（每 3s 重复 PUT）
+  const isDirty = !deepEqual(formData, initialSnapshotRef.current);
   isDirtyRef.current = isDirty;
 
   // ── Reset form when chapterData changes from outside ────────────────

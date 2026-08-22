@@ -57,7 +57,7 @@ export default function ChapterPage({
   aiState,
   onAIStateChange,
 }: ChapterPageProps) {
-  const { chapter, status, wordCount, loading, error, reload } = useChapterData(
+  const { chapter, status, wordCount, targetWords, loading, error, reload } = useChapterData(
     projectId,
     chapterRef,
   );
@@ -245,8 +245,11 @@ export default function ChapterPage({
           </h1>
           <span className="badge badge-ghost badge-sm shrink-0">{chapterRef}</span>
           <ChapterStatusBadge status={status} />
-          <span className="ml-auto text-xs text-base-content/40 tabular-nums shrink-0">
-            {wordCount.toLocaleString()} 字
+          <span
+            className="ml-auto text-xs text-base-content/40 tabular-nums shrink-0"
+            title="当前字数 / 目标字数"
+          >
+            {wordCount}/{targetWords} 字
           </span>
         </div>
         {position && (
