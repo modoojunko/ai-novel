@@ -11,13 +11,13 @@ body,
 body {
   font-family: "Noto Sans SC", sans-serif;
   /* 暖光晕背景 */
-  background-image: radial-gradient(ellipse at 50% 0%, rgba(212, 163, 115, 0.04) 0%, transparent 65%);
+  background-image: radial-gradient(ellipse at 50% 0%, oklch(var(--p) / 0.04) 0%, transparent 65%);
   background-attachment: fixed;
 }
 
 /* 选中颜色 — 暖琥珀 */
 ::selection {
-  background: rgba(212, 163, 115, 0.25);
+  background: oklch(var(--p) / 0.25);
   color: inherit;
 }
 
@@ -30,17 +30,17 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(212, 163, 115, 0.15);
+  background: oklch(var(--p) / 0.15);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(212, 163, 115, 0.3);
+  background: oklch(var(--p) / 0.3);
 }
 
 /* 自定义滚动条 — Firefox */
 html {
   scrollbar-width: thin;
-  scrollbar-color: rgba(212, 163, 115, 0.15) transparent;
+  scrollbar-color: oklch(var(--p) / 0.15) transparent;
 }
 
 /* 字体 */
@@ -99,7 +99,7 @@ html {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(212, 163, 115, 0.08) 50%,
+    oklch(var(--p) / 0.08) 50%,
     transparent 100%
   );
   background-size: 200% 100%;
