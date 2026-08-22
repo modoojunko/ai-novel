@@ -98,7 +98,7 @@ async function setupSession(
 /** 通过真实 UI 创建小说（书名即创建），返回 project id。 */
 async function createNovel(page: Page, name: string): Promise<string> {
   await page.goto(`${ORIGIN}/#/novels`);
-  await page.getByRole("button", { name: "开始新小说" }).click();
+  await page.getByRole("button", { name: "开始新小说" }).first().click();
   await page.locator("input#novel-name").fill(name);
   await page.getByRole("button", { name: "创建小说" }).click();
   await page.waitForURL(/#\/novel\/[0-9a-fA-F-]+/);
@@ -194,11 +194,11 @@ test("创建小说：仅书名即可创建并进入小说页", async ({ page }) 
   const { restore } = await setupSession(page);
   try {
     await page.goto(`${ORIGIN}/#/novels`);
-    await expect(page.getByRole("button", { name: "开始新小说" })).toBeVisible({
+    await expect(page.getByRole("button", { name: "开始新小说" }).first()).toBeVisible({
       timeout: 10000,
     });
 
-    await page.getByRole("button", { name: "开始新小说" }).click();
+    await page.getByRole("button", { name: "开始新小说" }).first().click();
     // AC-1.4：空书名创建按钮不可用
     await expect(page.getByRole("button", { name: "创建小说" })).toBeDisabled();
 
