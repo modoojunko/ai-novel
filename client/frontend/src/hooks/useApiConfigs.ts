@@ -20,8 +20,8 @@ export function useApiConfigs() {
     try {
       const resp = await fetch(`${API_BASE}/api-configs`, { headers: authHeaders() });
       if (resp.status === 503) {
-        window.location.href = "/#/config";
-        return;
+        // 本页就是 /config：503 只会是云托管冷启动，就地报错不强跳
+        throw new Error("云端服务唤醒中，请稍后重试");
       }
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json();
