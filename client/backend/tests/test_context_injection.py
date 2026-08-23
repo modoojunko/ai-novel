@@ -176,6 +176,63 @@ class TestStoryWorldVolumeInjection:
         assert "本卷概要：主角在城中村立足，仇家开始找人。" in prompt
 
 
+class TestInfoGapInjection:
+    """信息差对齐（PR6）：卷级信息差（起→止）+ 本章信息差注入分段写作提示词。"""
+
+    @staticmethod
+    def _add_info_gap(root: str, start: str, end: str, gap: str):
+        async def _patch():
+            from sqlalchemy import select
+
+            from db import async_session
+            from models.project import Novel
+            from models.volume import Volume, VolumeChapterPlan
+
+            async with async_session() as session:
+                proj = await session.scalar(
+                    select(Novel).where(Novel.root_path == root)
+                )
+                vol = await session.scalar(
+                    select(Volume).where(Volume.project_id == proj.id)
+                )
+                vol.info_gap_start = start
+                vol.info_gap_end = end
+                if gap:
+                    session.add(
+                        VolumeChapterPlan(
+                            volume_id=vol.id,
+                            sort_order=0,
+                            chapter_no=1,
+                            title="开张",
+                            info_gap=gap,
+                        )
+                    )
+                await session.commit()
+
+        _run_async(_patch())
+
+    def test_volume_and_chapter_gap_injected(self):
+        root = _tmp_root()
+        _seed(root)
+        self._add_info_gap(
+            root,
+            "读者知道地契是假的",
+            "读者知道仇家已到门口",
+            "反派知道是陷阱 ↦ 主角不知道",
+        )
+        prompt = _run_async(assemble_segment_prompt(root, "vol-1-ch-1", 0, "测试小说"))
+        assert "本卷信息差（起→止）：读者知道地契是假的 → 读者知道仇家已到门口" in prompt
+        assert "本章信息差：反派知道是陷阱 ↦ 主角不知道" in prompt
+
+    def test_no_gap_no_lines(self):
+        """未配置信息差时完全不注入（不留空行占位）。"""
+        root = _tmp_root()
+        _seed(root)
+        prompt = _run_async(assemble_segment_prompt(root, "vol-1-ch-1", 0, "测试小说"))
+        assert "本卷信息差" not in prompt
+        assert "本章信息差" not in prompt
+
+
 class TestChapterOutlineInjection:
     """章纲增强：场景/时间/视角/硬约束/读者预期注入。"""
 
