@@ -3,6 +3,7 @@
 //   章选中 → AI 辅助·本章 + 本章进度卡（大百分数/进度条/目标字数就地编辑）
 // 免费态与原型逐像素一致；PRO 态把续写/润色/扩写升为真实工具卡
 // （应用侧已有功能，换皮不减功能；原型标「规划中」——已登记 ADJUSTMENTS）。
+// AI 写入工具全部经 onAi* 走页面级解锁链（归档章先弹「解除只读」，真 bug #1）。
 import { useState, type RefObject } from "react";
 import type { ProseAIState, ProseHandle } from "./ProsePane";
 import { toast } from "@/lib/toast";
@@ -13,6 +14,8 @@ export interface RailChapterData {
   setTargetWords: (n: number) => void;
   archived: boolean;
   bookWords: number;
+  /** 退出归档只读（解锁链确认后由页面调用） */
+  unarchive: () => Promise<void>;
 }
 
 interface RailProps {
@@ -22,6 +25,10 @@ interface RailProps {
   proseRef: RefObject<ProseHandle | null>;
   aiState: ProseAIState;
   data?: RailChapterData;
+  /** AI 写入工具链入口（归档章先解锁；生成正文再经 AiModal 提示词预览） */
+  onAiWrite: () => void;
+  onAiContinue: () => void;
+  onAiSelection: (mode: "polish" | "expand", capture: ReturnType<ProseHandle["captureNow"]>) => void;
 }
 
 const fmt = (n: number) => n.toLocaleString("zh-CN");
@@ -67,7 +74,17 @@ function PlannedFeat({ title, desc }: { title: string; desc: string }) {
   );
 }
 
-export default function Rail({ mode, isPro, onUpgrade, proseRef, aiState, data }: RailProps) {
+export default function Rail({
+  mode,
+  isPro,
+  onUpgrade,
+  proseRef,
+  aiState,
+  data,
+  onAiWrite,
+  onAiContinue,
+  onAiSelection,
+}: RailProps) {
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetDraft, setTargetDraft] = useState("");
 
@@ -105,10 +122,6 @@ export default function Rail({ mode, isPro, onUpgrade, proseRef, aiState, data }
     }
   };
 
-  const needSelection = () => {
-    toast.info("请先在正文中选中一段文字");
-  };
-
   return (
     <div>
       <p className="progress-head">AI 辅助 · 本章</p>
@@ -132,7 +145,7 @@ export default function Rail({ mode, isPro, onUpgrade, proseRef, aiState, data }
           <button
             className="btn btn-primary btn-sm"
             disabled={aiState.streaming}
-            onClick={() => proseRef.current?.startWriting()}
+            onClick={onAiWrite}
           >
             生成正文
           </button>
@@ -155,7 +168,7 @@ export default function Rail({ mode, isPro, onUpgrade, proseRef, aiState, data }
               <button
                 className="btn btn-secondary btn-sm"
                 disabled={aiState.streaming}
-                onClick={() => proseRef.current?.continueWriting()}
+                onClick={onAiContinue}
               >
                 续写
               </button>
@@ -172,11 +185,7 @@ export default function Rail({ mode, isPro, onUpgrade, proseRef, aiState, data }
               <button
                 className="btn btn-secondary btn-sm"
                 disabled={!aiState.hasSelection || aiState.polishLoading}
-                onClick={() => {
-                  const cap = proseRef.current?.captureNow();
-                  if (cap) proseRef.current?.polish(cap);
-                  else needSelection();
-                }}
+                onClick={() => onAiSelection("polish", proseRef.current?.captureNow() ?? null)}
               >
                 {aiState.polishLoading ? "润色中…" : "润色选段"}
               </button>
@@ -193,11 +202,7 @@ export default function Rail({ mode, isPro, onUpgrade, proseRef, aiState, data }
               <button
                 className="btn btn-secondary btn-sm"
                 disabled={!aiState.hasSelection || aiState.expandLoading}
-                onClick={() => {
-                  const cap = proseRef.current?.captureNow();
-                  if (cap) proseRef.current?.expand(cap);
-                  else needSelection();
-                }}
+                onClick={() => onAiSelection("expand", proseRef.current?.captureNow() ?? null)}
               >
                 {aiState.expandLoading ? "扩写中…" : "扩写选段"}
               </button>

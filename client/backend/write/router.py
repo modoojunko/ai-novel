@@ -1,6 +1,6 @@
 import json
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -85,15 +85,15 @@ async def _stream_chapter(db, project, root_path: str, chapter_ref: str, ctx, pr
             yield f"data: {json.dumps({'type': 'error', 'error': event.error}, ensure_ascii=False)}\n\n"
 
 
-@router.post("/write")
-async def write_chapter(
+@router.get("/prompt")
+async def get_write_prompt(
     project_id: str,
     chapter_ref: str,
     user: dict = Depends(get_current_user),
     _: bool = Depends(require_ai_access),
     db: AsyncSession = Depends(get_db),
 ):
-    """Stream an AI-written chapter based on all context data."""
+    """AI 弹窗提示词预览：「设定 + 章纲」自动组装结果，供弹窗内直接编辑。"""
     project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
@@ -102,7 +102,44 @@ async def write_chapter(
     from write.chapter_writer import build_chapter_context
 
     ctx = await build_chapter_context(project.root_path, chapter_ref, project.name)
-    prompt = ctx.to_prompt()
+    outline = ctx.chapter_outline or {}
+    has_outline = bool(
+        outline.get("summary") or outline.get("key_points") or outline.get("segments")
+    )
+    return {"prompt": ctx.to_prompt(), "has_outline": has_outline}
+
+
+@router.post("/write")
+async def write_chapter(
+    project_id: str,
+    chapter_ref: str,
+    request: Request,
+    user: dict = Depends(get_current_user),
+    _: bool = Depends(require_ai_access),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stream an AI-written chapter based on all context data.
+
+    可选 body {"prompt": "..."}：AI 弹窗编辑后的提示词覆盖（空/缺省 = 自动组装）。
+    """
+    project = await get_novel(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
+
+    prompt_override = ""
+    try:
+        body = await request.json()
+        if isinstance(body, dict):
+            prompt_override = str(body.get("prompt") or "").strip()
+    except (ValueError, UnicodeDecodeError):
+        # 空体/非法 JSON = 无覆盖，走自动组装
+        prompt_override = ""
+
+    from write.chapter_writer import build_chapter_context
+
+    ctx = await build_chapter_context(project.root_path, chapter_ref, project.name)
+    prompt = prompt_override or ctx.to_prompt()
 
     # Save prompt for review（chapter_prompts 表，PR④）
     from prompt.store import save_prompt

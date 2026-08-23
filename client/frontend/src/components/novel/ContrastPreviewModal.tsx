@@ -1,5 +1,7 @@
-import { useEffect, useRef, useCallback } from "react";
-import { cn } from "@/lib/utils";
+// 润色/扩写对比预览（产品扩展——原型将两能力标「规划中」，无弹窗设计稿；
+// 按 book.html 弹窗语言轻重皮：mcard + 双栏 serif 对比 + 设计按钮）。
+import { useEffect } from "react";
+import Modal from "@/components/design/Modal";
 
 interface ContrastPreviewModalProps {
   open: boolean;
@@ -14,18 +16,29 @@ interface ContrastPreviewModalProps {
   onRetry: () => void;
 }
 
-function SkeletonLines() {
-  return (
-    <div className="space-y-3 animate-pulse">
-      <div className="skeleton h-4 w-3/4" />
-      <div className="skeleton h-4 w-full" />
-      <div className="skeleton h-4 w-5/6" />
-      <div className="skeleton h-4 w-2/3" />
-      <div className="skeleton h-4 w-4/5" />
-      <div className="skeleton h-4 w-1/2" />
-    </div>
-  );
-}
+const paneStyle: React.CSSProperties = {
+  flex: 1,
+  padding: "14px 16px",
+  border: "1px solid var(--border)",
+  borderRadius: 10,
+  background: "var(--surface)",
+  minHeight: 200,
+  maxHeight: "52vh",
+  overflowY: "auto",
+  fontSize: 14,
+  lineHeight: 1.9,
+  whiteSpace: "pre-wrap",
+  fontFamily: "var(--font-serif)",
+};
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontFamily: "var(--font-mono)",
+  fontSize: 11,
+  letterSpacing: "0.08em",
+  color: "var(--muted)",
+  marginBottom: 8,
+};
 
 export default function ContrastPreviewModal({
   open,
@@ -39,147 +52,98 @@ export default function ContrastPreviewModal({
   onReject,
   onRetry,
 }: ContrastPreviewModalProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-
-  // Control dialog open/close from prop
-  useEffect(() => {
-    const el = dialogRef.current;
-    if (!el) return;
-    if (open) {
-      if (!el.open) el.showModal();
-    } else {
-      if (el.open) el.close();
-    }
-  }, [open]);
-
-  // Listen for native dialog close (Escape key, backdrop click)
-  useEffect(() => {
-    const el = dialogRef.current;
-    if (!el) return;
-    const handleClose = () => {
-      // Only propagate if the dialog was open -- prevents loop when
-      // the prop-driven close() call above fires this same event.
-      if (open) onClose();
-    };
-    el.addEventListener("close", handleClose);
-    return () => el.removeEventListener("close", handleClose);
-  }, [open, onClose]);
-
-  // Keyboard: Enter to accept (Escape is handled natively by <dialog>)
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !loading && !error && modifiedText) {
-        e.preventDefault();
-        onAccept();
-      }
-    },
-    [loading, error, modifiedText, onAccept]
-  );
-
   const actionLabel = mode === "polish" ? "润色后" : "扩写后";
-
   const canAccept = !loading && !error && modifiedText !== null;
 
+  // Enter 接受（Esc 由 Modal 统一处理）；焦点在按钮上时让按钮自身的 Enter 生效
+  useEffect(() => {
+    if (!open || !canAccept) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Enter") return;
+      if (document.activeElement instanceof HTMLButtonElement) return;
+      e.preventDefault();
+      onAccept();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, canAccept, onAccept]);
+
   return (
-    <dialog ref={dialogRef} className="modal" onKeyDown={handleKeyDown}>
-      <div className="modal-box max-w-4xl p-0 overflow-hidden">
-        {/* ── Header ──────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-base-300">
-          <h3 className="text-lg font-semibold font-serif">
-            {mode === "polish" ? "润色" : "扩写"}
-          </h3>
-          <button
-            onClick={onClose}
-            className="btn btn-sm btn-circle btn-ghost"
-            aria-label="关闭"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* ── Body ────────────────────────────────────────── */}
-        <div className="p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left: Original text */}
-            <div className="flex flex-col">
-              <span className="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-2">
-                原文
-              </span>
-              <div className="flex-1 p-4 rounded-lg border border-base-300 bg-base-100/50 min-h-[200px] max-h-[55vh] overflow-y-auto text-sm leading-relaxed whitespace-pre-wrap font-serif">
-                {originalText || (
-                  <span className="text-base-content/20">无内容</span>
-                )}
-              </div>
-            </div>
-
-            {/* Right: Modified / Loading / Error */}
-            <div className="flex flex-col">
-              <span
-                className={cn(
-                  "text-xs font-medium uppercase tracking-wider mb-2",
-                  "text-amber-600 dark:text-amber-400"
-                )}
-              >
-                {actionLabel}
-              </span>
-              <div className="flex-1 p-4 rounded-lg border border-l-4 border-l-amber-400 border-base-300 bg-base-100/50 min-h-[200px] max-h-[55vh] overflow-y-auto">
-                {loading ? (
-                  <div className="flex flex-col items-center justify-center gap-4 h-full">
-                    <span className="loading loading-spinner loading-md text-amber-500" />
-                    <SkeletonLines />
-                  </div>
-                ) : error ? (
-                  <div className="flex flex-col items-center justify-center gap-3 h-full">
-                    <p className="text-sm text-error text-center">{error}</p>
-                    <button
-                      onClick={onRetry}
-                      className="btn btn-ghost btn-sm"
-                    >
-                      重试
-                    </button>
-                  </div>
-                ) : modifiedText ? (
-                  <div className="text-sm leading-relaxed whitespace-pre-wrap font-serif">
-                    {modifiedText}
-                  </div>
-                ) : (
-                  <span className="text-base-content/20">待生成</span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Action bar ──────────────────────────────────── */}
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-base-300 bg-base-200/30">
-          <button
-            onClick={onReject}
-            disabled={loading}
-            className="btn btn-ghost btn-sm text-base-content/60"
-          >
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={mode === "polish" ? "段落润色" : "场景扩写"}
+      wbStyle
+      width={680}
+      footer={
+        <>
+          <button className="btn btn-secondary" onClick={onReject} disabled={loading}>
             拒绝
           </button>
-          <button
-            onClick={onRetry}
-            disabled={loading}
-            className="btn btn-ghost btn-sm"
-          >
+          <button className="btn btn-secondary" onClick={onRetry} disabled={loading}>
             换一个
           </button>
-          <button
-            onClick={onAccept}
-            disabled={!canAccept}
-            className="btn btn-primary btn-sm"
-          >
+          <button className="btn btn-primary" onClick={onAccept} disabled={!canAccept}>
             接受
           </button>
+        </>
+      }
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 16,
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <span style={labelStyle}>原文</span>
+          <div style={paneStyle}>
+            {originalText || <span style={{ color: "var(--muted)" }}>无内容</span>}
+          </div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <span style={{ ...labelStyle, color: "var(--accent)" }}>{actionLabel}</span>
+          <div style={{ ...paneStyle, borderLeft: "3px solid var(--accent)" }}>
+            {loading ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  color: "var(--muted)",
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: "var(--accent)",
+                    animation: "pulse 1s ease-in-out infinite",
+                    flex: "none",
+                  }}
+                />
+                生成中…
+              </div>
+            ) : error ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ color: "var(--err)" }}>{error}</span>
+                <button className="btn btn-ghost btn-sm" onClick={onRetry}>
+                  重试
+                </button>
+              </div>
+            ) : modifiedText ? (
+              modifiedText
+            ) : (
+              <span style={{ color: "var(--muted)" }}>待生成</span>
+            )}
+          </div>
         </div>
       </div>
-
-      {/* Backdrop — clicking outside closes dialog */}
-      <form method="dialog" className="modal-backdrop">
-        <button>close</button>
-      </form>
-    </dialog>
+      <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--muted)" }}>
+        接受后将替换原文选区；「换一个」按同一提示词重新生成。
+      </p>
+    </Modal>
   );
 }

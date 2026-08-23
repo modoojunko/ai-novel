@@ -110,3 +110,7 @@ playwright-report/
 .mimosa/
 agent/
 .zcode/
+
+# 本地运行时与跨会话交接文档（勿提交）
+.dev-runtime/
+handoff.md

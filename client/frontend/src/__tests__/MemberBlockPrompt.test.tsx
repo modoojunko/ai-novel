@@ -4,9 +4,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 const apiState = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock("@/lib/api", () => ({ api: apiState }));
 
-import MemberBlockPrompt, {
-  resetPortalUrlCache,
-} from "@/components/novel/license/MemberBlockPrompt";
+import MemberBlockPrompt from "@/components/novel/license/MemberBlockPrompt";
+import { resetPortalUrlCache } from "@/lib/portal";
 
 function dispatchBlock(message?: string) {
   window.dispatchEvent(

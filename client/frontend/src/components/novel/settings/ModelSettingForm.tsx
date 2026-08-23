@@ -113,11 +113,11 @@ export default function ModelSettingForm({ projectId }: ModelSettingFormProps) {
         </div>
       )}
 
-      <Cfg title="变更历史" open>
+      <Cfg title="变更时间线" open>
         <ChangeTimeline projectId={projectId} />
       </Cfg>
 
-      <Cfg title="用量统计" open>
+      <Cfg title="本书用量面板" open>
         <NovelUsagePanel projectId={projectId} />
       </Cfg>
     </div>

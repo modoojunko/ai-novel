@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { Loader2, FileText, Book } from "lucide-react";
 import StructureTree, { TreeNode } from "./StructureTree";
 import type { VolumeImportData } from "@/lib/api";
+import { cnNum } from "@/lib/nodeTitle";
 
 interface ImportPreviewTreeProps {
   /** Novel title shown in the header */
@@ -22,11 +23,12 @@ interface ImportPreviewTreeProps {
 function buildTreeNodes(volumes: VolumeImportData[]): TreeNode[] {
   return volumes.map((vol, vi) => ({
     id: `vol-${vi}`,
-    label: vol.title || `卷 ${vi + 1}`,
+    // 兜底序号与树列口径统一（中文数字，spec-review 轻微 #1）
+    label: vol.title || `第${cnNum(vi + 1)}卷`,
     icon: <Book className="w-3 h-3" />,
     children: vol.chapters.map((ch, ci) => ({
       id: `ch-${vi}-${ci}`,
-      label: ch.title || `第 ${ci + 1} 章`,
+      label: ch.title || `第${cnNum(ci + 1)}章`,
       locked: true,
       badge: ch.word_count ? `${ch.word_count} 字` : undefined,
     })),
@@ -107,6 +109,11 @@ export default function ImportPreviewTree({
   );
 
   const totalChapters = volumes.reduce((s, v) => s + v.chapters.length, 0);
+  // 导入场景作者最关心总字数（spec-review #2）
+  const totalWords = volumes.reduce(
+    (s, v) => s + v.chapters.reduce((a, c) => a + (c.word_count ?? 0), 0),
+    0,
+  );
 
   // ---- Render ----
 
@@ -135,7 +142,7 @@ export default function ImportPreviewTree({
 
       {/* Stats */}
       <p className="text-[11px] text-base-content/40">
-        共 {totalChapters} 章节
+        共 {totalChapters} 章节 · {totalWords.toLocaleString("zh-CN")} 字
       </p>
 
       {/* Reset link */}

@@ -1,17 +1,11 @@
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
-
-let portalUrlCache: string | null = null;
-
-/** 测试钩子：重置门户地址缓存。 */
-export function resetPortalUrlCache() {
-  portalUrlCache = null;
-}
+import { fetchPortalUrl } from "@/lib/portal";
 
 /**
  * 全局会员拦截弹窗（2026-08-18 口径）：AI 调用被后端 member_required 403
  * 拦截时，api.request 广播 "member-block" 事件，本组件统一弹升级引导
  * （含 S端 门户跳转），替代各调用点散落的裸错误处理。
+ * 门户地址缓存与重置钩子收敛在 lib/portal（UpgradeModal 同源取用）。
  */
 export default function MemberBlockPrompt() {
   const [message, setMessage] = useState<string | null>(null);
@@ -23,17 +17,7 @@ export default function MemberBlockPrompt() {
         (e as CustomEvent<{ message?: string }>).detail?.message ||
         "AI 是会员功能";
       setMessage(msg);
-      let url = portalUrlCache ?? "";
-      if (portalUrlCache === null) {
-        try {
-          const cfg = await api.get("/auth/config");
-          url = cfg?.portal_url || "";
-        } catch {
-          url = "";
-        }
-        portalUrlCache = url;
-      }
-      setPortalUrl(url);
+      setPortalUrl(await fetchPortalUrl());
     };
     window.addEventListener("member-block", onBlock as EventListener);
     return () =>

@@ -17,10 +17,12 @@ export function streamChapterWrite(
   projectId: string,
   chapterRef: string,
   callbacks: StreamCallbacks,
+  promptOverride?: string,
 ): AbortController {
+  // promptOverride：AI 弹窗编辑后的提示词覆盖（空串/未传 = 后端自动组装）
   return doStreamFetch(
     `${API_BASE}/novels/${projectId}/chapters/${chapterRef}/write`,
-    undefined,
+    promptOverride ? { prompt: promptOverride } : undefined,
     callbacks,
   );
 }

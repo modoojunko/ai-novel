@@ -149,8 +149,9 @@ async def list_all(
     if projects:
         from collections import Counter
 
-        from models.chapter import Chapter
         from sqlalchemy.orm import load_only
+
+        from models.chapter import Chapter
 
         ch_rows = (
             await db.scalars(

@@ -126,6 +126,7 @@ export default function GenrePickerModal({
         open={open}
         onClose={onClose}
         title="选择题材"
+        wbStyle
         headExtra={
           <button
             className="text-btn"
@@ -241,6 +242,7 @@ export default function GenrePickerModal({
       {/* ── Delete confirm modal ────────────────────────────────── */}
       {deleteTarget && (
         <DeleteConfirmModal
+          wbStyle
           title="题材"
           confirmText={deleteTarget.name}
           description="该题材定义将被永久删除。正在使用它的作品会进入「定义缺失」降级态（覆盖项仍可保存），但无法再获得该题材的完整设定。"

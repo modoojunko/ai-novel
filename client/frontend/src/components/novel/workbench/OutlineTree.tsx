@@ -1,9 +1,11 @@
 // 大纲树（book.html 树列复刻）：树头统计 + 加卷弹窗 + 三态 dot + hover 操作
 // + 行内加章 + 批量确认 + 默认全展开（ADJUSTMENTS #4）。
 // 应用侧扩展（ADJUSTMENTS #6）：hover 操作补「铅笔」行内重命名（#164 名称即标题口径）。
+// PR 5：删除走分级确认弹窗（空章无盘点；有内容 chips 盘点；卷带章数字数）。
 import { useEffect, useRef, useState } from "react";
 import { Ico, P } from "@/components/icons";
 import Modal from "@/components/design/Modal";
+import { DeleteConfirmModal } from "./modals";
 import { api, request } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { cnNum, editName, nodeLabel } from "@/lib/nodeTitle";
@@ -16,6 +18,8 @@ interface OutlineTreeProps {
   projectId: string;
   /** 卷编辑态脏守卫（VolumePanel 上抛）：切节点前确认 */
   guardedLeave: () => boolean;
+  /** 选中章实时字数（原型 askDelete 用 live 内容计数；树计数要等刷新） */
+  liveWords: { ref: string; words: number } | null;
 }
 
 function volNo(name: string): number {
@@ -23,7 +27,13 @@ function volNo(name: string): number {
   return m ? parseInt(m[1], 10) : 0;
 }
 
-export default function OutlineTree({ wb, outline, projectId, guardedLeave }: OutlineTreeProps) {
+export default function OutlineTree({
+  wb,
+  outline,
+  projectId,
+  guardedLeave,
+  liveWords,
+}: OutlineTreeProps) {
   const { volumes, selectedId, expandedIds, onToggle } = wb;
   const [addVolOpen, setAddVolOpen] = useState(false);
   // 行内加章：目标卷
@@ -68,25 +78,64 @@ export default function OutlineTree({ wb, outline, projectId, guardedLeave }: Ou
     wb.onSelectNode({ id: name, label: "", data: { type: "volume", volume: name } });
   };
 
-  const askDeleteChapter = (vol: (typeof volumes)[number], c: (typeof vol.chapters)[number]) => {
+  // 删除分级确认（#modalDelete 口径）：章盘点 chips / 卷带章数字数
+  const [delTarget, setDelTarget] = useState<{
+    kind: "chapter" | "volume";
+    ref: string;
+    title: string;
+    chips: string[];
+    chapterCount: number;
+    totalWords: number;
+  } | null>(null);
+
+  const askDeleteChapter = async (
+    vol: (typeof volumes)[number],
+    c: (typeof vol.chapters)[number],
+  ) => {
     const ref = `${vol.name}-ch-${c.chapter}`;
-    const label = nodeLabel("章", c.chapter, c.title);
-    const inv: string[] = [];
-    if (c.status === "confirmed") inv.push("章纲已确认");
-    if (c.word_count > 0) inv.push(`正文 ${c.word_count.toLocaleString("zh-CN")} 字`);
-    const detail = inv.length ? `本章包含：${inv.join("、")}。` : "";
-    if (!window.confirm(`确定删除章节《${label}》？${detail}此操作不可恢复。`)) return;
-    void wb.deleteNode(ref);
+    const st = outline.chapterStatuses.get(ref) ?? "unfilled";
+    const chips: string[] = [];
+    if (st === "confirmed") chips.push("章纲已确认");
+    else if (st === "in_progress") chips.push("章纲草稿");
+    // 自定义提示词探测（免费态 403 静默，不计入盘点）
+    try {
+      const files: unknown = await request(
+        `/novels/${projectId}/chapters/${ref}/prompts`,
+        { quiet: true },
+      );
+      if (Array.isArray(files) && files.length > 0) chips.push("自定义提示词");
+    } catch {
+      /* 无提示词能力 = 未自定义 */
+    }
+    // 正文盘点：选中章用 store 实时字数（刚写完未刷新也能如实盘点）
+    const live = liveWords?.ref === ref ? liveWords.words : c.word_count;
+    if (live > 0) chips.push(`正文 ${live.toLocaleString("zh-CN")} 字`);
+    setDelTarget({
+      kind: "chapter",
+      ref,
+      title: nodeLabel("章", c.chapter, c.title),
+      chips,
+      chapterCount: 0,
+      totalWords: 0,
+    });
   };
   const askDeleteVolume = (v: (typeof volumes)[number]) => {
-    const words = v.chapters.reduce((a, c) => a + c.word_count, 0);
-    if (
-      !window.confirm(
-        `确定删除卷《${nodeLabel("卷", volNo(v.name), v.title)}》及其全部 ${v.chapters.length} 章（${words.toLocaleString("zh-CN")} 字）？此操作不可恢复。`,
-      )
-    )
-      return;
-    void wb.deleteNode(v.name);
+    setDelTarget({
+      kind: "volume",
+      ref: v.name,
+      title: nodeLabel("卷", volNo(v.name), v.title),
+      chips: [],
+      chapterCount: v.chapters.length,
+      // 含选中章时以实时字数替换（同章盘点口径）
+      totalWords: v.chapters.reduce(
+        (a, c) =>
+          a +
+          (liveWords?.ref === `${v.name}-ch-${c.chapter}`
+            ? liveWords.words
+            : c.word_count),
+        0,
+      ),
+    });
   };
 
   const commitInlineAdd = async (volName: string, raw: string) => {
@@ -274,7 +323,7 @@ export default function OutlineTree({ wb, outline, projectId, guardedLeave }: Ou
                           title="删除章节"
                           onClick={(e) => {
                             e.stopPropagation();
-                            askDeleteChapter(v, c);
+                            void askDeleteChapter(v, c);
                           }}
                         >
                           <Ico d={P.trash} />
@@ -318,6 +367,19 @@ export default function OutlineTree({ wb, outline, projectId, guardedLeave }: Ou
         createVolume={wb.createVolume}
         createChapter={wb.createChapter}
         onCreated={() => void outline.refetchTree()}
+      />
+
+      <DeleteConfirmModal
+        open={!!delTarget}
+        onClose={() => setDelTarget(null)}
+        kind={delTarget?.kind ?? "chapter"}
+        title={delTarget?.title ?? ""}
+        chips={delTarget?.chips ?? []}
+        chapterCount={delTarget?.chapterCount ?? 0}
+        totalWords={delTarget?.totalWords ?? 0}
+        onConfirm={() => {
+          if (delTarget) void wb.deleteNode(delTarget.ref);
+        }}
       />
     </>
   );
@@ -410,6 +472,7 @@ function AddVolumeModal({
       onClose={() => !submitting && onClose()}
       title="添加卷"
       locked={submitting}
+      wbStyle
       footer={
         <>
           <button className="btn btn-secondary" onClick={onClose} disabled={submitting}>

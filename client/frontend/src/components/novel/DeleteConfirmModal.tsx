@@ -5,12 +5,14 @@ interface DeleteConfirmModalProps {
   title: string;
   confirmText: string;   // 用户需要敲的字
   description?: string;  // 覆盖默认删除说明（默认面向删除小说）
+  /** 书工作台内弹窗版式（book.html mcard 默认 440 flex 纵滚；书架=list.html 420） */
+  wbStyle?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
 /** 删除确认（设计 .mcard 容器语言；确认按钮 btn-danger） */
-export default function DeleteConfirmModal({ title, confirmText, description, onConfirm, onCancel }: DeleteConfirmModalProps) {
+export default function DeleteConfirmModal({ title, confirmText, description, wbStyle, onConfirm, onCancel }: DeleteConfirmModalProps) {
   const [input, setInput] = useState("");
   const canDelete = input === confirmText;
 
@@ -20,6 +22,7 @@ export default function DeleteConfirmModal({ title, confirmText, description, on
       onClose={onCancel}
       title={`删除${title}`}
       width={380}
+      wbStyle={wbStyle}
       footer={
         <>
           <button onClick={onCancel} className="btn btn-secondary">

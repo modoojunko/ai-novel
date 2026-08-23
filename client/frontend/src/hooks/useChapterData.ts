@@ -34,7 +34,8 @@ export interface UseChapterDataReturn {
   setTargetWords: (n: number) => void;
   save: () => void;
   retry: () => void;
-  archive: (options?: { aiSummary?: boolean }) => Promise<void>;
+  /** 归档（aiSummary=归档 AI 摘要开关）；返回是否成功 */
+  archive: (options?: { aiSummary?: boolean }) => Promise<boolean>;
   /** 恢复归档章为可编辑态（撤下归档全文 + 状态回退），完成后重拉章数据 */
   unarchive: () => Promise<void>;
   reload: () => Promise<void>;
@@ -262,9 +263,9 @@ class ChapterStore {
     this.update({ targetWords: safe });
   };
 
-  archive = async (options?: { aiSummary?: boolean }) => {
+  archive = async (options?: { aiSummary?: boolean }): Promise<boolean> => {
     const { prose: p } = this.state;
-    if (!p.trim()) return;
+    if (!p.trim()) return false;
     this.update({ error: null });
     try {
       await api.post(`/novels/${this.projectId}/chapters/${this.ref}/archive`, {
@@ -283,8 +284,10 @@ class ChapterStore {
           detail: { projectId: this.projectId, ref: this.ref },
         }),
       );
+      return true;
     } catch (e: any) {
       this.update({ error: e.message || "归档失败", saveState: "failed" });
+      return false;
     }
   };
 

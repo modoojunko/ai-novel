@@ -85,8 +85,12 @@ input, textarea, select { font: inherit; }
 
 .scrim { position: fixed; inset: 0; background: color-mix(in oklch, var(--fg) 28%, transparent); z-index: 40; opacity: 0; transition: opacity 0.2s ease; }
 .scrim.show { opacity: 1; }
-/* daisyUI 同名 .modal 带 pointer-events:none（继承进卡片会点不动）——显式还原 */
-.modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; pointer-events: auto; }
+/* daisyUI 同名 .modal 全量还原（Tailwind 插件编译产物四连击）：
+   ① pointer-events:none + ② opacity:0（.modal 基础规则，0,1,0）③ ④ 盖 #0006 黑底 +
+   modal-pop 动画（.modal:not(dialog:not(.modal-open))，特异性 0,2,1）→ 计数选择器需同分
+   (0,2,1) 且后加载才压得过。其开启态 .modal-open/[open]/:target 与本组件 .show 不相交。
+   原型口径：遮罩归 .scrim，容器零背景零动画，mcard 自带 transform+opacity 过渡 */
+.modal.modal:not(dialog) { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; pointer-events: auto; opacity: 1; background: transparent; animation: none; }
 .modal .mcard { width: min(420px, 92vw); max-height: calc(100vh - 48px); overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); transform: translateY(8px) scale(0.98); opacity: 0; transition: transform 0.18s ease, opacity 0.18s ease; }
 .modal.show .mcard { transform: none; opacity: 1; }
 .mcard-head { display: flex; align-items: center; padding: 20px 24px 0; }
@@ -118,6 +122,14 @@ select.input { appearance: auto; -webkit-appearance: auto; line-height: normal; 
 .pref-row:last-child { border-bottom: 0; }
 .pref-row .pl { font-size: 13.5px; }
 .pref-row .pm { font-size: 12px; color: var(--muted); }
+
+/* 书工作台弹窗版式（book.html .wb 作用域的独立类形态）：供 .wb 之外
+   （appbar 设置弹窗等）复刻同版式；.wb 内与作用域规则同值叠加，无冲突 */
+.mcard.wb-style { width: min(440px, 92vw); max-height: 86vh; display: flex; flex-direction: column; }
+.mcard.wb-style .mcard-head { padding: 18px 22px 0; }
+.mcard.wb-style .mcard-body { padding: 14px 22px 20px; flex: 1; min-height: 0; overflow-y: auto; }
+.mcard.wb-style .mcard-foot { padding: 12px 22px 18px; }
+.mcard.wb-style .mcard-foot .note { font-size: 12px; color: var(--muted); margin-right: auto; }
 .seg { display: inline-flex; align-items: center; background: var(--fg-soft); border-radius: 9px; padding: 2px; }
 .seg button { height: 24px; padding: 0 9px; border-radius: 7px; font-size: 12px; color: var(--muted); }
 .seg button:hover { color: var(--fg); }
@@ -133,3 +145,7 @@ select.input { appearance: auto; -webkit-appearance: auto; line-height: normal; 
   .page-head { flex-direction: column; align-items: flex-start; gap: 16px; margin-bottom: 28px; }
   .page-head .btn { align-self: stretch; }
 }
+
+/* 旋转指示（图标 spinner） */
+.spin { animation: rotate 0.8s linear infinite; }
+@keyframes rotate { to { transform: rotate(360deg); } }

@@ -30,7 +30,9 @@ body,
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    /* none 而非 translateY(0) scale(1)：fill both 会永久保留末帧 transform，
+       identity matrix 同样劫持 fixed 后代的 containing block（弹窗遮罩截到 48px appbar 下） */
+    transform: none;
   }
 }
 

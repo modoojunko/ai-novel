@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth_local.middleware import get_current_user
 from db import get_db
 from models.chapter import Chapter, ChapterVersion
-from novels.service import get_novel
+from novels.service import count_chars, get_novel
 from workflow.engine import _validate_ref, load_chapter, save_chapter, strip_suffix
 
 router = APIRouter(
@@ -56,15 +56,19 @@ async def list_versions(
     _validate_ref(chapter_ref)
 
     rows = await _get_version_rows(db, project.root_path, chapter_ref)
-    versions = [
-        {
-            "version": f"v{r.version}",
-            "time": r.version,
-            "comment": r.comment or "",
-            "isCurrent": False,
-        }
-        for r in rows
-    ]
+    versions = []
+    for r in rows:
+        snapshot = json.loads(r.snapshot or "{}")
+        versions.append(
+            {
+                "version": f"v{r.version}",
+                "time": r.version,
+                "comment": r.comment or "",
+                "isCurrent": False,
+                # 版本历史弹窗「版本 N · N 字」：快照 prose 去空白口径（与树字数同源）
+                "words": count_chars(snapshot.get("prose", "")),
+            }
+        )
     if versions:
         versions[0]["isCurrent"] = True
     return versions
