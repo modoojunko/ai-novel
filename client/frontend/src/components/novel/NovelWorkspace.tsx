@@ -9,6 +9,9 @@ import ChapterWorkspace from "@/components/novel/workbench/ChapterWorkspace";
 import SettingsView from "@/components/novel/workbench/SettingsView";
 import PreviewView from "@/components/novel/workbench/PreviewView";
 import Rail, { type RailChapterData } from "@/components/novel/workbench/Rail";
+import { AiModal, UnlockModal } from "@/components/novel/workbench/modals";
+import UpgradeModal from "@/components/novel/UpgradeModal";
+import type { SelectionCapture } from "@/lib/selection";
 import {
   INITIAL_PROSE_AI_STATE,
   type ProseAIState,
@@ -156,9 +159,64 @@ export default function NovelWorkspace() {
         ? "预览 · 只读正文，通读全篇"
         : "写作 · 卷有卷纲；点章即可配章纲、提示词并写正文";
 
-  const onUpgrade = useCallback(() => {
-    // 过渡：PR 5 落升级 PRO 弹窗
-    toast.info("PRO 升级入口即将开放");
+  // ── 升级 PRO 弹窗（novelbar / 右栏 locked 卡共用） ────────────────────
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const onUpgrade = useCallback(() => setShowUpgrade(true), []);
+
+  // ── 只读章 AI 解锁链（真 bug #1/#2 修复，book.html openAiModal 链） ────
+  // 归档章点任意 AI 写入工具 → 先弹「解除只读」→ 确认后 unarchive 并续跑原动作；
+  // 生成正文经 AiModal（提示词预览/编辑），其余工具直接执行。
+  type AiAction =
+    | { kind: "write" }
+    | { kind: "continue"; capture?: SelectionCapture | null }
+    | { kind: "selection"; mode: "polish" | "expand"; capture: SelectionCapture | null };
+
+  const [showUnlock, setShowUnlock] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
+  // 生成已启动的信号（计数器）：ChapterWorkspace 收到即切正文页签 + 聚焦（真 bug #2）
+  const [aiWriteSignal, setAiWriteSignal] = useState(0);
+  // 弹窗确认回调读取最新待续跑动作（闭包防串态）
+  const pendingAiRef = useRef<AiAction | null>(null);
+
+  const runAiAction = useCallback((action: AiAction) => {
+    if (action.kind === "write") {
+      setShowAiModal(true);
+      return;
+    }
+    if (action.kind === "continue") {
+      proseRef.current?.continueWriting(action.capture ?? undefined);
+      return;
+    }
+    if (action.capture) {
+      if (action.mode === "polish") proseRef.current?.polish(action.capture);
+      else proseRef.current?.expand(action.capture);
+    } else {
+      toast.info("请先在正文中选中一段文字");
+    }
+  }, []);
+
+  const requestAi = useCallback(
+    (action: AiAction) => {
+      if (railData?.archived) {
+        pendingAiRef.current = action;
+        setShowUnlock(true);
+        return;
+      }
+      runAiAction(action);
+    },
+    [railData?.archived, runAiAction],
+  );
+
+  const handleUnlockConfirm = useCallback(async () => {
+    const action = pendingAiRef.current;
+    pendingAiRef.current = null;
+    if (railData?.archived) await railData.unarchive();
+    if (action) runAiAction(action);
+  }, [railData, runAiAction]);
+
+  const handleAiConfirm = useCallback((prompt: string) => {
+    setAiWriteSignal((n) => n + 1);
+    proseRef.current?.startWriting(prompt || undefined);
   }, []);
 
   // PreviewView 挂载即调 onRefresh 且以它为 effect 依赖——内联箭头每次渲染都是
@@ -272,6 +330,13 @@ export default function NovelWorkspace() {
             outline={outline}
             projectId={projectId}
             guardedLeave={guardedLeave}
+            // 选中章的实时字数（store 上抛）：删除盘点取 live 数——树的 word_count
+            // 只在归档/建删节点时刷新，刚写完就删会用旧值漏报「正文 N 字」
+            liveWords={
+              chapterRef && railData
+                ? { ref: chapterRef, words: railData.wordCount }
+                : null
+            }
           />
         </aside>
 
@@ -288,6 +353,8 @@ export default function NovelWorkspace() {
               onAIStateChange={setAIState}
               bookWords={bookWords}
               onRailData={setRailData}
+              onAiWrite={() => requestAi({ kind: "write" })}
+              aiWriteSignal={aiWriteSignal}
             />
           ) : volumeSelId ? (
             <VolumePanel
@@ -319,6 +386,11 @@ export default function NovelWorkspace() {
             proseRef={proseRef}
             aiState={aiState}
             data={chapterRef ? (railData ?? undefined) : undefined}
+            onAiWrite={() => requestAi({ kind: "write" })}
+            onAiContinue={() =>
+              requestAi({ kind: "continue", capture: proseRef.current?.captureNow() ?? null })
+            }
+            onAiSelection={(mode, capture) => requestAi({ kind: "selection", mode, capture })}
           />
         </aside>
       </div>
@@ -342,6 +414,25 @@ export default function NovelWorkspace() {
           initialRef={chapterRef}
           onRefresh={handleArchivesRefresh}
         />
+      )}
+
+      {/* PR 5 弹窗群：升级 PRO / 只读章 AI 解锁链 / AI 生成（提示词预览） */}
+      <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
+      {chapterRef && (
+        <>
+          <UnlockModal
+            open={showUnlock}
+            onClose={() => setShowUnlock(false)}
+            onConfirm={() => void handleUnlockConfirm()}
+          />
+          <AiModal
+            open={showAiModal}
+            onClose={() => setShowAiModal(false)}
+            projectId={projectId}
+            chapterRef={chapterRef}
+            onConfirm={handleAiConfirm}
+          />
+        </>
       )}
     </div>
   );

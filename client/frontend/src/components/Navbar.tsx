@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { isLoggedIn } from "../lib/auth";
 import PrefsModal from "../components/PrefsModal";
+import BookPrefsModal from "../components/novel/BookPrefsModal";
 import { Ico, P } from "../components/icons";
 
 /** 顶栏（list.html appbar 原样）：logo + 导航 + spacer + 设置。 */
@@ -13,8 +14,11 @@ export default function Navbar() {
   // Landing page has its own full-page layout
   if (location.pathname === "/") return null;
 
-  // 书工作台变体（book.html）：logo + 分隔线 + 返回我的小说 + 设置，无导航/登录
+  // 书工作台变体（book.html）：logo + 分隔线 + 返回我的小说 + 设置，无导航/登录。
+  // PR 5：设置 = 本书偏好（字号/行距 per-book + 归档 AI 摘要），全局偏好仍在书架态。
   if (location.pathname.startsWith("/novel/")) {
+    const m = location.pathname.match(/^\/novel\/([^/]+)/);
+    const projectId = m?.[1] ?? "";
     return (
       <header className="appbar appbar-wb">
         <Link className="logo" to="/novels">
@@ -29,7 +33,11 @@ export default function Navbar() {
         <button className="btn btn-ghost btn-sm" onClick={() => setShowPrefs(true)}>
           设置
         </button>
-        <PrefsModal open={showPrefs} onClose={() => setShowPrefs(false)} />
+        <BookPrefsModal
+          open={showPrefs && !!projectId}
+          onClose={() => setShowPrefs(false)}
+          projectId={projectId}
+        />
       </header>
     );
   }

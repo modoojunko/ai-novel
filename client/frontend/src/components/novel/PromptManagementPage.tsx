@@ -1,23 +1,12 @@
+// 提示词管理（章手风琴 + 分段提示词查看/编辑）。PR 5 轻重皮：
+// daisyUI/lucide 全部换 design 类与图标注册表；「生成段落提示词」措辞
+// 按 spec-review #9（与章级提示词区分）。
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Ico, P } from "@/components/icons";
 import { api, request } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { getToken } from "@/lib/auth";
 import { getApiBaseUrl } from "@/lib/env";
-import {
-  ChevronDown,
-  ChevronRight,
-  Copy,
-  Edit3,
-  Eye,
-  FileText,
-  KeyRound,
-  Loader2,
-  RefreshCw,
-  Save,
-  Sparkles,
-  Undo2,
-  X,
-} from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -297,7 +286,7 @@ export default function PromptManagementPage({
           };
         });
       } catch (e: any) {
-        toast.error(e.message || "生成提示词失败");
+        toast.error(e.message || "生成段落提示词失败");
       } finally {
         setGeneratingChapters((prev) => {
           const next = new Set(prev);
@@ -474,8 +463,8 @@ export default function PromptManagementPage({
   const renderOverview = () => {
     if (overviewLoading) {
       return (
-        <div className="flex items-center justify-center py-20">
-          <span className="loading loading-spinner loading-md text-primary" />
+        <div className="pm-loading">
+          <Ico d={P.spinner} className="spin" size={18} style={{ color: "var(--accent)" }} />
         </div>
       );
     }
@@ -483,11 +472,11 @@ export default function PromptManagementPage({
     // 未配 AI Key：提示词读写全链路不可用 → 就地引导配置（不整页跳转）
     if (aiUnavailable) {
       return (
-        <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <KeyRound className="w-12 h-12 text-base-content/30" />
-          <div className="text-center space-y-1.5">
-            <p className="text-base text-base-content/70">尚未配置模型 API Key</p>
-            <p className="text-sm text-base-content/40">
+        <div className="pm-empty">
+          <Ico d={P.lock} size={28} style={{ color: "var(--muted)" }} />
+          <div className="pm-empty-text">
+            <p>尚未配置模型 API Key</p>
+            <p className="sub">
               提示词的生成与查看需要 AI 能力，请先配置 API Key 后再使用。
             </p>
           </div>
@@ -502,9 +491,9 @@ export default function PromptManagementPage({
 
     if (allChapters.length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <FileText className="w-12 h-12 opacity-30 text-base-content/40" />
-          <p className="text-base text-base-content/40">
+        <div className="pm-empty">
+          <Ico d={P.doc} size={28} style={{ color: "var(--muted)" }} />
+          <p className="pm-empty-text">
             {volumes.length > 0
               ? "未找到当前章节的提示词"
               : '暂无章节，请先在"正文"中创建章节'}
@@ -514,63 +503,44 @@ export default function PromptManagementPage({
     }
 
     return (
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold font-serif text-base-content mb-4">
-          提示词管理
-        </h2>
+      <div>
+        <h2 className="serif pm-h2">提示词管理</h2>
 
         {allChapters.map((ch) => {
           const info = chapterPrompts[ch.ref];
           const segs = info?.segments || [];
           const status = info?.status || "none";
 
-          const statusBadge = (() => {
-            switch (status) {
-              case "generated":
-                return (
-                  <span className="badge badge-sm badge-success gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                    已生成
-                  </span>
-                );
-              case "modified":
-                return (
-                  <span className="badge badge-sm badge-info gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                    已修改
-                  </span>
-                );
-              default:
-                return (
-                  <span className="badge badge-sm badge-ghost gap-1 text-base-content/40">
-                    未生成
-                  </span>
-                );
-            }
-          })();
+          const statusBadge =
+            status === "generated" ? (
+              <span className="badge ok">
+                <Ico d={P.check} sw={2.6} size={10} />
+                已生成
+              </span>
+            ) : status === "modified" ? (
+              <span className="badge warn">
+                <Ico d={P.dot} fill size={10} />
+                已修改
+              </span>
+            ) : (
+              <span className="badge empty">未生成</span>
+            );
 
           const isExpanded = expandedChapters.has(ch.ref);
           const isGenerating = generatingChapters.has(ch.ref);
 
           return (
-            <div
-              key={ch.ref}
-              className="border border-base-300/60 rounded-xl bg-base-200/20 overflow-hidden"
-            >
+            <div key={ch.ref} className="pm-card">
               {/* Chapter header */}
-              <button
-                onClick={() => toggleChapter(ch.ref)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-base-200/40 transition-colors text-left"
-              >
-                {isExpanded ? (
-                  <ChevronDown className="w-4 h-4 text-base-content/30 flex-shrink-0" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-base-content/30 flex-shrink-0" />
-                )}
-                <span className="text-sm font-medium flex-1 truncate">
-                  {ch.title}
-                </span>
-                <span className="text-xs text-base-content/30 mr-2">
+              <button onClick={() => toggleChapter(ch.ref)} className="pm-head">
+                <Ico
+                  d={isExpanded ? P.chevronDown : P.chevronRight}
+                  sw={1.8}
+                  size={14}
+                  style={{ color: "var(--muted)", flex: "none" }}
+                />
+                <span className="pm-title">{ch.title}</span>
+                <span className="cnt" style={{ marginRight: 6 }}>
                   {segs.length} 段
                 </span>
                 {statusBadge}
@@ -578,7 +548,7 @@ export default function PromptManagementPage({
 
               {/* Expanded content */}
               {isExpanded && (
-                <div className="border-t border-base-300/40 px-4 py-3 space-y-2">
+                <div className="pm-body">
                   {segs.length > 0 ? (
                     segs.map((seg) => {
                       const isModified = modifiedSegs.has(
@@ -587,7 +557,7 @@ export default function PromptManagementPage({
                       return (
                         <div
                           key={seg.filename}
-                          className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200/40 transition-colors cursor-pointer group"
+                          className="pm-row"
                           onClick={() =>
                             handleViewPrompt(
                               ch.ref,
@@ -597,45 +567,45 @@ export default function PromptManagementPage({
                             )
                           }
                         >
-                          <span className="text-xs text-base-content/20 w-6 tabular-nums text-right">
-                            {seg.seg}.
-                          </span>
-                          <span className="text-sm flex-1 truncate">
+                          <span className="idx">{seg.seg}.</span>
+                          <span
+                            style={{
+                              flex: 1,
+                              minWidth: 0,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
                             {seg.title}
                           </span>
                           {isModified && (
-                            <span className="badge badge-xs badge-info">
-                              已修改
-                            </span>
+                            <span className="badge warn">已修改</span>
                           )}
-                          <span className="opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Eye className="w-3.5 h-3.5 text-base-content/30" />
-                          </span>
+                          <Ico d={P.eye} size={14} style={{ color: "var(--muted)" }} />
                         </div>
                       );
                     })
                   ) : (
-                    <p className="text-sm text-base-content/30 py-2 text-center">
-                      暂无提示词
-                    </p>
+                    <p className="pm-none">暂无提示词</p>
                   )}
 
                   {/* Generate button */}
-                  <div className="flex justify-end pt-1">
+                  <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 6 }}>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleGenerate(ch.ref);
                       }}
                       disabled={isGenerating}
-                      className="px-3 py-1.5 text-xs rounded-lg border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors inline-flex items-center gap-1.5 disabled:opacity-40"
+                      className="btn btn-secondary btn-sm"
                     >
                       {isGenerating ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <Ico d={P.spinner} className="spin" size={12} />
                       ) : (
-                        <Sparkles className="w-3 h-3" />
+                        <Ico d={P.spark} size={12} />
                       )}
-                      {isGenerating ? "生成中…" : "生成提示词"}
+                      {isGenerating ? "生成中…" : "生成段落提示词"}
                     </button>
                   </div>
                 </div>
@@ -656,54 +626,40 @@ export default function PromptManagementPage({
     const isModified = modifiedSegs.has(`${viewerChapterRef}-${segNum}`);
 
     return (
-      <div className="space-y-4">
+      <div>
         {/* Action bar */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={handleBackToOverview}
-            className="px-3 py-1.5 text-sm rounded-lg border border-base-300/60 text-base-content/60 hover:text-base-content hover:border-base-300 transition-colors inline-flex items-center gap-1.5"
-          >
-            <Undo2 className="w-3.5 h-3.5" />
+        <div className="pm-bar">
+          <button onClick={handleBackToOverview} className="btn btn-ghost btn-sm">
+            <Ico d={P.back} sw={1.8} size={13} />
             返回
           </button>
-          <div className="flex-1" />
-          <span className="text-sm text-base-content/60">
-            {viewerSegTitle}
-          </span>
-          <div className="h-4 w-px bg-base-300/40" />
-          <button
-            onClick={handleCopy}
-            className="px-3 py-1.5 text-xs rounded-lg border border-base-300/60 text-base-content/60 hover:text-base-content hover:border-base-300 transition-colors inline-flex items-center gap-1.5"
-          >
-            <Copy className="w-3 h-3" />
+          <span className="grow" />
+          <span className="cnt">{viewerSegTitle}</span>
+          <span className="tsep" />
+          <button onClick={handleCopy} className="btn btn-secondary btn-sm">
+            <Ico d={P.copy} size={13} />
             复制全文
           </button>
           {isModified && (
-            <button
-              onClick={handleRestore}
-              className="px-3 py-1.5 text-xs rounded-lg border border-warning/30 text-warning/70 hover:text-warning hover:border-warning/50 transition-colors inline-flex items-center gap-1.5"
-            >
-              <RefreshCw className="w-3 h-3" />
+            <button onClick={handleRestore} className="btn btn-secondary btn-sm">
+              <Ico d={P.refresh} size={13} />
               恢复原始
             </button>
           )}
-          <button
-            onClick={handleEdit}
-            className="px-3 py-1.5 text-xs rounded-lg bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-colors inline-flex items-center gap-1.5"
-          >
-            <Edit3 className="w-3 h-3" />
+          <button onClick={handleEdit} className="btn btn-primary btn-sm">
+            <Ico d={P.pencil} size={13} />
             编辑
           </button>
         </div>
 
         {/* Content area */}
         {viewerLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <span className="loading loading-spinner loading-md text-primary" />
+          <div className="pm-loading">
+            <Ico d={P.spinner} className="spin" size={18} style={{ color: "var(--accent)" }} />
           </div>
         ) : viewerError ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <p className="text-sm text-error/70">{viewerError}</p>
+          <div className="pm-empty">
+            <p style={{ color: "var(--err)", fontSize: 13 }}>{viewerError}</p>
             <button
               onClick={() =>
                 handleViewPrompt(
@@ -713,30 +669,17 @@ export default function PromptManagementPage({
                   viewerSegTitle,
                 )
               }
-              className="text-xs text-primary/60 hover:text-primary"
+              className="btn btn-ghost btn-sm"
             >
               重试
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div>
             {parsedSections.map((section, i) => (
-              <div
-                key={i}
-                className="border border-base-300/50 rounded-xl overflow-hidden"
-              >
-                {section.heading && (
-                  <div className="px-4 py-2 bg-base-200/30 border-b border-base-300/30">
-                    <h3 className="text-sm font-semibold text-base-content/80">
-                      {section.heading}
-                    </h3>
-                  </div>
-                )}
-                <div className="px-4 py-3">
-                  <pre className="text-sm leading-relaxed whitespace-pre-wrap font-sans text-base-content/80">
-                    {section.body.join("\n")}
-                  </pre>
-                </div>
+              <div key={i} className="pm-sec" style={{ marginBottom: 10 }}>
+                {section.heading && <h3>{section.heading}</h3>}
+                <pre>{section.body.join("\n")}</pre>
               </div>
             ))}
           </div>
@@ -751,30 +694,20 @@ export default function PromptManagementPage({
 
   const renderEditor = () => {
     return (
-      <div className="space-y-4">
+      <div>
         {/* Action bar */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-base-content">
-            {viewerSegTitle} - 编辑
-          </span>
-          <div className="flex-1" />
-          <button
-            onClick={handleCancelEdit}
-            disabled={saving}
-            className="px-3 py-1.5 text-xs rounded-lg border border-base-300/60 text-base-content/60 hover:text-base-content hover:border-base-300 transition-colors inline-flex items-center gap-1.5 disabled:opacity-40"
-          >
-            <X className="w-3 h-3" />
+        <div className="pm-bar">
+          <span className="pm-bar-title">{viewerSegTitle} · 编辑</span>
+          <span className="grow" />
+          <button onClick={handleCancelEdit} disabled={saving} className="btn btn-secondary btn-sm">
+            <Ico d={P.close} size={13} />
             取消
           </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-3 py-1.5 text-xs rounded-lg bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-colors inline-flex items-center gap-1.5 disabled:opacity-40"
-          >
+          <button onClick={handleSave} disabled={saving} className="btn btn-primary btn-sm">
             {saving ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
+              <Ico d={P.spinner} className="spin" size={12} />
             ) : (
-              <Save className="w-3 h-3" />
+              <Ico d={P.check} size={13} />
             )}
             {saving ? "保存中…" : "保存"}
           </button>
@@ -782,7 +715,8 @@ export default function PromptManagementPage({
 
         {/* Textarea */}
         <textarea
-          className="w-full h-[calc(100vh-16rem)] min-h-[400px] bg-base-200/30 border border-base-300/60 rounded-xl px-4 py-3 text-sm leading-relaxed outline-none transition-colors focus:border-primary/40 focus:bg-base-200/50 resize-y font-mono"
+          className="ai-prompt"
+          style={{ height: "calc(100vh - 16rem)", minHeight: 400 }}
           value={editorContent}
           onChange={(e) => setEditorContent(e.target.value)}
         />
@@ -795,7 +729,7 @@ export default function PromptManagementPage({
   // =====================================================================
 
   return (
-    <div className="max-w-3xl mx-auto w-full px-6 py-6">
+    <div className="prompt-mgmt">
       {view === "overview" && renderOverview()}
       {view === "viewer" && renderViewer()}
       {view === "editor" && renderEditor()}

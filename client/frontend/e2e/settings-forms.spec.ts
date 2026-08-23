@@ -449,11 +449,12 @@ test("预览：只读树 + 只读正文（草稿/归档章皆可读）→ 恢复
       title: "雾中城",
     });
 
-    // 归档第一章 → 只读 + 写作树「已归档」同步。trial 会员首次归档连弹两个
-    // confirm（#152：AI 摘要额度提示 + 确认归档），免费档只有后者——接受步骤内全部 dialog
+    // 归档第一章 → 只读 + 写作树「已归档」同步。PR 5：归档走 React 弹窗
+    // （arch-confirm）；window.confirm 全兜底 accept（存量路径如 AI 摘要额度提示）
     const onDlg = (d: Dialog) => d.accept();
     page.on("dialog", onDlg);
     await page.getByRole("button", { name: "归档本章" }).click();
+    await page.getByTestId("arch-confirm").click();
     try {
       await expect(page.getByText(/本章已归档 · 只读/).first()).toBeVisible({
         timeout: 10000,

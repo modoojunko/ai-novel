@@ -26,6 +26,11 @@ export default function ImportUploadZone({
         toast.error(`不支持 ${ext} 格式，请选择 .md / .txt / .docx`);
         return;
       }
+      // 文案承诺「≤10MB」必须真校验（spec-review #1）：超大文件解析会卡死
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("文件超过 10MB 上限，请拆分后分批导入");
+        return;
+      }
       onFileSelected(file);
     },
     [onFileSelected],

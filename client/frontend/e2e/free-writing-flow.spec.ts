@@ -226,11 +226,15 @@ test("树 CRUD：hover 铅笔重命名 + 删除（N2）", async ({ page }) => {
       timeout: 5000,
     });
 
-    // hover 章节点 → 删除 → confirm → 树清空回空面板
+    // hover 章节点 → 删除 → 分级确认弹窗（PR5：本章未写正文/章纲 → 零盘点 chips）
     const delRow = tree.locator(".ch", { hasText: "改名第一章" });
     await delRow.hover();
-    page.once("dialog", (d) => d.accept());
     await delRow.getByTitle("删除章节").click();
+    const delModal = page.getByRole("dialog");
+    await expect(delModal.getByRole("heading", { name: "删除确认" })).toBeVisible();
+    await expect(delModal.getByText(/确定删除章节/)).toBeVisible();
+    await expect(delModal.locator(".inv-chip")).toHaveCount(0);
+    await delModal.getByTestId("del-confirm").click();
     await expect(page.getByText("开始创作")).toBeVisible({ timeout: 5000 });
   } finally {
     restore();
@@ -254,9 +258,9 @@ test("免费归档：不 500，正文只读，树已归档即时同步", async (
     );
     await expect(page.getByText("已自动保存").first()).toBeVisible({ timeout: 8000 });
 
-    // 触发归档（window.confirm 需 accept；免费档仅确认归档一个弹窗）
-    page.once("dialog", (d) => d.accept());
+    // 触发归档（PR 5：React 弹窗确认；免费档无 AI 摘要弹窗）
     await page.getByRole("button", { name: "归档本章" }).click();
+    await page.getByTestId("arch-confirm").click();
 
     // 归档成功 → 只读横幅（免费归档不 500）+ 编辑器不可编辑
     await expect(page.getByText(/本章已归档 · 只读/).first()).toBeVisible({

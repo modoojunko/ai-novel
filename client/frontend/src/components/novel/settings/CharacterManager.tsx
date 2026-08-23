@@ -251,6 +251,7 @@ const CharacterManager = forwardRef<SettingSaveHandle, Props>(function Character
 
       {deleteTarget && (
         <DeleteConfirmModal
+          wbStyle
           title="角色"
           confirmText={String(deleteTarget)}
           onConfirm={() => deleteCharacter(deleteTarget)}

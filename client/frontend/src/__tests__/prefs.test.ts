@@ -4,6 +4,14 @@ import {
   setArchiveAiSummaryEnabled,
   isArchiveNoticeShown,
   markArchiveNoticeShown,
+  getDefaultFontSize,
+  setDefaultFontSize,
+  getBookFontSize,
+  setBookFontSize,
+  getBookLineHeight,
+  setBookLineHeight,
+  getBookArchiveAiSummary,
+  setBookArchiveAiSummary,
 } from "@/lib/prefs";
 
 describe("lib/prefs — 归档 AI 摘要本地偏好", () => {
@@ -52,6 +60,38 @@ describe("lib/prefs — 归档 AI 摘要本地偏好", () => {
     expect(getArchiveAiSummaryEnabled()).toBe(true);
     // 提示标记读不到 → 按“已展示”处理（读不到就不再打扰）
     expect(isArchiveNoticeShown()).toBe(true);
+  });
+});
+
+describe("lib/prefs — 本书偏好（per-book 覆盖，回落全局）", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("本书未设置时回落全局默认", () => {
+    expect(getBookFontSize("p1")).toBe(getDefaultFontSize()); // fs-m
+    expect(getBookLineHeight("p1")).toBe("lh-comfy");
+    expect(getBookArchiveAiSummary("p1")).toBe(true);
+  });
+
+  it("本书覆盖只影响该书", () => {
+    setDefaultFontSize("fs-l");
+    setBookFontSize("p1", "fs-s");
+    setBookLineHeight("p1", "lh-loose");
+    setBookArchiveAiSummary("p1", false);
+    expect(getBookFontSize("p1")).toBe("fs-s");
+    expect(getBookLineHeight("p1")).toBe("lh-loose");
+    expect(getBookArchiveAiSummary("p1")).toBe(false);
+    // 其他书仍走全局
+    expect(getBookFontSize("p2")).toBe("fs-l");
+    expect(getBookArchiveAiSummary("p2")).toBe(true);
+  });
+
+  it("非法存储值按未设置处理（回落全局）", () => {
+    localStorage.setItem("pref.book.p1.fs", "garbage");
+    localStorage.setItem("pref.book.p1.ai_summary", "garbage");
+    expect(getBookFontSize("p1")).toBe(getDefaultFontSize());
+    expect(getBookArchiveAiSummary("p1")).toBe(getArchiveAiSummaryEnabled());
   });
 });
 

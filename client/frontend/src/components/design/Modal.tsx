@@ -4,6 +4,7 @@
  * locked=true（提交中）时禁止关闭，与旧 CreateProjectModal 行为一致。
  */
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Ico, P } from "@/components/icons";
 
 interface ModalProps {
@@ -14,13 +15,20 @@ interface ModalProps {
   locked?: boolean;
   /** mcard 宽度上限（默认 420，与原型一致） */
   width?: number;
+  /** 书工作台弹窗版式（book.html：440 宽 + 纵向 flex 滚动体）。
+   *  弹窗统一 portal 到 body（脱离 .wb 作用域）→ 工作台内弹窗需显式开启 */
+  wbStyle?: boolean;
+  /** 隐去头部 X 关闭钮（原型确认族口径：删除确认/解除只读/归档本章无 X，仅取消/确认/Esc/遮罩） */
+  hideClose?: boolean;
   children: ReactNode;
   /** 头部标题与关闭钮之间的扩展区（原型 mcard-head 的 text-btn 等） */
   headExtra?: ReactNode;
+  /** 紧贴标题右侧的标记区（原型 ai-tag「PRO」等 margin-left:8px 形态） */
+  afterTitle?: ReactNode;
   footer?: ReactNode;
 }
 
-export default function Modal({ open, onClose, title, locked, width = 420, children, headExtra, footer }: ModalProps) {
+export default function Modal({ open, onClose, title, locked, width = 420, wbStyle, hideClose, children, headExtra, afterTitle, footer }: ModalProps) {
   const [shown, setShown] = useState(false); // 控制 .show 进出场
   const [render, setRender] = useState(false); // 200ms 退场后再卸载
   const lastFocus = useRef<Element | null>(null);
@@ -73,7 +81,9 @@ export default function Modal({ open, onClose, title, locked, width = 420, child
 
   if (!render) return null;
 
-  return (
+  // 挂载到 body：弹窗是 viewport 级 fixed 遮罩（原型 mcard 挂 body 尾部），
+  // 留在组件树内会被任意 transform 祖先（含 identity matrix）劫持 containing block
+  return createPortal(
     <>
       <div className={"scrim" + (shown ? " show" : "")} onClick={() => !locked && onClose()} />
       <div
@@ -86,26 +96,33 @@ export default function Modal({ open, onClose, title, locked, width = 420, child
           if (e.target === e.currentTarget && !locked) onClose();
         }}
       >
-        <div className="mcard" style={width !== 420 ? { width: `min(${width}px, 92vw)` } : undefined}>
+        <div
+          className={"mcard" + (wbStyle ? " wb-style" : "")}
+          style={width !== 420 ? { width: `min(${width}px, 92vw)` } : undefined}
+        >
           <div className="mcard-head">
             <span className="mh serif" id={labelId} role="heading" aria-level={2}>
               {title}
             </span>
+            {afterTitle && <span style={{ marginLeft: 8 }}>{afterTitle}</span>}
             {headExtra && <span style={{ marginLeft: "auto" }}>{headExtra}</span>}
-            <button
-              className="icon-btn x"
-              style={headExtra ? { marginLeft: 0 } : undefined}
-              aria-label="关闭"
-              onClick={() => !locked && onClose()}
-              disabled={locked}
-            >
-              <Ico d={P.close} sw={1.8} />
-            </button>
+            {!hideClose && (
+              <button
+                className="icon-btn x"
+                style={headExtra ? { marginLeft: 0 } : undefined}
+                aria-label="关闭"
+                onClick={() => !locked && onClose()}
+                disabled={locked}
+              >
+                <Ico d={P.close} sw={1.8} />
+              </button>
+            )}
           </div>
           <div className="mcard-body">{children}</div>
           {footer && <div className="mcard-foot">{footer}</div>}
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }

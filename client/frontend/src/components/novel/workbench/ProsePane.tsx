@@ -43,9 +43,11 @@ export const INITIAL_PROSE_AI_STATE: ProseAIState = {
 export interface ProseHandle {
   focus(): void;
   captureNow(): SelectionCapture | null;
-  startWriting(): void;
+  /** promptOverride：AI 弹窗编辑后的提示词（空 = 后端自动组装） */
+  startWriting(prompt?: string): void;
   stopWriting(): void;
-  continueWriting(): void;
+  /** capture：解锁链等场景预先捕获的选区/光标（弹窗焦点会丢现场选区） */
+  continueWriting(capture?: SelectionCapture): void;
   polish(capture: SelectionCapture): void;
   expand(capture: SelectionCapture): void;
 }
@@ -206,7 +208,7 @@ const ProsePane = forwardRef<ProseHandle, ProsePaneProps>(function ProsePane(
   );
 
   const startStream = useCallback(
-    (continuation: boolean) => {
+    (continuation: boolean, promptOverride?: string, preCapture?: SelectionCapture) => {
       const div = editorRef.current;
       if (!div || streamingRef.current) return;
       if (archived) {
@@ -214,7 +216,7 @@ const ProsePane = forwardRef<ProseHandle, ProsePaneProps>(function ProsePane(
         return;
       }
       const base = lastRenderedRef.current ?? prose;
-      const cap = captureNow();
+      const cap = preCapture ?? captureNow();
       const pos = continuation ? (cap ? cap.end : base.length) : base.length;
       streamBaseRef.current = base;
       streamReceivedRef.current = "";
@@ -234,7 +236,7 @@ const ProsePane = forwardRef<ProseHandle, ProsePaneProps>(function ProsePane(
       };
       abortRef.current = continuation
         ? streamChapterContinue(projectId, chapterRef, pos, cbs)
-        : streamChapterWrite(projectId, chapterRef, cbs);
+        : streamChapterWrite(projectId, chapterRef, cbs, promptOverride);
     },
     [projectId, chapterRef, prose, archived, captureNow, renderStreamed, finishStream, onAIStateChange],
   );
@@ -280,13 +282,13 @@ const ProsePane = forwardRef<ProseHandle, ProsePaneProps>(function ProsePane(
     () => ({
       focus: () => editorRef.current?.focus(),
       captureNow,
-      startWriting: () => startStream(false),
+      startWriting: (prompt?: string) => startStream(false, prompt),
       stopWriting: () => {
         // 中断 + 立即收尾（fetch abort 不回调 onDone/onError）
         abortRef.current?.abort();
         finishStream(streamReceivedRef.current, false);
       },
-      continueWriting: () => startStream(true),
+      continueWriting: (capture?: SelectionCapture) => startStream(true, undefined, capture),
       polish: (capture: SelectionCapture) => void runTransform("polish", capture),
       expand: (capture: SelectionCapture) => void runTransform("expand", capture),
     }),

@@ -36,7 +36,8 @@ function tierLabel(r: any): string {
   if (r?.tier === "trial")
     return r?.trial_remaining_days > 0 ? `试用中 · 剩 ${r.trial_remaining_days} 天` : "试用中";
   if (r?.is_member) return "PRO 会员";
-  return "免费版 · 可手工创作 1 本";
+  // 免费态文案对齐原型 modalPrefs（「免费版 · 单机使用」）——PR5 弹窗 parity 口径
+  return "免费版 · 单机使用";
 }
 
 export default function PrefsModal({ open, onClose }: { open: boolean; onClose: () => void }) {

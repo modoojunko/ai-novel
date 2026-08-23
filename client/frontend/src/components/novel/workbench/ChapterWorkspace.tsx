@@ -2,8 +2,11 @@
 //   工具栏（章名 + 归档标 + 排版 seg + 专注 + 版本历史 + 归档 + AI 生成正文）
 //   三页签（章纲/提示词/正文，cnt 徽标）· 点章强制落章纲
 //   正文常驻挂载 hidden 切换（脏状态/流式现场不丢）
-//   底部状态栏（字数 + 保存三态 + AI 流式指示 + 停止）
+//   底部状态栏（字数 + 保存四态聚合 + AI 流式指示 + 停止）
 // 章纲表单状态提升于此（页签徽标 / 保存 / 3s 静默自动保存共用）。
+// PR 5：归档/版本历史改弹窗（原型口径）；AI 按钮走页面级解锁链；
+//   生成启动信号（aiWriteSignal）自动切正文页签（真 bug #2）；
+//   排版偏好 per-book（pref.book.{pid}.*，全局兜底）。
 import {
   useCallback,
   useEffect,
@@ -19,6 +22,7 @@ import ProsePane, {
   type ProseAIState,
   type ProseHandle,
 } from "./ProsePane";
+import { ArchiveModal, HistoryModal } from "./modals";
 import type { RailChapterData } from "./Rail";
 import {
   EMPTY_OG_FORM,
@@ -27,21 +31,20 @@ import {
   ogToPartial,
   type OgForm,
 } from "./chapterForm";
-import VersionHistory from "../VersionHistory";
 import { useChapterData } from "@/hooks/useChapterData";
 import type { useOutline } from "@/hooks/useOutline";
 import type { useWorkbench } from "@/hooks/useWorkbench";
 import { request } from "@/lib/api";
 import { nodeLabel } from "@/lib/nodeTitle";
 import {
-  getDefaultFontSize,
-  getDefaultLineHeight,
-  setDefaultFontSize,
-  setDefaultLineHeight,
+  getBookArchiveAiSummary,
+  getBookFontSize,
+  getBookLineHeight,
+  setBookFontSize,
+  setBookLineHeight,
   type FontSizePref,
   type LineHeightPref,
 } from "@/lib/prefs";
-import { getArchiveAiSummaryEnabled } from "@/lib/prefs";
 import { toast } from "@/lib/toast";
 
 type OutlineApi = ReturnType<typeof useOutline>;
@@ -62,6 +65,10 @@ interface ChapterWorkspaceProps {
   bookWords: number;
   /** 右栏本章进度数据实时上抛（字数/目标/归档随 store 变化） */
   onRailData: (data: RailChapterData | null) => void;
+  /** AI 生成正文（页面级解锁链入口：归档章先弹「解除只读」→ AiModal） */
+  onAiWrite: () => void;
+  /** 生成启动信号（计数器递增）：切正文页签 + 聚焦（真 bug #2） */
+  aiWriteSignal: number;
 }
 
 const fmt = (n: number) => n.toLocaleString("zh-CN");
@@ -77,6 +84,8 @@ export default function ChapterWorkspace({
   onAIStateChange,
   bookWords,
   onRailData,
+  onAiWrite,
+  aiWriteSignal,
 }: ChapterWorkspaceProps) {
   const store = useChapterData(projectId, chapterRef);
   const { wordCount, saveState, targetWords, setTargetWords } = store;
@@ -96,11 +105,21 @@ export default function ChapterWorkspace({
 
   // ── 三页签：点章强制落「章纲」（设计稿行为） ─────────────────────────
   const [chTab, setChTab] = useState<"og" | "prompt" | "prose">("og");
-  const [showVersion, setShowVersion] = useState(false);
+  const [showArchive, setShowArchive] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   useEffect(() => {
     setChTab("og");
-    setShowVersion(false);
+    setShowHistory(false);
   }, [chapterRef]);
+
+  // 生成启动信号（页面解锁链/AiModal 确认后递增）：切正文页签 + 聚焦（真 bug #2）
+  useEffect(() => {
+    if (!aiWriteSignal) return;
+    setChTab("prose");
+    setShowHistory(false);
+    const t = setTimeout(() => proseRef.current?.focus(), 60);
+    return () => clearTimeout(t);
+  }, [aiWriteSignal, proseRef]);
 
   // ── 章纲表单：加载 / 缺口 / 保存 / 3s 静默自动保存 ────────────────────
   const [ogForm, setOgForm] = useState<OgForm>(EMPTY_OG_FORM);
@@ -243,9 +262,13 @@ export default function ChapterWorkspace({
     };
   }, [projectId, chapterRef]);
 
-  // ── 排版偏好（字号/行距，全局默认持久化） ────────────────────────────
-  const [fs, setFs] = useState<FontSizePref>(() => getDefaultFontSize());
-  const [lh, setLh] = useState<LineHeightPref>(() => getDefaultLineHeight());
+  // ── 排版偏好（per-book：pref.book.{pid}.*，全局默认兜底） ─────────────
+  const [fs, setFs] = useState<FontSizePref>(() => getBookFontSize(projectId));
+  const [lh, setLh] = useState<LineHeightPref>(() => getBookLineHeight(projectId));
+  useEffect(() => {
+    setFs(getBookFontSize(projectId));
+    setLh(getBookLineHeight(projectId));
+  }, [projectId]);
 
   // ── 专注模式：body.focus + Esc 退出（卸载兜底清 class） ───────────────
   const [focusMode, setFocusMode] = useState(false);
@@ -260,17 +283,12 @@ export default function ChapterWorkspace({
   }, [focusMode]);
   useEffect(() => () => document.body.classList.remove("focus"), []);
 
-  // ── 归档（过渡期 window.confirm；PR 5 换分级弹窗） ────────────────────
+  // ── 归档（弹窗确认，#modalArchive 口径；摘要开关 per-book） ───────────
   const handleArchive = useCallback(async () => {
     if (archived || wordCount === 0) return;
-    if (
-      !window.confirm(
-        `确定归档《${label}》吗？归档后正文只读，可在版本历史中恢复。`,
-      )
-    )
-      return;
-    await store.archive({ aiSummary: getArchiveAiSummaryEnabled() });
-  }, [archived, wordCount, label, store]);
+    const ok = await store.archive({ aiSummary: getBookArchiveAiSummary(projectId) });
+    if (ok) toast.success(`《${label}》已归档 · 只读`);
+  }, [archived, wordCount, projectId, label, store]);
 
   // ── 恢复编辑（退出归档只读；换皮不减功能——banner 内入口） ────────────
   const handleUnarchive = useCallback(async () => {
@@ -284,8 +302,19 @@ export default function ChapterWorkspace({
   useEffect(() => {
     onRailDataRef.current = onRailData;
   }, [onRailData]);
+  // useChapterData 每渲染返回新对象：unarchive 走 ref，依赖保持原基元集
+  // （否则 effect 每渲染必跑 → onRailData setState → 无限循环）
+  const unarchiveRef = useRef(store.unarchive);
+  unarchiveRef.current = store.unarchive;
   useEffect(() => {
-    onRailDataRef.current({ wordCount, targetWords, setTargetWords, archived, bookWords });
+    onRailDataRef.current({
+      wordCount,
+      targetWords,
+      setTargetWords,
+      archived,
+      bookWords,
+      unarchive: unarchiveRef.current,
+    });
     return () => onRailDataRef.current(null);
   }, [wordCount, targetWords, setTargetWords, archived, bookWords]);
 
@@ -333,7 +362,7 @@ export default function ChapterWorkspace({
                 className={fs === v ? "on" : undefined}
                 onClick={() => {
                   setFs(v);
-                  setDefaultFontSize(v);
+                  setBookFontSize(projectId, v);
                 }}
               >
                 {t}
@@ -353,7 +382,7 @@ export default function ChapterWorkspace({
                 className={lh === v ? "on" : undefined}
                 onClick={() => {
                   setLh(v);
-                  setDefaultLineHeight(v);
+                  setBookLineHeight(projectId, v);
                 }}
               >
                 {t}
@@ -374,25 +403,19 @@ export default function ChapterWorkspace({
               <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />
             </svg>
           </button>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => setShowVersion((v) => !v)}
-          >
-            {showVersion ? "返回编辑" : "版本历史"}
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowHistory(true)}>
+            版本历史
           </button>
           <button
             className="btn btn-secondary btn-sm"
             disabled={archived || wordCount === 0}
             title={archived ? "本章已归档" : wordCount === 0 ? "空章无需归档" : undefined}
-            onClick={() => void handleArchive()}
+            onClick={() => setShowArchive(true)}
           >
             归档本章
           </button>
           {isPro && (
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => proseRef.current?.startWriting()}
-            >
+            <button className="btn btn-primary btn-sm" onClick={onAiWrite}>
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2l2.4 6.2L21 9l-5 4.4 1.6 6.6L12 16.6 6.4 20 8 13.4 3 9l6.6-.8z" />
               </svg>
@@ -446,19 +469,26 @@ export default function ChapterWorkspace({
         chapterRef={chapterRef}
         fs={fs}
         lh={lh}
-        hidden={chTab !== "prose" || showVersion}
+        hidden={chTab !== "prose"}
         onAIStateChange={onAIStateChange}
       />
 
-      {showVersion && (
-        <div className="editor-wrap">
-          <VersionHistory
-            projectId={projectId}
-            chapterRef={chapterRef}
-            onBack={() => setShowVersion(false)}
-          />
-        </div>
-      )}
+      <ArchiveModal
+        open={showArchive}
+        onClose={() => setShowArchive(false)}
+        onConfirm={() => void handleArchive()}
+      />
+      <HistoryModal
+        open={showHistory}
+        onClose={() => setShowHistory(false)}
+        projectId={projectId}
+        chapterRef={chapterRef}
+        label={label}
+        onRestored={() => {
+          void store.reload();
+          void wb.refresh();
+        }}
+      />
 
       {chTab === "og" && (
         <OgPane
@@ -486,17 +516,20 @@ export default function ChapterWorkspace({
       <div className="editor-status" hidden={chTab !== "prose"}>
         <span className="num">{fmt(wordCount)} 字</span>
         <span className="right">
-          <span className={saveView.cls}>
-            <span className="num">{saveView.text}</span>
-            {saveState === "failed" && (
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => void store.retry()}
-              >
-                重试
-              </button>
-            )}
-          </span>
+          {saveState === "failed" ? (
+            <button
+              className="save-state dirty"
+              style={{ padding: 0, border: "none", background: "none", font: "inherit", cursor: "pointer" }}
+              onClick={() => void store.retry()}
+              data-testid="save-retry"
+            >
+              <span className="num">保存失败 · 重试</span>
+            </button>
+          ) : (
+            <span className={saveView.cls}>
+              <span className="num">{saveView.text}</span>
+            </span>
+          )}
           {aiState.streaming && (
             <span className="ai-streaming">
               <span className="pulse" />

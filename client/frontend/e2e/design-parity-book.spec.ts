@@ -226,11 +226,16 @@ const SEED = (() => {
 // parity 只取免费态：PRO 态右栏续写/润色/扩写为产品真实工具行（换皮不减功能），
 // 原型标「规划中」——已登记 ADJUSTMENTS.md（PR 3「未动原型」清单，parity 态取免费版）。
 // screen：workbench=默认章工作台 / volume=卷纲面板 / settings=设定视图 / preview=预览视图。
+// PR 5 追加弹窗三态（免费态）：modal-delete=树删章分级确认 / modal-prefs=本书偏好 /
+// modal-upgrade=右栏 locked 卡升级 PRO；两侧同路径打开弹窗后整页比对（遮罩+弹窗）。
 const CASES = [
   { state: "free", pro: false, screen: "workbench" },
   { state: "volume", pro: false, screen: "volume" },
   { state: "settings", pro: false, screen: "settings" },
   { state: "preview", pro: false, screen: "preview" },
+  { state: "modal-delete", pro: false, screen: "modal-delete" },
+  { state: "modal-prefs", pro: false, screen: "modal-prefs" },
+  { state: "modal-upgrade", pro: false, screen: "modal-upgrade" },
 ] as const;
 
 test.describe("design-parity 书工作台屏（book.html）", () => {
@@ -258,6 +263,17 @@ test.describe("design-parity 书工作台屏（book.html）", () => {
         await protoPage.locator('.mtab[data-view="settings"]').click();
       } else if (c.screen === "preview") {
         await protoPage.locator('.mtab[data-view="preview"]').click();
+      } else if (c.screen === "modal-delete") {
+        // 树首个章行（c1 锚点：confirmed + 正文）hover → 删除 → 分级确认弹窗
+        const row = protoPage.locator(".ch").first();
+        await row.hover();
+        await row.locator('[data-act="del"]').click();
+      } else if (c.screen === "modal-prefs") {
+        await protoPage.locator("#btnPrefs").click();
+      } else if (c.screen === "modal-upgrade") {
+        // 免费态右栏 AI locked 卡的「升级 PRO」——默认选中章 → 章栏 #btnUpgrade3
+        // （#btnUpgrade2 在卷选中栏 #railVolume 内，默认 hidden 不可点）
+        await protoPage.locator("#btnUpgrade3").click();
       }
       await protoPage.waitForTimeout(400);
       const protoShot = await protoPage.screenshot();
@@ -291,6 +307,20 @@ test.describe("design-parity 书工作台屏（book.html）", () => {
         await appPage.locator(".modnav button", { hasText: "预览" }).click();
         await proseLoaded;
         await appPage.waitForSelector(".pv-title");
+      } else if (c.screen === "modal-delete") {
+        // 首章（vol-1-ch-1 锚点，confirmed + 793 字）hover → 删除 → 删除确认弹窗
+        const row = appPage.locator(".col-tree .ch").first();
+        await row.hover();
+        await row.getByTitle("删除章节").click();
+        await appPage.waitForSelector(".modal .mcard");
+      } else if (c.screen === "modal-prefs") {
+        // appbar「设置」→ 本书偏好弹窗（账号行 /auth/verify 打桩为免费态）
+        await appPage.getByRole("button", { name: "设置", exact: true }).click();
+        await appPage.waitForSelector(".modal .mcard");
+      } else if (c.screen === "modal-upgrade") {
+        // 免费态右栏 ai-locked 卡「升级 PRO」→ 升级弹窗
+        await appPage.locator(".ai-locked .btn-primary").click();
+        await appPage.waitForSelector(".modal .mcard");
       }
       await appPage.waitForLoadState("networkidle");
       await appPage.evaluate(() => document.fonts.ready);

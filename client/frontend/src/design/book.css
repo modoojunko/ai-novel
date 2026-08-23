@@ -332,12 +332,9 @@ details.cfg .inner { padding: 4px 14px 14px; }
 .inv-chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-strong); white-space: nowrap; }
 .inv-chip.wordy { background: color-mix(in oklch, var(--fg) 6%, transparent); color: var(--muted); }
 
-/* ─── 弹窗（本屏版式：440 宽 + 纵向 flex 滚动体；.wb 作用域覆盖 base） ── */
-.wb .modal .mcard { width: min(440px, 92vw); max-height: 86vh; display: flex; flex-direction: column; }
-.wb .mcard-head { padding: 18px 22px 0; }
-.wb .mcard-body { padding: 14px 22px 20px; flex: 1; min-height: 0; overflow-y: auto; }
-.wb .mcard-foot { padding: 12px 22px 18px; }
-.wb .mcard-foot .note { font-size: 12px; color: var(--muted); margin-right: auto; }
+/* ─── 弹窗（本屏版式：440 宽 + 纵向 flex 滚动体）──
+   弹窗统一 portal 到 body（脱离 .wb 作用域）→ 版式走 base.css .mcard.wb-style，
+   .wb 作用域规则已随 portal 化移除；wide/tall 变体经 Modal width 内联生效 */
 .mcard.wide { width: min(620px, 94vw); }
 .mcard.tall { width: min(560px, 94vw); }
 .search-wrap { position: relative; }
@@ -388,3 +385,30 @@ body.focus .editor-wrap { padding-inline: 8vw; }
 .btn-ghost:hover:not(:disabled) { color: var(--fg); background: var(--fg-soft); }
 .btn-danger-ghost { color: var(--err); }
 .btn-danger-ghost:hover:not(:disabled) { background: var(--err-soft); color: var(--err); }
+
+/* ─── 提示词管理页（PromptManagementPage 轻重皮，.wb 作用域） ────────── */
+.pm-card { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 10px; }
+.pm-head { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: none; border: none; cursor: pointer; text-align: left; font: inherit; color: var(--fg); }
+.pm-head:hover { background: var(--fg-soft); }
+.pm-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; font-weight: 500; }
+.pm-body { border-top: 1px solid var(--border); padding: 10px 14px; }
+.pm-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+.pm-row:hover { background: var(--fg-soft); }
+.pm-row .idx { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); width: 20px; text-align: right; flex: none; }
+.pm-sec { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.pm-sec h3 { margin: 0; padding: 7px 14px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 12.5px; font-weight: 600; }
+.pm-sec pre { margin: 0; padding: 10px 14px; font-size: 13px; line-height: 1.8; white-space: pre-wrap; font-family: inherit; }
+
+/* 提示词管理页 · 页面级（轻重皮补充） */
+.prompt-mgmt { width: 100%; max-width: 760px; margin: 0 auto; padding: 18px 20px 28px; }
+.pm-h2 { font-size: 17px; margin: 0 0 14px; }
+.pm-loading { display: flex; align-items: center; justify-content: center; padding: 60px 0; }
+.pm-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 56px 0; }
+.pm-empty .pm-empty-text { text-align: center; }
+.pm-empty .pm-empty-text p { margin: 0; font-size: 14px; color: var(--fg); }
+.pm-empty .pm-empty-text .sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.pm-empty > p.pm-empty-text { font-size: 13.5px; color: var(--muted); }
+.pm-none { margin: 0; padding: 8px 0; text-align: center; font-size: 12.5px; color: var(--muted); }
+.pm-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.pm-bar-title { font-size: 13.5px; font-weight: 500; }
+.pm-bar .grow { flex: 1; }

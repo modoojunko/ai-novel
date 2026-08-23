@@ -3,6 +3,8 @@
  * - 默认字号/行距（全局写作偏好：新建章节正文的排版基线）
  * - 归档 AI 摘要开关（默认开；关闭后归档用正文前 200 字降级摘要，不消耗 AI 额度）
  * - 归档 AI 摘要首次提示（会员第一次归档前弹「将消耗 AI 额度」提示）
+ * - 本书覆盖（book.html modalPrefs，PR 5）：字号/行距/归档 AI 摘要可按书落库，
+ *   未设置的书回落全局默认（key: pref.book.{projectId}.{fs|lh|ai_summary}）。
  */
 
 const KEY_AI_SUMMARY = "pref.archive_ai_summary";
@@ -74,6 +76,72 @@ export function isArchiveNoticeShown(): boolean {
 export function markArchiveNoticeShown() {
   try {
     localStorage.setItem(KEY_NOTICE_SHOWN, "1");
+  } catch {
+    // 忽略
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 本书偏好（modalPrefs）：per-project 覆盖，未设置回落全局默认
+// ---------------------------------------------------------------------------
+
+type BookPrefKey = "fs" | "lh" | "ai_summary";
+
+function bookKey(projectId: string, key: BookPrefKey): string {
+  return `pref.book.${projectId}.${key}`;
+}
+
+/** 本书字号：未设置回落全局默认。 */
+export function getBookFontSize(projectId: string): FontSizePref {
+  try {
+    const v = localStorage.getItem(bookKey(projectId, "fs"));
+    return v === "fs-s" || v === "fs-l" || v === "fs-m" ? v : getDefaultFontSize();
+  } catch {
+    return getDefaultFontSize();
+  }
+}
+
+export function setBookFontSize(projectId: string, v: FontSizePref) {
+  try {
+    localStorage.setItem(bookKey(projectId, "fs"), v);
+  } catch {
+    // 忽略
+  }
+}
+
+/** 本书行距：未设置回落全局默认。 */
+export function getBookLineHeight(projectId: string): LineHeightPref {
+  try {
+    const v = localStorage.getItem(bookKey(projectId, "lh"));
+    return v === "lh-tight" || v === "lh-loose" || v === "lh-comfy"
+      ? v
+      : getDefaultLineHeight();
+  } catch {
+    return getDefaultLineHeight();
+  }
+}
+
+export function setBookLineHeight(projectId: string, v: LineHeightPref) {
+  try {
+    localStorage.setItem(bookKey(projectId, "lh"), v);
+  } catch {
+    // 忽略
+  }
+}
+
+/** 本书归档 AI 摘要：未设置回落全局开关。 */
+export function getBookArchiveAiSummary(projectId: string): boolean {
+  try {
+    const v = localStorage.getItem(bookKey(projectId, "ai_summary"));
+    return v === "on" ? true : v === "off" ? false : getArchiveAiSummaryEnabled();
+  } catch {
+    return getArchiveAiSummaryEnabled();
+  }
+}
+
+export function setBookArchiveAiSummary(projectId: string, enabled: boolean) {
+  try {
+    localStorage.setItem(bookKey(projectId, "ai_summary"), enabled ? "on" : "off");
   } catch {
     // 忽略
   }

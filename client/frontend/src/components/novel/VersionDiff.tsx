@@ -19,6 +19,9 @@ interface VersionDiffProps {
   projectId: string;
   chapterRef: string;
   versions: Version[];
+  /** 初始选中（版本历史弹窗「对比」入口预选 所选版本 → 当前）；缺省=最新两条 */
+  initialOldVersionId?: string;
+  initialNewVersionId?: string;
 }
 
 interface VersionContent {
@@ -40,7 +43,9 @@ interface DiffLine {
 // ---------------------------------------------------------------------------
 
 function relativeTime(ts: number): string {
-  const diff = Date.now() - ts * 1000;
+  // 后端为 13 位毫秒；历史脏数据可能为秒级 → 归一
+  const ms = ts > 1e12 ? ts : ts * 1000;
+  const diff = Date.now() - ms;
   const minutes = Math.floor(diff / 60000);
   if (minutes < 1) return "刚刚";
   if (minutes < 60) return `${minutes}分钟前`;
@@ -300,7 +305,7 @@ function DiffViewer({
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function VersionDiff({ projectId, chapterRef, versions }: VersionDiffProps) {
+export default function VersionDiff({ projectId, chapterRef, versions, initialOldVersionId, initialNewVersionId }: VersionDiffProps) {
   const sorted = useMemo(() => [...versions].sort((a, b) => b.time - a.time), [versions]);
 
   const [oldVersionId, setOldVersionId] = useState("");
@@ -312,13 +317,13 @@ export default function VersionDiff({ projectId, chapterRef, versions }: Version
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
 
-  // Set default selections (newest vs second-newest)
+  // Set default selections (newest vs second-newest; 弹窗对比入口可预选)
   useEffect(() => {
     if (sorted.length >= 2) {
-      setNewVersionId(sorted[0].version);
-      setOldVersionId(sorted[1].version);
+      setNewVersionId(initialNewVersionId || sorted[0].version);
+      setOldVersionId(initialOldVersionId || sorted[1].version);
     }
-  }, [sorted]);
+  }, [sorted, initialOldVersionId, initialNewVersionId]);
 
   // Fetch version content
   useEffect(() => {
