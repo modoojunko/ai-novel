@@ -125,65 +125,35 @@ async function apiGetJSON(request: APIRequestContext, token: string, path: strin
   return r.json();
 }
 
-/** 在设定左侧树点一个设定项（aside 内精确匹配，避开右侧面板标题/横幅文案）。 */
+/** 在设定左栏点一个导航项（v2 two-col aside 内精确匹配短名：题材/简介/世界/…）。 */
 async function openSetting(page: Page, label: string) {
-  await page.locator("aside").getByText(label, { exact: true }).click();
+  await page.locator(".two-col aside").getByText(label, { exact: true }).click();
 }
 
 /**
- * 填一个设定 Field：label 文本 → 其 wrapper div 内的 textarea。
- * Field 组件结构：wrapper div > [flex div > label] + hint <p> + <textarea>。
+ * 填一个表单 Field：label 文本 → 所在 .field 内的 textarea（v2 Field 基元：
+ * div.field > label + textarea；label 含 hint 的 opt span 仍按子串命中）。
  */
 async function fillSettingField(page: Page, label: string, value: string) {
-  const wrapper = page
+  const field = page
     .locator("label", { hasText: label })
-    .locator("xpath=ancestor::div[2]");
-  await wrapper.locator("textarea").fill(value);
+    .locator("xpath=ancestor::div[1]");
+  await field.locator("textarea").fill(value);
 }
 
 /**
- * 点标准设定面板（世界/伏笔/题材/风格/痕迹）的「完成设定」并等待变为「已设定」。
- * 关键：这些面板的 ConfirmToggle 是同一 React 实例（切换面板不卸载），上一次点击的
- * animating 动画（500ms「保存中…」）会残留到切换后——若直接 .last() 可能误点到 synopsis
- * 卡的按钮。因此通过面板标题 h2 定位其容器（h2 与 ConfirmToggle 同属 div.flex.justify-between），
- * 并先等目标按钮回到「完成设定」态（动画结束）再点击。
+ * 点 panel-foot「确认完成」（gap3：先 save 落库后 confirm），确认后按钮转
+ * 「保存修改」（ADJUSTMENTS #9）。
  */
-async function confirmPanel(page: Page, panelTitle: string) {
-  const header = page
-    .locator("main h2", { hasText: panelTitle })
-    .locator("xpath=ancestor::div[2]");
-  const btn = header.getByRole("button", { name: "完成设定" });
-  await expect(btn).toBeVisible({ timeout: 5000 }); // 等共享实例 animating 动画结束
-  await btn.click();
-  await expect(header.getByRole("button", { name: "已设定" })).toBeVisible({
-    timeout: 5000,
-  });
-}
-
-/**
- * 点角色面板的「完成设定」（CharacterManager 底部 footer，独立实例，无动画残留）。
- * 角色面板无 h2+ConfirmToggle 的标准头部，用「N 个角色」文案定位 footer。
- */
-async function confirmCharacters(page: Page) {
-  const footer = page
-    .locator("main")
-    .locator("div.flex", { hasText: /个角色/ })
-    .last();
-  const btn = footer.getByRole("button", { name: "完成设定" });
+async function confirmPanel(page: Page) {
+  const btn = page
+    .locator(".panel-foot")
+    .getByRole("button", { name: "确认完成" });
   await expect(btn).toBeVisible({ timeout: 5000 });
   await btn.click();
-  await expect(footer.getByRole("button", { name: "已设定" })).toBeVisible({
-    timeout: 5000,
-  });
-}
-
-/** 点 synopsis 补录卡的「完成设定」并等待变为「已设定」。 */
-async function confirmSynopsisCard(page: Page) {
-  const card = page.locator("#synopsis-card");
-  await card.getByRole("button", { name: "完成设定" }).click();
-  await expect(card.getByRole("button", { name: "已设定" })).toBeVisible({
-    timeout: 5000,
-  });
+  await expect(
+    page.locator(".panel-foot").getByRole("button", { name: "保存修改" }),
+  ).toBeVisible({ timeout: 5000 });
 }
 
 // -------------------------------------------------------------------------
@@ -217,10 +187,10 @@ test("创建小说：仅书名即可创建并进入小说页", async ({ page }) 
 });
 
 // -------------------------------------------------------------------------
-// PRD 3.4：简介完成判定（点「完成设定」时校验内容非空）
+// PRD 3.4：简介完成判定（简介面板点「确认完成」时校验内容非空）
 // -------------------------------------------------------------------------
 
-test("简介空不可完成设定，保存后可确认（AC-4.2）", async ({ page }) => {
+test("简介空不可确认，保存后可确认（AC-4.2）", async ({ page }) => {
   const { restore } = await setupSession(page);
   try {
     // 项目名唯一：跨用户同名会复用同一 root_path 目录（create_project 按 slug 建目录），
@@ -228,25 +198,32 @@ test("简介空不可完成设定，保存后可确认（AC-4.2）", async ({ pa
     const pid = await createNovel(page, `简介${Date.now() % 100000}`);
     await page.goto(`${ORIGIN}/#/novel/${pid}`);
 
-    // 新落点：默认写作工作台。简介卡在设定视图内，经 modnav「设定」tab 进入（PR3 设计稿）。
+    // 新落点：默认写作工作台。简介面板在设定视图内，经 modnav「设定」进入（PR4 v2）。
     await page.getByRole("button", { name: /^设定/ }).click();
+    await openSetting(page, "简介");
 
-    // 简介卡全局常驻（设定视图内每面板可见）
-    const synCard = page.locator("#synopsis-card");
-    await expect(synCard).toBeVisible({ timeout: 10000 });
+    // 空简介 → 点「确认完成」→ 前置校验拦截 + toast 提示，不确认
+    await page
+      .locator(".panel-foot")
+      .getByRole("button", { name: "确认完成" })
+      .click();
+    await expect(page.getByText("请先写一段梗概")).toBeVisible({ timeout: 5000 });
+    await expect(
+      page.locator(".panel-foot").getByRole("button", { name: "保存修改" }),
+    ).toHaveCount(0);
 
-    // 空简介 → 点「完成设定」→ 后端 400 → toast 中文提示，不确认
-    await synCard.getByRole("button", { name: "完成设定" }).click();
-    await expect(page.getByText(/该项设定还未填写内容/)).toBeVisible({ timeout: 5000 });
-    await expect(synCard.getByRole("button", { name: "已设定" })).not.toBeVisible();
-
-    // 保存简介后 → 点「完成设定」→ 确认成功（已设定）
-    await synCard.locator('textarea[aria-label="故事简介"]').fill("一个穿越到明朝当海盗的故事");
-    await synCard.getByRole("button", { name: "保存简介" }).click();
-    await expect(page.getByText("简介已保存")).toBeVisible({ timeout: 5000 });
-
-    await synCard.getByRole("button", { name: "完成设定" }).click();
-    await expect(synCard.getByRole("button", { name: "已设定" })).toBeVisible({
+    // 写入简介 → x/500 计数同步（spec#3）→ 确认完成（gap3：先 PUT /story 再 confirm）
+    await page
+      .getByPlaceholder(/用几句话/)
+      .fill("一个穿越到明朝当海盗的故事");
+    await expect(page.getByText("13/500")).toBeVisible();
+    const synSave = page.waitForResponse(
+      (r) => r.request().method() === "PUT" && r.url().includes("/story"),
+    );
+    await confirmPanel(page);
+    await synSave;
+    // 已确认徽标（panel-foot done-note；note 文案同含「已确认」，须锚定类名）
+    await expect(page.locator(".panel-foot .done-note")).toBeVisible({
       timeout: 5000,
     });
   } finally {
@@ -307,8 +284,8 @@ test("空书无门控：建书即写，加卷加章直达编辑器", async ({ pa
 
 // -------------------------------------------------------------------------
 // PRD 3.4：设定 7 项全确认 → settings-status 全 true（013：GateBanner 已移除）
-// world/hooks 走真实表单（回归 checker 与前端保存结构不一致 bug）；其余 5 项
-// API 注入内容 + UI 完成设定。断言每项「已设定」+ 最终 status 7 键全绿。
+// world/hooks/synopsis 走真实表单（回归 checker 与前端保存结构不一致 bug）；
+// 其余 4 项 API 注入内容 + 面板确认。断言最终 status 7 键全绿。
 // -------------------------------------------------------------------------
 
 test("设定 7 项全确认（settings-status 全绿）", async ({ page, request }) => {
@@ -320,69 +297,73 @@ test("设定 7 项全确认（settings-status 全绿）", async ({ page, request
     // 013：设定未确认也不渲染「以下阶段尚未就绪」门控横幅（GateBanner 已移除）
     await expect(page.getByText(/尚未完成设定/)).toHaveCount(0);
 
-    // 新落点：默认写作工作台。设定面板经 modnav「设定」tab 进入（PR3 设计稿）。
+    // 新落点：默认写作工作台。设定面板经 modnav「设定」tab 进入（PR4 v2 two-col）。
     await page.getByRole("button", { name: /^设定/ }).click();
 
-    // ── world：真实表单填 ≥4 个子字段（3 地理 + 1 政治）→ 保存 → 完成设定
-    await openSetting(page, "世界设定");
+    // ── world：真实表单填 ≥4 个子字段（3 地理 + 1 政治）→ 确认完成自动落库
+    await openSetting(page, "世界");
     await fillSettingField(page, "主要场景", "一座被沙漠包围的边境城邦");
     await fillSettingField(page, "气候", "昼夜温差极大，夜晚滴水成冰");
     await fillSettingField(page, "地理限制", "北临黑海，西侧是断崖");
-    await page.getByRole("button", { name: "政治" }).click();
+    await page.locator("summary", { hasText: "政治" }).click();
     await fillSettingField(page, "统治形式", "城主议会制，元老席位世袭");
-    // 保存 PUT 需先落盘，完成设定的内容判定才能读到——等待响应消除竞态
     const worldSave = page.waitForResponse(
       (r) => r.request().method() === "PUT" && r.url().includes("/settings/world"),
     );
-    await page.getByRole("button", { name: "💾 保存" }).click();
+    await confirmPanel(page);
     await worldSave;
-    await confirmPanel(page, "世界设定");
 
-    // ── hooks：真实表单添加伏笔 → 填描述 → 保存 → 完成设定
-    // 模板自带 1 个空伏笔行 + 点「添加伏笔」新增 1 行 → 取 .first() 填默认行（readiness 只要任一非空）
-    await openSetting(page, "伏笔管理");
-    await page.getByRole("button", { name: /添加伏笔/ }).click();
-    await page.locator('input[placeholder="伏笔描述"]').first().fill("主角妹妹失踪的真相");
+    // ── hooks：真实表单添加伏笔 → 填描述 → 确认完成自动落库
+    await openSetting(page, "伏笔");
+    await page.getByRole("button", { name: "添加伏笔" }).click();
+    await page
+      .locator('input[placeholder="伏笔描述"]')
+      .first()
+      .fill("主角妹妹失踪的真相");
     const hooksSave = page.waitForResponse(
       (r) => r.request().method() === "PUT" && r.url().includes("/settings/hooks"),
     );
-    await page.getByRole("button", { name: "💾 保存" }).click();
+    await confirmPanel(page);
     await hooksSave;
-    await confirmPanel(page, "伏笔管理");
 
-    // ── synopsis：API 注入内容 + 补录卡完成设定
-    await apiPutJSON(request, token, `/novels/${pid}/story`, {
-      synopsis: "一个少年在边境城邦寻找妹妹失踪真相的故事",
-    });
-    await confirmSynopsisCard(page);
+    // ── synopsis：简介面板真实表单 → 确认完成（PUT /story）
+    await openSetting(page, "简介");
+    await page
+      .getByPlaceholder(/用几句话/)
+      .fill("一个少年在边境城邦寻找妹妹失踪真相的故事");
+    const synSave = page.waitForResponse(
+      (r) => r.request().method() === "PUT" && r.url().includes("/story"),
+    );
+    await confirmPanel(page);
+    await synSave;
 
-    // ── genre：API 注入 + 面板完成设定
+    // ── genre：API 注入 + 面板确认
     await apiPutJSON(request, token, `/novels/${pid}/settings/genre`, {
       genre_id: "urban-romance",
     });
-    await openSetting(page, "题材设定");
-    await confirmPanel(page, "题材设定");
+    await openSetting(page, "题材");
+    await confirmPanel(page);
 
-    // ── style：API 注入 + 面板完成设定
+    // ── style：API 注入 + 面板确认
     await apiPutJSON(request, token, `/novels/${pid}/settings/style`, {
       role: "克制冷静的第三人称叙事，短句为主",
     });
-    await openSetting(page, "写作风格");
-    await confirmPanel(page, "写作风格");
+    await openSetting(page, "风格");
+    await confirmPanel(page);
 
-    // ── anti-ai：API 注入 + 面板完成设定
+    // ── anti-ai：API 注入 + 面板确认
     await apiPutJSON(request, token, `/novels/${pid}/settings/anti-ai`, {
       blocklists: ["过度修辞", "翻译腔"],
     });
     await openSetting(page, "AI痕迹控制");
-    await confirmPanel(page, "AI痕迹控制");
+    await confirmPanel(page);
 
-    // ── characters：API 注入角色文件 + 面板完成设定
+    // ── characters：API 注入角色文件 + 面板确认
     await apiPutJSON(request, token, `/novels/${pid}/settings/character/张三`, {
       name: "张三",
     });
-    await openSetting(page, "角色管理");
-    await confirmCharacters(page);
+    await openSetting(page, "角色");
+    await confirmPanel(page);
 
     // 7 项全确认 → /settings/status 全 true（PRD 3.4；013：观察点从 GateBanner 消失改为后端直查）
     const status = await apiGetJSON(request, token, `/novels/${pid}/settings/status`);

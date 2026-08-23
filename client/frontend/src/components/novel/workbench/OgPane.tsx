@@ -342,9 +342,10 @@ export default function OgPane({
               {form.segs.map((s, i) => (
                 <div className="seg-row" key={i}>
                   <span className="num seg-i">{i + 1}</span>
-                  <input
+                  <textarea
                     className="input"
                     data-seg="s"
+                    rows={2}
                     placeholder="段落概要，如：港区之夜 · 信标亮起"
                     value={s.s}
                     onChange={(e) => {

@@ -1,4 +1,4 @@
-// 章状态徽章 + 标签映射（卷工作台章节列表 / 章工作台共用）
+// 章状态徽章 + 标签映射（提示词管理页 / 章工作台共用）
 
 const STATUS_LABELS: Record<string, string> = {
   outline: "细纲",

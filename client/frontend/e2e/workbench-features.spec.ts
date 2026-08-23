@@ -4,9 +4,9 @@ import { randomUUID } from "crypto";
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 
 // =========================================================================
-// 工作台非 AI 功能 E2E（PR3 book.html 复刻后适配：章对象三页签 / 卷工作台 / 专注 / 提示词）
+// 工作台非 AI 功能 E2E（PR3 book.html 复刻后适配：章对象三页签 / 卷纲面板 / 专注 / 提示词）
 //   ① 章纲：选中章 →「章纲」页签 → OgPane 平面全字段表单编辑 + 保存草稿
-//   ② 卷工作台（过渡期 VolumePage）：点卷节点 → 主区内联卷页查看/编辑 + 保存
+//   ② 卷纲面板（PR4）：点卷节点 → 常编辑态全字段 + 子表行 → 保存卷纲 + 去配章纲
 //   ③ 专注模式：body.focus 隐藏左树右栏 + Esc 退出
 //   ④ 提示词面板：「提示词」页签；当前章过滤 + 空态 + API 种子后查看/编辑（非 AI 链路）
 //   ⑤ 免费态三页签入口均可见（#152 口径：入口可见、使用需会员）
@@ -189,10 +189,10 @@ test("章纲：OgPane 真实表单编辑 + 保存草稿（概要/关键事件/�
 });
 
 // -------------------------------------------------------------------------
-// ② 卷工作台（过渡期 VolumePage）：点卷节点 → 主区内联卷页查看/编辑 + 保存
+// ② 卷纲面板（PR4：book.html 复刻）：点卷节点 → 常编辑态全字段 + 子表 → 保存卷纲
 // -------------------------------------------------------------------------
 
-test("卷工作台：点卷节点 → 内联卷页查看态 → 编辑卷名/简述 → 保存", async ({
+test("卷纲面板：点卷节点 → 常编辑态 → 摘要/核心冲突/子表行 → 保存 + 去配章纲", async ({
   page,
   request,
 }) => {
@@ -201,38 +201,55 @@ test("卷工作台：点卷节点 → 内联卷页查看态 → 编辑卷名/简
     const pid = await createNovel(page, `卷页${Date.now() % 100000}`);
     await writeFirstChapter(page);
 
-    // 点卷头 → 主区变卷工作台页（内联，非弹层）；默认查看态 + [编辑] 入口
+    // 点卷头 → 主区变卷纲面板（常编辑态，无「编辑」入口）；标题走 nodeLabel 口径（#164）
     await page.locator(".col-tree .vol-head", { hasText: "第一卷" }).click();
-    await expect(page.getByText("卷故事简述")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText("本卷章节")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "编辑", exact: true }),
+      page.getByPlaceholder("一段话讲清本卷讲什么"),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByRole("heading", { name: /第一卷/ }),
     ).toBeVisible();
+    await expect(page.getByRole("button", { name: "保存卷纲" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "去配章纲" })).toBeVisible();
 
-    // 点「编辑」进入编辑态：卷名 + 卷简述
-    await page.getByRole("button", { name: "编辑", exact: true }).click();
-    await page.getByPlaceholder("卷名").fill("第一卷·风起");
+    // 9 标量：摘要 + 核心冲突；子表：阶段分配 + 冲突阶梯（新行工厂）
     await page
       .getByPlaceholder("一段话讲清本卷讲什么")
       .fill("第一卷铺垫主角妹妹失踪的悬念，收尾进入边城。");
+    await page.getByPlaceholder("本卷贯穿的核心矛盾").fill("匿名信与失踪案的真假之辨");
+    await page.getByRole("button", { name: "添加阶段" }).click();
+    await page.getByPlaceholder("阶段名").fill("悬念建立");
+    await page.getByPlaceholder("该阶段的一句话功能").fill("匿名信把主角拖回旧案");
+    await page.getByTitle("章数").fill("4");
+    await page.getByRole("button", { name: "添加层级" }).click();
+    await page.getByPlaceholder("章节区间").fill("第 1-4 章");
+    await page.getByPlaceholder("本层障碍").fill("关键证人拒绝作证");
 
-    // 保存 → PUT /volumes/vol-1 → 回查看态，标题已更新
+    // 保存 → PUT /volumes/vol-1 → 统一 toast《title》卷纲已保存
     const volSave = page.waitForResponse(
       (r) =>
         r.request().method() === "PUT" &&
         r.url().includes("/volumes/vol-1"),
     );
-    await page.getByRole("button", { name: /保存/ }).click();
+    await page.getByRole("button", { name: "保存卷纲" }).click();
     await volSave;
-    // 标题展示走 nodeLabel 口径（#164）：序号 · 名称
-    await expect(
-      page.getByRole("heading", { name: "第一卷 · 第一卷·风起" }),
-    ).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("卷纲已保存")).toBeVisible({ timeout: 5000 });
 
-    // 后端直查
+    // 后端直查：标量 + 子表整族替换落库
     const vol = await apiGetJSON(request, token, `/novels/${pid}/volumes/vol-1`);
-    expect(vol.title).toBe("第一卷·风起");
     expect(vol.summary).toContain("妹妹失踪");
+    expect(vol.core_conflict).toBe("匿名信与失踪案的真假之辨");
+    expect(vol.stages).toHaveLength(1);
+    expect(vol.stages[0].stage_name).toBe("悬念建立");
+    expect(vol.stages[0].chapter_count).toBe(4);
+    expect(vol.conflict_ladders).toHaveLength(1);
+    expect(vol.conflict_ladders[0].chapters_range).toBe("第 1-4 章");
+
+    // 去配章纲 → 跳本卷第一个未确认章并强制落「章纲」页签
+    await page.getByRole("button", { name: "去配章纲" }).click();
+    await expect(
+      page.getByRole("tab", { name: /^章纲/ }),
+    ).toBeVisible({ timeout: 10000 });
   } finally {
     restore();
   }
@@ -438,7 +455,7 @@ test("点章强制落章纲：确认/有正文后重挂载仍落章纲 + 右栏�
     const tree = page.locator(".col-tree");
     const remount = async () => {
       await tree.locator(".vol-head", { hasText: "第一卷" }).click();
-      await expect(page.getByText("卷故事简述")).toBeVisible({ timeout: 5000 });
+      await expect(page.getByText("卷摘要")).toBeVisible({ timeout: 5000 });
       await tree.locator(".ch", { hasText: "第一章" }).click();
       await expect(ogTab).toBeVisible({ timeout: 10000 });
     };

@@ -1,9 +1,9 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { api } from "@/lib/api";
 import { useDirtyState } from "@/hooks/useDirtyState";
-import { SaveButton, SettingSaveHandle, TabBar } from "./FormField";
+import { Cfg, SettingSaveHandle } from "./FormField";
 import AISuggestionModal from "./AISuggestionModal";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Ico, P } from "@/components/icons";
 
 interface Props {
   projectId: string;
@@ -11,12 +11,6 @@ interface Props {
   /** P2-1：脏状态回调（未保存修改时 true），父组件切换面板前据此确认 */
   onDirtyChange?: (dirty: boolean) => void;
 }
-
-const TABS = [
-  { id: "active", label: "活跃伏笔" },
-  { id: "resolved", label: "已收束" },
-  { id: "abandoned", label: "废弃" },
-];
 
 const HOOK_TYPES = [
   { value: "mystery", label: "谜团" }, { value: "threat", label: "威胁" },
@@ -29,7 +23,6 @@ const HooksSettingForm = forwardRef<SettingSaveHandle, Props>(function HooksSett
   { projectId, settingKey, onDirtyChange },
   ref,
 ) {
-  const [tab, setTab] = useState("active");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -72,6 +65,7 @@ const HooksSettingForm = forwardRef<SettingSaveHandle, Props>(function HooksSett
   }, [projectId, settingKey, snapshotLoaded]);
 
   async function handleSave() {
+    if (saving) return false;
     setSaving(true); setError("");
     try {
       await api.put(`/novels/${projectId}/settings/${settingKey}`, { active, resolved, abandoned });
@@ -123,31 +117,27 @@ const HooksSettingForm = forwardRef<SettingSaveHandle, Props>(function HooksSett
     setAiContent("");
   }
 
-  if (loading) return <div className="flex justify-center py-12"><span className="loading loading-spinner loading-md text-primary" /></div>;
+  if (loading) return <p className="opt">加载中…</p>;
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <TabBar tabs={TABS} activeTab={tab} onTabChange={setTab}>
-        <SaveButton saving={saving} onClick={handleSave} />
-      </TabBar>
-
-      {tab === "active" && (
+    <div>
+      <Cfg title="活跃伏笔" open>
         <HookTable hooks={active} onChange={setActive} simple={false}
           onAIGenerate={(i) => handleAIGenerate("active", i)}
           isAiLoading={(i) => aiPendingField === `active-${i}`} />
-      )}
-      {tab === "resolved" && (
+      </Cfg>
+      <Cfg title="已收束">
         <HookTable hooks={resolved} onChange={setResolved} simple={false}
           onAIGenerate={(i) => handleAIGenerate("resolved", i)}
           isAiLoading={(i) => aiPendingField === `resolved-${i}`} />
-      )}
-      {tab === "abandoned" && (
+      </Cfg>
+      <Cfg title="废弃" tag="可后补">
         <HookTable hooks={abandoned} onChange={setAbandoned} simple={true}
           onAIGenerate={(i) => handleAIGenerate("abandoned", i)}
           isAiLoading={(i) => aiPendingField === `abandoned-${i}`} />
-      )}
+      </Cfg>
 
-      {error && <p className="text-sm text-error/80 mt-3">{error}</p>}
+      {error && <p className="opt" style={{ color: "var(--err)" }}>{error}</p>}
 
       <AISuggestionModal
         open={aiField !== null}
@@ -174,54 +164,68 @@ function HookTable({ hooks, onChange, simple, onAIGenerate, isAiLoading }: {
   onAIGenerate?: (i: number) => void;
   isAiLoading?: (i: number) => boolean;
 }) {
-  const showAI = !!onAIGenerate;
-
   return (
     <div>
-      <button onClick={() => onChange([...hooks, { description: "", introduced_in: "", type: "mystery", priority: "2" }])}
-        className="mb-3 text-xs text-primary/60 hover:text-primary transition-colors inline-flex items-center gap-1">
-        <span className="text-base leading-none">+</span> 添加伏笔
-      </button>
-      {hooks.length === 0 ? (
-        <p className="text-xs text-base-content/20 text-center py-10">暂无</p>
-      ) : (
-        <div className="space-y-2">
-          {hooks.map((h, i) => (
-            <div key={i} className="flex items-center gap-2 group bg-base-200/20 rounded-lg px-3 py-2">
-              {showAI && (
-                <button
-                  onClick={() => onAIGenerate!(i)}
-                  disabled={isAiLoading?.(i) ?? false}
-                  className="text-xs text-primary/50 hover:text-primary transition-colors flex items-center gap-1 disabled:opacity-40"
-                  title="AI 帮我填"
-                >
-                  {isAiLoading?.(i) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                </button>
-              )}
-              <input className="flex-1 bg-transparent border border-base-300/50 rounded-lg px-3 py-1.5 text-sm outline-none transition-colors focus:border-primary/40 placeholder:text-base-content/20"
-                placeholder="伏笔描述" value={h.description || ""}
-                onChange={(e) => update(hooks, onChange, i, "description", e.target.value)} />
-              {!simple && (
-                <>
-                  <input className="w-20 bg-transparent border border-base-300/50 rounded-lg px-2 py-1.5 text-sm outline-none transition-colors focus:border-primary/40 placeholder:text-base-content/20"
-                    placeholder="引入" value={h.introduced_in || ""}
-                    onChange={(e) => update(hooks, onChange, i, "introduced_in", e.target.value)} />
-                  <select className="bg-base-200/60 border border-base-300/50 rounded-lg px-2 py-1.5 text-sm outline-none"
-                    value={h.type || "mystery"} onChange={(e) => update(hooks, onChange, i, "type", e.target.value)}>
-                    {HOOK_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
-                  <select className="bg-base-200/60 border border-base-300/50 rounded-lg px-2 py-1.5 text-sm outline-none"
-                    value={h.priority || "2"} onChange={(e) => update(hooks, onChange, i, "priority", e.target.value)}>
-                    <option value="1">高</option><option value="2">中</option><option value="3">低</option>
-                  </select>
-                </>
-              )}
-              <button onClick={() => onChange(hooks.filter((_, j) => j !== i))}
-                className="opacity-0 group-hover:opacity-100 text-base-content/20 hover:text-error transition-all text-sm px-1">✕</button>
-            </div>
-          ))}
+      {hooks.length === 0 && <p className="sub-empty">暂无</p>}
+      {hooks.map((h, i) => (
+        <div className="hook-row" key={i}>
+          <button
+            className="icon-btn"
+            type="button"
+            title="AI 帮我填"
+            onClick={() => onAIGenerate!(i)}
+            disabled={isAiLoading?.(i) ?? false}
+          >
+            <Ico d={P.spark} sw={1.8} />
+          </button>
+          <input
+            className="input desc"
+            placeholder="伏笔描述"
+            value={h.description || ""}
+            onChange={(e) => update(hooks, onChange, i, "description", e.target.value)}
+          />
+          {!simple && (
+            <>
+              <input
+                className="input in-ch"
+                placeholder="引入"
+                value={h.introduced_in || ""}
+                onChange={(e) => update(hooks, onChange, i, "introduced_in", e.target.value)}
+              />
+              <select
+                className="input sel-type"
+                value={h.type || "mystery"}
+                onChange={(e) => update(hooks, onChange, i, "type", e.target.value)}
+              >
+                {HOOK_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              <select
+                className="input sel-pri"
+                value={h.priority || "2"}
+                onChange={(e) => update(hooks, onChange, i, "priority", e.target.value)}
+              >
+                <option value="1">高</option><option value="2">中</option><option value="3">低</option>
+              </select>
+            </>
+          )}
+          <button
+            className="icon-btn"
+            type="button"
+            title="删除"
+            onClick={() => onChange(hooks.filter((_, j) => j !== i))}
+          >
+            <Ico d={P.trash} sw={1.7} />
+          </button>
         </div>
-      )}
+      ))}
+      <button
+        className="text-btn"
+        type="button"
+        onClick={() => onChange([...hooks, { description: "", introduced_in: "", type: "mystery", priority: "2" }])}
+      >
+        <Ico d={P.plus} sw={2} size={13} />
+        添加伏笔
+      </button>
     </div>
   );
 }

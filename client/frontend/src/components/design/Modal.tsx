@@ -15,10 +15,12 @@ interface ModalProps {
   /** mcard 宽度上限（默认 420，与原型一致） */
   width?: number;
   children: ReactNode;
+  /** 头部标题与关闭钮之间的扩展区（原型 mcard-head 的 text-btn 等） */
+  headExtra?: ReactNode;
   footer?: ReactNode;
 }
 
-export default function Modal({ open, onClose, title, locked, width = 420, children, footer }: ModalProps) {
+export default function Modal({ open, onClose, title, locked, width = 420, children, headExtra, footer }: ModalProps) {
   const [shown, setShown] = useState(false); // 控制 .show 进出场
   const [render, setRender] = useState(false); // 200ms 退场后再卸载
   const lastFocus = useRef<Element | null>(null);
@@ -89,7 +91,14 @@ export default function Modal({ open, onClose, title, locked, width = 420, child
             <span className="mh serif" id={labelId} role="heading" aria-level={2}>
               {title}
             </span>
-            <button className="icon-btn x" aria-label="关闭" onClick={() => !locked && onClose()} disabled={locked}>
+            {headExtra && <span style={{ marginLeft: "auto" }}>{headExtra}</span>}
+            <button
+              className="icon-btn x"
+              style={headExtra ? { marginLeft: 0 } : undefined}
+              aria-label="关闭"
+              onClick={() => !locked && onClose()}
+              disabled={locked}
+            >
               <Ico d={P.close} sw={1.8} />
             </button>
           </div>

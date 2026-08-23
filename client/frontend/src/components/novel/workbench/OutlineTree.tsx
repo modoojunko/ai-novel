@@ -14,7 +14,7 @@ interface OutlineTreeProps {
   wb: UseWorkbenchReturn;
   outline: UseOutlineReturn;
   projectId: string;
-  /** 卷编辑态脏守卫（VolumePage 上抛）：切节点前确认 */
+  /** 卷编辑态脏守卫（VolumePanel 上抛）：切节点前确认 */
   guardedLeave: () => boolean;
 }
 

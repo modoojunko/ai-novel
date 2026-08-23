@@ -1,3 +1,4 @@
+// 本书用量统计（book.html v2 use-row 行式 + 产品保留的按模型饼图）。
 import { useUsageStats } from "../../../hooks/useUsageStats";
 import { UsagePieChart } from "../../api-config/UsagePieChart";
 
@@ -9,40 +10,31 @@ export function NovelUsagePanel({ projectId }: NovelUsagePanelProps) {
   const { data, loading } = useUsageStats({ projectId });
 
   if (loading) {
-    return (
-      <div className="space-y-2 py-2">
-        <div className="skeleton h-4 w-20" />
-        <div className="skeleton h-4 w-32" />
-      </div>
-    );
+    return <p className="opt">查询中…</p>;
   }
 
   if (!data || data.total_tokens === 0) {
-    return <p className="text-sm text-base-content/50 py-3 text-center">暂无用量数据</p>;
+    return <p className="opt">暂无用量数据</p>;
   }
 
   return (
-    <div className="space-y-4 py-2">
-      <div className="text-lg font-bold">{data.total_tokens.toLocaleString()} tokens</div>
-
-      {data.by_model && data.by_model.length > 0 && (
-        <div>
-          <h5 className="text-xs font-semibold text-base-content/60 mb-2">按模型</h5>
-          <UsagePieChart data={data.by_model} />
-        </div>
-      )}
-
-      {data.by_operation && data.by_operation.length > 0 && (
-        <div>
-          <h5 className="text-xs font-semibold text-base-content/60 mb-2">按阶段</h5>
-          <div className="space-y-1">
-            {data.by_operation.map((op: { operation: string; tokens: number }) => (
-              <div key={op.operation} className="flex justify-between text-sm">
-                <span className="text-base-content/70">{op.operation}</span>
-                <span>{op.tokens.toLocaleString()}</span>
-              </div>
-            ))}
+    <div>
+      <div className="use-row">
+        <span>累计 tokens</span>
+        <span className="uv">{data.total_tokens.toLocaleString()}</span>
+      </div>
+      {data.by_operation &&
+        data.by_operation.length > 0 &&
+        data.by_operation.map((op: { operation: string; tokens: number }) => (
+          <div className="use-row" key={op.operation}>
+            <span>{op.operation}</span>
+            <span className="uv">{op.tokens.toLocaleString()}</span>
           </div>
+        ))}
+      {data.by_model && data.by_model.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <p className="opt" style={{ margin: "0 0 8px" }}>按模型</p>
+          <UsagePieChart data={data.by_model} />
         </div>
       )}
     </div>

@@ -1,179 +1,156 @@
-// Unified form field components for all setting forms
+// 设定表单字段基元（book.html v2 表单语汇统一重皮，PR4）：
+//   .field（label 内联 opt 提示 / ai-fill 右贴）+ .textarea/.input
+//   .li-row 列表行 + .text-btn 添加一项；details.cfg 折叠组（TabBar 页签退役）
+// 数据逻辑不动：AI 生成回调 / SettingSaveHandle（gap3 确认前落库）契约保持。
 
-import { Sparkles, Loader2 } from "lucide-react";
+import type { ReactNode } from "react";
+import { Ico, P } from "@/components/icons";
 
-// ── Shared AI props ────────────────────────────────────────────────
+// ── SettingSaveHandle ─────────────────────────────────────────────
+/** 表单保存句柄（gap3）：SettingsView 持 ref 调用，确认完成前先把内容落库 */
+export type SettingSaveHandle = { save: () => Promise<boolean> };
+
+// ── AI props ──────────────────────────────────────────────────────
 interface AIProps {
   aiGeneratable?: boolean;
   onAIGenerate?: () => void;
   aiLoading?: boolean;
 }
 
-// ── Shared AI prefilled props ────────────────────────────────────────────
-interface AIPrefilledProps {
-  aiPrefilled?: boolean;
-}
-
-// ── SettingSaveHandle ─────────────────────────────────────────────
-/** 表单保存句柄（gap3）：SettingsFormField 持 ref 调用，完成设定前先把内容落库 */
-export type SettingSaveHandle = { save: () => Promise<boolean> };
-
-// ── Field ─────────────────────────────────────────────────────────
-export function Field({ label, hint, value, onChange, maxLength, aiGeneratable, onAIGenerate, aiLoading, aiPrefilled }: {
-  label: string; hint?: string; value: string; onChange: (v: string) => void; maxLength?: number
-} & AIProps & AIPrefilledProps) {
+/** 「AI 帮我填」按钮（原型 ai-fill：label 行内右贴；外层已按 aiGeneratable 门控） */
+function AiFill({ onAIGenerate, aiLoading }: Pick<AIProps, "onAIGenerate" | "aiLoading">) {
+  if (!onAIGenerate) return null;
   return (
-    <div className={aiPrefilled ? 'border-l-2 border-primary/30 pl-3' : ''}>
-      <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs text-base-content/60 font-medium block tracking-wide flex items-center gap-1">
-          {label}
-          {aiPrefilled && <Sparkles className="w-3 h-3 text-primary/40" />}
-        </label>
-        {aiGeneratable && (
-          <button
-            onClick={onAIGenerate}
-            disabled={aiLoading}
-            className="text-xs text-primary/50 hover:text-primary transition-colors flex items-center gap-1 disabled:opacity-40"
-            title="AI 帮我填"
-          >
-            {aiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-            {aiLoading ? "生成中" : "AI 帮我填"}
-          </button>
-        )}
-      </div>
-      {hint && <p className="text-[11px] text-base-content/30 mb-1.5 leading-relaxed">{hint}</p>}
-      <textarea
-        className="w-full bg-base-200/40 border border-base-300/60 rounded-lg px-3.5 py-2.5 text-sm leading-relaxed outline-none transition-colors focus:border-primary/40 focus:bg-base-200/60 resize-y min-h-[80px] placeholder:text-base-content/20"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        maxLength={maxLength}
-      />
-    </div>
+    <button
+      className="ai-fill"
+      type="button"
+      title="AI 帮我填"
+      onClick={onAIGenerate}
+      disabled={aiLoading}
+    >
+      <Ico d={P.spark} sw={1.8} />
+      {aiLoading ? "生成中" : "AI 帮我填"}
+    </button>
   );
 }
 
-// ── InputField ────────────────────────────────────────────────────
-export function InputField({ label, hint, value, onChange, placeholder, maxLength, aiGeneratable, onAIGenerate, aiLoading, aiPrefilled }: {
-  label: string; hint?: string; value: string; onChange: (v: string) => void; placeholder?: string; maxLength?: number
-} & AIProps & AIPrefilledProps) {
+// ── Field（textarea 字段）──────────────────────────────────────────
+export function Field({
+  label, hint, value, onChange, placeholder, maxLength, rows, aiGeneratable, onAIGenerate, aiLoading,
+}: {
+  label: string; hint?: string; value: string; onChange: (v: string) => void;
+  placeholder?: string; maxLength?: number; rows?: number;
+} & AIProps) {
   return (
-    <div className={aiPrefilled ? 'border-l-2 border-primary/30 pl-3' : ''}>
-      <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs text-base-content/60 font-medium block tracking-wide flex items-center gap-1">
-          {label}
-          {aiPrefilled && <Sparkles className="w-3 h-3 text-primary/40" />}
-        </label>
-        {aiGeneratable && (
-          <button
-            onClick={onAIGenerate}
-            disabled={aiLoading}
-            className="text-xs text-primary/50 hover:text-primary transition-colors flex items-center gap-1 disabled:opacity-40"
-            title="AI 帮我填"
-          >
-            {aiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-            {aiLoading ? "生成中" : "AI 帮我填"}
-          </button>
-        )}
-      </div>
-      {hint && <p className="text-[11px] text-base-content/30 mb-1.5">{hint}</p>}
-      <input
-        className="w-full bg-base-200/40 border border-base-300/60 rounded-lg px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-primary/40 focus:bg-base-200/60 placeholder:text-base-content/20"
+    <div className="field">
+      <label>
+        {label}
+        {hint && <span className="opt">{hint}</span>}
+        {aiGeneratable && <AiFill onAIGenerate={onAIGenerate} aiLoading={aiLoading} />}
+      </label>
+      <textarea
+        className="textarea"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        rows={rows}
         placeholder={placeholder}
         maxLength={maxLength}
+        onChange={(e) => onChange(e.target.value)}
       />
     </div>
   );
 }
 
-// ── ListEditor ────────────────────────────────────────────────────
-export function ListEditor({ items, onChange, placeholder, maxLength, aiGeneratable, onAIGenerate, aiLoading, aiPrefilled }: {
-  items: string[]; onChange: (v: string[]) => void; placeholder?: string; maxLength?: number
-} & AIProps & AIPrefilledProps) {
+// ── InputField（单行字段）──────────────────────────────────────────
+export function InputField({
+  label, hint, value, onChange, placeholder, maxLength, aiGeneratable, onAIGenerate, aiLoading,
+}: {
+  label: string; hint?: string; value: string; onChange: (v: string) => void;
+  placeholder?: string; maxLength?: number;
+} & AIProps) {
   return (
-    <div className={`space-y-2 ${aiPrefilled ? 'border-l-2 border-primary/30 pl-3' : ''}`}>
-      <div className="flex items-center justify-between">
-        {aiPrefilled && (
-          <Sparkles className="w-3 h-3 text-primary/40" />
-        )}
-        {aiGeneratable && (
-          <button
-            onClick={onAIGenerate}
-            disabled={aiLoading}
-            className="text-xs text-primary/50 hover:text-primary transition-colors flex items-center gap-1 disabled:opacity-40"
-            title="AI 帮我填"
-          >
-            {aiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-            {aiLoading ? "生成中" : "AI 帮我填"}
-          </button>
-        )}
-      </div>
+    <div className="field">
+      <label>
+        {label}
+        {hint && <span className="opt">{hint}</span>}
+        {aiGeneratable && <AiFill onAIGenerate={onAIGenerate} aiLoading={aiLoading} />}
+      </label>
+      <input
+        className="input"
+        value={value}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
+// ── ListEditor（li-row 列表 + 添加一项）────────────────────────────
+export function ListEditor({
+  label, hint, items, onChange, placeholder, maxLength, aiGeneratable, onAIGenerate, aiLoading,
+}: {
+  label?: string; hint?: string; items: string[]; onChange: (v: string[]) => void;
+  placeholder?: string; maxLength?: number;
+} & AIProps) {
+  return (
+    <div className="field">
+      {(label || aiGeneratable) && (
+        <label>
+          {label}
+          {hint && <span className="opt">{hint}</span>}
+          {aiGeneratable && <AiFill onAIGenerate={onAIGenerate} aiLoading={aiLoading} />}
+        </label>
+      )}
       {items.map((item, i) => (
-        <div key={i} className="flex items-center gap-2 group">
-          <span className="text-xs text-base-content/20 w-5 text-right tabular-nums">{i + 1}.</span>
+        <div className="li-row" key={i}>
+          <span className="li-i">{i + 1}.</span>
           <input
-            className="flex-1 bg-base-200/40 border border-base-300/60 rounded-lg px-3 py-2 text-sm outline-none transition-colors focus:border-primary/40 focus:bg-base-200/60 placeholder:text-base-content/20"
+            className="input"
             value={item}
-            onChange={(e) => { const n = [...items]; n[i] = e.target.value; onChange(n); }}
             placeholder={placeholder}
             maxLength={maxLength}
+            onChange={(e) => {
+              const n = [...items];
+              n[i] = e.target.value;
+              onChange(n);
+            }}
           />
-          <button
-            onClick={() => onChange(items.filter((_, j) => j !== i))}
-            className="opacity-0 group-hover:opacity-100 text-base-content/20 hover:text-error transition-all text-sm px-1"
-          >
-            ✕
-          </button>
+          <span className="acts">
+            <button
+              className="icon-btn"
+              type="button"
+              title="删除本行"
+              onClick={() => onChange(items.filter((_, j) => j !== i))}
+            >
+              <Ico d={P.trash} sw={1.7} />
+            </button>
+          </span>
         </div>
       ))}
-      <button
-        onClick={() => onChange([...items, ""])}
-        className="text-xs text-primary/60 hover:text-primary transition-colors mt-1 inline-flex items-center gap-1"
-      >
-        <span className="text-base leading-none">+</span> 添加一项
+      <button className="text-btn" type="button" onClick={() => onChange([...items, ""])}>
+        <Ico d={P.plus} sw={2} size={13} />
+        添加一项
       </button>
     </div>
   );
 }
 
-// ── SaveButton ────────────────────────────────────────────────────
-export function SaveButton({ saving, onClick }: { saving: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={saving}
-      className="px-4 py-1.5 text-xs bg-primary/10 border border-primary/30 rounded-lg text-primary font-medium hover:bg-primary/20 transition-colors disabled:opacity-40 self-center"
-    >
-      {saving ? "保存中…" : "💾 保存"}
-    </button>
-  );
-}
-
-// ── TabBar ────────────────────────────────────────────────────────
-export function TabBar({ tabs, activeTab, onTabChange, children }: {
-  tabs: { id: string; label: string }[];
-  activeTab: string;
-  onTabChange: (id: string) => void;
-  children?: React.ReactNode;
+// ── Cfg（details.cfg 折叠组：summary 标题 + 可选 tag + chev）────────
+export function Cfg({
+  title, tag, open, children,
+}: {
+  title: string; tag?: string; open?: boolean; children: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-0 border-b border-base-300/70 mb-5">
-      {tabs.map((t) => (
-        <button
-          key={t.id}
-          onClick={() => onTabChange(t.id)}
-          className={`px-4 py-2.5 text-sm border-b-2 transition-all duration-200 ${
-            activeTab === t.id
-              ? "text-primary border-primary font-medium"
-              : "text-base-content/40 border-transparent hover:text-base-content/70"
-          }`}
-        >
-          {t.label}
-        </button>
-      ))}
-      <div className="flex-1" />
-      {children}
-    </div>
+    <details className="cfg" open={open || undefined}>
+      <summary>
+        {title}
+        {tag && <span className="tag">{tag}</span>}
+        <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13">
+          <path d={P.chevronDown} />
+        </svg>
+      </summary>
+      <div className="inner">{children}</div>
+    </details>
   );
 }

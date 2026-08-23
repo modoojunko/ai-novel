@@ -1,14 +1,25 @@
-import { useState, useCallback } from "react";
-import { useModelStatus } from "../../../hooks/useModelStatus";
-
-import { StatusBadge } from "../../shared/StatusBadge";
-import { ModelSelector } from "./ModelSelector";
+// AI 模型面板（book.html v2 设定视图·工具项；ADJUSTMENTS #10：parity 排除，
+// 产品渲染真实状态/模型选择/变更历史/用量，信息密度高于原型静态演示）。
+// 选择模型用原生 select + optgroup（按 API 配置分组），变更历史/用量统计为 cfg 折叠组。
+import { useCallback, useState } from "react";
+import { useModelStatus } from "@/hooks/useModelStatus";
+import { Cfg } from "./FormField";
 import { ChangeTimeline } from "./ChangeTimeline";
 import { NovelUsagePanel } from "./NovelUsagePanel";
 
 interface ModelSettingFormProps {
   projectId: string;
   settingKey: string;
+}
+
+const CHECK_PATH = "M5 13l4 4L19 7";
+
+function BadgeIcon({ ok }: { ok: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+      {ok ? <path d={CHECK_PATH} /> : <circle cx="12" cy="12" r="5" />}
+    </svg>
+  );
 }
 
 export default function ModelSettingForm({ projectId }: ModelSettingFormProps) {
@@ -27,55 +38,88 @@ export default function ModelSettingForm({ projectId }: ModelSettingFormProps) {
   }, [selectModel]);
 
   if (!projectId) return null;
+  if (loading) return <p className="opt">查询中…</p>;
+
+  const badge =
+    status === "configured"
+      ? { cls: "ok", label: "可用", ok: true }
+      : status === "invalid"
+        ? { cls: "err", label: "配置失效", ok: false }
+        : status === "no_model"
+          ? { cls: "empty", label: "未选择", ok: false }
+          : { cls: "empty", label: "未配置", ok: false };
+  const statusText =
+    status === "configured"
+      ? `${currentConfigName} · ${currentModel}`
+      : status === "invalid"
+        ? "当前绑定的 API 配置已删除，请重新选择模型"
+        : status === "no_model"
+          ? "已有可用 Key，还未为本书选择模型"
+          : "暂无可用 API Key";
+
+  // 按 API 配置分组（optgroup 标签 = 配置名）；value 用 cid::model 复合编码
+  const grouped: Record<string, typeof modelOptions> = {};
+  for (const opt of modelOptions) {
+    (grouped[opt.api_config_id] ||= []).push(opt);
+  }
+  const selectedValue =
+    currentConfigId && currentModel ? `${currentConfigId}::${currentModel}` : "";
 
   return (
-    <div className="space-y-6" data-setting-key="ai-model">
-      {/* Status Badge */}
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium text-base-content/70">当前状态：</span>
-        <StatusBadge
-          status={status}
-          configName={currentConfigName || undefined}
-          modelName={currentModel || undefined}
-        />
+    <div data-setting-key="ai-model">
+      <div className="field">
+        <label>当前状态</label>
+        <div className="cur-genre">
+          <span className={`badge ${badge.cls}`}>
+            <BadgeIcon ok={badge.ok} />
+            {badge.label}
+          </span>
+          <span className="opt" style={{ fontWeight: 400 }}>{statusText}</span>
+        </div>
+        {status === "no_key" && (
+          <span className="opt" style={{ fontSize: 12, color: "var(--muted)" }}>
+            暂无可用 API Key，<a href="/config">去配置</a>
+          </span>
+        )}
       </div>
 
-      {/* No keys guide */}
-      {!hasKeys && !loading && (
-        <div className="alert">
-          <span>暂无可用 API Key，</span>
-          <a href="/config" className="link link-primary">去配置</a>
-        </div>
-      )}
-
-      {/* Model Selector */}
       {hasKeys && (
-        <div>
-          <label className="block text-sm font-medium text-base-content/80 mb-2">
+        <div className="field">
+          <label>
             选择模型
-            {saving && <span className="loading loading-spinner loading-xs ml-2" />}
+            {saving && <span className="opt">保存中…</span>}
           </label>
-          <ModelSelector
-            options={modelOptions}
-            currentConfigId={currentConfigId}
-            currentModel={currentModel}
-            onSelect={handleSelect}
-            loading={loading}
-          />
+          <select
+            className="input"
+            value={selectedValue}
+            onChange={(e) => {
+              const [cid, ...rest] = e.target.value.split("::");
+              void handleSelect(cid, rest.join("::"));
+            }}
+          >
+            <option value="" disabled>
+              选择模型
+            </option>
+            {Object.entries(grouped).map(([cid, opts]) => (
+              <optgroup key={cid} label={opts[0].config_name}>
+                {opts.map((o) => (
+                  <option key={`${cid}::${o.model}`} value={`${cid}::${o.model}`}>
+                    {o.model}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
         </div>
       )}
 
-      {/* Change History */}
-      <div>
-        <h4 className="text-sm font-medium text-base-content/80 mb-2">变更历史</h4>
+      <Cfg title="变更历史" open>
         <ChangeTimeline projectId={projectId} />
-      </div>
+      </Cfg>
 
-      {/* Usage */}
-      <div>
-        <h4 className="text-sm font-medium text-base-content/80 mb-2">用量统计</h4>
+      <Cfg title="用量统计" open>
         <NovelUsagePanel projectId={projectId} />
-      </div>
+      </Cfg>
     </div>
   );
 }

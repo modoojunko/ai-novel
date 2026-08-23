@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { api } from "@/lib/api";
 import { useDirtyState } from "@/hooks/useDirtyState";
-import { Field, ListEditor, SaveButton, SettingSaveHandle, TabBar } from "./FormField";
+import { Cfg, Field, ListEditor, SettingSaveHandle } from "./FormField";
 import AISuggestionModal from "./AISuggestionModal";
 
 interface Props {
@@ -10,14 +10,6 @@ interface Props {
   /** P2-1：脏状态回调（未保存修改时 true），父组件切换面板前据此确认 */
   onDirtyChange?: (dirty: boolean) => void;
 }
-
-const TABS = [
-  { id: "role", label: "叙事身份" },
-  { id: "principles", label: "核心原则" },
-  { id: "mistakes", label: "常见错误" },
-  { id: "techniques", label: "描写技法" },
-  { id: "tone", label: "叙事基调" },
-];
 
 // 模板盘文件与前端保存存在 dict/list 双态（ADR-006）：core_principles 为分类
 // dict 或 list；depiction_techniques 为 {name/description/example} 对象列表或
@@ -58,7 +50,6 @@ const StyleSettingForm = forwardRef<SettingSaveHandle, Props>(function StyleSett
   { projectId, settingKey, onDirtyChange },
   ref,
 ) {
-  const [tab, setTab] = useState("role");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -129,6 +120,7 @@ const StyleSettingForm = forwardRef<SettingSaveHandle, Props>(function StyleSett
   }, [projectId, settingKey, snapshotLoaded]);
 
   async function handleSave() {
+    if (saving) return false;
     setSaving(true); setError("");
     try {
       // merge-on-save：只覆盖表单编辑的字段，保留模板其余键不被整表替换冲掉
@@ -212,41 +204,70 @@ const StyleSettingForm = forwardRef<SettingSaveHandle, Props>(function StyleSett
     setAiContent("");
   }
 
-  if (loading) return <div className="flex justify-center py-12"><span className="loading loading-spinner loading-md text-primary" /></div>;
+  if (loading) return <p className="opt">加载中…</p>;
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <TabBar tabs={TABS} activeTab={tab} onTabChange={setTab}>
-        <SaveButton saving={saving} onClick={handleSave} />
-      </TabBar>
+    <div>
+      <Cfg title="叙事身份" open>
+        <Field
+          label="叙事身份"
+          hint="一句话描述叙事距离（近/全知）+ 叙事态度（中立/讽刺/共情）"
+          value={role}
+          onChange={setRole}
+          aiGeneratable
+          aiLoading={aiPendingField === "role"}
+          onAIGenerate={() => handleAIGenerate("role")}
+        />
+      </Cfg>
+      <Cfg title="核心原则">
+        <ListEditor
+          items={principles}
+          onChange={setPrinciples}
+          placeholder="例如：每章「突然」不超过 3 次"
+          aiGeneratable
+          aiLoading={aiPendingField === "core_principles"}
+          onAIGenerate={() => handleAIGenerate("core_principles")}
+        />
+      </Cfg>
+      <Cfg title="常见错误">
+        <ListEditor
+          items={mistakes}
+          onChange={setMistakes}
+          placeholder="例如：过度使用「他皱了皱眉」类表情描写"
+          aiGeneratable
+          aiLoading={aiPendingField === "possible_mistakes"}
+          onAIGenerate={() => handleAIGenerate("possible_mistakes")}
+        />
+      </Cfg>
+      <Cfg title="描写技法">
+        <ListEditor
+          items={techniques}
+          onChange={setTechniques}
+          placeholder="例如：情绪通过动作表现 — 紧张=抠指甲"
+          aiGeneratable
+          aiLoading={aiPendingField === "depiction_techniques"}
+          onAIGenerate={() => handleAIGenerate("depiction_techniques")}
+        />
+      </Cfg>
+      <Cfg title="叙事基调" tag="可后补">
+        <Field
+          label="叙事者角色"
+          hint="如：第三人称有限视角叙述者；留空则不注入叙事者定位"
+          value={narratorRole}
+          onChange={setNarratorRole}
+        />
+        <Field
+          label="默认基调"
+          hint="整部作品的整体语气/口吻，如：克制冷静、情绪靠细节外化"
+          value={defaultTone}
+          onChange={setDefaultTone}
+        />
+        <ListEditor label="氛围关键词" items={atmosphere} onChange={setAtmosphere} placeholder="氛围关键词，如：压抑" />
+        <ListEditor label="叙事视角" items={pov} onChange={setPov} placeholder="叙事视角，如：第三人称有限视角" />
+        <ListEditor label="描写技法偏好" items={toneTechniques} onChange={setToneTechniques} placeholder="描写技法偏好，如：动作外化情绪" />
+      </Cfg>
 
-      {tab === "role" && (
-        <Field label="叙事身份" hint="一句话描述叙事距离（近/全知）+ 叙事态度（中立/讽刺/共情）" value={role} onChange={setRole}
-          aiGeneratable aiLoading={aiPendingField === "role"} onAIGenerate={() => handleAIGenerate("role")} />
-      )}
-      {tab === "principles" && (
-        <ListEditor items={principles} onChange={setPrinciples} placeholder='例如：每章"突然"不超过 3 次'
-          aiGeneratable aiLoading={aiPendingField === "core_principles"} onAIGenerate={() => handleAIGenerate("core_principles")} />
-      )}
-      {tab === "mistakes" && (
-        <ListEditor items={mistakes} onChange={setMistakes} placeholder='例如：过度使用"他皱了皱眉"类表情描写'
-          aiGeneratable aiLoading={aiPendingField === "possible_mistakes"} onAIGenerate={() => handleAIGenerate("possible_mistakes")} />
-      )}
-      {tab === "techniques" && (
-        <ListEditor items={techniques} onChange={setTechniques} placeholder="例如：情绪通过动作表现 — 紧张=抠指甲"
-          aiGeneratable aiLoading={aiPendingField === "depiction_techniques"} onAIGenerate={() => handleAIGenerate("depiction_techniques")} />
-      )}
-      {tab === "tone" && (
-        <div className="space-y-4">
-          <Field label="叙事者角色" hint="如：第三人称有限视角叙述者；留空则不注入叙事者定位" value={narratorRole} onChange={setNarratorRole} />
-          <Field label="默认基调" hint="整部作品的整体语气/口吻，如：克制冷静、情绪靠细节外化" value={defaultTone} onChange={setDefaultTone} />
-          <ListEditor items={atmosphere} onChange={setAtmosphere} placeholder='氛围关键词，如："压抑"' />
-          <ListEditor items={pov} onChange={setPov} placeholder='叙事视角，如："第三人称有限视角"' />
-          <ListEditor items={toneTechniques} onChange={setToneTechniques} placeholder="描写技法偏好，如：动作外化情绪" />
-        </div>
-      )}
-
-      {error && <p className="text-sm text-error/80 mt-3">{error}</p>}
+      {error && <p className="opt" style={{ color: "var(--err)" }}>{error}</p>}
 
       <AISuggestionModal
         open={aiField !== null}

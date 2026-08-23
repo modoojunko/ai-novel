@@ -1,4 +1,4 @@
-// 卷工作台表单态 ↔ PUT /volumes/{ref} payload
+// 卷纲面板表单态 ↔ PUT /volumes/{ref} payload
 // 语义：字符串标量空串=清空；chapter_target 留空=不提交（后端 int 无清空通道）；
 // 四子表提交即整族替换（后端 clear→flush→insert）
 
@@ -61,7 +61,15 @@ export function volumeFormToPayload(f: VolumeFormData): Record<string, unknown> 
     primary_drive: f.primary_drive,
     info_gap_start: f.info_gap_start,
     info_gap_end: f.info_gap_end,
-    ...(target ? { chapter_target: parseInt(target, 10) } : {}),
+    // 1-9999 钳制（非数回落 1；留空 = 不提交，后端 int 无清空通道）
+    ...(target
+      ? {
+          chapter_target: Math.max(
+            1,
+            Math.min(9999, Math.floor(Number(target)) || 1),
+          ),
+        }
+      : {}),
     stages: f.stages,
     conflict_ladders: f.conflict_ladders,
     chapter_plans: f.chapter_plans,

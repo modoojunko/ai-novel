@@ -98,6 +98,9 @@ input, textarea, select { font: inherit; }
 .field label { font-size: 12.5px; color: var(--muted); }
 /* daisyUI 同名 .input 带 height:3rem/line-height:1.5rem —— 显式还原自动高 */
 .input, select.input { width: 100%; height: auto; line-height: inherit; padding: 9px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--fg); font-size: 14px; }
+/* 原型 .input 未设 line-height/appearance → select 走 UA 默认（normal 行高 38px + 原生箭头）；
+   daisyUI .input 的 appearance:none/line-height:2 会吃掉箭头并撑高 3px —— 还原 UA 行为 */
+select.input { appearance: auto; -webkit-appearance: auto; line-height: normal; }
 .input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
 /* 原型 <p class=hint> 吃 UA 默认 p 外距（1em 0），preflight 清零后需还原 */
 .hint { font-size: 12.5px; color: var(--muted); line-height: 1.7; padding: 10px 12px; background: var(--fg-soft); border-radius: 9px; margin: 1em 0; }
