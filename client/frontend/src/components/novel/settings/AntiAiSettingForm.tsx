@@ -1,7 +1,8 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { api } from "@/lib/api";
 import { useDirtyState } from "@/hooks/useDirtyState";
-import { ListEditor, SaveButton, SettingSaveHandle, TabBar } from "./FormField";
+import { Ico, P } from "@/components/icons";
+import { Cfg, ListEditor, SettingSaveHandle } from "./FormField";
 
 interface Props {
   projectId: string;
@@ -17,11 +18,6 @@ interface TicPattern {
   severity: string;
   description: string;
 }
-
-const TABS = [
-  { id: "fatigue", label: "疲劳词" },
-  { id: "patterns", label: "句式偏好" },
-];
 
 // 与模板 anti-ai.yaml 的 fatigue_words_zh 7 分类一致（quality.py 按此分类展平检查）
 const FATIGUE_CATEGORIES = [
@@ -43,7 +39,8 @@ function emptyTic(): TicPattern {
   return { pattern: "", name: "", threshold: 3, severity: "medium", description: "" };
 }
 
-// structural_tic_patterns 结构化编辑：pattern（正则）/ name / threshold / severity / description
+// structural_tic_patterns 结构化编辑（原型 sub-block + sub-row.tics）：
+// 首行 句式名/严重度/阈值/删除 + 正则 pattern（mono）+ 修复说明
 function TicPatternEditor({ items, onChange }: { items: TicPattern[]; onChange: (v: TicPattern[]) => void }) {
   const update = (i: number, patch: Partial<TicPattern>) => {
     const n = [...items];
@@ -51,21 +48,19 @@ function TicPatternEditor({ items, onChange }: { items: TicPattern[]; onChange: 
     onChange(n);
   };
   return (
-    <div className="space-y-3">
-      {items.length === 0 && (
-        <p className="text-xs text-base-content/40">暂无句式规则。点击下方添加。</p>
-      )}
+    <div>
+      {items.length === 0 && <p className="sub-empty">暂无句式规则 · 点下方添加</p>}
       {items.map((item, i) => (
-        <div key={i} className="group border border-base-300/60 rounded-lg p-3 space-y-2">
-          <div className="flex gap-2">
+        <div className="sub-block" key={i}>
+          <div className="sub-row tics">
             <input
-              className="flex-1 bg-base-200/40 border border-base-300/60 rounded-lg px-3 py-2 text-sm outline-none transition-colors focus:border-primary/40 focus:bg-base-200/60 placeholder:text-base-content/20"
+              className="input"
               value={item.name}
               onChange={(e) => update(i, { name: e.target.value })}
               placeholder="句式名，如：不是而是句式"
             />
             <select
-              className="bg-base-200/40 border border-base-300/60 rounded-lg px-2 py-2 text-sm outline-none focus:border-primary/40 text-base-content/70"
+              className="input"
               value={item.severity}
               onChange={(e) => update(i, { severity: e.target.value })}
             >
@@ -74,36 +69,39 @@ function TicPatternEditor({ items, onChange }: { items: TicPattern[]; onChange: 
               <option value="low">低</option>
             </select>
             <input
-              type="number" min={1}
-              className="w-16 bg-base-200/40 border border-base-300/60 rounded-lg px-2 py-2 text-sm outline-none focus:border-primary/40 text-center text-base-content/70"
+              className="input num"
+              type="number"
+              min={1}
               value={item.threshold}
               onChange={(e) => update(i, { threshold: Number(e.target.value) || 1 })}
               title="单章出现次数阈值"
             />
             <button
+              className="icon-btn"
+              type="button"
+              title="删除本条"
               onClick={() => onChange(items.filter((_, j) => j !== i))}
-              className="opacity-0 group-hover:opacity-100 text-base-content/20 hover:text-error transition-all text-sm px-1"
-            >✕</button>
+            >
+              <Ico d={P.trash} sw={1.7} />
+            </button>
           </div>
           <input
-            className="w-full font-mono text-xs bg-base-200/40 border border-base-300/60 rounded-lg px-3 py-2 text-sm outline-none transition-colors focus:border-primary/40 focus:bg-base-200/60 placeholder:text-base-content/20"
+            className="input mono"
             value={item.pattern}
             onChange={(e) => update(i, { pattern: e.target.value })}
             placeholder="正则 pattern，如：不是[^，。]{1,20}(而是|是)"
           />
           <input
-            className="w-full bg-base-200/40 border border-base-300/60 rounded-lg px-3 py-2 text-sm outline-none transition-colors focus:border-primary/40 focus:bg-base-200/60 placeholder:text-base-content/20"
+            className="input"
             value={item.description}
             onChange={(e) => update(i, { description: e.target.value })}
             placeholder="修复说明（可选）：命中后如何改写"
           />
         </div>
       ))}
-      <button
-        onClick={() => onChange([...items, emptyTic()])}
-        className="text-xs text-primary/60 hover:text-primary transition-colors mt-1 inline-flex items-center gap-1"
-      >
-        <span className="text-base leading-none">+</span> 添加句式规则
+      <button className="text-btn" type="button" onClick={() => onChange([...items, emptyTic()])}>
+        <Ico d={P.plus} sw={2} size={13} />
+        添加句式规则
       </button>
     </div>
   );
@@ -113,7 +111,6 @@ const AntiAiSettingForm = forwardRef<SettingSaveHandle, Props>(function AntiAiSe
   { projectId, settingKey, onDirtyChange },
   ref,
 ) {
-  const [tab, setTab] = useState("fatigue");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -156,6 +153,7 @@ const AntiAiSettingForm = forwardRef<SettingSaveHandle, Props>(function AntiAiSe
   }, [projectId, settingKey, snapshotLoaded]);
 
   async function handleSave() {
+    if (saving) return false;
     setSaving(true); setError("");
     try {
       // merge-on-save：只覆盖 fatigue_words_zh + structural_tic_patterns，
@@ -178,35 +176,27 @@ const AntiAiSettingForm = forwardRef<SettingSaveHandle, Props>(function AntiAiSe
   // gap3：完成设定前先把当前表单内容落库（恒保存，幂等）
   useImperativeHandle(ref, () => ({ save: handleSave }));
 
-  if (loading) return <div className="flex justify-center py-12"><span className="loading loading-spinner loading-md text-primary" /></div>;
+  if (loading) return <p className="opt">加载中…</p>;
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <TabBar tabs={TABS} activeTab={tab} onTabChange={setTab}>
-        <SaveButton saving={saving} onClick={handleSave} />
-      </TabBar>
-
-      {tab === "fatigue" && (
-        <div className="space-y-5">
-          {FATIGUE_CATEGORIES.map((cat) => (
-            <div key={cat.key}>
-              <p className="text-xs text-base-content/60 font-medium mb-1.5">
-                {cat.label} <span className="text-base-content/30">（{cat.hint}）</span>
-              </p>
-              <ListEditor
-                items={fatigueWords[cat.key]?.length ? fatigueWords[cat.key] : [""]}
-                onChange={(v) => setFatigueWords((prev) => ({ ...prev, [cat.key]: v }))}
-                placeholder={`添加该分类下的疲劳词，如：${cat.hint.split("、")[0]}`}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-      {tab === "patterns" && (
+    <div>
+      <Cfg title="疲劳词" open>
+        {FATIGUE_CATEGORIES.map((cat) => (
+          <ListEditor
+            key={cat.key}
+            label={cat.label}
+            hint={cat.hint}
+            items={fatigueWords[cat.key]?.length ? fatigueWords[cat.key] : [""]}
+            onChange={(v) => setFatigueWords((prev) => ({ ...prev, [cat.key]: v }))}
+            placeholder={`添加该分类下的疲劳词，如：${cat.hint.split("、")[0]}`}
+          />
+        ))}
+      </Cfg>
+      <Cfg title="句式偏好" tag="可后补">
         <TicPatternEditor items={ticPatterns} onChange={setTicPatterns} />
-      )}
+      </Cfg>
 
-      {error && <p className="text-sm text-error/80 mt-3">{error}</p>}
+      {error && <p className="opt" style={{ color: "var(--err)" }}>{error}</p>}
     </div>
   );
 });

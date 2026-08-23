@@ -4,13 +4,15 @@ import { randomUUID } from "crypto";
 import { test, expect, type Page, type APIRequestContext, type Dialog } from "@playwright/test";
 
 // =========================================================================
-// 设定真实表单 + 归档阅读器 E2E（补测非 AI 功能：真实表单而非 API 注入）
+// 设定真实表单 + 预览只读 E2E（PR4 v2 设定视图 two-col + 预览视图复刻后改版）
 //   ① 题材：GenreSettingForm 真实题材选择器（空态 → 选 都市日常 → 应用题材 → 自动保存）
-//   ② 写作风格：StyleSettingForm 真实表单（叙事身份 Field + 核心原则 tab ListEditor）
+//   ② 风格：StyleSettingForm 真实表单（叙事身份 Field + 核心原则折叠组 ListEditor）
 //   ③ AI痕迹：AntiAiSettingForm 真实表单（疲劳词分类 ListEditor）
 //   ④ 角色：CharacterManager 真实创建角色（创建弹窗 → 基本信息 → 保存）
-//   ⑤ 归档阅读器（纯阅读布局）：正文归档 → 预览小说左树卷章结构 → 默认定档/
-//      最近阅读恢复 → 搜索 → 前后章 → 编辑正文回工作台 → 恢复编辑（归档管理迁至正文编辑页）
+//   ⑤ 预览（只读树 + 只读正文）：全书通读（草稿/归档章皆可读）→ 点章切换 →
+//      归档 tag 同步 → 回工作台恢复编辑（归档管理在正文编辑页）
+//   面板确认统一走 panel-foot「确认完成」（先 save 后 confirm，gap3）→ 按钮转
+//   「保存修改」（ADJUSTMENTS #9）；面板标题/导航用新短名（题材/简介/世界/…）。
 // =========================================================================
 // 与 creation-flow.spec.ts 共享鉴权与设定确认手法；与 free-writing-flow.spec.ts
 // 共享归档/正文工作台手法。前置条件：docker 4 服务已启动。
@@ -104,14 +106,14 @@ async function writeFirstChapter(page: Page) {
   await page.getByLabel("卷名", { exact: true }).fill("第一卷");
   await page.getByLabel(/初始章数/).fill("1");
   await page.getByRole("button", { name: "创建卷" }).click();
-  const chRow = page.locator(".col-tree .ch", { hasText: "第一章" });
+  const chRow = page.locator(".three-col .ch", { hasText: "第一章" });
   await expect(chRow).toBeVisible({ timeout: 10000 });
   await chRow.click();
   await expect(page.getByRole("tab", { name: /^章纲/ })).toBeVisible({
     timeout: 10000,
   });
   await page.getByRole("tab", { name: /^正文/ }).click();
-  const editor = page.locator(".editor");
+  const editor = page.locator(".three-col .editor");
   await expect(editor).toBeVisible({ timeout: 10000 });
   return editor;
 }
@@ -143,44 +145,50 @@ async function apiPostJSON(
   return r.json();
 }
 
-/** 在设定左侧树点一个设定项（aside 内精确匹配，避开右侧面板标题/横幅文案）。 */
+// ── v2 设定视图定位助手（.two-col = 设定/预览视图根；写作视图常驻挂载但非 two-col）──
+
+/** 在设定左栏点一个导航项（aside 内精确匹配短名：题材/简介/世界/风格/…）。 */
 async function openSetting(page: Page, label: string) {
-  await page.locator("aside").getByText(label, { exact: true }).click();
+  await page.locator(".two-col aside").getByText(label, { exact: true }).click();
 }
 
-/** 填一个表单 Field：label 文本 → 其 wrapper div 内的 textarea。 */
-async function fillSettingField(page: Page, label: string, value: string) {
-  const wrapper = page
+/**
+ * 填一个表单 Field：label 文本 → 所在 .field 内的 textarea（v2 Field 基元：
+ * div.field > label + textarea）。hasText 子串命中——注意与其他 label/hint 的
+ * 子串碰撞（角色表单「环境」hint 含「背景」→ 传 /^背景$/ 锚定正则消歧）。
+ */
+async function fillSettingField(
+  page: Page,
+  label: string | RegExp,
+  value: string,
+) {
+  const field = page
     .locator("label", { hasText: label })
-    .locator("xpath=ancestor::div[2]");
-  await wrapper.locator("textarea").fill(value);
+    .locator("xpath=ancestor::div[1]");
+  await field.locator("textarea").fill(value);
 }
 
-/** 点标准设定面板的「完成设定」并等待变为「已设定」。 */
-async function confirmPanel(page: Page, panelTitle: string) {
-  const header = page
-    .locator("main h2", { hasText: panelTitle })
-    .locator("xpath=ancestor::div[2]");
-  const btn = header.getByRole("button", { name: "完成设定" });
-  await expect(btn).toBeVisible({ timeout: 5000 });
-  await btn.click();
-  await expect(header.getByRole("button", { name: "已设定" })).toBeVisible({
-    timeout: 5000,
-  });
+/** 表单 Field 的 textarea 定位器（P2 守卫用例反复取值用）。 */
+function settingFieldTA(page: Page, label: string) {
+  return page
+    .locator("label", { hasText: label })
+    .locator("xpath=ancestor::div[1]")
+    .locator("textarea");
 }
 
-/** 点角色面板的「完成设定」（CharacterManager 底部 footer，独立实例）。 */
-async function confirmCharacters(page: Page) {
-  const footer = page
-    .locator("main")
-    .locator("div.flex", { hasText: /个角色/ })
-    .last();
-  const btn = footer.getByRole("button", { name: "完成设定" });
+/**
+ * 点 panel-foot「确认完成」：先 save（落库）后 confirm（gap3），确认后按钮转
+ * 「保存修改」（ADJUSTMENTS #9）。
+ */
+async function confirmPanel(page: Page) {
+  const btn = page
+    .locator(".panel-foot")
+    .getByRole("button", { name: "确认完成" });
   await expect(btn).toBeVisible({ timeout: 5000 });
   await btn.click();
-  await expect(footer.getByRole("button", { name: "已设定" })).toBeVisible({
-    timeout: 5000,
-  });
+  await expect(
+    page.locator(".panel-foot").getByRole("button", { name: "保存修改" }),
+  ).toBeVisible({ timeout: 5000 });
 }
 
 // -------------------------------------------------------------------------
@@ -195,39 +203,40 @@ test("题材：真实题材选择器（空态 → 选 都市日常 → 应用题
   try {
     const pid = await createNovel(page, `题材${Date.now() % 100000}`);
     await page.getByRole("button", { name: /^设定/ }).click();
-    await openSetting(page, "题材设定");
+    // v2 默认面板 = 题材（左栏首项）
+    await expect(
+      page.locator(".two-col main h2", { hasText: "题材" }),
+    ).toBeVisible({ timeout: 10000 });
 
-    // 空态（未选题材）
-    await expect(page.getByText("尚未选择题材")).toBeVisible({ timeout: 10000 });
+    // 空态：cur-genre「未选择」+ 选择题材按钮
+    await expect(page.getByText("未选择", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "选择题材" }).click();
 
-    // 选择器：默认都市系分类下点「都市日常」→ 底部出现预览 + 应用题材
-    const modal = page.locator(".modal-box");
-    await expect(modal.getByRole("heading", { name: "选择题材" })).toBeVisible({
-      timeout: 5000,
-    });
-    await modal.getByText("都市日常", { exact: true }).click();
+    // 选择器（design Modal）：都市系分组点「都市日常」→ 底部「应用题材」可用
+    const modal = page.getByRole("dialog");
     await expect(
-      modal.getByRole("button", { name: "应用题材" }),
-    ).toBeVisible();
+      modal.getByRole("heading", { name: "选择题材" }),
+    ).toBeVisible({ timeout: 5000 });
+    await modal.getByText("都市日常", { exact: true }).click();
+    const applyBtn = modal.getByRole("button", { name: "应用题材" });
+    await expect(applyBtn).toBeEnabled();
 
-    // 应用题材 → GenreSettingForm 自动保存 PUT /settings/genre
+    // 应用题材 → 自动保存 PUT /settings/genre
     const genreSave = page.waitForResponse(
       (r) =>
         r.request().method() === "PUT" && r.url().includes("/settings/genre"),
     );
-    await modal.getByRole("button", { name: "应用题材" }).click();
+    await applyBtn.click();
     await genreSave;
 
-    // 题材已应用：头部显示题材名 + 已设定徽标
+    // 题材已应用：cur-genre 显示题材名 + 已设定 tag
     await expect(page.getByText("都市日常").first()).toBeVisible({
       timeout: 5000,
     });
-    await expect(page.getByText("已设定").first()).toBeVisible();
-    await expect(page.getByText("尚未选择题材")).toHaveCount(0);
+    await expect(page.getByText("已设定", { exact: true })).toBeVisible();
 
-    // 完成设定（readiness: genre_id 非空）
-    await confirmPanel(page, "题材设定");
+    // 确认完成（readiness: genre_id 非空）
+    await confirmPanel(page);
 
     // 后端直查
     const genre = await apiGetJSON(request, token, `/novels/${pid}/settings/genre`);
@@ -238,10 +247,10 @@ test("题材：真实题材选择器（空态 → 选 都市日常 → 应用题
 });
 
 // -------------------------------------------------------------------------
-// ② 写作风格：真实表单（叙事身份 Field + 核心原则 tab）→ 保存 → 完成设定
+// ② 风格：真实表单（叙事身份 Field + 核心原则折叠组）→ 确认完成自动落库
 // -------------------------------------------------------------------------
 
-test("写作风格：真实表单（叙事身份 + 核心原则 tab）→ 保存 → 完成设定", async ({
+test("风格：真实表单（叙事身份 Field + 核心原则折叠组）→ 确认完成自动落库", async ({
   page,
   request,
 }) => {
@@ -249,30 +258,29 @@ test("写作风格：真实表单（叙事身份 + 核心原则 tab）→ 保存
   try {
     const pid = await createNovel(page, `风格${Date.now() % 100000}`);
     await page.getByRole("button", { name: /^设定/ }).click();
-    await openSetting(page, "写作风格");
+    await openSetting(page, "风格");
 
-    // 叙事身份 tab（默认）：Field 文本
+    // 叙事身份折叠组（默认展开）：Field 文本
     await fillSettingField(page, "叙事身份", "冷静克制的第三人称叙事，短句为主");
 
-    // 核心原则 tab：ListEditor 添加原则
-    await page.getByRole("button", { name: "核心原则", exact: true }).click();
-    await page.getByPlaceholder(/突然/).first().fill("动词驱动叙事，动作外化情绪");
+    // 核心原则折叠组（默认收起）：展开 → 首行 ListEditor 填原则
+    await page.locator("summary", { hasText: "核心原则" }).click();
+    const principles = page.locator("details.cfg", { hasText: "核心原则" });
+    await principles
+      .locator("input.input")
+      .first()
+      .fill("动词驱动叙事，动作外化情绪");
 
-    // 保存 → PUT /settings/style
+    // 确认完成（gap3：先 save 落库 PUT /settings/style，再 confirm）
     const styleSave = page.waitForResponse(
-      (r) =>
-        r.request().method() === "PUT" && r.url().includes("/settings/style"),
+      (r) => r.request().method() === "PUT" && r.url().includes("/settings/style"),
     );
-    await page.getByRole("button", { name: "💾 保存" }).click();
+    await confirmPanel(page);
     await styleSave;
-
-    // 完成设定（readiness: role 非空）
-    await confirmPanel(page, "写作风格");
 
     // 后端直查（merge-on-save 后 role / core_principles 落盘）
     const style = await apiGetJSON(request, token, `/novels/${pid}/settings/style`);
     expect(style.role).toContain("克制");
-    // ListEditor 模板默认项 append 在 element[0] 之后 → 不能用 toContain 精确匹配元素
     expect(
       style.core_principles.some(
         (p: string) => typeof p === "string" && p.includes("动词驱动叙事"),
@@ -284,10 +292,10 @@ test("写作风格：真实表单（叙事身份 + 核心原则 tab）→ 保存
 });
 
 // -------------------------------------------------------------------------
-// ③ AI痕迹：真实表单（疲劳词分类 ListEditor）→ 保存 → 完成设定
+// ③ AI痕迹：真实表单（疲劳词分类折叠组）→ 确认完成自动落库
 // -------------------------------------------------------------------------
 
-test("AI痕迹：真实表单（疲劳词分类列表）→ 保存 → 完成设定", async ({
+test("AI痕迹：真实表单（疲劳词分类列表）→ 确认完成自动落库", async ({
   page,
   request,
 }) => {
@@ -297,22 +305,18 @@ test("AI痕迹：真实表单（疲劳词分类列表）→ 保存 → 完成设
     await page.getByRole("button", { name: /^设定/ }).click();
     await openSetting(page, "AI痕迹控制");
 
-    // 疲劳词 tab（默认）：第一个分类（总结叙事）ListEditor 填词
+    // 疲劳词折叠组（默认展开）：第一分类（总结叙事）ListEditor 填词
     await page
       .getByPlaceholder(/添加该分类下的疲劳词/)
       .first()
       .fill("似乎");
 
-    // 保存 → PUT /settings/anti-ai
+    // 确认完成（gap3：先 save 落库 PUT /settings/anti-ai，再 confirm）
     const antiSave = page.waitForResponse(
-      (r) =>
-        r.request().method() === "PUT" && r.url().includes("/settings/anti-ai"),
+      (r) => r.request().method() === "PUT" && r.url().includes("/settings/anti-ai"),
     );
-    await page.getByRole("button", { name: "💾 保存" }).click();
+    await confirmPanel(page);
     await antiSave;
-
-    // 完成设定（readiness: anti_ai 任一非空）
-    await confirmPanel(page, "AI痕迹控制");
 
     // 后端直查：summary_narrative 分类含「似乎」
     const anti = await apiGetJSON(request, token, `/novels/${pid}/settings/anti-ai`);
@@ -323,10 +327,10 @@ test("AI痕迹：真实表单（疲劳词分类列表）→ 保存 → 完成设
 });
 
 // -------------------------------------------------------------------------
-// ④ 角色：真实创建角色（创建弹窗 → 反派 → 基本信息 → 保存 → 完成设定）
+// ④ 角色：真实创建角色（创建弹窗 → 反派 → 基本信息 → 确认完成自动落库）
 // -------------------------------------------------------------------------
 
-test("角色：真实创建角色（创建弹窗 → 基本信息 → 保存 → 完成设定）", async ({
+test("角色：真实创建角色（创建弹窗 → 基本信息 → 确认完成自动落库）", async ({
   page,
   request,
 }) => {
@@ -334,32 +338,42 @@ test("角色：真实创建角色（创建弹窗 → 基本信息 → 保存 →
   try {
     const pid = await createNovel(page, `角色${Date.now() % 100000}`);
     await page.getByRole("button", { name: /^设定/ }).click();
-    await openSetting(page, "角色管理");
+    await openSetting(page, "角色");
 
     // 空列表
-    await expect(page.getByText("暂无角色")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("暂无角色 · 点下方新建")).toBeVisible({
+      timeout: 10000,
+    });
 
-    // 创建弹窗：角色名 + 反派 role + ✦ 创建
-    await page.locator("main").getByRole("button", { name: /新建/ }).click();
-    await page.getByPlaceholder("角色名").fill("林晚");
+    // 创建弹窗：角色名 + 反派 role + ✦ 创建（面板无选中时弹窗输入唯一；
+    // 取 .last() 防面板「角色名」同名 placeholder 干扰）
+    await page.getByRole("button", { name: "新建角色" }).click();
+    await page.getByPlaceholder("角色名").last().fill("林晚");
     await page.getByRole("button", { name: "角色：反派" }).click();
     await page.getByRole("button", { name: "✦ 创建" }).click();
 
-    // 基本信息 tab（默认）：外貌 + 背景
-    await fillSettingField(page, "外貌", "眉眼清冷，总穿青色长衫");
-    await fillSettingField(page, "背景", "边境城邦出身的孤儿，被老药师收养");
+    // 创建后自动选中：列表行 + 表单角色名（异步加载完成再输入，避免覆盖）
+    await expect(
+      page.locator(".char-row", { hasText: "林晚" }),
+    ).toBeVisible({ timeout: 5000 });
+    const nameInput = page
+      .locator("label", { hasText: "角色名" })
+      .locator("xpath=ancestor::div[1]")
+      .locator("input");
+    await expect(nameInput).toHaveValue("林晚", { timeout: 5000 });
 
-    // 保存 → PUT /settings/character/林晚（create 后的第二次 PUT）
+    // 基本信息折叠组（默认展开）：外貌 + 背景
+    await fillSettingField(page, "外貌", "眉眼清冷，总穿青色长衫");
+    await fillSettingField(page, /^背景$/, "边境城邦出身的孤儿，被老药师收养");
+
+    // 确认完成（gap3：先 save 落库 PUT /settings/character/林晚，再 confirm）
     const charSave = page.waitForResponse(
       (r) =>
         r.request().method() === "PUT" &&
         r.url().includes("/settings/character/"),
     );
-    await page.getByRole("button", { name: "💾 保存" }).click();
+    await confirmPanel(page);
     await charSave;
-
-    // 完成设定（readiness: character 文件存在）
-    await confirmCharacters(page);
 
     // 后端直查
     const char = await apiGetJSON(
@@ -376,10 +390,10 @@ test("角色：真实创建角色（创建弹窗 → 基本信息 → 保存 →
 });
 
 // -------------------------------------------------------------------------
-// ⑤ 归档阅读器（纯阅读布局）：左树卷章结构 + 阅读区 + 恢复编辑迁至正文编辑页
+// ⑤ 预览视图（只读树 + 只读正文）：全书通读 → 点章切换 → 回写作恢复编辑
 // -------------------------------------------------------------------------
 
-test("归档阅读器：左树卷章 → 默认/最近阅读定档 → 搜索 → 恢复编辑回工作台", async ({
+test("预览：只读树 + 只读正文（草稿/归档章皆可读）→ 恢复编辑回工作台", async ({
   page,
   request,
 }) => {
@@ -387,7 +401,7 @@ test("归档阅读器：左树卷章 → 默认/最近阅读定档 → 搜索 �
   // archive 端点为内容驱动（≥100 字已校验），phase 仅记账 force 置 archive，不 500。
   const { restore, token } = await setupSession(page, "trial");
   try {
-    const pid = await createNovel(page, `归档读${Date.now() % 100000}`);
+    const pid = await createNovel(page, `预览读${Date.now() % 100000}`);
     const editor = await writeFirstChapter(page);
 
     await editor.fill(
@@ -398,12 +412,26 @@ test("归档阅读器：左树卷章 → 默认/最近阅读定档 → 搜索 �
     );
     await expect(page.getByText("已自动保存").first()).toBeVisible({ timeout: 8000 });
 
-    // API 备料：第二章直接 API 归档（阅读顺序/最近阅读用，ai_summary=false 不烧 AI），
-    // 第三章仅建章不归档（左树「未归档」灰显用）。须先于 UI 归档——归档事件会
-    // 触发 wb.refresh，卷章列表一次拉全三章。
+    // API 备料：第二章直接 API 归档（ai_summary=false 不烧 AI），第三章仅建章
+    // 不归档（预览全书可读的草稿章样本）。须先于 UI 归档——归档事件会触发
+    // wb.refresh，卷章列表一次拉全三章。
     await apiPostJSON(request, token, `/novels/${pid}/volumes/vol-1/chapters`, {
       title: "风起渡口",
     });
+    // 真实 UI 路径 = 编辑器先自动保存正文（PUT /prose）再归档——预览/工作台读的
+    // 都是章 store 的 prose；API 备料须同样先落 prose，否则归档章预览无正文
+    const putProse = await request.put(
+      `${ORIGIN}/api/novels/${pid}/chapters/vol-1-ch-2/prose`,
+      {
+        data: {
+          prose:
+            "渡口的雾还没散尽，船家已经解开了缆绳。林晚把那封匿名信折好收进怀里，" +
+            "回头望了一眼雾中的城墙。船身随浪晃动，她攥紧了船舷的木栏。",
+        },
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+    expect(putProse.ok()).toBeTruthy();
     await apiPostJSON(
       request,
       token,
@@ -421,8 +449,8 @@ test("归档阅读器：左树卷章 → 默认/最近阅读定档 → 搜索 �
       title: "雾中城",
     });
 
-    // 归档第一章 → 只读 + 树「已归档」同步。trial 会员首次归档连弹两个 confirm
-    // （#152：AI 摘要额度提示 + 确认归档），免费档只有后者——接受步骤内全部 dialog
+    // 归档第一章 → 只读 + 写作树「已归档」同步。trial 会员首次归档连弹两个
+    // confirm（#152：AI 摘要额度提示 + 确认归档），免费档只有后者——接受步骤内全部 dialog
     const onDlg = (d: Dialog) => d.accept();
     page.on("dialog", onDlg);
     await page.getByRole("button", { name: "归档本章" }).click();
@@ -433,93 +461,57 @@ test("归档阅读器：左树卷章 → 默认/最近阅读定档 → 搜索 �
     } finally {
       page.off("dialog", onDlg);
     }
-    // 树「已归档」即时同步：第一章（UI 归档）+ 第二章（API 备料归档）共 2 枚
-    await expect(page.locator(".col-tree .arch-tag")).toHaveCount(2, {
+    // 写作树「已归档」即时同步：第一章（UI 归档）+ 第二章（API 备料归档）共 2 枚
+    await expect(page.locator(".three-col .col-tree .arch-tag")).toHaveCount(2, {
       timeout: 5000,
     });
 
-    // 预览小说 → 纯阅读布局：默认定档第一个已归档章（首次进入，无 localStorage）
+    // ── 预览视图：全书只读通读（ADJUSTMENTS #12），初始定档 = 工作台当前章 ──
     await page.getByRole("button", { name: "预览", exact: true }).click();
-    await expect(
-      page.getByRole("heading", { name: "第一章", exact: true }),
-    ).toBeVisible({ timeout: 10000 });
-    // 阅读器正文：工作台在预览态常驻挂载（hidden），PR2 归档章只读渲染同为
-    // p + flex-1.overflow-y-auto 容器 → 加 :visible 限定当前展示的阅读器正文
-    await expect(
-      page.locator(".flex-1.overflow-y-auto p:visible", { hasText: "旧城墙头" }),
-    ).toBeVisible();
+    await expect(page.locator(".pv-title")).toHaveText("第一章", { timeout: 10000 });
+    await expect(page.locator(".two-col .tree-head .t")).toContainText("预览 · 卷");
+    // 只读正文：段落渲染 + contenteditable=false（草稿/归档章皆可读）
+    const pvProse = page.getByTestId("preview-prose");
+    await expect(pvProse.locator("p", { hasText: "旧城墙头" })).toBeVisible();
+    await expect(pvProse).toHaveAttribute("contenteditable", "false");
+    // 预览树「已归档」tag 与写作树同源
+    await expect(page.locator(".two-col .arch-tag")).toHaveCount(2, { timeout: 5000 });
 
-    // 左树：全部卷章结构（2/3 已归档）；未归档章灰显「未归档」
-    const tree = page.getByTestId("preview-tree");
-    await expect(tree.getByText("2/3")).toBeVisible({ timeout: 10000 });
-    await expect(tree.getByText("未归档")).toBeVisible();
+    // 点第三章（草稿章，无正文）→ 空正文占位（预览可读全部章，未归档不再灰显）
+    await page.locator(".two-col .ch", { hasText: "雾中城" }).click();
+    await expect(page.locator(".pv-title")).toHaveText("第三章 · 雾中城");
+    await expect(pvProse).toContainText("本章还没有正文，回到「写作」开始写。");
 
-    // 点第二章 → 阅读区切换（前后章走已归档章全书顺序，未归档不可点）
-    await tree.getByRole("button", { name: /第2章 风起渡口/ }).click();
-    await expect(page.getByRole("heading", { name: "风起渡口" })).toBeVisible({
-      timeout: 10000,
-    });
-    await expect(
-      page.locator(".flex-1.overflow-y-auto p:visible", { hasText: "渡口的雾" }),
-    ).toBeVisible();
+    // 点第二章（API 归档章）→ 正文可读
+    await page.locator(".two-col .ch", { hasText: "风起渡口" }).click();
+    await expect(page.locator(".pv-title")).toHaveText("第二章 · 风起渡口");
+    await expect(pvProse.locator("p", { hasText: "渡口的雾" })).toBeVisible();
 
-    // 最近阅读恢复（localStorage 持久化）：离开预览 → 重进（懒挂载重挂）→ 仍停在第二章
+    // ── 回写作：归档章只读横幅 + 恢复编辑（换皮不减功能，入口在正文编辑页）──
     await page.getByRole("button", { name: /^写作/ }).click();
-    await page.getByRole("button", { name: "预览", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "风起渡口" })).toBeVisible({
-      timeout: 10000,
-    });
-
-    // 前后章导航：上一章回第一章；首章上一章禁用
-    await page.getByRole("button", { name: "◀ 上一章" }).click();
-    await expect(
-      page.getByRole("heading", { name: "第一章", exact: true }),
-    ).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole("button", { name: "◀ 上一章" })).toBeDisabled();
-
-    // 标题搜索：命中未归档章（仍灰显不可读）；未命中空态
-    const search = page.getByPlaceholder("搜索章节标题...");
-    await search.fill("雾中城");
-    await expect(tree.getByText(/第3章 雾中城/)).toBeVisible();
-    await expect(tree.getByRole("button", { name: /第1章/ })).toHaveCount(0);
-    await search.fill("zzz不存在的章节");
-    await expect(tree.getByText("没有找到匹配的章节")).toBeVisible();
-    await search.fill("");
-
-    // 编辑正文（modnav「写作」）→ 回工作台（预览页无编辑入口；工作台常驻挂载保选中）
-    await page.getByRole("button", { name: /^写作/ }).click();
-    await expect(page.locator(".col-tree").getByText("第一卷")).toBeVisible({
-      timeout: 10000,
-    });
-    // PR2 查看/编辑门：归档章正文只读（contenteditable=false）+ 只读横幅
     await expect(page.getByText(/本章已归档 · 只读/).first()).toBeVisible({
       timeout: 5000,
     });
-    await expect(page.getByText("旧城墙头").first()).toBeVisible();
-    // not.toBeEditable() 对 div[contenteditable="false"] 会直接抛「无法判定」——
-    // 断言属性与 isContentEditable 语义等价且可判定
-    await expect(page.locator(".editor")).toHaveAttribute("contenteditable", "false");
-
-    // 恢复编辑（readonly-banner 内入口，换皮不减功能）：confirm → 可编辑 + 树标记撤下
+    await expect(page.locator(".three-col .editor")).toHaveAttribute(
+      "contenteditable",
+      "false",
+    );
     page.once("dialog", (d) => d.accept());
     await page.getByRole("button", { name: "恢复编辑" }).click();
-    // toBeEditable() 对 div[contenteditable="false"] 立即抛「无法判定」（不可重试）——
     // 恢复是异步 POST + 重拉，属性翻转有窗口期，须用可重试的属性断言等它变 "true"
-    await expect(page.locator(".editor")).toHaveAttribute("contenteditable", "true", {
-      timeout: 10000,
-    });
+    await expect(page.locator(".three-col .editor")).toHaveAttribute(
+      "contenteditable",
+      "true",
+      { timeout: 10000 },
+    );
     await expect(page.getByText(/本章已归档 · 只读/)).toHaveCount(0);
-    // 树「已归档」只剩 API 归档的第二章（第一章恢复后撤下）
-    await expect(page.locator(".col-tree .arch-tag")).toHaveCount(1);
+    // 写作树「已归档」只剩 API 归档的第二章（第一章恢复后撤下）
+    await expect(page.locator(".three-col .col-tree .arch-tag")).toHaveCount(1);
 
-    // 再次进入预览（懒挂载重挂）→ 恢复最近阅读章（localStorage 持久化）
+    // 再进预览：重挂载回初始定档（工作台当前章=第一章）；归档 tag 只剩第二章
     await page.getByRole("button", { name: "预览", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "风起渡口" })).toBeVisible({
-      timeout: 10000,
-    });
-    // 第一章恢复后灰显：已归档 1/3
-    await expect(tree.getByText("1/3")).toBeVisible({ timeout: 10000 });
-    await expect(tree.getByText("未归档")).toHaveCount(2);
+    await expect(page.locator(".pv-title")).toHaveText("第一章", { timeout: 10000 });
+    await expect(page.locator(".two-col .arch-tag")).toHaveCount(1);
   } finally {
     restore();
   }
@@ -535,11 +527,9 @@ test("P2-1 面板切换守卫：脏表单切换需确认，取消保留输入", 
     const pid = await createNovel(page, `守卫${Date.now() % 100000}`);
     await page.getByRole("button", { name: /^设定/ }).click();
 
-    // 默认面板=世界设定（地理 tab），等表单加载完成
-    const scene = page
-      .locator("label", { hasText: "主要场景" })
-      .locator("xpath=ancestor::div[2]")
-      .locator("textarea");
+    // v2 默认面板 = 题材 → 切到「世界」（地理折叠组默认展开），等表单加载完成
+    await openSetting(page, "世界");
+    const scene = settingFieldTA(page, "主要场景");
     await expect(scene).toBeVisible({ timeout: 10000 });
 
     // 输入 → 脏状态
@@ -551,16 +541,16 @@ test("P2-1 面板切换守卫：脏表单切换需确认，取消保留输入", 
       dialogShown = true;
       void d.dismiss();
     });
-    await openSetting(page, "写作风格");
+    await openSetting(page, "风格");
     expect(dialogShown).toBe(true);
     await expect(scene).toBeVisible();
     await expect(scene).toHaveValue("边境城邦：临海要塞，北接荒漠");
 
     // 确认分支：接受确认框 → 面板切换
     page.once("dialog", (d) => void d.accept());
-    await openSetting(page, "写作风格");
+    await openSetting(page, "风格");
     await expect(
-      page.locator("main h2", { hasText: "写作风格" }),
+      page.locator(".two-col main h2", { hasText: "风格" }),
     ).toBeVisible({ timeout: 5000 });
 
     // 后端未写入任何世界设定（脏输入未保存）
@@ -580,35 +570,32 @@ test("P2-1b 角色切换守卫：脏表单切换需确认，取消保留输入",
   try {
     const pid = await createNovel(page, `守卫角色${Date.now() % 100000}`);
     await page.getByRole("button", { name: /^设定/ }).click();
-    await openSetting(page, "角色管理");
+    await openSetting(page, "角色");
 
-    // 创建两个角色（走真实创建弹窗）
+    // 创建两个角色（走真实创建弹窗；面板选中角色的「角色名」输入与弹窗同名
+    // placeholder → .last() 取弹窗内输入）
     for (const name of ["阿甲", "阿乙"]) {
-      await page.locator("main").getByRole("button", { name: /新建/ }).click();
-      await page.getByPlaceholder("角色名").fill(name);
+      await page.getByRole("button", { name: "新建角色" }).click();
+      await page.getByPlaceholder("角色名").last().fill(name);
       await page.getByRole("button", { name: "角色：配角" }).click();
       await page.getByRole("button", { name: "✦ 创建" }).click();
       await expect(
-        page.locator("main .w-48").getByText(name, { exact: true }),
+        page.locator(".char-row", { hasText: name }),
       ).toBeVisible({ timeout: 5000 });
     }
     // 创建第二个角色后自动选中「阿乙」；先切回「阿甲」（干净，无弹窗）。
     // 阿甲数据为异步加载（GET /settings/character/阿甲），须等表单角色名=阿甲
     // （快照已就绪）再输入，否则加载完成会覆盖输入并重置脏标记 → 守卫不触发。
-    await page.locator("main .w-48").getByText("阿甲", { exact: true }).click();
-    await expect(
-      page
-        .locator("label", { hasText: "角色名" })
-        .locator("xpath=ancestor::div[1]")
-        .locator("input"),
-    ).toHaveValue("阿甲", { timeout: 5000 });
+    await page.locator(".char-row", { hasText: "阿甲" }).click();
+    const nameInput = page
+      .locator("label", { hasText: "角色名" })
+      .locator("xpath=ancestor::div[1]")
+      .locator("input");
+    await expect(nameInput).toHaveValue("阿甲", { timeout: 5000 });
 
     // 编辑阿甲的外貌 → 脏
     await fillSettingField(page, "外貌", "阿甲的外貌描述");
-    const appearance = page
-      .locator("label", { hasText: "外貌" })
-      .locator("xpath=ancestor::div[2]")
-      .locator("textarea");
+    const appearance = settingFieldTA(page, "外貌");
 
     // 取消分支：dismiss → 仍选中阿甲、输入保留
     let dialogShown = false;
@@ -616,19 +603,14 @@ test("P2-1b 角色切换守卫：脏表单切换需确认，取消保留输入",
       dialogShown = true;
       void d.dismiss();
     });
-    await page.locator("main .w-48").getByText("阿乙", { exact: true }).click();
+    await page.locator(".char-row", { hasText: "阿乙" }).click();
     expect(dialogShown).toBe(true);
     await expect(appearance).toHaveValue("阿甲的外貌描述");
 
     // 确认分支：accept → 切换为阿乙（表单角色名=阿乙）
     page.once("dialog", (d) => void d.accept());
-    await page.locator("main .w-48").getByText("阿乙", { exact: true }).click();
-    await expect(
-      page
-        .locator("label", { hasText: "角色名" })
-        .locator("xpath=ancestor::div[1]")
-        .locator("input"),
-    ).toHaveValue("阿乙");
+    await page.locator(".char-row", { hasText: "阿乙" }).click();
+    await expect(nameInput).toHaveValue("阿乙");
   } finally {
     restore();
   }
@@ -640,10 +622,9 @@ test("P2-1c 离开设定视图守卫：脏表单离开需确认，取消保留",
     await createNovel(page, `守卫离开${Date.now() % 100000}`);
     await page.getByRole("button", { name: /^设定/ }).click();
 
-    const scene = page
-      .locator("label", { hasText: "主要场景" })
-      .locator("xpath=ancestor::div[2]")
-      .locator("textarea");
+    // v2 默认面板 = 题材 → 切到「世界」再弄脏
+    await openSetting(page, "世界");
+    const scene = settingFieldTA(page, "主要场景");
     await expect(scene).toBeVisible({ timeout: 10000 });
     await scene.fill("边境城邦：临海要塞，北接荒漠");
 
@@ -658,7 +639,7 @@ test("P2-1c 离开设定视图守卫：脏表单离开需确认，取消保留",
     await expect(scene).toBeVisible();
     await expect(scene).toHaveValue("边境城邦：临海要塞，北接荒漠");
 
-    // 确认分支：accept → 离开设定视图（世界设定面板卸载）
+    // 确认分支：accept → 离开设定视图（世界面板卸载）
     page.once("dialog", (d) => void d.accept());
     await page.getByRole("button", { name: /^写作/ }).click();
     await expect(scene).toHaveCount(0);
@@ -667,7 +648,7 @@ test("P2-1c 离开设定视图守卫：脏表单离开需确认，取消保留",
   }
 });
 
-test("P2-1d 脏表单完成设定：自动保存再确认（内容落库 + 已设定）", async ({
+test("P2-1d 脏表单确认完成：自动保存再确认（内容落库 + 按钮转保存修改）", async ({
   page,
   request,
 }) => {
@@ -676,23 +657,22 @@ test("P2-1d 脏表单完成设定：自动保存再确认（内容落库 + 已�
     const pid = await createNovel(page, `守卫完成${Date.now() % 100000}`);
     await page.getByRole("button", { name: /^设定/ }).click();
 
-    // 填 ≥4 个子字段（3 地理 + 1 政治，readiness 阈值=4），不点保存（脏表单）
-    const scene = page
-      .locator("label", { hasText: "主要场景" })
-      .locator("xpath=ancestor::div[2]")
-      .locator("textarea");
+    // v2 默认面板 = 题材 → 切到「世界」；填 ≥4 个子字段（3 地理 + 1 政治，
+    // readiness 阈值=4），不点保存（脏表单）
+    await openSetting(page, "世界");
+    const scene = settingFieldTA(page, "主要场景");
     await expect(scene).toBeVisible({ timeout: 10000 });
     await fillSettingField(page, "主要场景", "一座被沙漠包围的边境城邦");
     await fillSettingField(page, "气候", "昼夜温差极大，夜晚滴水成冰");
     await fillSettingField(page, "地理限制", "北临黑海，西侧是断崖");
-    await page.getByRole("button", { name: "政治" }).click();
+    await page.locator("summary", { hasText: "政治" }).click();
     await fillSettingField(page, "统治形式", "城主议会制，元老席位世袭");
 
-    // 完成设定 → 应先自动保存（PUT /settings/world）再确认（PUT /settings/status/world）
+    // 确认完成 → 应先自动保存（PUT /settings/world）再确认（PUT /settings/status/world）
     const autoSave = page.waitForResponse(
       (r) => r.request().method() === "PUT" && r.url().includes("/settings/world"),
     );
-    await confirmPanel(page, "世界设定");
+    await confirmPanel(page);
     await autoSave;
 
     // 后端直查：内容已落库（自动保存生效）

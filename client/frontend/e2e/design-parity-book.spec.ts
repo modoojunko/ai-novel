@@ -11,6 +11,14 @@
 //   字数：正文段落数组 join 后去空白长度（countWords 同口径），运行时从 book.html
 //   源码提取 PROSE_C1/C2，避免手抄漂移（C1=793 / C2=578 / 全书 1,371）。
 //   免费态零 phase-status 请求；PRO 态 phase-status 非 all-pending（不弹 OnboardingCard）。
+//   readiness：题材/简介/风格 done（3/7）＝原型 ITEMS 默认（genre/intro/style done），
+//   modnav「设定 3/7」与设定视图左栏进度两侧一致。
+//
+// PR 4 新增三屏（screen 字段；原型 LS 不还原 preview 视图 → 统一运行时点击）：
+//   volume：点卷行 → 卷纲面板（GET /volumes/vol-1 对齐 buildBook v1.og 全字段）。
+//   settings：modnav 设定 → two-col 默认题材面板（GET /settings/genre → genre_id
+//   + GET /genres/{id} 对齐 SET_GENRE；category 用 slug、label 派生「科幻系」）。
+//   preview：modnav 预览 → 只读树 + 只读正文（初始章 = 写作视图当前章 vol-1-ch-1）。
 import fs from "fs";
 import path from "path";
 import { test, expect, type Page } from "@playwright/test";
@@ -133,17 +141,97 @@ const SEED = (() => {
     archived: false,
   };
 
-  // GET /readiness：仅题材 done → modnav 设定 1/7
+  // GET /readiness：题材/简介/风格 done → 设定 3/7（＝原型 ITEMS 默认）
   const readiness = {
-    missing: ["synopsis", "world", "style", "anti-ai", "hooks", "characters"].map((key) => ({ key })),
+    missing: ["world", "anti-ai", "hooks", "characters"].map((key) => ({ key })),
   };
 
-  return { project, volumes, tree, chapter, readiness };
+  // GET /volumes/vol-1（卷纲面板：buildBook v1.og 全字段；chapters 供「去配章纲」）
+  const volumeDetail = {
+    ref: "vol-1",
+    volume: 1,
+    title: "星海初航",
+    summary: "废弃星港上，导航员沉舟捡到一枚不属于人类纪元的导航信标。",
+    direction_method: "template",
+    template_name: "悬疑递进",
+    core_conflict: "人类与回声源头的相遇：信任还是提防",
+    emotional_arc: "从压抑到爆发，结尾留悬念",
+    arc_mode: "层层逼近",
+    primary_drive: "信息差",
+    info_gap_start: "信标与沉舟的身世有关（读者知道、角色不知）",
+    info_gap_end: "回声的源头浮出：一个等待三百年的同类",
+    chapter_target: 4,
+    stages: [
+      { stage_name: "建立悬念", stage_function: "信标出现，节奏像呼吸；修船的决定成形", chapter_count: 3 },
+      { stage_name: "首次揭示", stage_function: "旧船与信标的关联浮出水面", chapter_count: 1 },
+    ],
+    conflict_ladders: [
+      { layer_no: 1, chapters_range: "第1-2章", obstacle: "港区资源枯竭，修船无门", turning_type: "信息转折", turning_point: "指示灯随信号明灭" },
+      { layer_no: 2, chapters_range: "第3-4章", obstacle: "跃迁不可逆，退路被拆除", turning_type: "状态转折", turning_point: "锚点信号衰减" },
+    ],
+    chapter_plans: [
+      { chapter_no: 1, title: "锚点", summary: "信标点亮，沉舟决定沿着信号追踪它的来处", emotional_anchor: "好奇与不安", info_gap: "信标与身世有关（读者知、角色不知）", arc_position: "开端" },
+      { chapter_no: 2, title: "跃迁", summary: "点火与代价：亲手拆掉自己的锚点", emotional_anchor: "壮阔后的失落", info_gap: "坐标尽头是什么（未知）", arc_position: "推进" },
+    ],
+    character_voices: [
+      { character_name: "沉舟", situation: "修好旧船驶离星港，退路已断", unfinished: "回声的源头仍未确认", interlude_thought: "七年寂静，换一次出发", next_action: "沿信号寻找源头" },
+    ],
+    chapters: volumes[0].chapters.map((c) => ({
+      ref: `vol-1-ch-${c.chapter}`,
+      volume: 1,
+      chapter: c.chapter,
+      title: c.title,
+      status: c.status,
+      word_count: c.word_count,
+      has_prose: c.has_prose,
+      outline_status: c.status,
+      archived: c.archived,
+    })),
+  };
+
+  // 设定视图·题材面板（默认面板）：GET /settings/genre → genre_id
+  // + GET /genres/deep-space → GenreDefinition（对齐原型 SET_GENRE 逐字段）
+  const genreSetting = { genre_id: "deep-space" };
+  const genreDef = {
+    id: "deep-space",
+    name: "深空探索",
+    description: "以航程与未知为核心的科幻：技术精确、情绪克制。",
+    category: "scifi",
+    narratorRole: "第三人称有限视角叙述者",
+    typicalArc: "收到信号，就一定要走到信号的尽头。",
+    toneBlueprint: {
+      defaultTone: "克制冷静、情绪靠细节外化",
+      atmosphereOptions: ["冷寂", "克制", "悬念感"],
+      povOptions: ["第三人称有限视角"],
+      techniqueTags: ["动作外化情绪", "物件锚点复现"],
+    },
+    taboos: ["超光速通讯", "无代价跃迁", "万能翻译器"],
+    promptInjection: "写作时保持冷寂克制的科幻质地：技术细节精确但不炫技；情绪让位于氛围；避免热血化表达。",
+    genreConfig: {
+      fulfillmentTypes: ["发现真相的瞬间", "沉默中的微小决断", "绝境中的精确操作"],
+      chapterTypes: ["场景章（一段航程/一处星域）", "揭示章", "抉择章"],
+      pacingRules: ["每章至少一个变化", "每三章一次小揭示"],
+      fatigueWords: ["突然", "瞬间", "仿佛"],
+    },
+    storyArcTemplates: [
+      { id: "arc-signal", name: "追寻弧线", description: "收到信号，就一定要走到信号的尽头。", beats: ["收到信号", "出发", "找到源头", "代价与选择"] },
+      { id: "arc-mirror", name: "镜像弧线", description: "以为在找别人，其实在找自己。", beats: ["接到信号", "镜像事件", "自我揭示", "和解"] },
+    ],
+    isPreset: true,
+  };
+
+  return { project, volumes, tree, chapter, readiness, volumeDetail, genreSetting, genreDef };
 })();
 
 // parity 只取免费态：PRO 态右栏续写/润色/扩写为产品真实工具行（换皮不减功能），
 // 原型标「规划中」——已登记 ADJUSTMENTS.md（PR 3「未动原型」清单，parity 态取免费版）。
-const CASES = [{ state: "free", pro: false }] as const;
+// screen：workbench=默认章工作台 / volume=卷纲面板 / settings=设定视图 / preview=预览视图。
+const CASES = [
+  { state: "free", pro: false, screen: "workbench" },
+  { state: "volume", pro: false, screen: "volume" },
+  { state: "settings", pro: false, screen: "settings" },
+  { state: "preview", pro: false, screen: "preview" },
+] as const;
 
 test.describe("design-parity 书工作台屏（book.html）", () => {
   test.skip(
@@ -152,7 +240,7 @@ test.describe("design-parity 书工作台屏（book.html）", () => {
   );
 
   for (const c of CASES) {
-    test(c.state, async ({ browser }) => {
+    test(`${c.state} · ${c.screen}`, async ({ browser }) => {
       // ── 原型侧（设计真值；free=默认种子，pro=LS 覆写）──────────
       const protoCtx = await browser.newContext({ viewport: VIEWPORT });
       await protoCtx.addInitScript((pro) => {
@@ -163,6 +251,15 @@ test.describe("design-parity 书工作台屏（book.html）", () => {
       await protoPage.goto(`file://${PROTO_FILE}`);
       await protoPage.evaluate(() => document.fonts.ready);
       await protoPage.waitForTimeout(700);
+      // 屏内交互（原型 LS 仅还原 settings/outline 视图 → 统一运行时点击，两侧对称）
+      if (c.screen === "volume") {
+        await protoPage.locator(".vol-head .vt").first().click();
+      } else if (c.screen === "settings") {
+        await protoPage.locator('.mtab[data-view="settings"]').click();
+      } else if (c.screen === "preview") {
+        await protoPage.locator('.mtab[data-view="preview"]').click();
+      }
+      await protoPage.waitForTimeout(400);
       const protoShot = await protoPage.screenshot();
       await protoCtx.close();
 
@@ -176,6 +273,25 @@ test.describe("design-parity 书工作台屏（book.html）", () => {
       stubBookAPI(appPage, c.pro);
       await appPage.goto(`/#/novel/${PID}`);
       await appPage.waitForSelector(".chtab", { timeout: 10000 });
+      if (c.screen === "volume") {
+        const volLoaded = appPage.waitForResponse(`**/api/novels/${PID}/volumes/vol-1`);
+        await appPage.locator(".vol-head .vt").first().click();
+        await volLoaded;
+        await appPage.waitForSelector(".col-middle .panel-head h2");
+      } else if (c.screen === "settings") {
+        // 等待须先于点击注册：挂载即发请求，响应可能先于 await 返回
+        const genreLoaded = appPage.waitForResponse("**/api/genres/deep-space");
+        await appPage.locator(".modnav button", { hasText: "设定" }).click();
+        await genreLoaded;
+        await appPage.waitForSelector(".two-col main h2");
+      } else if (c.screen === "preview") {
+        const proseLoaded = appPage.waitForResponse(
+          `**/api/novels/${PID}/chapters/vol-1-ch-1`,
+        );
+        await appPage.locator(".modnav button", { hasText: "预览" }).click();
+        await proseLoaded;
+        await appPage.waitForSelector(".pv-title");
+      }
       await appPage.waitForLoadState("networkidle");
       await appPage.evaluate(() => document.fonts.ready);
       await appPage.waitForTimeout(700); // page-enter 0.4s 收敛
@@ -223,9 +339,13 @@ function stubBookAPI(page: Page, pro: boolean) {
   page.route("**/api/auth/check-auth", (r) => r.fulfill({ json: { code: 1 } }));
   page.route(`**/api/novels/${PID}`, (r) => r.fulfill({ json: SEED.project }));
   page.route(`**/api/novels/${PID}/volumes`, (r) => r.fulfill({ json: SEED.volumes }));
+  page.route(`**/api/novels/${PID}/volumes/vol-1`, (r) => r.fulfill({ json: SEED.volumeDetail }));
   page.route(`**/api/novels/${PID}/tree`, (r) => r.fulfill({ json: SEED.tree }));
   page.route(`**/api/novels/${PID}/readiness`, (r) => r.fulfill({ json: SEED.readiness }));
   page.route(`**/api/novels/${PID}/chapters/vol-1-ch-1`, (r) => r.fulfill({ json: SEED.chapter }));
+  // 设定视图·题材面板（默认面板）：已设定题材 = 原型 SET_GENRE（深空探索）
+  page.route(`**/api/novels/${PID}/settings/genre`, (r) => r.fulfill({ json: SEED.genreSetting }));
+  page.route("**/api/genres/deep-space", (r) => r.fulfill({ json: SEED.genreDef }));
   // PRO 态：非 all-pending（不弹 OnboardingCard；原型 pro 态无催促卡）
   page.route(`**/api/novels/${PID}/workflow/phase-status`, (r) =>
     r.fulfill({

@@ -149,9 +149,10 @@ test("免费建书直达写作工作台：零 phase-status，无阶段催促，m
 
     // ⑦ 免费可进设定视图 → 经 modnav「写作」返回
     await page.getByRole("button", { name: /^设定/ }).click();
-    await expect(page.getByText("世界设定").first()).toBeVisible({
-      timeout: 5000,
-    });
+    // v2 two-col 设定视图挂载（左栏导航短名「世界」可见即证明）
+    await expect(
+      page.locator(".two-col aside").getByText("世界", { exact: true }),
+    ).toBeVisible({ timeout: 5000 });
     await page.getByRole("button", { name: /^写作/ }).click();
     await expect(page.getByText("开始创作")).toBeVisible();
     // 全程仍零 phase-status（设定确认 refetch 免费态为 no-op）
@@ -180,10 +181,11 @@ test("加卷加章：即达编辑器，实时字数 + 自动保存，空章三�
     await expect(tree.getByText("第一章")).toBeVisible();
     await expect(tree.locator(".ch .dot-empty").first()).toBeVisible();
 
-    // 点卷节点 → 卷工作台页（过渡期 VolumePage，PR4 换卷纲面板）
+    // 点卷节点 → 卷纲面板（PR4：常编辑态全字段，无独立右栏）
     await tree.locator(".vol-head", { hasText: "第一卷" }).click();
-    await expect(page.getByText("卷故事简述")).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('aside[class*="w-[400px]"]')).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "保存卷纲" }),
+    ).toBeVisible({ timeout: 10000 });
 
     // 点回第一章 → 强制落「章纲」页签 → 切「正文」→ 编辑器恢复 → ⑤ 实时字数 + 自动保存
     await tree.locator(".ch", { hasText: "第一章" }).click();

@@ -1,26 +1,17 @@
 // ── GenreSettingForm ──────────────────────────────────────────────────────
-// Settings tree node for genre/trope configuration.
-// Follows the same pattern as WorldSettingForm / StyleSettingForm.
-// Collapsible sections for: taboos, prompt injection, genre config,
-// and story arc templates.
-// ADR-007：叙事者角色/文风蓝图已移出——归文风表单（writing-style tone）。
+// 题材设定面板（book.html v2 设定视图·题材）：
+//   当前题材卡（cur-genre）+ 类型禁忌 chips（只读派生）+ 提示词注入段
+//   （seg 启用/停用 + prompt-preview）+ 题材配置 4 组 ListEditor + 故事弧模板卡。
+// 数据逻辑不动（ADR-007：叙事者/文风蓝图归文风表单；切题材自动落库）。
+// 保存/确认语义收敛到面板脚注（gap3）：SettingsView 持 GenreHandle。
 
-import { useEffect, useState, useCallback } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState, useCallback } from "react";
 import { api } from "@/lib/api";
+import { toast } from "@/lib/toast";
+import { Ico, P } from "@/components/icons";
 import GenrePickerModal from "./GenrePickerModal";
+import { Cfg, ListEditor, SettingSaveHandle } from "./FormField";
 import { fetchGenre, normalizeGenreDefinition, DEFAULT_GENRE_ID, type GenreDefinition, type StoryArcTemplate } from "@/data/genres";
-import {
-  ChevronDown,
-  ChevronUp,
-  RefreshCw,
-  BookOpen,
-  Ban,
-  Terminal,
-  Settings2,
-  LayoutList,
-  PenLine,
-  AlertTriangle,
-} from "lucide-react";
 
 // ── Props ────────────────────────────────────────────────────────────────
 
@@ -28,6 +19,12 @@ interface GenreSettingFormProps {
   projectId: string;
   settingKey: string;
 }
+
+/** 面板脚注（gap3）持有：save 落库 / hasGenre 确认前校验 / openPicker 空态引导 */
+export type GenreHandle = SettingSaveHandle & {
+  hasGenre: () => boolean;
+  openPicker: () => void;
+};
 
 // ── Data shape from API ──────────────────────────────────────────────────
 
@@ -54,112 +51,9 @@ const GENRE_CATEGORIES: { id: string; label: string }[] = [
   { id: "independent", label: "独立类型" },
 ];
 
-// ── CollapsibleSection ───────────────────────────────────────────────────
+// ── Story arc card（原型 .arc-card：ac-name + 已选 pill + ac-desc + beats）──
 
-function CollapsibleSection({
-  icon,
-  title,
-  defaultOpen = true,
-  children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-
-  return (
-    <div className="border border-base-300/50 rounded-lg overflow-hidden bg-base-100/40">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-base-200/30"
-      >
-        <span className="shrink-0 w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center text-primary">
-          {icon}
-        </span>
-        <span className="text-sm font-medium text-base-content/80 flex-1">{title}</span>
-        {open ? (
-          <ChevronUp className="w-4 h-4 text-base-content/30" />
-        ) : (
-          <ChevronDown className="w-4 h-4 text-base-content/30" />
-        )}
-      </button>
-      <div
-        className={`transition-all duration-200 overflow-hidden ${
-          open ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
-        }`}
-      >
-        <div className="px-4 pb-4 pt-1">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-// ── TagList ──────────────────────────────────────────────────────────────
-
-function TagList({ tags }: { tags: string[] }) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {tags.map((tag) => (
-        <span
-          key={tag}
-          className="px-2 py-0.5 text-xs bg-base-200/50 border border-base-300/50 rounded-full text-base-content/60"
-        >
-          {tag}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-// ── ListInput ────────────────────────────────────────────────────────────
-
-function ListInput({
-  items,
-  onChange,
-  placeholder,
-}: {
-  items: string[];
-  onChange: (items: string[]) => void;
-  placeholder?: string;
-}) {
-  return (
-    <div className="space-y-1.5">
-      {items.map((item, i) => (
-        <div key={i} className="flex items-center gap-2 group">
-          <span className="text-xs text-base-content/20 w-5 text-right tabular-nums">{i + 1}.</span>
-          <input
-            className="flex-1 bg-base-200/40 border border-base-300/60 rounded-lg px-3 py-1.5 text-sm outline-none transition-colors focus:border-primary/40 focus:bg-base-200/60 placeholder:text-base-content/20"
-            value={item}
-            onChange={(e) => {
-              const n = [...items];
-              n[i] = e.target.value;
-              onChange(n);
-            }}
-            placeholder={placeholder}
-          />
-          <button
-            onClick={() => onChange(items.filter((_, j) => j !== i))}
-            className="opacity-0 group-hover:opacity-100 text-base-content/20 hover:text-error transition-all text-sm px-1"
-          >
-            X
-          </button>
-        </div>
-      ))}
-      <button
-        onClick={() => onChange([...items, ""])}
-        className="text-xs text-primary/60 hover:text-primary transition-colors inline-flex items-center gap-1"
-      >
-        <span className="text-base leading-none">+</span> 添加一项
-      </button>
-    </div>
-  );
-}
-
-// ── SelectableArcCard ────────────────────────────────────────────────────
-
-function SelectableArcCard({
+function ArcCard({
   template,
   selected,
   onSelect,
@@ -169,39 +63,15 @@ function SelectableArcCard({
   onSelect: () => void;
 }) {
   return (
-    <button
-      onClick={onSelect}
-      className={`w-full text-left rounded-lg border p-3 transition-all ${
-        selected
-          ? "border-primary/40 bg-primary/5"
-          : "border-base-300/50 hover:border-base-300/80 bg-base-200/20"
-      }`}
-    >
-      <div className="flex items-center gap-2 mb-1">
-        <span
-          className={`text-xs font-medium ${
-            selected ? "text-primary" : "text-base-content/70"
-          }`}
-        >
-          {template.name}
-        </span>
-        {selected && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary/80">
-            已选
-          </span>
-        )}
-      </div>
-      <p className="text-xs text-base-content/40 leading-relaxed">
-        {template.description}
-      </p>
-      <div className="flex flex-wrap gap-1 mt-2">
+    <button className={`arc-card${selected ? " on" : ""}`} type="button" onClick={onSelect}>
+      <span className="ac-name">
+        {template.name}
+        {selected && <span className="ac-sel">已选</span>}
+      </span>
+      <p className="ac-desc">{template.description}</p>
+      <div className="ac-beats">
         {template.beats.map((beat, i) => (
-          <span
-            key={i}
-            className="text-[10px] px-1.5 py-0.5 rounded bg-base-300/40 text-base-content/50"
-          >
-            {beat}
-          </span>
+          <span className="ac-beat" key={i}>{beat}</span>
         ))}
       </div>
     </button>
@@ -210,7 +80,10 @@ function SelectableArcCard({
 
 // ── Main component ───────────────────────────────────────────────────────
 
-export default function GenreSettingForm({ projectId, settingKey }: GenreSettingFormProps) {
+const GenreSettingForm = forwardRef<GenreHandle, GenreSettingFormProps>(function GenreSettingForm(
+  { projectId, settingKey },
+  ref,
+) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -341,21 +214,34 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
     };
   }, [projectId, settingKey]);
 
-  // ── Save ──────────────────────────────────────────────────────────
-  const handleSave = useCallback(async () => {
-    if (!genre) return;
+  // ── Save（面板脚注 gap3 调用；切题材已自动落库）───────────────────
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (!genre) return true;
+    if (saving) return false;
     setSaving(true);
     setError("");
     try {
       await api.put(`/novels/${projectId}/settings/${settingKey}`, buildPayload(genre));
+      return true;
     } catch (e: any) {
       setError(e.message || "保存失败");
+      return false;
     } finally {
       setSaving(false);
     }
-  }, [projectId, settingKey, genre, buildPayload]);
+  }, [projectId, settingKey, genre, saving, buildPayload]);
 
-  // ── Handle genre change from picker ───────────────────────────────
+  useImperativeHandle(
+    ref,
+    () => ({
+      save: handleSave,
+      hasGenre: () => !!genre,
+      openPicker: () => setShowPicker(true),
+    }),
+    [handleSave, genre],
+  );
+
+  // ── Handle genre change from picker（自动落库 + 原型 toast 文案）────
   const handleGenreChange = useCallback(
     async (newId: string) => {
       const g = await fetchGenre(newId);
@@ -366,6 +252,7 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
       setSaving(true);
       try {
         await api.put(`/novels/${projectId}/settings/${settingKey}`, buildPayload(g));
+        toast.success(`已应用题材「${g.name}」· 模板已带入，已填内容保留`);
       } catch (e: any) {
         setError(e.message || "保存失败");
       } finally {
@@ -377,28 +264,30 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
 
   // ── Loading state ─────────────────────────────────────────────────
   if (loading) {
-    return (
-      <div className="flex justify-center py-12">
-        <span className="loading loading-spinner loading-md text-primary" />
-      </div>
-    );
+    return <p className="opt">加载中…</p>;
   }
 
   // ── Empty state (no genre selected) ───────────────────────────────
   if (!genre) {
     return (
-      <div className="max-w-3xl mx-auto text-center py-16 space-y-4">
-        <BookOpen className="w-12 h-12 mx-auto text-base-content/20" />
-        <h3 className="text-base font-medium text-base-content/60">尚未选择题材</h3>
-        <p className="text-sm text-base-content/40 max-w-md mx-auto leading-relaxed">
-          选择题材可以帮助 AI 更准确地把握你的小说类型特征，生成贴合类型的文风和内容。
-        </p>
-        <button
-          onClick={() => setShowPicker(true)}
-          className="btn btn-primary btn-sm"
-        >
-          选择题材
-        </button>
+      <div>
+        <div className="field">
+          <label>当前题材</label>
+          <div className="cur-genre">
+            <span>未选择</span>
+            <button
+              className="btn btn-primary btn-sm"
+              style={{ marginLeft: "auto" }}
+              type="button"
+              onClick={() => setShowPicker(true)}
+            >
+              选择题材
+            </button>
+          </div>
+          <span className="opt" style={{ fontSize: 12, color: "var(--muted)" }}>
+            选择题材可以帮助 AI 更准确地把握你的小说类型特征，生成贴合类型的文风和内容。
+          </span>
+        </div>
 
         <GenrePickerModal
           open={showPicker}
@@ -414,178 +303,112 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
 
   // ── Render ────────────────────────────────────────────────────────
   return (
-    <div className="max-w-3xl mx-auto">
-      {/* ── Header ──────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {definitionMissing ? (
-              <>
-                <h2 className="text-xl font-serif font-semibold text-base-content">
-                  {genreId}
-                </h2>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-warning/10 text-warning/80 border border-warning/20">
-                  定义缺失
-                </span>
-              </>
-            ) : (
-              <>
-                <h2 className="text-xl font-serif font-semibold text-base-content">
-                  {genre.name}
-                </h2>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary/80 border border-primary/20">
-                  {categoryLabel}
-                </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-success/10 text-success/80 border border-success/20">
-                  已设定
-                </span>
-              </>
-            )}
-          </div>
-          {!definitionMissing && genre.description && (
-            <p className="text-xs text-base-content/40 mt-1 max-w-lg leading-relaxed">
-              {genre.description}
-            </p>
-          )}
-        </div>
-        <button
-          onClick={() => setShowPicker(true)}
-          className="shrink-0 flex items-center gap-1.5 px-4 py-2 text-sm bg-base-200/60 border border-base-300/60 rounded-lg text-base-content/70 hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          更换题材
-        </button>
-      </div>
-
-      {definitionMissing && (
-        <div className="flex items-start gap-2.5 bg-warning/10 border border-warning/25 rounded-lg px-4 py-3 mb-4">
-          <AlertTriangle className="w-4 h-4 text-warning/70 shrink-0 mt-0.5" />
-          <p className="text-xs text-base-content/60 leading-relaxed">
-            该题材定义已不存在（可能已被删除）。仍可编辑并保存下方覆盖项；更换为新题材可恢复完整设置。
-          </p>
-        </div>
-      )}
-
-      {/* ── Collapsible sections ─────────────────────────────────── */}
-      <div className="space-y-3">
-        {/* 1. 类型禁忌 */}
-        {genre.taboos.length > 0 && (
-          <CollapsibleSection icon={<Ban className="w-3.5 h-3.5" />} title="类型禁忌" defaultOpen={false}>
-            <div>
-              <label className="text-[11px] text-base-content/50 font-medium block mb-1.5 tracking-wide">
-                避免以下内容
-              </label>
-              <TagList tags={genre.taboos} />
-              <p className="text-xs text-base-content/30 mt-2 leading-relaxed">
-                这些禁忌由题材自动派生，不可编辑。如需调整，请在写作风格中自定义规则。
-              </p>
-            </div>
-          </CollapsibleSection>
-        )}
-
-        {/* 2. 提示词注入段 */}
-        <CollapsibleSection icon={<Terminal className="w-3.5 h-3.5" />} title="提示词注入段" defaultOpen={false}>
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-base-content/70">AI 行为引导注入</span>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={promptInjectionEnabled}
-                  onChange={(e) => setPromptInjectionEnabled(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-10 h-5 bg-base-300 rounded-full peer peer-checked:bg-primary/70 peer-focus:ring-2 peer-focus:ring-primary/20 transition-all after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5" />
-              </label>
-            </div>
-            <div
-              className={`bg-base-200/40 border rounded-lg p-3 text-xs font-mono leading-relaxed whitespace-pre-wrap transition-colors ${
-                promptInjectionEnabled
-                  ? "border-primary/20 text-primary/80"
-                  : "border-base-300/30 text-base-content/30 line-through"
-              }`}
-            >
-              {genre.promptInjection}
-            </div>
-            <p className="text-xs text-base-content/30 mt-2">
-              注入段会自动嵌入到发送给 AI 的系统提示词中，影响写作风格和行为。
-            </p>
-          </div>
-        </CollapsibleSection>
-
-        {/* 3. 题材配置 (editable) */}
-        <CollapsibleSection icon={<Settings2 className="w-3.5 h-3.5" />} title="题材配置">
-          <div className="space-y-4">
-            <div>
-              <label className="text-[11px] text-base-content/50 font-medium block mb-1.5 tracking-wide">
-                满足类型
-              </label>
-              <ListInput items={fulfillmentTypes} onChange={setFulfillmentTypes} placeholder="例如：人物成长" />
-            </div>
-            <div>
-              <label className="text-[11px] text-base-content/50 font-medium block mb-1.5 tracking-wide">
-                章节类型
-              </label>
-              <ListInput items={chapterTypes} onChange={setChapterTypes} placeholder="例如：日常" />
-            </div>
-            <div>
-              <label className="text-[11px] text-base-content/50 font-medium block mb-1.5 tracking-wide">
-                节奏规则
-              </label>
-              <ListInput items={pacingRules} onChange={setPacingRules} placeholder="例如：每章至少 1 次情感刻画" />
-            </div>
-            <div>
-              <label className="text-[11px] text-base-content/50 font-medium block mb-1.5 tracking-wide">
-                疲劳词
-              </label>
-              <ListInput items={fatigueWords} onChange={setFatigueWords} placeholder="例如：突然" />
-            </div>
-          </div>
-        </CollapsibleSection>
-
-        {/* 4. 故事弧模板 — 定义缺失时隐藏 */}
-        {!definitionMissing && (
-          <CollapsibleSection icon={<LayoutList className="w-3.5 h-3.5" />} title="故事弧模板" defaultOpen={false}>
-            <div className="space-y-2">
-              <p className="text-xs text-base-content/40 mb-2 leading-relaxed">
-                选择最适合你这篇小说的故事弧模板。选中的模板会影响 AI 对章节结构的规划。
-              </p>
-              {genre.storyArcTemplates.map((tpl) => (
-                <SelectableArcCard
-                  key={tpl.id}
-                  template={tpl}
-                  selected={selectedArcId === tpl.id}
-                  onSelect={() => setSelectedArcId(tpl.id)}
-                />
-              ))}
-            </div>
-          </CollapsibleSection>
-        )}
-      </div>
-
-      {/* ── Error ────────────────────────────────────────────────── */}
-      {error && <p className="text-sm text-error/80 mt-4">{error}</p>}
-
-      {/* ── Save bar ──────────────────────────────────────────────── */}
-      <div className="flex items-center justify-end mt-6 pt-4 border-t border-base-300/50">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-5 py-2 text-sm font-medium bg-primary text-primary-content rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          {saving ? (
-            <>
-              <span className="loading loading-spinner loading-xs" />
-              保存中...
-            </>
+    <div>
+      {/* ── 当前题材卡 ──────────────────────────────────────────── */}
+      <div className="field">
+        <label>当前题材</label>
+        <div className="cur-genre">
+          <span>{genre.name}</span>
+          {definitionMissing ? (
+            <span className="tag">定义缺失</span>
           ) : (
             <>
-              <PenLine className="w-3.5 h-3.5" />
-              保存设定
+              <span className="tag">{categoryLabel}</span>
+              <span className="tag">已设定</span>
             </>
           )}
-        </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{ marginLeft: "auto" }}
+            type="button"
+            onClick={() => setShowPicker(true)}
+          >
+            <Ico d={P.tune} sw={1.8} />
+            选择 / 切换题材
+          </button>
+        </div>
+        {definitionMissing ? (
+          <span className="opt" style={{ fontSize: 12, color: "var(--muted)" }}>
+            该题材定义已不存在（可能已被删除）。仍可编辑并保存下方覆盖项；切换为新题材可恢复完整设置。
+          </span>
+        ) : (
+          genre.description && (
+            <span className="opt" style={{ fontSize: 12, color: "var(--muted)" }}>
+              {genre.description} 切换题材将替换题材相关的参数模板，已填内容保留。
+            </span>
+          )
+        )}
       </div>
+
+      {/* ── 类型禁忌（题材派生，只读）────────────────────────────── */}
+      {genre.taboos.length > 0 && (
+        <Cfg title="类型禁忌">
+          <div className="chips">
+            {genre.taboos.map((t) => (
+              <span className="chip" key={t}>{t}</span>
+            ))}
+          </div>
+          <p className="opt" style={{ margin: "8px 0 0", fontSize: 11.5 }}>
+            禁忌由题材自动派生，不可编辑；如需调整请在风格设定中自定义规则。
+          </p>
+        </Cfg>
+      )}
+
+      {/* ── 提示词注入段 ────────────────────────────────────────── */}
+      <Cfg title="提示词注入段">
+        <div className="fl-row">
+          <span style={{ fontSize: 13 }}>AI 行为引导注入</span>
+          <span className="seg" role="group" aria-label="提示词注入">
+            <button
+              type="button"
+              className={promptInjectionEnabled ? "on" : undefined}
+              onClick={() => setPromptInjectionEnabled(true)}
+            >
+              启用
+            </button>
+            <button
+              type="button"
+              className={!promptInjectionEnabled ? "on" : undefined}
+              onClick={() => setPromptInjectionEnabled(false)}
+            >
+              停用
+            </button>
+          </span>
+        </div>
+        <div className="prompt-preview" style={{ marginTop: 10, opacity: promptInjectionEnabled ? undefined : 0.45 }}>
+          {genre.promptInjection}
+        </div>
+        <p className="opt" style={{ margin: "8px 0 0", fontSize: 11.5 }}>
+          注入段会自动嵌入发送给 AI 的系统提示词，影响写作风格与行为。
+        </p>
+      </Cfg>
+
+      {/* ── 题材配置（可编辑）───────────────────────────────────── */}
+      <Cfg title="题材配置" open>
+        <ListEditor label="满足类型（爽点）" items={fulfillmentTypes} onChange={setFulfillmentTypes} placeholder="例如：发现真相的瞬间" />
+        <ListEditor label="章节类型" items={chapterTypes} onChange={setChapterTypes} placeholder="例如：场景章" />
+        <ListEditor label="节奏规则" items={pacingRules} onChange={setPacingRules} placeholder="例如：每章至少 1 次情感刻画" />
+        <ListEditor label="疲劳词" items={fatigueWords} onChange={setFatigueWords} placeholder="例如：突然" />
+      </Cfg>
+
+      {/* ── 故事弧模板 — 定义缺失时隐藏 ─────────────────────────── */}
+      {!definitionMissing && (
+        <Cfg title="故事弧模板">
+          <p className="opt" style={{ margin: "0 0 10px", fontSize: 11.5 }}>
+            选中的模板会影响 AI 对章节结构的规划。
+          </p>
+          {genre.storyArcTemplates.map((tpl) => (
+            <ArcCard
+              key={tpl.id}
+              template={tpl}
+              selected={selectedArcId === tpl.id}
+              onSelect={() => setSelectedArcId(tpl.id)}
+            />
+          ))}
+        </Cfg>
+      )}
+
+      {error && <p className="opt" style={{ color: "var(--err)" }}>{error}</p>}
 
       {/* ── Genre picker modal ────────────────────────────────────── */}
       <GenrePickerModal
@@ -596,4 +419,5 @@ export default function GenreSettingForm({ projectId, settingKey }: GenreSetting
       />
     </div>
   );
-}
+});
+export default GenreSettingForm;
