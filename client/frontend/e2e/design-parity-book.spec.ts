@@ -286,7 +286,7 @@ test.describe("design-parity 书工作台屏（book.html）", () => {
         localStorage.setItem("auth_username", "parity");
       });
       const appPage = await appCtx.newPage();
-      stubBookAPI(appPage, c.pro);
+      stubBookAPI(appPage, c.pro, c.screen === "volume");
       await appPage.goto(`/#/novel/${PID}`);
       await appPage.waitForSelector(".chtab", { timeout: 10000 });
       if (c.screen === "volume") {
@@ -355,7 +355,20 @@ test.describe("design-parity 书工作台屏（book.html）", () => {
 });
 
 /** 打桩书工作台全量 API（先注册兜底，后注册具体 → 具体优先）。 */
-function stubBookAPI(page: Page, pro: boolean) {
+// PR6 信息差对齐：章纲面板新增只读信息差块（原型未建模的功能增强，ADJUSTMENTS
+// 登记，parity 不覆盖）。volume case 的卷纲面板本身有信息差字段需保留值；
+// 其余 case（章工作台可见/半可见于遮罩下）用 gapless 变体 → 块不渲染，与原型一致。
+const volumeDetailGapless = {
+  ...SEED.volumeDetail,
+  info_gap_start: "",
+  info_gap_end: "",
+  chapter_plans: SEED.volumeDetail.chapter_plans.map((p) => ({
+    ...p,
+    info_gap: "",
+  })),
+};
+
+function stubBookAPI(page: Page, pro: boolean, volumeGap = false) {
   page.route("**/api/**", (r) => r.fulfill({ json: {} })); // 兜底：未预期请求静默空对象
   page.route(
     "**/api/auth/verify",
@@ -369,7 +382,9 @@ function stubBookAPI(page: Page, pro: boolean) {
   page.route("**/api/auth/check-auth", (r) => r.fulfill({ json: { code: 1 } }));
   page.route(`**/api/novels/${PID}`, (r) => r.fulfill({ json: SEED.project }));
   page.route(`**/api/novels/${PID}/volumes`, (r) => r.fulfill({ json: SEED.volumes }));
-  page.route(`**/api/novels/${PID}/volumes/vol-1`, (r) => r.fulfill({ json: SEED.volumeDetail }));
+  page.route(`**/api/novels/${PID}/volumes/vol-1`, (r) =>
+    r.fulfill({ json: volumeGap ? SEED.volumeDetail : volumeDetailGapless }),
+  );
   page.route(`**/api/novels/${PID}/tree`, (r) => r.fulfill({ json: SEED.tree }));
   page.route(`**/api/novels/${PID}/readiness`, (r) => r.fulfill({ json: SEED.readiness }));
   page.route(`**/api/novels/${PID}/chapters/vol-1-ch-1`, (r) => r.fulfill({ json: SEED.chapter }));

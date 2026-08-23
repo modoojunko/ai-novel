@@ -60,6 +60,35 @@ async def get_summary_by_root(
     return await db.scalar(stmt) or ""
 
 
+async def get_info_gap_by_root(
+    db: AsyncSession, root_path: str, volume_no: int, chapter_no: int | None = None
+) -> tuple[str, str, str]:
+    """卷级信息差起止 + 该章规划行信息差（卷纲 §七 chapter_plans 按章号对齐）。
+
+    返回 (start, end, chapter_gap)，任一缺失为空串；供提示词注入。
+    """
+    from models.volume import VolumeChapterPlan
+
+    vol_stmt = (
+        select(Volume)
+        .join(Novel, Volume.project_id == Novel.id)
+        .where(Novel.root_path == root_path, Volume.volume_no == volume_no)
+    )
+    vol = await db.scalar(vol_stmt)
+    if vol is None:
+        return ("", "", "")
+    start = vol.info_gap_start or ""
+    end = vol.info_gap_end or ""
+    chapter_gap = ""
+    if chapter_no is not None:
+        plan_stmt = select(VolumeChapterPlan.info_gap).where(
+            VolumeChapterPlan.volume_id == vol.id,
+            VolumeChapterPlan.chapter_no == chapter_no,
+        )
+        chapter_gap = (await db.scalar(plan_stmt) or "").strip()
+    return (start, end, chapter_gap)
+
+
 async def max_volume_no(db: AsyncSession, project_id: str) -> int:
     stmt = select(func.max(Volume.volume_no)).where(Volume.project_id == project_id)
     return await db.scalar(stmt) or 0

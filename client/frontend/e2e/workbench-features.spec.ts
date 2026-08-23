@@ -192,6 +192,66 @@ test("章纲：OgPane 真实表单编辑 + 保存草稿（概要/关键事件/�
 // ② 卷纲面板（PR4：book.html 复刻）：点卷节点 → 常编辑态全字段 + 子表 → 保存卷纲
 // -------------------------------------------------------------------------
 
+// -------------------------------------------------------------------------
+// ⑦ 信息差对齐（PR6）：章纲顶部只读块 = 卷级起止 + 本章规划行（章号对齐）
+// -------------------------------------------------------------------------
+
+test("信息差对齐：章纲顶部只读块显示卷级起止 + 本章规划行", async ({
+  page,
+  request,
+}) => {
+  const { restore, token } = await setupSession(page);
+  try {
+    const pid = await createNovel(page, `信息差e2e${Date.now()}`);
+    // 加卷 + 1 章，点章落在章纲页签
+    await page.getByTitle("添加卷").click();
+    await page.getByLabel("卷名", { exact: true }).fill("第一卷");
+    await page.getByLabel(/初始章数/).fill("1");
+    await page.getByRole("button", { name: "创建卷" }).click();
+    const chRow = page.locator(".col-tree .ch", { hasText: "第一章" });
+    await expect(chRow).toBeVisible({ timeout: 10000 });
+    await chRow.click();
+    await expect(page.getByRole("tab", { name: /^章纲/ })).toBeVisible({
+      timeout: 10000,
+    });
+    // 未配置信息差 → 块不渲染
+    await expect(page.getByTestId("og-info-gap")).toHaveCount(0);
+
+    // API 直写卷级信息差 + 章规划行（VolumeUpdate 部分更新语义，差异字段即可）
+    const put = await request.put(
+      `${ORIGIN}/api/novels/${pid}/volumes/vol-1`,
+      {
+        data: {
+          info_gap_start: "读者知道地契是假的",
+          info_gap_end: "读者知道仇家已到门口",
+          chapter_plans: [
+            {
+              chapter_no: 1,
+              title: "开张",
+              info_gap: "反派知道是陷阱 ↦ 主角不知道",
+            },
+          ],
+        },
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+    expect(put.ok()).toBeTruthy();
+
+    // 重新点章触发信息差拉取（章选择是组件态，reload 后需重选）
+    await page.reload();
+    await expect(page.locator(".col-tree .ch", { hasText: "第一章" })).toBeVisible({
+      timeout: 10000,
+    });
+    await page.locator(".col-tree .ch", { hasText: "第一章" }).click();
+    const block = page.getByTestId("og-info-gap");
+    await expect(block).toBeVisible({ timeout: 10000 });
+    await expect(block).toContainText("读者知道地契是假的 → 读者知道仇家已到门口");
+    await expect(block).toContainText("反派知道是陷阱 ↦ 主角不知道");
+  } finally {
+    restore();
+  }
+});
+
 test("卷纲面板：点卷节点 → 常编辑态 → 摘要/核心冲突/子表行 → 保存 + 去配章纲", async ({
   page,
   request,

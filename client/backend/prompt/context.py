@@ -85,18 +85,35 @@ async def inject_story_context(
     if world_block:
         parts.append(world_block)
 
-    # 卷概要（volume 字段为数字或 vol-N 字符串，兼容两种；卷族入库后从 DB 取）
+    # 卷概要 + 信息差（volume 字段为数字或 vol-N 字符串，兼容两种；卷族入库后从 DB 取）
     vol_match = re.match(r"(?:vol-)?(\d+)", str(chapter.get("volume", "")))
     if vol_match:
         from db import async_session
         from repositories import volume_repo
 
+        vol_no = int(vol_match.group(1))
         async with async_session() as session:
             vol_summary = await volume_repo.get_summary_by_root(
-                session, root_path, int(vol_match.group(1))
+                session, root_path, vol_no
+            )
+            # 本章章号（规划行按章号对齐，容 int 与 "ch-2" 类字符串）
+            ch_no_raw = str(chapter.get("chapter", "")).removeprefix("ch-")
+            ch_no = int(ch_no_raw) if ch_no_raw.isdigit() else None
+            gap_start, gap_end, chapter_gap = (
+                await volume_repo.get_info_gap_by_root(
+                    session, root_path, vol_no, ch_no
+                )
             )
         if vol_summary:
             parts.append(f"本卷概要：{_trim(vol_summary, 200)}")
+        # 卷级信息差（起→止）：读者视角的已知/未知边界（卷纲 §三）
+        if gap_start.strip() or gap_end.strip():
+            parts.append(
+                f"本卷信息差（起→止）：{_trim(gap_start, 200)} → {_trim(gap_end, 200)}"
+            )
+        # 本章信息差：卷纲章节规划行（§七）与本章对齐
+        if chapter_gap:
+            parts.append(f"本章信息差：{_trim(chapter_gap, 200)}")
 
     # Chapter summary
     if outline.get("summary"):

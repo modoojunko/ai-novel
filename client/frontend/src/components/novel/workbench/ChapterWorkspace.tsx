@@ -34,7 +34,8 @@ import {
 import { useChapterData } from "@/hooks/useChapterData";
 import type { useOutline } from "@/hooks/useOutline";
 import type { useWorkbench } from "@/hooks/useWorkbench";
-import { request } from "@/lib/api";
+import { api, request } from "@/lib/api";
+import type { VolumeDetail } from "@/components/novel/volume/types";
 import { nodeLabel } from "@/lib/nodeTitle";
 import {
   getBookArchiveAiSummary,
@@ -102,6 +103,46 @@ export default function ChapterWorkspace({
   }, [wb.volumes, chapterRef]);
   const label = nodeLabel("章", chMeta?.chapter ?? 0, chMeta?.title);
   const archived = !!chMeta?.archived;
+
+  // ── 信息差对齐（PR6）：章纲顶部只读块 ────────────────────────────────
+  // 卷级 info_gap_start/end（卷纲 §三）+ 卷纲 §七章节规划行按章号对齐的本章 info_gap。
+  // 增强展示：卷未配/接口失败一律静默置 null（不渲染），不打扰章纲主流程。
+  const [infoGap, setInfoGap] = useState<{
+    volStart: string;
+    volEnd: string;
+    chapterGap: string;
+  } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const m = chapterRef.match(/^vol-(\d+)-ch-(\d+)$/);
+    if (!m) {
+      setInfoGap(null);
+      return;
+    }
+    const volRef = `vol-${parseInt(m[1], 10)}`;
+    const chNo = parseInt(m[2], 10);
+    api
+      .get(`/novels/${projectId}/volumes/${volRef}`)
+      .then((d: unknown) => {
+        if (cancelled) return;
+        const v = d as VolumeDetail;
+        const plan = (v.chapter_plans ?? []).find((p) => p.chapter_no === chNo);
+        const volStart = (v.info_gap_start ?? "").trim();
+        const volEnd = (v.info_gap_end ?? "").trim();
+        const chapterGap = (plan?.info_gap ?? "").trim();
+        setInfoGap(
+          volStart || volEnd || chapterGap
+            ? { volStart, volEnd, chapterGap }
+            : null,
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setInfoGap(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, chapterRef]);
 
   // ── 三页签：点章强制落「章纲」（设计稿行为） ─────────────────────────
   const [chTab, setChTab] = useState<"og" | "prompt" | "prose">("og");
@@ -494,6 +535,7 @@ export default function ChapterWorkspace({
         <OgPane
           form={ogForm}
           label={label}
+          infoGap={infoGap}
           onPatch={(patch) => setOgForm((f) => ({ ...f, ...patch }))}
           gaps={gaps}
           confirmed={confirmed}
