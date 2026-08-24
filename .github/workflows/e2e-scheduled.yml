@@ -1,0 +1,89 @@
+name: e2e-scheduled
+
+# 功能 e2e 不挂 PR（本地 runbook 见 handoff.md §3）：每 3 小时跑一次，
+# 且仅当默认分支自上次成功运行后出现新提交（sha 相同即跳过整轮）。
+# DESIGN_PARITY 像素比对依赖本地原型资产（gitignored），不在 CI 范围。
+on:
+  schedule:
+    - cron: "0 */3 * * *"
+  workflow_dispatch: {} # 手动调试/验证用
+
+concurrency:
+  group: e2e-scheduled
+  cancel-in-progress: false
+
+permissions:
+  actions: read # changes job 查询本 workflow 的上次成功运行
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+    steps:
+      - name: 自上次成功运行以来是否有新提交
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LAST="$(gh api "repos/${{ github.repository }}/actions/workflows/e2e-scheduled.yml/runs?status=success&per_page=1" --jq '.workflow_runs[0].head_sha // empty')"
+          echo "last success: ${LAST:-<无，首次运行>}"
+          if [ -n "$LAST" ] && [ "$LAST" = "${{ github.sha }}" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  e2e:
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # writeOAuthSession 会读取并改写 docker 栈的 config.json（bind mount
+      # .docker-data/client → /app/data），文件须先存在；后端只读不建。
+      - name: 播种 C 端会话文件
+        run: |
+          mkdir -p .docker-data/client
+          echo '{}' > .docker-data/client/config.json
+
+      - name: 起四服务 docker 栈
+        run: docker compose up -d --build
+
+      - name: 等待服务就绪（C 前端 5174 / C 后端 health / S 后端 19000 TCP）
+        run: |
+          ok=0
+          for i in $(seq 1 60); do
+            ok=1
+            curl -sf http://localhost:5174/ >/dev/null || ok=0
+            curl -sf http://localhost:8000/api/health >/dev/null || ok=0
+            (exec 3<>/dev/tcp/127.0.0.1/19000) 2>/dev/null || ok=0
+            [ "$ok" = 1 ] && break
+            sleep 5
+          done
+          if [ "$ok" != 1 ]; then
+            docker compose ps || true
+            docker compose logs --tail=80 || true
+            exit 1
+          fi
+
+      - name: 安装依赖与 Playwright Chromium
+        run: cd client/frontend && npm ci && npx playwright install --with-deps chromium
+
+      - name: 跑全量功能 e2e
+        run: cd client/frontend && npx playwright test
+
+      - name: 上传失败报告
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: client/frontend/playwright-report/
+          retention-days: 3
