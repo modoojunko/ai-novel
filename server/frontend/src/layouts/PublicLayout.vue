@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import AppButton from '@/components/ui/AppButton.vue'
 
+const route = useRoute()
 const session = useSessionStore()
+
+// auth 页：卡片不再带品牌行（导航已有 logo），导航也隐藏指向自身的按钮
+const isAuthPage = computed(() => route.name === 'login' || route.name === 'register')
 
 onMounted(() => {
   // 从 sessionStore 预取用户信息（如果有 token 的话）
@@ -14,33 +19,35 @@ onMounted(() => {
 </script>
 
 <template>
-  <header class="mkt-nav">
-    <div class="mkt-nav-in">
-      <router-link to="/" class="mkt-logo">
-        <span class="logo-mark">爱</span>
-        爱<span>小说</span>
-      </router-link>
-      <nav class="mkt-navlinks">
-        <a href="#features" class="nl">功能</a>
-        <a href="#roadmap" class="nl">路线图</a>
-        <a href="#pricing" class="nl">套餐</a>
-        <a href="#guide" class="nl">激活指南</a>
-      </nav>
-      <div class="mkt-acts">
-        <template v-if="session.isLoggedIn">
-          <AppButton to="/dashboard" size="sm">我的账号</AppButton>
-        </template>
-        <template v-else>
-          <AppButton to="/login" variant="ghost" size="sm">登录</AppButton>
-          <AppButton to="/register" size="sm">注册</AppButton>
-        </template>
+  <div class="pub-root">
+    <header class="mkt-nav">
+      <div class="mkt-nav-in">
+        <router-link to="/" class="mkt-logo">
+          <span class="logo-mark">爱</span>
+          爱<span>小说</span>
+        </router-link>
+        <nav class="mkt-navlinks">
+          <router-link to="/#features" class="nl">功能</router-link>
+          <router-link to="/#roadmap" class="nl">路线图</router-link>
+          <router-link to="/#pricing" class="nl">套餐</router-link>
+          <router-link to="/#guide" class="nl">激活指南</router-link>
+        </nav>
+        <div class="mkt-acts">
+          <template v-if="session.isLoggedIn">
+            <AppButton to="/dashboard" size="sm">我的账号</AppButton>
+          </template>
+          <template v-else>
+            <AppButton v-if="route.name !== 'login'" to="/login" variant="ghost" size="sm">登录</AppButton>
+            <AppButton v-if="route.name !== 'register'" to="/register" size="sm">注册</AppButton>
+          </template>
+        </div>
       </div>
-    </div>
-  </header>
+    </header>
 
-  <main>
-    <router-view />
-  </main>
+    <main :class="{ 'auth-main': isAuthPage }">
+      <router-view />
+    </main>
+  </div>
 </template>
 
 <style scoped>
@@ -49,5 +56,26 @@ onMounted(() => {
 .mkt-logo span:not(.logo-mark) {
   color: var(--accent);
   font-weight: inherit;
+}
+
+/* 营销壳列布局：main 吃满剩余高度，auth 页在壳内水平+垂直居中。
+   safe center 防移动端长卡（注册页）居中溢出裁顶；不支持时退化为 stretch 不裁切 */
+.pub-root {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+.pub-root main {
+  flex: 1;
+}
+.auth-main {
+  display: grid;
+  place-items: safe center;
+  padding: 40px 24px;
+}
+/* grid 居中是 shrink-to-fit：不定宽会被 .input 的 width:100% 算成 max-content，
+   显式定宽到各自 .auth-card 的 max-width 上限 */
+.auth-main :deep(.auth-card) {
+  width: 100%;
 }
 </style>

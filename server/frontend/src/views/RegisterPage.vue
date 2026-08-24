@@ -66,10 +66,6 @@ async function handleRegister() {
 
 <template>
   <div class="auth-card wide">
-    <div class="brand-row">
-      <span class="logo-mark">爱</span>
-      <span class="bn serif">爱小说</span>
-    </div>
     <div class="head-row">
       <h1>注册</h1>
       <span class="b ok">注册即送 7 天全功能试用</span>
@@ -150,10 +146,9 @@ async function handleRegister() {
 </template>
 
 <style scoped>
+/* 品牌行已删——营销壳 mkt-nav 已有 logo，同屏不重复 */
 .auth-card.wide { max-width: 420px; text-align: center; }
-.brand-row { display: flex; align-items: center; justify-content: center; gap: 9px; margin-bottom: 18px; }
-.brand-row .bn { font-size: 17px; font-weight: 600; }
-.head-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.head-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 18px; }
 h1 { font-family: var(--font-display); font-size: 28px; font-weight: 600; margin: 0; }
 .sub { font-size: 13.5px; color: var(--muted); margin: 4px 0 22px; }
 .form-area { text-align: left; }

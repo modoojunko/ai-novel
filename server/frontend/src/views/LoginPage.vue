@@ -68,10 +68,6 @@ async function handleReset() {
 
 <template>
   <div class="auth-card wide">
-    <div class="brand-row">
-      <span class="logo-mark">爱</span>
-      <span class="bn serif">爱小说</span>
-    </div>
     <h1>登录</h1>
     <p class="sub">欢迎回来，继续你的故事</p>
 
@@ -133,11 +129,10 @@ async function handleReset() {
 </template>
 
 <style scoped>
-/* 登录卡（C端 auth-card 惯例 + S端 帐密表单扩展）：表单区左对齐 */
+/* 登录卡（C端 auth-card 惯例 + S端 帐密表单扩展）：表单区左对齐。
+   品牌行已删——营销壳 mkt-nav 已有 logo，同屏不重复 */
 .auth-card.wide { max-width: 400px; text-align: center; }
-.brand-row { display: flex; align-items: center; justify-content: center; gap: 9px; margin-bottom: 18px; }
-.brand-row .bn { font-size: 17px; font-weight: 600; }
-h1 { font-family: var(--font-display); font-size: 28px; font-weight: 600; margin: 0; }
+h1 { font-family: var(--font-display); font-size: 28px; font-weight: 600; margin: 0 0 18px; }
 .sub { font-size: 13.5px; color: var(--muted); margin: 4px 0 22px; }
 .form-area { text-align: left; }
 .form-area .btn { margin-top: 6px; }

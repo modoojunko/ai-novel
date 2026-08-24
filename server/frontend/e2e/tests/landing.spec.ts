@@ -72,8 +72,8 @@ test.describe('Landing Page', () => {
   test('桌面端 > lg 时导航菜单可见', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.goto('/')
-    await expect(page.locator('.mkt-nav a[href="#features"]')).toBeVisible()
-    await expect(page.locator('.mkt-nav a[href="#pricing"]')).toBeVisible()
+    await expect(page.locator('.mkt-nav a[href="/#features"]')).toBeVisible()
+    await expect(page.locator('.mkt-nav a[href="/#pricing"]')).toBeVisible()
   })
 
   test('Trial 卡「注册领取」按钮跳注册页', async ({ page }) => {

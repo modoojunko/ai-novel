@@ -69,6 +69,13 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+  // 锚点导航（mkt-nav 的 /#features 等 router-link）依赖此行为滚动；
+  // 同页点锚点（/ → /#pricing）与跨页（/login → /#features）都要滚
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) return savedPosition
+    if (to.hash) return { el: to.hash, behavior: 'smooth' }
+    return { top: 0 }
+  },
 })
 
 // ── 双向导航守卫 ──
