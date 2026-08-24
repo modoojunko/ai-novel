@@ -2,7 +2,7 @@
    设计系统 · 地基（Open Design v2）
    来源：docs/design-c/prototypes/list.html <style> 原样提取（tokens/基础/共享组件）。
    规则：oklch token 一字不改；本文件之后按屏追加 list.css / book.css / …。
-   加载序：index.css（tailwind+daisyUI 过渡期）→ base.css → 按屏 css。
+   加载序：index.css（tailwind 布局 utilities）→ base.css → 按屏 css。
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ─── tokens（与全站一致） ─────────────────────────────── */
@@ -42,10 +42,7 @@ input, textarea, select { font: inherit; }
 .serif { font-family: var(--font-display); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; }
 
-/* 过渡期 daisyUI 共存垫片（收尾 PR 退役 daisyUI 后可移除）：
-   daisyUI .btn 带 min-height:3rem / tw-box-shadow / button-pop 动画，
-   设计 .btn 只压 height 压不住 min-height —— 必须显式清零 */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; min-height: 0; padding: 0 15px; border-radius: var(--radius); border: 1px solid transparent; font-size: 13.5px; font-weight: 500; letter-spacing: 0.01em; line-height: inherit; box-shadow: none; animation: none; transition: background 0.15s ease, border-color 0.15s ease; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 15px; border-radius: var(--radius); border: 1px solid transparent; font-size: 13.5px; font-weight: 500; letter-spacing: 0.01em; line-height: inherit; transition: background 0.15s ease, border-color 0.15s ease; }
 .btn:active { transform: translateY(1px); }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btn-primary { background: var(--accent); color: var(--surface); }
@@ -57,8 +54,11 @@ input, textarea, select { font: inherit; }
 .btn-danger { background: var(--err); color: var(--surface); }
 .btn-danger:hover:not(:disabled) { background: color-mix(in oklch, var(--err) 88%, var(--fg)); }
 .btn-sm { height: 28px; padding: 0 12px; font-size: 12.5px; border-radius: 8px; gap: 5px; }
+/* 密集工具行小按钮（版本对比/树行内操作）：设计系统扩展档 */
+.btn-xs { height: 24px; padding: 0 8px; font-size: 11.5px; border-radius: 7px; gap: 4px; }
 .btn svg { width: 15px; height: 15px; }
 .btn-sm svg { width: 13px; height: 13px; }
+.btn-xs svg { width: 12px; height: 12px; }
 .icon-btn { width: 30px; height: 30px; display: inline-grid; place-items: center; border-radius: 8px; color: var(--muted); }
 .icon-btn:hover { color: var(--fg); background: var(--fg-soft); }
 .icon-btn svg { width: 15px; height: 15px; }
@@ -85,12 +85,8 @@ input, textarea, select { font: inherit; }
 
 .scrim { position: fixed; inset: 0; background: color-mix(in oklch, var(--fg) 28%, transparent); z-index: 40; opacity: 0; transition: opacity 0.2s ease; }
 .scrim.show { opacity: 1; }
-/* daisyUI 同名 .modal 全量还原（Tailwind 插件编译产物四连击）：
-   ① pointer-events:none + ② opacity:0（.modal 基础规则，0,1,0）③ ④ 盖 #0006 黑底 +
-   modal-pop 动画（.modal:not(dialog:not(.modal-open))，特异性 0,2,1）→ 计数选择器需同分
-   (0,2,1) 且后加载才压得过。其开启态 .modal-open/[open]/:target 与本组件 .show 不相交。
-   原型口径：遮罩归 .scrim，容器零背景零动画，mcard 自带 transform+opacity 过渡 */
-.modal.modal:not(dialog) { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; pointer-events: auto; opacity: 1; background: transparent; animation: none; }
+/* 遮罩归 .scrim，容器零背景零动画，mcard 自带 transform+opacity 过渡 */
+.modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; pointer-events: auto; }
 .modal .mcard { width: min(420px, 92vw); max-height: calc(100vh - 48px); overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); transform: translateY(8px) scale(0.98); opacity: 0; transition: transform 0.18s ease, opacity 0.18s ease; }
 .modal.show .mcard { transform: none; opacity: 1; }
 .mcard-head { display: flex; align-items: center; padding: 20px 24px 0; }
@@ -100,20 +96,15 @@ input, textarea, select { font: inherit; }
 .mcard-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 24px 20px; }
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .field label { font-size: 12.5px; color: var(--muted); }
-/* daisyUI 同名 .input 带 height:3rem/line-height:1.5rem —— 显式还原自动高 */
-.input, select.input { width: 100%; height: auto; line-height: inherit; padding: 9px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--fg); font-size: 14px; }
-/* 原型 .input 未设 line-height/appearance → select 走 UA 默认（normal 行高 38px + 原生箭头）；
-   daisyUI .input 的 appearance:none/line-height:2 会吃掉箭头并撑高 3px —— 还原 UA 行为 */
-select.input { appearance: auto; -webkit-appearance: auto; line-height: normal; }
+.input { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--fg); font-size: 14px; }
 .input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
 /* 原型 <p class=hint> 吃 UA 默认 p 外距（1em 0），preflight 清零后需还原 */
 .hint { font-size: 12.5px; color: var(--muted); line-height: 1.7; padding: 10px 12px; background: var(--fg-soft); border-radius: 9px; margin: 1em 0; }
 .hint b { color: var(--fg); font-weight: 500; }
 
 .toast-wrap { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 80; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
-/* daisyUI 同名 .toast 是 fixed 容器组件（position/flex-direction 会抢走芯片布局）——还原行内芯片；
-   pointer-events:auto 让可交互 toast（撤销按钮）不被 .toast-wrap 的 none 穿透 */
-.toast { display: inline-flex; flex-direction: row; position: static; align-items: center; gap: 8px; background: var(--fg); color: var(--surface); padding: 9px 16px; border-radius: 10px; font-size: 13px; box-shadow: var(--shadow-card); animation: toast-in 0.22s ease; pointer-events: auto; }
+/* 行内芯片 toast；pointer-events:auto 让可交互 toast（撤销按钮）不被 .toast-wrap 的 none 穿透 */
+.toast { display: inline-flex; align-items: center; gap: 8px; background: var(--fg); color: var(--surface); padding: 9px 16px; border-radius: 10px; font-size: 13px; box-shadow: var(--shadow-card); animation: toast-in 0.22s ease; pointer-events: auto; }
 .toast svg { width: 14px; height: 14px; color: var(--ok); }
 .toast.err svg { color: var(--err); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
@@ -149,3 +140,39 @@ select.input { appearance: auto; -webkit-appearance: auto; line-height: normal; 
 /* 旋转指示（图标 spinner） */
 .spin { animation: rotate 0.8s linear infinite; }
 @keyframes rotate { to { transform: rotate(360deg); } }
+
+/* 入场动画（原 index.css 迁来：onboarding 横幅/营销页区块） */
+.animate-fade-up { animation: fade-up 0.5s ease both; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(12px); } }
+
+/* 文字链接（导入模板下载/重置结构/登录返回首页等） */
+.lnk { color: var(--accent); cursor: pointer; background: none; border: 0; padding: 0; font: inherit; }
+.lnk:hover { color: var(--accent-strong); text-decoration: underline; }
+
+/* 可悬浮面卡（角色身份卡等未收编屏残留的统一 hover 态） */
+.hov-card { border: 1px solid var(--border); background: var(--fg-soft); transition: background 0.15s ease, border-color 0.15s ease; }
+.hov-card:hover { background: color-mix(in oklch, var(--fg) 8%, transparent); }
+
+/* ─── 结构树（StructureTree：设定视图左栏 / 导入预览共用） ─────────── */
+.stree { display: flex; flex-direction: column; gap: 2px; }
+.stree .row { display: flex; align-items: center; gap: 4px; width: 100%; padding: 5px 8px; border-radius: 8px; cursor: pointer; color: color-mix(in oklch, var(--fg) 70%, transparent); transition: background 0.12s ease; }
+.stree .row:hover { background: var(--fg-soft); }
+.stree .row.on { background: var(--accent-soft); color: var(--accent-strong); font-weight: 500; }
+.stree .row.locked { opacity: 0.6; }
+.stree .chev { width: 12px; flex: none; display: grid; place-items: center; color: var(--muted); padding: 0; }
+.stree .chev:hover { color: var(--fg); }
+.stree .nicon { color: var(--muted); flex: none; display: inline-flex; }
+.stree .lbl { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.stree .edit { flex: 1; min-width: 0; font-size: 12px; padding: 2px 6px; border: 1px solid var(--accent); border-radius: 6px; background: var(--surface); color: var(--fg); outline: none; }
+.stree .badge { font-size: 10px; padding: 1px 7px; border-radius: 999px; flex: none; line-height: 1.5; }
+.stree .acts { display: flex; align-items: center; gap: 2px; margin-left: auto; flex: none; }
+.stree .acts > * { opacity: 0; transition: opacity 0.12s ease; }
+.stree .row:hover .acts > *, .stree .acts .stay { opacity: 1; }
+.stree .acts button { color: var(--muted); display: inline-flex; padding: 2px; }
+.stree .acts button:hover { color: var(--fg); }
+.stree .acts button.danger:hover { color: var(--err); }
+.stree .del-confirm { display: flex; align-items: center; gap: 4px; font-size: 10px; }
+.stree .del-confirm .yes { color: var(--err); font-weight: 500; text-decoration: underline; }
+.stree .del-confirm .no { color: var(--muted); }
+.stree .kids { margin-left: 16px; border-left: 1px solid var(--border); padding-left: 8px; }
+.stree .tree-empty { padding: 32px 0; text-align: center; font-size: 13px; color: var(--muted); }

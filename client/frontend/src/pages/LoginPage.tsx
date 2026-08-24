@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { request } from '../lib/api';
 import { toast } from '../lib/toast';
 import { useDeviceActivation } from '../hooks/useDeviceActivation';
+import { Ico, P } from '@/components/icons';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -125,11 +126,11 @@ export default function LoginPage() {
 
   if (checking) {
     return (
-      <div className="hero min-h-screen bg-base-200">
-        <div className="hero-content text-center flex-col gap-3">
-          <span className="loading loading-spinner loading-lg text-primary" />
+      <div className="auth-wrap">
+        <div className="flex flex-col items-center gap-3">
+          <Ico d={P.spinner} className="spin" size={30} style={{ color: "var(--accent)" }} />
           {checkingSlow && (
-            <p className="text-base-content/50 text-sm">
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
               正在唤醒云端服务，首次访问约需 30–60 秒，请稍候…
             </p>
           )}
@@ -139,26 +140,26 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="hero min-h-screen bg-base-200">
-      <div className="hero-content flex-col text-center">
-        <h1 className="text-3xl font-bold">爱小说</h1>
-        <p className="text-base-content/60 mb-6">登录后即可开始创作</p>
-        <button className="btn btn-primary btn-lg" onClick={handleBrowserAuth} disabled={loading}>
-          {loading ? <span className="loading loading-spinner" /> : '打开浏览器登录'}
+    <div className="auth-wrap">
+      <div className="auth-card">
+        <h1>爱小说</h1>
+        <p className="sub">登录后即可开始创作</p>
+        <button className="btn btn-primary btn-lg btn-block" onClick={handleBrowserAuth} disabled={loading}>
+          {loading ? <Ico d={P.spinner} className="spin" size={16} /> : '打开浏览器登录'}
         </button>
-        {error && <p className="text-error text-sm mt-2">{error}</p>}
+        {error && <p className="err">{error}</p>}
         {loading && authUrl && !error && (
-          <p className="text-base-content/50 text-sm mt-2">
+          <p className="note">
             已打开授权页面，等待登录完成；云端唤醒中，首次可能需要 30–60 秒
           </p>
         )}
         {authUrl && error && (
-          <button className="btn btn-outline btn-sm mt-3" onClick={retryCheck} disabled={loading}>
-            {loading ? <span className="loading loading-spinner" /> : '重新检测'}
+          <button className="btn btn-secondary btn-sm mt-3" onClick={retryCheck} disabled={loading}>
+            {loading ? <Ico d={P.spinner} className="spin" size={13} /> : '重新检测'}
           </button>
         )}
-        <p className="text-xs text-base-content/40 mt-4">将在系统浏览器中打开登录页面</p>
-        <Link to="/" className="link link-hover text-sm text-base-content/60 mt-3">返回首页</Link>
+        <p className="note">将在系统浏览器中打开登录页面</p>
+        <Link to="/" className="lnk">返回首页</Link>
       </div>
     </div>
   );

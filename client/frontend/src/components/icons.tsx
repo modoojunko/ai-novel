@@ -46,6 +46,12 @@ export const P = {
   copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 012-2h9"/>',
   refresh: '<path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
   doc: '<path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M9 13h6M9 17h4"/>',
+  // 收尾 PR（退役 lucide/emoji 的迁移面）
+  external: '<path d="M14 4h6v6M20 4l-9 9M18 14v5H5V6h5"/>',
+  alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16.5h.01"/>',
+  moon: '<path d="M20.5 14.5A8.5 8.5 0 019.5 3.5a8.5 8.5 0 1011 11z"/>',
+  chat: '<path d="M4 5h16v11H8l-4 4z"/>',
+  chart: '<path d="M4 20V10M10 20V4M16 20v-7M3 20h18"/>',
 } as const;
 
 /** 供应商图标（model-config.html VENDORS 原样；原型唯一用圆头线帽的图标组） */

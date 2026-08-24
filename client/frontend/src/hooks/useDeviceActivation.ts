@@ -38,11 +38,11 @@ export function useDeviceActivation() {
 
   const showToast = useCallback((status: DeviceStatus) => {
     if (status.enrolled && status.activated) {
-      toast.success('🖥️ 新设备已激活，可使用全部功能');
+      toast.success('新设备已激活，可使用全部功能');
     } else if (status.enrolled && !status.activated) {
-      toast.info('🖥️ 新设备已注册，当前为免费模式');
+      toast.info('新设备已注册，当前为免费模式');
     } else if (!status.enrolled && !status.activated) {
-      toast.info('📟 当前设备为免费模式');
+      toast.info('当前设备为免费模式');
     }
     // enrolled=false + activated=true → 不提示
   }, []);

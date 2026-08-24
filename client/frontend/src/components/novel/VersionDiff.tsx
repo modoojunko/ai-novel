@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { api } from "@/lib/api";
 import { diffLines, diffWords } from "diff";
 import type { Change } from "diff";
-import { AlertCircle, Info } from "lucide-react";
+import { Ico, P } from "@/components/icons";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -144,14 +144,22 @@ function renderWordDiff(
       if (part.added) {
         addedChars += seg.length;
         elements.push(
-          <span key={key} className="bg-success/25 rounded px-0.5">
+          <span
+            key={key}
+            className="rounded px-0.5"
+            style={{ backgroundColor: "color-mix(in oklch, var(--ok) 25%, transparent)" }}
+          >
             {seg}
           </span>,
         );
       } else if (part.removed) {
         removedChars += seg.length;
         elements.push(
-          <span key={key} className="bg-error/25 rounded px-0.5 line-through">
+          <span
+            key={key}
+            className="rounded px-0.5 line-through"
+            style={{ backgroundColor: "color-mix(in oklch, var(--err) 25%, transparent)" }}
+          >
             {seg}
           </span>,
         );
@@ -164,7 +172,10 @@ function renderWordDiff(
 
   return {
     content: (
-      <div className="rounded-lg border border-base-300 bg-base-200/30 px-3 py-2 font-mono text-sm leading-relaxed whitespace-pre-wrap break-all">
+      <div
+        className="rounded-lg px-3 py-2 font-mono text-sm leading-relaxed whitespace-pre-wrap break-all"
+        style={{ border: "1px solid var(--border)", background: "var(--fg-soft)" }}
+      >
         {elements}
       </div>
     ),
@@ -201,7 +212,8 @@ function DiffViewer({
         return (
           <div
             key={i}
-            className="px-3 py-0.5 text-xs text-base-content/30 text-center select-none italic"
+            className="px-3 py-0.5 text-xs text-center select-none italic"
+            style={{ color: "color-mix(in oklch, var(--fg) 30%, transparent)" }}
           >
             {line.text}
           </div>
@@ -214,25 +226,35 @@ function DiffViewer({
       return (
         <div
           key={i}
-          className={`px-3 py-[1px] font-mono text-sm leading-relaxed flex ${
+          className="px-3 py-0.5 font-mono text-sm leading-relaxed flex"
+          style={
             isAdd
-              ? "bg-success/15 border-l-2 border-success"
+              ? {
+                  background: "color-mix(in oklch, var(--ok) 15%, transparent)",
+                  borderLeft: "2px solid var(--ok)",
+                }
               : isDel
-                ? "bg-error/15 border-l-2 border-error"
-                : "text-base-content/50"
-          }`}
+                ? {
+                    background: "color-mix(in oklch, var(--err) 15%, transparent)",
+                    borderLeft: "2px solid var(--err)",
+                  }
+                : { color: "var(--muted)" }
+          }
         >
           <span className="select-none w-5 shrink-0 text-right mr-2">
             {isAdd ? "+" : isDel ? "-" : " "}
           </span>
-          <span className="min-w-0 break-all">{line.text || " "}</span>
+          <span className="min-w-0 break-all">{line.text || " "}</span>
         </div>
       );
     });
 
     return {
       content: (
-        <div className="rounded-lg border border-base-300 bg-base-200/30 overflow-x-auto">
+        <div
+          className="rounded-lg overflow-x-auto"
+          style={{ border: "1px solid var(--border)", background: "var(--fg-soft)" }}
+        >
           {rendered}
         </div>
       ),
@@ -253,18 +275,18 @@ function DiffViewer({
       <div className="flex items-center gap-2 mb-2 text-xs">
         {added > 0 && removed > 0 && (
           <>
-            <span className="text-success font-mono font-medium">+{added}</span>
-            <span className="text-error font-mono font-medium">-{removed}</span>
+            <span className="font-mono font-medium" style={{ color: "var(--ok)" }}>+{added}</span>
+            <span className="font-mono font-medium" style={{ color: "var(--err)" }}>-{removed}</span>
           </>
         )}
         {added > 0 && removed === 0 && (
-          <span className="text-success font-mono font-medium">+{added}</span>
+          <span className="font-mono font-medium" style={{ color: "var(--ok)" }}>+{added}</span>
         )}
         {added === 0 && removed > 0 && (
-          <span className="text-error font-mono font-medium">-{removed}</span>
+          <span className="font-mono font-medium" style={{ color: "var(--err)" }}>-{removed}</span>
         )}
         {added === 0 && removed === 0 && (
-          <span className="text-base-content/40 font-mono">+0 -0 无变化</span>
+          <span className="font-mono" style={{ color: "var(--muted)" }}>+0 -0 无变化</span>
         )}
       </div>
 
@@ -272,10 +294,14 @@ function DiffViewer({
       {isLong && !expanded ? (
         <div className="relative overflow-hidden" style={{ maxHeight: "12rem" }}>
           {content}
-          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-base-200 to-transparent pointer-events-none" />
+          <div
+            className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none"
+            style={{ background: "linear-gradient(to top, var(--surface), transparent)" }}
+          />
           <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-2">
             <button
-              className="btn btn-ghost btn-xs text-primary"
+              className="btn btn-ghost btn-xs"
+              style={{ color: "var(--accent)" }}
               onClick={() => setExpanded(true)}
             >
               展开全部内容
@@ -288,7 +314,7 @@ function DiffViewer({
           {isLong && (
             <div className="flex justify-center mt-1">
               <button
-                className="btn btn-ghost btn-xs text-base-content/50"
+                className="btn btn-ghost btn-xs"
                 onClick={() => setExpanded(false)}
               >
                 收起
@@ -358,7 +384,10 @@ export default function VersionDiff({ projectId, chapterRef, versions, initialOl
 
   if (sorted.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-base-300 bg-base-200/20 p-6 text-center text-sm text-base-content/40">
+      <div
+        className="rounded-lg border-dashed p-6 text-center text-sm"
+        style={{ border: "1px dashed var(--border)", background: "var(--fg-soft)", color: "var(--muted)" }}
+      >
         暂无版本
       </div>
     );
@@ -366,7 +395,10 @@ export default function VersionDiff({ projectId, chapterRef, versions, initialOl
 
   if (sorted.length === 1) {
     return (
-      <div className="rounded-lg border border-dashed border-base-300 bg-base-200/20 p-6 text-center text-sm text-base-content/40">
+      <div
+        className="rounded-lg border-dashed p-6 text-center text-sm"
+        style={{ border: "1px dashed var(--border)", background: "var(--fg-soft)", color: "var(--muted)" }}
+      >
         <p className="mb-1">暂无版本对比数据</p>
         <p className="text-xs">保存新版本后即可查看差异</p>
       </div>
@@ -383,7 +415,8 @@ export default function VersionDiff({ projectId, chapterRef, versions, initialOl
       <div className="flex flex-wrap items-center gap-3 mb-4">
         {/* Old version selector */}
         <select
-          className="select select-bordered select-sm max-w-[240px] text-xs"
+          className="input text-xs"
+          style={{ maxWidth: 240 }}
           value={oldVersionId}
           onChange={(e) => setOldVersionId(e.target.value)}
           aria-label="旧版本"
@@ -395,11 +428,12 @@ export default function VersionDiff({ projectId, chapterRef, versions, initialOl
           ))}
         </select>
 
-        <span className="text-base-content/30 text-sm">&rarr;</span>
+        <span className="text-sm" style={{ color: "color-mix(in oklch, var(--fg) 30%, transparent)" }}>&rarr;</span>
 
         {/* New version selector */}
         <select
-          className="select select-bordered select-sm max-w-[240px] text-xs"
+          className="input text-xs"
+          style={{ maxWidth: 240 }}
           value={newVersionId}
           onChange={(e) => setNewVersionId(e.target.value)}
           aria-label="新版本"
@@ -412,15 +446,15 @@ export default function VersionDiff({ projectId, chapterRef, versions, initialOl
         </select>
 
         {/* Diff mode toggle */}
-        <div className="join ml-auto">
+        <div className="seg ml-auto">
           <button
-            className={`join-item btn btn-xs ${diffMode === "line" ? "btn-primary" : "btn-ghost"}`}
+            className={diffMode === "line" ? "on" : ""}
             onClick={() => setDiffMode("line")}
           >
             行对比
           </button>
           <button
-            className={`join-item btn btn-xs ${diffMode === "word" ? "btn-primary" : "btn-ghost"}`}
+            className={diffMode === "word" ? "on" : ""}
             onClick={() => setDiffMode("word")}
           >
             词对比
@@ -430,26 +464,33 @@ export default function VersionDiff({ projectId, chapterRef, versions, initialOl
 
       {/* Content area */}
       {loading ? (
-        <div className="rounded-lg border border-base-300 bg-base-200/30 p-8">
+        <div className="rounded-lg p-8" style={{ border: "1px solid var(--border)" }}>
           <div className="flex flex-col items-center gap-4">
-            <span className="loading loading-spinner loading-md text-primary" />
+            <Ico d={P.spinner} className="spin" size={26} style={{ color: "var(--accent)" }} />
             <div className="space-y-3 w-full max-w-lg">
-              <div className="skeleton h-4 w-full" />
-              <div className="skeleton h-4 w-3/4" />
-              <div className="skeleton h-4 w-5/6" />
-              <div className="skeleton h-4 w-2/3" />
-              <div className="skeleton h-4 w-4/5" />
+              <div className="h-4 w-full rounded" style={{ background: "var(--fg-soft)" }} />
+              <div className="h-4 w-3/4 rounded" style={{ background: "var(--fg-soft)" }} />
+              <div className="h-4 w-5/6 rounded" style={{ background: "var(--fg-soft)" }} />
+              <div className="h-4 w-2/3 rounded" style={{ background: "var(--fg-soft)" }} />
+              <div className="h-4 w-4/5 rounded" style={{ background: "var(--fg-soft)" }} />
             </div>
           </div>
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-error/30 bg-error/10 p-4">
-          <div className="flex items-center gap-2 text-sm text-error">
-            <AlertCircle className="w-4 h-4 shrink-0" />
+        <div
+          className="rounded-lg p-4"
+          style={{
+            border: "1px solid color-mix(in oklch, var(--err) 35%, transparent)",
+            background: "color-mix(in oklch, var(--err) 8%, transparent)",
+          }}
+        >
+          <div className="flex items-center gap-2 text-sm" style={{ color: "var(--err)" }}>
+            <Ico d={P.alert} size={15} />
             <span>{error}</span>
           </div>
           <button
-            className="btn btn-ghost btn-xs mt-2 text-error/70 hover:text-error"
+            className="btn btn-ghost btn-xs mt-2"
+            style={{ color: "var(--err)" }}
             onClick={() => setRetryKey((k) => k + 1)}
           >
             重试
@@ -457,9 +498,15 @@ export default function VersionDiff({ projectId, chapterRef, versions, initialOl
         </div>
       ) : oldContent && newContent ? (
         oldContent.prose === newContent.prose ? (
-          <div className="rounded-lg border border-info/30 bg-info/10 p-4">
-            <div className="flex items-center gap-2 text-sm text-info">
-              <Info className="w-4 h-4 shrink-0" />
+          <div
+            className="rounded-lg p-4"
+            style={{
+              border: "1px solid color-mix(in oklch, var(--accent) 35%, transparent)",
+              background: "color-mix(in oklch, var(--accent) 8%, transparent)",
+            }}
+          >
+            <div className="flex items-center gap-2 text-sm" style={{ color: "var(--accent-strong)" }}>
+              <Ico d={P.info} size={15} />
               <span>两个版本内容相同，无差异</span>
             </div>
           </div>

@@ -100,7 +100,7 @@
 .ch .dot-ok { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); flex: none; }
 .arch-tag { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 999px; background: var(--fg-soft); color: var(--muted); font-size: 10.5px; flex: none; letter-spacing: 0.02em; }
 .ch.sel .arch-tag { background: color-mix(in oklch, var(--accent) 10%, transparent); color: var(--accent); }
-/* daisyUI 同名 .badge 自带描边/底色变量 —— 显式清零（工作台作用域） */
+/* .badge 清零声明原为反制 daisyUI 同名类；daisyUI 已退役，保留作为无害防御 */
 .wb .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; flex: none; border: 0; background: none; text-transform: none; }
 .wb .badge.ok { background: var(--ok-soft); color: var(--ok); }
 .wb .badge.warn { background: var(--warn-soft); color: var(--warn); }

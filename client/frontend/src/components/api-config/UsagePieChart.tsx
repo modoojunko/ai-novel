@@ -10,6 +10,9 @@
  * - Single segment: rendered as a full circle with a single stroke color.
  * - Multiple segments: one <circle> per segment with calculated dash params.
  * - Empty / zero-total / loading states: handled explicitly.
+ *
+ * 调色板与主题同源（oklch 直书，不引入裸 hex）：
+ * 墨绿=accent 族、暖金=warn 族、赭红=err 族，再补黛蓝/紫棠/青三个邻近色相。
  */
 
 interface UsagePieChartProps {
@@ -17,26 +20,33 @@ interface UsagePieChartProps {
   loading?: boolean;
 }
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+const COLORS = [
+  "oklch(0.55 0.11 165)",
+  "oklch(0.66 0.11 75)",
+  "oklch(0.58 0.13 30)",
+  "oklch(0.55 0.08 255)",
+  "oklch(0.58 0.10 320)",
+  "oklch(0.60 0.08 210)",
+];
 
 export function UsagePieChart({ data, loading }: UsagePieChartProps) {
   if (loading) {
     return (
       <div className="flex justify-center py-4">
         <svg width="80" height="80" viewBox="0 0 80 80">
-          <circle cx="40" cy="40" r="32" fill="none" stroke="oklch(var(--b3))" strokeWidth="14" />
+          <circle cx="40" cy="40" r="32" fill="none" stroke="var(--border)" strokeWidth="14" />
         </svg>
       </div>
     );
   }
 
   if (!data || data.length === 0) {
-    return <p className="text-sm text-base-content/50 text-center py-4">暂无用量数据</p>;
+    return <p className="text-sm text-center py-4" style={{ color: "var(--muted)" }}>暂无用量数据</p>;
   }
 
   const total = data.reduce((s, d) => s + d.tokens, 0);
   if (total === 0) {
-    return <p className="text-sm text-base-content/50 text-center py-4">暂无用量数据</p>;
+    return <p className="text-sm text-center py-4" style={{ color: "var(--muted)" }}>暂无用量数据</p>;
   }
 
   // Single segment: full circle
@@ -49,7 +59,7 @@ export function UsagePieChart({ data, loading }: UsagePieChartProps) {
         <div className="flex items-center gap-1 text-xs">
           <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: COLORS[0] }} />
           <span>{data[0].model}</span>
-          <span className="text-base-content/50">{total.toLocaleString()}</span>
+          <span style={{ color: "var(--muted)" }}>{total.toLocaleString()}</span>
         </div>
       </div>
     );
@@ -93,8 +103,8 @@ export function UsagePieChart({ data, loading }: UsagePieChartProps) {
           <div key={i} className="flex items-center gap-1 text-xs">
             <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: seg.color }} />
             <span>{seg.model}</span>
-            <span className="text-base-content/50">{Math.round(seg.percentage * 100)}%</span>
-            <span className="text-base-content/50">{seg.tokens.toLocaleString()}</span>
+            <span style={{ color: "var(--muted)" }}>{Math.round(seg.percentage * 100)}%</span>
+            <span style={{ color: "var(--muted)" }}>{seg.tokens.toLocaleString()}</span>
           </div>
         ))}
       </div>
