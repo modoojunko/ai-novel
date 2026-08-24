@@ -16,17 +16,19 @@ const { loadError, retry } = usePageLoad(() => session.fetchUserInfo())
 </script>
 
 <template>
-  <div class="space-y-6 animate-page-enter">
-    <div>
-      <h1 class="font-display text-2xl font-bold">我的 License</h1>
-      <p class="text-sm text-base-content/60">激活码用于开通或延长套餐，同一账号可叠加多张</p>
+  <div class="page-col">
+    <div class="page-head">
+      <div>
+        <h1>我的 License</h1>
+        <p class="sub">激活码用于开通或延长套餐，同一账号可叠加多张</p>
+      </div>
     </div>
 
     <LoadingSkeleton v-if="session.isLoading && !loadError" variant="license" />
 
-    <div v-else-if="loadError" class="text-center py-12">
-      <p class="text-base-content/60 mb-4">加载失败</p>
-      <AppButton variant="outline" size="sm" @click="retry">重试</AppButton>
+    <div v-else-if="loadError" class="err-box">
+      <p>加载失败</p>
+      <AppButton variant="secondary" size="sm" @click="retry">重试</AppButton>
     </div>
 
     <template v-else>
@@ -34,19 +36,19 @@ const { loadError, retry } = usePageLoad(() => session.fetchUserInfo())
 
       <!-- 激活码列表：预留卡片布局 -->
       <div>
-        <h2 class="font-display text-lg font-semibold mb-4">已绑定的激活码</h2>
+        <h2 class="sec-h serif">已绑定的激活码</h2>
         <EmptyState
           :icon="P.key"
           title="激活码明细即将上线"
           description="当前暂不支持查看已绑定的激活码列表"
         />
         <!-- 预留：卡片列表 v-for 渲染
-        <div v-for="code in codes" :key="code.code_id" class="app-card compact flex flex-wrap gap-2 items-center">
-          <span class="font-mono text-xs">AC-ABCD-EFGH-…</span>
-          <span class="badge badge-sm">套餐</span>
+        <div v-for="code in codes" :key="code.code_id" class="panel compact flex flex-wrap gap-2 items-center">
+          <span class="keyline">AC-ABCD-EFGH-…</span>
+          <span class="b muted">套餐</span>
           <span class="text-xs">到期日</span>
-          <span class="badge badge-sm badge-success">已激活</span>
-          <span class="text-xs text-base-content/50">激活时间</span>
+          <span class="b ok">已激活</span>
+          <span class="text-xs" style="color: var(--muted)">激活时间</span>
         </div>
         -->
       </div>
@@ -57,3 +59,8 @@ const { loadError, retry } = usePageLoad(() => session.fetchUserInfo())
     </AppModal>
   </div>
 </template>
+
+<style scoped>
+.page-col { display: flex; flex-direction: column; gap: 20px; }
+.err-box { text-align: center; padding: 48px 0; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 12px; }
+</style>

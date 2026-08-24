@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useSessionStore } from '@/stores/session'
 import { usePageLoad } from '@/composables/usePageLoad'
 import AppButton from '@/components/ui/AppButton.vue'
@@ -8,6 +9,12 @@ import ChangePasswordForm from '@/components/dashboard/ChangePasswordForm.vue'
 import SecurityForm from '@/components/dashboard/SecurityForm.vue'
 
 const session = useSessionStore()
+// none→muted、trial→warn、付费→ok（与 appbar 徽标同口径）
+const tierCls = computed(() => {
+  if (session.tier === 'none') return 'muted'
+  if (session.tier === 'trial') return 'warn'
+  return 'ok'
+})
 const { loadError, retry } = usePageLoad(async () => {
   if (!session.userFetched) {
     await session.fetchUserInfo()
@@ -16,30 +23,31 @@ const { loadError, retry } = usePageLoad(async () => {
 </script>
 
 <template>
-  <div class="max-w-2xl space-y-6 animate-page-enter">
-    <h1 class="font-display text-2xl font-bold">账户设置</h1>
+  <div class="page-col narrow">
+    <div class="page-head">
+      <div>
+        <h1>账户设置</h1>
+        <p class="sub">管理登录凭据与密保</p>
+      </div>
+    </div>
 
     <LoadingSkeleton v-if="session.isLoading && !loadError" variant="form" />
 
-    <div v-else-if="loadError" class="text-center py-12">
-      <p class="text-base-content/60 mb-4">加载失败</p>
-      <AppButton variant="outline" size="sm" @click="retry">重试</AppButton>
+    <div v-else-if="loadError" class="err-box">
+      <p>加载失败</p>
+      <AppButton variant="secondary" size="sm" @click="retry">重试</AppButton>
     </div>
 
     <template v-else>
       <!-- 用户信息卡（只读） -->
       <AppCard compact>
-        <div class="flex items-center gap-4">
-          <div
-            class="w-12 h-12 rounded-full bg-primary/10 text-primary font-display text-xl font-bold flex items-center justify-center"
-          >
-            {{ (session.username || '?')[0] }}
-          </div>
+        <div class="who-row">
+          <div class="avatar serif">{{ (session.username || '?')[0] }}</div>
           <div>
-            <div class="font-medium">{{ session.username }}</div>
-            <div class="flex items-center gap-2 mt-1">
-              <span class="badge badge-primary badge-sm">{{ session.tierDisplay }}</span>
-              <span v-if="session.expiresAt" class="text-xs text-base-content/50">
+            <div class="who-name">{{ session.username }}</div>
+            <div class="who-meta">
+              <span class="b" :class="tierCls">{{ session.tierDisplay }}</span>
+              <span v-if="session.expiresAt" class="exp num">
                 到期：{{ session.expiresAt.slice(0, 10) }}
               </span>
             </div>
@@ -55,3 +63,14 @@ const { loadError, retry } = usePageLoad(async () => {
     </template>
   </div>
 </template>
+
+<style scoped>
+.page-col { display: flex; flex-direction: column; gap: 20px; }
+.narrow { max-width: 640px; }
+.err-box { text-align: center; padding: 48px 0; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.who-row { display: flex; align-items: center; gap: 14px; }
+.avatar { width: 44px; height: 44px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-strong); font-size: 19px; font-weight: 600; display: grid; place-items: center; }
+.who-name { font-weight: 500; }
+.who-meta { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
+.exp { font-size: 12px; color: var(--muted); }
+</style>

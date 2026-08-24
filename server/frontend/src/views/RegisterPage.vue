@@ -2,10 +2,11 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
-import AppCard from '@/components/ui/AppCard.vue'
 import AppInput from '@/components/ui/AppInput.vue'
 import { SECURITY_QUESTIONS } from "@/constants/security-questions"
 import AppButton from '@/components/ui/AppButton.vue'
+import Ico from '@/components/ui/Ico.vue'
+import { P } from '@/components/ui/icons'
 
 const router = useRouter()
 const session = useSessionStore()
@@ -64,85 +65,101 @@ async function handleRegister() {
 </script>
 
 <template>
-  <div class="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6">
-    <AppCard class="max-w-md w-full">
-      <div class="flex items-center gap-2 mb-1">
-        <h1 class="font-display text-2xl font-bold">注册</h1>
-        <span class="badge badge-success badge-outline">注册即送 7 天全功能试用</span>
-      </div>
+  <div class="auth-card wide">
+    <div class="brand-row">
+      <span class="logo-mark">爱</span>
+      <span class="bn serif">爱小说</span>
+    </div>
+    <div class="head-row">
+      <h1>注册</h1>
+      <span class="b ok">注册即送 7 天全功能试用</span>
+    </div>
+    <p class="sub">几分钟完成，马上开始写作</p>
 
-      <p v-if="errorMsg" class="alert alert-error text-sm mb-4">{{ errorMsg }}</p>
+    <p v-if="errorMsg" class="strip err">
+      <Ico :d="P.alert" />{{ errorMsg }}
+    </p>
 
-      <div class="space-y-4">
-        <!-- 组 1：必填账号信息 -->
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">账号信息</legend>
-          <AppInput v-model="username" label="用户名" autocomplete="username" />
-          <AppInput
-            v-model="password"
-            type="password"
-            label="密码"
-            autocomplete="new-password"
-            :error="passwordError"
-            hint="至少 6 位"
-          />
-          <AppInput
-            v-model="confirmPassword"
-            type="password"
-            label="确认密码"
-            :error="confirmError"
-          />
-        </fieldset>
+    <div class="form-area">
+      <!-- 组 1：必填账号信息 -->
+      <p class="grp-t serif">账号信息</p>
+      <AppInput v-model="username" label="用户名" autocomplete="username" />
+      <AppInput
+        v-model="password"
+        type="password"
+        label="密码"
+        autocomplete="new-password"
+        :error="passwordError"
+        hint="至少 6 位"
+      />
+      <AppInput
+        v-model="confirmPassword"
+        type="password"
+        label="确认密码"
+        :error="confirmError"
+      />
 
-        <div class="divider" />
-
-        <!-- 组 2：密保设置 -->
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">密保设置 · 用于找回密码</legend>
-          <select
-            class="select select-bordered w-full"
-            :value="securityQuestion"
-            @change="onQuestionChange"
-          >
-            <option
-              v-for="opt in questionOptions"
-              :key="opt.value"
-              :value="opt.value"
-              :disabled="opt.disabled"
-            >
-              {{ opt.label }}
-            </option>
-          </select>
-
-          <AppInput
-            v-if="showCustomInput"
-            v-model="customQuestion"
-            label="自定义问题"
-            placeholder="输入你的密保问题"
-          />
-
-          <AppInput
-            v-model="securityAnswer"
-            label="密保答案"
-            placeholder="请输入答案"
-          />
-        </fieldset>
-
-        <AppButton
-          variant="primary"
-          block
-          :loading="session.isLoading"
-          :disabled="!canSubmit"
-          @click="handleRegister"
+      <!-- 组 2：密保设置 -->
+      <p class="grp-t serif">密保设置 <span class="grp-sub">· 用于找回密码</span></p>
+      <div class="field">
+        <select
+          class="input"
+          :value="securityQuestion"
+          @change="onQuestionChange"
         >
-          注册
-        </AppButton>
+          <option
+            v-for="opt in questionOptions"
+            :key="opt.value"
+            :value="opt.value"
+            :disabled="opt.disabled"
+          >
+            {{ opt.label }}
+          </option>
+        </select>
       </div>
 
-      <p class="text-center text-sm mt-4">
-        已有账号？
-        <router-link to="/login" class="link link-primary">登录</router-link>
-      </p>
-    </AppCard>
+      <AppInput
+        v-if="showCustomInput"
+        v-model="customQuestion"
+        label="自定义问题"
+        placeholder="输入你的密保问题"
+      />
+
+      <AppInput
+        v-model="securityAnswer"
+        label="密保答案"
+        placeholder="请输入答案"
+      />
+
+      <AppButton
+        variant="primary"
+        size="lg"
+        block
+        :loading="session.isLoading"
+        :disabled="!canSubmit"
+        @click="handleRegister"
+      >
+        注册
+      </AppButton>
+    </div>
+
+    <p class="foot-lnk">
+      已有账号？<router-link to="/login" class="lnk">登录</router-link>
+    </p>
   </div>
 </template>
+
+<style scoped>
+.auth-card.wide { max-width: 420px; text-align: center; }
+.brand-row { display: flex; align-items: center; justify-content: center; gap: 9px; margin-bottom: 18px; }
+.brand-row .bn { font-size: 17px; font-weight: 600; }
+.head-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
+h1 { font-family: var(--font-display); font-size: 28px; font-weight: 600; margin: 0; }
+.sub { font-size: 13.5px; color: var(--muted); margin: 4px 0 22px; }
+.form-area { text-align: left; }
+.grp-t { font-size: 15px; font-weight: 600; margin: 6px 0 10px; }
+.grp-t:first-child { margin-top: 0; }
+.grp-sub { font-family: var(--font-body); font-size: 12.5px; font-weight: 400; color: var(--muted); }
+.form-area .btn { margin-top: 8px; }
+.foot-lnk { font-size: 13px; color: var(--muted); margin: 16px 0 0; }
+</style>

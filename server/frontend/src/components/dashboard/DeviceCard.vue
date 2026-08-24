@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Monitor, Laptop, Terminal } from 'lucide-vue-next'
 import type { DeviceItem } from '@/api/web'
 import AppCard from '@/components/ui/AppCard.vue'
 import AppButton from '@/components/ui/AppButton.vue'
+import Ico from '@/components/ui/Ico.vue'
+import { P } from '@/components/ui/icons'
 
 const props = defineProps<{
   device: DeviceItem
@@ -15,9 +16,9 @@ const emit = defineEmits<{
 
 const osIcon = computed(() => {
   const os = props.device.os?.toLowerCase() || ''
-  if (os.includes('darwin') || os.includes('macos')) return Laptop
-  if (os.includes('linux')) return Terminal
-  return Monitor
+  if (os.includes('darwin') || os.includes('macos')) return P.laptop
+  if (os.includes('linux')) return P.terminal
+  return P.monitor
 })
 
 const relativeTime = computed(() => {
@@ -33,47 +34,39 @@ const relativeTime = computed(() => {
 })
 
 const statusBadge = computed(() => {
-  if (props.device.activated) return { cls: 'badge-success', text: '已激活' }
+  if (props.device.activated) return { cls: 'ok', text: '已激活' }
   const code = props.device.reason?.code
-  if (code === 'account_inactive') return { cls: 'badge-warning', text: '账号未激活' }
-  if (code === 'limit_exceeded') return { cls: 'badge-ghost', text: '超出限额' }
-  return { cls: 'badge-ghost', text: '未激活' }
+  if (code === 'account_inactive') return { cls: 'warn', text: '账号未激活' }
+  if (code === 'limit_exceeded') return { cls: 'muted', text: '超出限额' }
+  return { cls: 'muted', text: '未激活' }
 })
 </script>
 
 <template>
   <AppCard compact>
-    <div class="flex items-center gap-4">
+    <div class="row">
       <!-- 设备图标 -->
-      <component :is="osIcon" class="w-10 h-10 text-primary/70 shrink-0" />
+      <span class="os-ic"><Ico :d="osIcon" :sw="1.6" /></span>
 
       <!-- 中部信息 -->
-      <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="font-medium truncate">{{ device.hostname }}</span>
-          <span
-            v-if="device.is_current"
-            class="badge badge-primary badge-outline badge-sm"
-          >
-            当前设备
-          </span>
+      <div class="mid">
+        <div class="name-row">
+          <span class="name">{{ device.hostname }}</span>
+          <span v-if="device.is_current" class="b muted">当前设备</span>
         </div>
-        <div class="text-xs text-base-content/50">
+        <div class="meta">
           {{ device.os }} · {{ device.os_arch }}
         </div>
-        <div class="text-xs text-base-content/50">
+        <div class="meta">
           最后活跃：{{ relativeTime }}
         </div>
       </div>
 
       <!-- 右侧状态与操作 -->
-      <div class="flex items-center gap-2 shrink-0">
-        <div
-          class="tooltip"
-          :data-tip="device.reason?.message || statusBadge.text"
-        >
-          <span class="badge badge-sm" :class="statusBadge.cls">{{ statusBadge.text }}</span>
-        </div>
+      <div class="ops">
+        <span class="b" :class="statusBadge.cls" :title="device.reason?.message || statusBadge.text">
+          {{ statusBadge.text }}
+        </span>
 
         <AppButton
           v-if="!device.is_current"
@@ -83,10 +76,21 @@ const statusBadge = computed(() => {
         >
           移除
         </AppButton>
-        <div v-else class="tooltip" data-tip="当前设备不可移除">
-          <AppButton variant="error" size="sm" disabled>移除</AppButton>
-        </div>
+        <AppButton v-else variant="error" size="sm" disabled title="当前设备不可移除">
+          移除
+        </AppButton>
       </div>
     </div>
   </AppCard>
 </template>
+
+<style scoped>
+.row { display: flex; align-items: center; gap: 16px; }
+.os-ic { width: 42px; height: 42px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-strong); display: grid; place-items: center; flex: none; }
+.os-ic svg { width: 20px; height: 20px; }
+.mid { min-width: 0; flex: 1; }
+.name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.ops { display: flex; align-items: center; gap: 10px; flex: none; }
+</style>
