@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Eye, EyeOff } from 'lucide-vue-next'
+import Ico from './Ico.vue'
+import { P } from './icons'
 
 const props = withDefaults(defineProps<{
   modelValue: string
@@ -9,7 +10,6 @@ const props = withDefaults(defineProps<{
   type?: 'text' | 'password' | 'email'
   error?: string
   hint?: string
-  icon?: string
   disabled?: boolean
   name?: string
   autocomplete?: string
@@ -36,15 +36,12 @@ function onInput(e: Event) {
 </script>
 
 <template>
-  <fieldset class="fieldset" :class="{ 'opacity-50': disabled }">
-    <legend v-if="label" class="fieldset-legend">{{ label }}</legend>
-    <label
-      class="input input-bordered flex items-center gap-2 focus-within:border-primary focus-within:outline-none w-full"
-      :class="{ 'input-error': error }"
-    >
-      <span v-if="icon" class="text-base-content/50 text-sm">{{ icon }}</span>
+  <div class="field" :class="{ 'is-disabled': disabled }">
+    <label v-if="label" :for="inputId">{{ label }}</label>
+    <div class="input-wrap" :class="{ 'has-err': error }">
       <input
-        class="grow"
+        class="input"
+        :class="{ 'pr-10': type === 'password' }"
         :id="inputId"
         :aria-label="label"
         :type="inputType"
@@ -57,15 +54,15 @@ function onInput(e: Event) {
       <button
         v-if="type === 'password' && modelValue"
         type="button"
-        class="btn btn-ghost btn-xs"
+        class="pw-eye"
         tabindex="-1"
+        :aria-label="showPassword ? '隐藏密码' : '显示密码'"
         @click="showPassword = !showPassword"
       >
-        <Eye v-if="!showPassword" class="w-4 h-4 text-base-content/50" />
-        <EyeOff v-else class="w-4 h-4 text-base-content/50" />
+        <Ico :d="showPassword ? P.eyeOff : P.eye" />
       </button>
-    </label>
-    <p v-if="error" class="text-error text-sm mt-1 transition-all">{{ error }}</p>
-    <p v-else-if="hint" class="label-text text-xs text-base-content/60 mt-1">{{ hint }}</p>
-  </fieldset>
+    </div>
+    <p v-if="error" class="f-err">{{ error }}</p>
+    <p v-else-if="hint" class="f-hint">{{ hint }}</p>
+  </div>
 </template>

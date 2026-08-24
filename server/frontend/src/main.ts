@@ -4,6 +4,7 @@ import App from './App.vue'
 import router from './router'
 import { warmUpBackend } from './api/request'
 import './style.css'
+import './design/base.css'
 
 const app = createApp(App)
 app.use(createPinia())

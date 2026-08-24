@@ -28,12 +28,12 @@ test.describe('控制台首页', () => {
     // 先用 getByText 点击按钮
     await page.getByText('激活新码').first().click()
     // 等待模态出现
-    await expect(page.locator('.modal-box')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('.mcard')).toBeVisible({ timeout: 10000 })
   })
 
   test('激活码提交成功', async ({ page }) => {
     await page.getByRole('button', { name: '激活新码' }).click()
-    const modal = page.locator('.modal-box')
+    const modal = page.locator('.mcard')
     await modal.getByLabel('激活码').fill('AC-TEST-CODE-1234-5678')
     await modal.getByRole('button', { name: '确认激活' }).click()
     await expect(page.getByText('激活成功').first()).toBeVisible()
@@ -41,14 +41,14 @@ test.describe('控制台首页', () => {
 
   test('激活码空输入禁用按钮', async ({ page }) => {
     await page.getByRole('button', { name: '激活新码' }).click()
-    const confirmBtn = page.locator('.modal-box').getByRole('button', { name: '确认激活' })
+    const confirmBtn = page.locator('.mcard').getByRole('button', { name: '确认激活' })
     await expect(confirmBtn).toBeDisabled()
   })
 
   test('激活失败显示错误', async ({ page }) => {
     await page.getByText('激活新码').first().click()
-    await expect(page.locator('.modal-box')).toBeVisible({ timeout: 10000 })
-    const modal = page.locator('.modal-box')
+    await expect(page.locator('.mcard')).toBeVisible({ timeout: 10000 })
+    const modal = page.locator('.mcard')
     // 输入短码触发后端错误
     await modal.locator('input[aria-label="激活码"]').type('short')
     await modal.getByRole('button', { name: '确认激活' }).click()
