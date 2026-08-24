@@ -34,6 +34,9 @@ const PID = "p1";
 
 /** 从 book.html 源码提取 PROSE_C1/C2 段落数组（原型正文种子，唯一事实源）。 */
 function extractProse(): { c1: string[]; c2: string[] } {
+  // 原型是 gitignored 本地资产：无 docs/design-c 的环境（如 CI）在模块加载期就会
+  // 读文件——必须守卫，否则 import 即崩，下面的 test.skip(原型缺失) 永远到不了。
+  if (!fs.existsSync(PROTO_FILE)) return { c1: [], c2: [] };
   const src = fs.readFileSync(PROTO_FILE, "utf-8");
   const grab = (name: string): string[] => {
     const m = src.match(new RegExp(`const ${name} = \\[([\\s\\S]*?)\\];`));
