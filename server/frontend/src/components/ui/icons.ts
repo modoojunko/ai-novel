@@ -47,6 +47,8 @@ export const P = {
   home: '<path d="M4 11l8-7 8 7M6 9.5V20h12V9.5"/>',
   key: '<circle cx="8" cy="14" r="4"/><path d="M11 11l8-8M16 6l2.5 2.5M13 9l2 2"/>',
   monitor: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  laptop: '<rect x="4" y="4" width="16" height="11" rx="1.5"/><path d="M2 19h20"/>',
+  terminal: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 9l3 3-3 3M12 15h5"/>',
   settings:
     '<circle cx="12" cy="12" r="3"/><path d="M12 2.5l1.2 2.5 2.7.6 2-1.8 1.8 1.8-1.8 2 .6 2.7 2.5 1.2v2.5l-2.5 1.2-.6 2.7 1.8 2-1.8 1.8-2-1.8-2.7.6L12 21.5l-1.2-2.5-2.7-.6-2 1.8L4.3 18.4l1.8-2-.6-2.7L3 12.5V10l2.5-1.2.6-2.7-1.8-2 1.8-1.8 2 1.8 2.7-.6z"/>',
   logout: '<path d="M9 4H5v16h4M14 8l4 4-4 4M18 12H9"/>',

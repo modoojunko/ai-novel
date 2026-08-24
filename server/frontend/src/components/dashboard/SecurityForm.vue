@@ -6,6 +6,8 @@ import AppCard from '@/components/ui/AppCard.vue'
 import AppInput from '@/components/ui/AppInput.vue'
 import { SECURITY_QUESTIONS } from "@/constants/security-questions"
 import AppButton from '@/components/ui/AppButton.vue'
+import Ico from '@/components/ui/Ico.vue'
+import { P } from '@/components/ui/icons'
 
 const toast = useToast()
 
@@ -53,19 +55,23 @@ async function submit() {
 
 <template>
   <AppCard>
-    <h3 class="font-display text-lg font-bold mb-4">密保设置</h3>
-    <p class="text-sm text-base-content/60 mb-4">
+    <div class="panel-h"><h2>密保设置</h2></div>
+    <p class="fm-sub">
       用于忘记密码时找回账号，设置新密保会覆盖旧的。
     </p>
 
-    <p v-if="errorMsg" class="alert alert-error text-sm mb-4">{{ errorMsg }}</p>
-    <p v-if="successMsg" class="alert alert-success text-sm mb-4">{{ successMsg }}</p>
+    <p v-if="errorMsg" class="strip err">
+      <Ico :d="P.alert" />{{ errorMsg }}
+    </p>
+    <p v-if="successMsg" class="strip ok">
+      <Ico :d="P.check" />{{ successMsg }}
+    </p>
 
-    <div class="space-y-4">
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">密保问题</legend>
+    <div>
+      <div class="field">
+        <label>密保问题</label>
         <select
-          class="select select-bordered w-full"
+          class="input"
           :value="securityQuestion"
           @change="onQuestionChange"
           :disabled="isSubmitting"
@@ -79,7 +85,7 @@ async function submit() {
             {{ opt.label }}
           </option>
         </select>
-      </fieldset>
+      </div>
 
       <AppInput
         v-if="showCustomInput"
@@ -94,7 +100,7 @@ async function submit() {
         placeholder="请输入答案"
       />
 
-      <div class="flex justify-end">
+      <div class="foot-row">
         <AppButton :disabled="!canSubmit()" :loading="isSubmitting" @click="submit">
           保存
         </AppButton>
@@ -102,3 +108,8 @@ async function submit() {
     </div>
   </AppCard>
 </template>
+
+<style scoped>
+.fm-sub { font-size: 13px; color: var(--muted); margin: -4px 0 14px; line-height: 1.7; }
+.foot-row { display: flex; justify-content: flex-end; }
+</style>

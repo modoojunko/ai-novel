@@ -2,13 +2,12 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { apiAuthorize } from '@/api/client'
-import { useSessionStore } from '@/stores/session'
-import AppCard from '@/components/ui/AppCard.vue'
 import AppInput from '@/components/ui/AppInput.vue'
 import AppButton from '@/components/ui/AppButton.vue'
+import Ico from '@/components/ui/Ico.vue'
+import { P } from '@/components/ui/icons'
 
 const route = useRoute()
-const session = useSessionStore()
 
 const pcHash = ref('')
 const deviceProfile = ref('')
@@ -63,47 +62,49 @@ async function submitAuth() {
 </script>
 
 <template>
-  <AppCard class="max-w-sm w-full">
+  <div class="auth-card wide">
     <!-- 无效请求 -->
     <template v-if="isInvalid">
-      <div class="alert alert-warning">无效的授权请求，请从桌面应用重新发起</div>
+      <p class="strip warn">
+        <Ico :d="P.alert" />无效的授权请求，请从桌面应用重新发起
+      </p>
     </template>
 
     <!-- 授权成功 -->
     <template v-else-if="authorized">
-      <div class="text-center py-4">
-        <svg class="w-16 h-16 text-success mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <h1 class="font-display text-xl font-bold">授权成功</h1>
-        <p class="text-sm text-base-content/60 mt-2">
-          套餐：{{ authResult.tier }}
-          <template v-if="authResult.expires_at">
-            · 到期：{{ authResult.expires_at.slice(0, 10) }}
-          </template>
-        </p>
-        <p class="text-xs text-base-content/50 mt-6">此页面可以关闭了</p>
+      <div class="ok-wrap">
+        <span class="ok-ring"><Ico :d="P.check" :sw="2.2" /></span>
+        <h1>授权成功</h1>
+        <div class="ok-meta">
+          <span class="b ok">{{ authResult.tier }}</span>
+          <span v-if="authResult.expires_at" class="b muted num">
+            {{ authResult.expires_at.slice(0, 10) }} 到期
+          </span>
+        </div>
+        <p class="ok-note">此页面可以关闭了</p>
       </div>
     </template>
 
     <!-- 授权表单 -->
     <template v-else>
-      <div class="flex items-center gap-2 mb-4">
-        <span class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-content text-sm">✎</span>
-        <h1 class="font-display text-xl font-bold">设备授权</h1>
+      <div class="brand-row">
+        <span class="logo-mark">爱</span>
+        <span class="bn serif">爱小说</span>
       </div>
-      <p class="text-sm text-base-content/60 mb-6">
-        桌面应用请求绑定此设备，请登录以完成授权
+      <h1>设备授权</h1>
+      <p class="sub">桌面应用请求绑定此设备，请登录以完成授权</p>
+
+      <p v-if="errorMsg" class="strip err">
+        <Ico :d="P.alert" />{{ errorMsg }}
       </p>
 
-      <p v-if="errorMsg" class="alert alert-error text-sm mb-4">{{ errorMsg }}</p>
-
-      <div class="space-y-4">
+      <div class="form-area">
         <AppInput v-model="username" label="用户名" />
         <AppInput v-model="password" type="password" label="密码" />
 
         <AppButton
           variant="primary"
+          size="lg"
           block
           :loading="isSubmitting"
           :disabled="!username || !password"
@@ -113,9 +114,25 @@ async function submitAuth() {
         </AppButton>
       </div>
 
-      <p class="text-center mt-6">
-        <router-link to="/register" class="link link-primary text-sm">还没有账号？注册</router-link>
+      <p class="foot-lnk">
+        <router-link to="/register" class="lnk">还没有账号？注册</router-link>
       </p>
     </template>
-  </AppCard>
+  </div>
 </template>
+
+<style scoped>
+.auth-card.wide { max-width: 400px; text-align: center; }
+.brand-row { display: flex; align-items: center; justify-content: center; gap: 9px; margin-bottom: 18px; }
+.brand-row .bn { font-size: 17px; font-weight: 600; }
+h1 { font-family: var(--font-display); font-size: 26px; font-weight: 600; margin: 0; }
+.sub { font-size: 13.5px; color: var(--muted); margin: 4px 0 22px; line-height: 1.7; }
+.form-area { text-align: left; }
+.form-area .btn { margin-top: 6px; }
+.foot-lnk { font-size: 13px; margin: 16px 0 0; }
+.ok-wrap { padding: 12px 0 4px; }
+.ok-ring { width: 56px; height: 56px; border-radius: 999px; background: var(--ok-soft); color: var(--ok); display: grid; place-items: center; margin: 0 auto 16px; }
+.ok-ring svg { width: 26px; height: 26px; }
+.ok-meta { display: flex; justify-content: center; gap: 8px; margin-top: 12px; }
+.ok-note { font-size: 12px; color: var(--muted); margin: 24px 0 0; }
+</style>

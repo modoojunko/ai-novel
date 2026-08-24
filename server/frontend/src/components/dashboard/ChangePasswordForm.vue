@@ -5,6 +5,8 @@ import { useToast } from '@/composables/useToast'
 import AppCard from '@/components/ui/AppCard.vue'
 import AppInput from '@/components/ui/AppInput.vue'
 import AppButton from '@/components/ui/AppButton.vue'
+import Ico from '@/components/ui/Ico.vue'
+import { P } from '@/components/ui/icons'
 
 const toast = useToast()
 
@@ -58,10 +60,14 @@ async function submit() {
 
 <template>
   <AppCard>
-    <h3 class="font-display text-lg font-bold mb-4">修改密码</h3>
+    <div class="panel-h"><h2>修改密码</h2></div>
 
-    <p v-if="errorMsg" class="alert alert-error text-sm mb-4">{{ errorMsg }}</p>
-    <p v-if="successMsg" class="alert alert-success text-sm mb-4">{{ successMsg }}</p>
+    <p v-if="errorMsg" class="strip err">
+      <Ico :d="P.alert" />{{ errorMsg }}
+    </p>
+    <p v-if="successMsg" class="strip ok">
+      <Ico :d="P.check" />{{ successMsg }}
+    </p>
 
     <div class="space-y-4">
       <AppInput v-model="oldPassword" type="password" label="旧密码" autocomplete="current-password" />
