@@ -47,7 +47,7 @@ a = Analysis(
         # 前端整份 dist：index.html + assets/ + env.js + public/*.svg
         # （只收 index.html + assets 会漏 env.js，index.html 用 <script src="./env.js"> 引用 → 冻结包 404）
         (str(frontend_dist), "frontend"),
-        (str(root_dir / "client" / "reference"), "reference"),
+        (str(backend_dir / "reference"), "reference"),
         # AI 提示词模板：prompts/*.prompt 是运行时数据（prompts/__init__.py 靠 __file__ 定位），
         # 不打包进 datas 则冻结包内 load_prompt() 抛 FileNotFoundError → 所有 AI 功能崩
         (str(backend_dir / "prompts"), "prompts"),

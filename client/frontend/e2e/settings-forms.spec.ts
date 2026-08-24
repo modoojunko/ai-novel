@@ -191,6 +191,18 @@ async function confirmPanel(page: Page) {
   ).toBeVisible({ timeout: 5000 });
 }
 
+/**
+ * 已确认面板的保存路径：种子模板让 style/anti-ai 开书即有内容（readiness 即
+ * ready → 按钮已是「保存修改」，gap3：已确认态只 save，不再 PUT status）。
+ */
+async function savePanel(page: Page) {
+  const btn = page
+    .locator(".panel-foot")
+    .getByRole("button", { name: "保存修改" });
+  await expect(btn).toBeVisible({ timeout: 5000 });
+  await btn.click();
+}
+
 // -------------------------------------------------------------------------
 // ① 题材：真实题材选择器（空态 → 都市日常 → 应用题材 → 自动保存 → 完成设定）
 // -------------------------------------------------------------------------
@@ -260,7 +272,7 @@ test("风格：真实表单（叙事身份 Field + 核心原则折叠组）→ �
     await page.getByRole("button", { name: /^设定/ }).click();
     await openSetting(page, "风格");
 
-    // 叙事身份折叠组（默认展开）：Field 文本
+    // 叙事身份折叠组（默认展开）：Field 文本（种子模板预填 role，fill 覆盖）
     await fillSettingField(page, "叙事身份", "冷静克制的第三人称叙事，短句为主");
 
     // 核心原则折叠组（默认收起）：展开 → 首行 ListEditor 填原则
@@ -271,11 +283,11 @@ test("风格：真实表单（叙事身份 Field + 核心原则折叠组）→ �
       .first()
       .fill("动词驱动叙事，动作外化情绪");
 
-    // 确认完成（gap3：先 save 落库 PUT /settings/style，再 confirm）
+    // 保存（种子模板使风格开书即 ready → 已确认态只 save，不 PUT status）
     const styleSave = page.waitForResponse(
       (r) => r.request().method() === "PUT" && r.url().includes("/settings/style"),
     );
-    await confirmPanel(page);
+    await savePanel(page);
     await styleSave;
 
     // 后端直查（merge-on-save 后 role / core_principles 落盘）
@@ -306,16 +318,17 @@ test("AI痕迹：真实表单（疲劳词分类列表）→ 确认完成自动�
     await openSetting(page, "AI痕迹控制");
 
     // 疲劳词折叠组（默认展开）：第一分类（总结叙事）ListEditor 填词
+    // （种子模板已带默认疲劳词，fill 追加到既有分类）
     await page
       .getByPlaceholder(/添加该分类下的疲劳词/)
       .first()
       .fill("似乎");
 
-    // 确认完成（gap3：先 save 落库 PUT /settings/anti-ai，再 confirm）
+    // 保存（种子模板使 AI 痕迹开书即 ready → 已确认态只 save）
     const antiSave = page.waitForResponse(
       (r) => r.request().method() === "PUT" && r.url().includes("/settings/anti-ai"),
     );
-    await confirmPanel(page);
+    await savePanel(page);
     await antiSave;
 
     // 后端直查：summary_narrative 分类含「似乎」

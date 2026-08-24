@@ -344,19 +344,26 @@ test("设定 7 项全确认（settings-status 全绿）", async ({ page, request
     await openSetting(page, "题材");
     await confirmPanel(page);
 
-    // ── style：API 注入 + 面板确认
+    // ── style：API 注入 + 面板已确认态（种子模板预填 role → readiness 即
+    //    ready，按钮为「保存修改」，UI 无确认路径；status 由 API 补齐）
     await apiPutJSON(request, token, `/novels/${pid}/settings/style`, {
       role: "克制冷静的第三人称叙事，短句为主",
     });
     await openSetting(page, "风格");
-    await confirmPanel(page);
+    await expect(
+      page.locator(".panel-foot").getByRole("button", { name: "保存修改" }),
+    ).toBeVisible({ timeout: 5000 });
+    await apiPutJSON(request, token, `/novels/${pid}/settings/status/style`, {});
 
-    // ── anti-ai：API 注入 + 面板确认
+    // ── anti-ai：API 注入 + 面板已确认态（种子模板预填疲劳词，同上）
     await apiPutJSON(request, token, `/novels/${pid}/settings/anti-ai`, {
       blocklists: ["过度修辞", "翻译腔"],
     });
     await openSetting(page, "AI痕迹控制");
-    await confirmPanel(page);
+    await expect(
+      page.locator(".panel-foot").getByRole("button", { name: "保存修改" }),
+    ).toBeVisible({ timeout: 5000 });
+    await apiPutJSON(request, token, `/novels/${pid}/settings/status/anti-ai`, {});
 
     // ── characters：API 注入角色文件 + 面板确认
     await apiPutJSON(request, token, `/novels/${pid}/settings/character/张三`, {

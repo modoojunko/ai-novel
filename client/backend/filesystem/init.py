@@ -6,7 +6,7 @@ from config import REFERENCE_DIR
 TEMPLATE_DIR = (
     Path(REFERENCE_DIR)
     if REFERENCE_DIR
-    else (Path(__file__).parent.parent.parent / "reference")
+    else (Path(__file__).resolve().parent.parent / "reference")
 )
 
 # settings 模板 → (相对路径, DB key)：只进 DB 不进盘（ADR-003）
