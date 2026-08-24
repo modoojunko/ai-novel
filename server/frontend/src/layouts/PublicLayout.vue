@@ -44,7 +44,9 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.mkt-logo span {
+/* 品牌文案「小说」着 accent；:not 防命中同为 span 的 .logo-mark
+   （其 白字 规则特异性 (0,1,0) 会被本规则 (0,2,1) 压掉，glyph 隐形） */
+.mkt-logo span:not(.logo-mark) {
   color: var(--accent);
   font-weight: inherit;
 }

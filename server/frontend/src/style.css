@@ -1,50 +1,10 @@
 @import "tailwindcss";
-@plugin "daisyui";
 
 /* ================================================================
- * 换装过渡（PR1）：唯一主题对齐 C端 v2 设计 token
- * 来源：Open Design 原型（list/index/book/model-config.html）:root
- * = client/frontend/src/design/base.css（oklch 一字不改）
- * daisyUI 仅作类名兼容层，PR5 退役；暗色主题已随本次换装退役。
+ * Tailwind 4 只承担布局工具类；视觉体系在 design/*.css
+ * （oklch token + 组件类，来源 Open Design 原型 = C端 base.css）。
+ * daisyUI 已随换装 v2 退役（PR1 曾作过渡兼容层保类名不裸奔）。
  * ================================================================ */
-@plugin "daisyui/theme" {
-  name: "parchment";
-  default: true;
-  color-scheme: light;
-
-  --color-primary: oklch(48% 0.11 170);
-  --color-primary-content: oklch(100% 0 0);
-
-  --color-secondary: oklch(41% 0.10 170);
-  --color-secondary-content: oklch(100% 0 0);
-
-  --color-accent: oklch(48% 0.11 170);
-  --color-accent-content: oklch(100% 0 0);
-
-  --color-neutral: oklch(20% 0.02 240);
-  --color-neutral-content: oklch(98% 0.004 240);
-
-  --color-base-100: oklch(100% 0 0);
-  --color-base-200: oklch(98% 0.004 240);
-  --color-base-300: oklch(90% 0.006 240);
-  --color-base-content: oklch(20% 0.02 240);
-
-  --color-info: oklch(55% 0.08 240);
-  --color-info-content: oklch(100% 0 0);
-  --color-success: oklch(52% 0.11 155);
-  --color-success-content: oklch(100% 0 0);
-  --color-warning: oklch(50% 0.13 75);
-  --color-warning-content: oklch(20% 0.02 240);
-  --color-error: oklch(50% 0.17 25);
-  --color-error-content: oklch(100% 0 0);
-
-  --radius-selector: 0.625rem;
-  --radius-field: 0.625rem;
-  --radius-box: 1rem;
-  --border: 1px;
-  --depth: 1;
-  --noise: 0;
-}
 
 /* ================================================================
  * @theme 层：字体族（系统栈，无 webfont）+ 动效
@@ -70,7 +30,7 @@
 }
 
 /* ================================================================
- * @layer base：全局基底
+ * @layer base：全局基底（色值引用 design/base.css 的 oklch token）
  * ================================================================ */
 @layer base {
   body {
@@ -79,18 +39,18 @@
   }
 
   ::selection {
-    background: color-mix(in oklch, var(--color-primary) 25%, transparent);
+    background: color-mix(in oklch, var(--accent) 25%, transparent);
     color: inherit;
   }
 
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: color-mix(in oklch, var(--color-primary) 15%, transparent);
+    background: color-mix(in oklch, var(--accent) 15%, transparent);
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in oklch, var(--color-primary) 30%, transparent);
+    background: color-mix(in oklch, var(--accent) 30%, transparent);
   }
 
   @media (prefers-reduced-motion: reduce) {
