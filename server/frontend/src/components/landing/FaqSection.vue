@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import Ico from '@/components/ui/Ico.vue'
+import { P } from '@/components/ui/icons'
+
 const faqs = [
   {
     q: '我不会用电脑，能装上吗？',
@@ -20,18 +23,22 @@ const faqs = [
 </script>
 
 <template>
-  <section id="faq" class="py-16 lg:py-24">
-    <h2 class="font-display text-3xl font-bold text-center">常见问题</h2>
-    <p class="text-center text-base-content/60 mt-2 mb-10">关于创作与 AI 的疑问，这里都有答案</p>
-    <div class="max-w-2xl mx-auto space-y-3">
-      <details
-        v-for="faq in faqs"
-        :key="faq.q"
-        class="collapse collapse-arrow bg-base-100 border border-base-300 rounded-box"
-      >
-        <summary class="collapse-title font-medium">{{ faq.q }}</summary>
-        <div class="collapse-content text-sm text-base-content/60">{{ faq.a }}</div>
-      </details>
+  <section id="faq" class="mkt-section">
+    <div class="mkt-in">
+      <div class="mb-10 text-center">
+        <span class="mkt-eyebrow">常见问题</span>
+        <h2 class="mkt-h2">关于创作与 AI 的疑问</h2>
+        <p class="mkt-lead max-w-lg mx-auto">这里都有答案</p>
+      </div>
+      <div class="max-w-2xl mx-auto flex flex-col gap-2.5">
+        <details v-for="faq in faqs" :key="faq.q" class="faq-item">
+          <summary>
+            {{ faq.q }}
+            <span class="fq-ic"><Ico :d="P.chevronDown" /></span>
+          </summary>
+          <div class="fq-a">{{ faq.a }}</div>
+        </details>
+      </div>
     </div>
   </section>
 </template>

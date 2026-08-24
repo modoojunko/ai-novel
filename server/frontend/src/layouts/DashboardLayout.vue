@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
-import AppButton from '@/components/ui/AppButton.vue'
-import { Home, KeyRound, Monitor, Settings, LogOut, Menu } from 'lucide-vue-next'
+import Ico from '@/components/ui/Ico.vue'
+import { P } from '@/components/ui/icons'
 
 const router = useRouter()
 const session = useSessionStore()
-const drawerOpen = ref(false)
+
+// none→muted、trial→warn、付费→ok
+const tierCls = computed(() => {
+  if (session.tier === 'none') return 'muted'
+  if (session.tier === 'trial') return 'warn'
+  return 'ok'
+})
 
 function handleLogout() {
   session.logout()
@@ -22,87 +28,46 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="drawer lg:drawer-open">
-    <input
-      id="dash-drawer"
-      type="checkbox"
-      class="drawer-toggle"
-      :checked="drawerOpen"
-      @change="drawerOpen = !drawerOpen"
-    />
+  <div class="dash">
+    <header class="appbar">
+      <router-link to="/dashboard" class="brand">
+        <span class="logo-mark">爱</span>
+        <span class="brand-name serif">爱小说</span>
+      </router-link>
+      <nav class="nav">
+        <router-link to="/dashboard" exact-active-class="on">首页</router-link>
+        <router-link to="/dashboard/license" active-class="on">License</router-link>
+        <router-link to="/dashboard/devices" active-class="on">设备</router-link>
+        <router-link to="/dashboard/account" active-class="on">账户</router-link>
+      </nav>
+      <div class="spacer" />
+      <span class="b" :class="tierCls">{{ session.tierDisplay }}</span>
+      <span class="who">{{ session.username || '用户' }}</span>
+      <button class="quit" @click="handleLogout">
+        <Ico :d="P.logout" />
+        <span class="q-text">退出登录</span>
+      </button>
+    </header>
 
-    <div class="drawer-content flex flex-col">
-      <!-- 移动端顶栏 -->
-      <div class="navbar bg-base-100/80 backdrop-blur border-b border-base-300 sticky top-0 z-30 lg:hidden px-4">
-        <div class="navbar-start">
-          <label for="dash-drawer" class="btn btn-ghost btn-sm drawer-button lg:hidden">
-            <Menu class="w-5 h-5" />
-          </label>
-        </div>
-        <div class="navbar-center">
-          <span class="font-display font-bold">爱小说</span>
-        </div>
-        <div class="navbar-end"></div>
-      </div>
-
-      <!-- 主内容区 -->
-      <div class="p-6 lg:p-8 max-w-5xl w-full mx-auto">
-        <router-view />
-      </div>
-    </div>
-
-    <!-- 侧边栏 -->
-    <div class="drawer-side">
-      <label for="dash-drawer" class="drawer-overlay"></label>
-      <aside class="bg-base-200 w-60 min-h-full p-4 flex flex-col border-r border-base-300">
-        <!-- Logo -->
-        <router-link to="/dashboard" class="flex items-center gap-2 font-display text-lg font-bold text-base-content no-underline mb-2 px-2">
-          <span class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-content text-sm">
-            ✎
-          </span>
-          爱小说
-        </router-link>
-
-        <!-- 导航菜单 -->
-        <ul class="menu grow gap-1 mt-4">
-          <li>
-            <router-link to="/dashboard" exact-active-class="menu-active">
-              <Home class="w-4 h-4" />
-              首页
-            </router-link>
-          </li>
-          <li>
-            <router-link to="/dashboard/license" active-class="menu-active">
-              <KeyRound class="w-4 h-4" />
-              我的 License
-            </router-link>
-          </li>
-          <li>
-            <router-link to="/dashboard/devices" active-class="menu-active">
-              <Monitor class="w-4 h-4" />
-              我的设备
-            </router-link>
-          </li>
-          <li>
-            <router-link to="/dashboard/account" active-class="menu-active">
-              <Settings class="w-4 h-4" />
-              账户设置
-            </router-link>
-          </li>
-        </ul>
-
-        <!-- 底部用户区 -->
-        <div class="border-t border-base-300 pt-4 mt-auto space-y-3">
-          <div class="px-2">
-            <p class="text-sm font-medium truncate">{{ session.username || '用户' }}</p>
-            <span class="badge badge-primary badge-sm mt-1">{{ session.tierDisplay }}</span>
-          </div>
-          <AppButton variant="ghost" size="xs" block class="justify-start gap-2" @click="handleLogout">
-            <LogOut class="w-3 h-3" />
-            退出登录
-          </AppButton>
-        </div>
-      </aside>
-    </div>
+    <main class="dash-main">
+      <router-view />
+    </main>
   </div>
 </template>
+
+<style scoped>
+.appbar { position: sticky; top: 0; z-index: 40; }
+.brand { display: inline-flex; align-items: center; gap: 8px; color: var(--fg); text-decoration: none; }
+.brand-name { font-size: 15px; font-weight: 600; }
+.who { font-size: 13px; color: var(--muted); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quit { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px; font-size: 13px; color: var(--muted); }
+.quit:hover { color: var(--fg); background: var(--fg-soft); }
+.quit svg { width: 15px; height: 15px; }
+.dash-main { max-width: 1024px; margin-inline: auto; width: 100%; padding: 28px 24px 48px; }
+
+@media (max-width: 640px) {
+  .brand-name, .who, .appbar > .b { display: none; }
+  .quit { padding: 5px 7px; }
+  .q-text { display: none; }
+}
+</style>

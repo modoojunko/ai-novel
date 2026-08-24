@@ -11,34 +11,34 @@ test.describe('UI 基础设施', () => {
       await expect(page.getByText('爱小说').first()).toBeVisible()
     })
 
-    test('侧栏导航菜单', async ({ page, mockApi }) => {
+    test('顶栏导航菜单', async ({ page, mockApi }) => {
       mockApi.registerUser()
       await page.goto('/')
       await setToken(page, mockApi)
       await page.goto('/dashboard')
       await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15000 })
-      await expect(page.locator('aside a:has-text("首页")')).toBeVisible()
-      await expect(page.locator('aside a:has-text("License")')).toBeVisible()
-      await expect(page.locator('aside a:has-text("设备")')).toBeVisible()
-      await expect(page.locator('aside a:has-text("账户")')).toBeVisible()
+      await expect(page.locator('header.appbar nav a:has-text("首页")')).toBeVisible()
+      await expect(page.locator('header.appbar nav a:has-text("License")')).toBeVisible()
+      await expect(page.locator('header.appbar nav a:has-text("设备")')).toBeVisible()
+      await expect(page.locator('header.appbar nav a:has-text("账户")')).toBeVisible()
     })
 
-    test('侧栏底部用户信息', async ({ page, mockApi }) => {
+    test('顶栏用户信息', async ({ page, mockApi }) => {
       const user = mockApi.registerUser()
       await page.goto('/')
       await setToken(page, mockApi)
       await page.goto('/dashboard')
       await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15000 })
-      await expect(page.locator('aside').getByText(user.username)).toBeVisible()
+      await expect(page.locator('header.appbar').getByText(user.username)).toBeVisible()
     })
 
-    test('侧栏退出按钮', async ({ page, mockApi }) => {
+    test('顶栏退出按钮', async ({ page, mockApi }) => {
       mockApi.registerUser()
       await page.goto('/')
       await setToken(page, mockApi)
       await page.goto('/dashboard')
       await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15000 })
-      await page.locator('aside button:has-text("退出登录")').click()
+      await page.locator('header.appbar button:has-text("退出登录")').click()
       await expect(page).toHaveURL('/')
       const token = await page.evaluate(() => localStorage.getItem('token'))
       expect(token).toBeNull()
