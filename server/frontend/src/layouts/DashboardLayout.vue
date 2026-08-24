@@ -3,19 +3,11 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import AppButton from '@/components/ui/AppButton.vue'
-import { Moon, Sun, Home, KeyRound, Monitor, Settings, LogOut, Menu } from 'lucide-vue-next'
+import { Home, KeyRound, Monitor, Settings, LogOut, Menu } from 'lucide-vue-next'
 
 const router = useRouter()
 const session = useSessionStore()
 const drawerOpen = ref(false)
-
-const theme = ref(localStorage.getItem('theme') || 'parchment')
-
-function toggleTheme() {
-  theme.value = theme.value === 'parchment' ? 'novelforge' : 'parchment'
-  document.documentElement.setAttribute('data-theme', theme.value)
-  localStorage.setItem('theme', theme.value)
-}
 
 function handleLogout() {
   session.logout()
@@ -50,17 +42,7 @@ onMounted(() => {
         <div class="navbar-center">
           <span class="font-display font-bold">爱小说</span>
         </div>
-        <div class="navbar-end">
-          <AppButton
-            variant="ghost"
-            size="sm"
-            @click="toggleTheme"
-            :aria-label="theme === 'parchment' ? '切换到深色主题' : '切换到浅色主题'"
-          >
-            <Sun v-if="theme === 'novelforge'" class="w-4 h-4" />
-            <Moon v-else class="w-4 h-4" />
-          </AppButton>
-        </div>
+        <div class="navbar-end"></div>
       </div>
 
       <!-- 主内容区 -->
@@ -75,7 +57,7 @@ onMounted(() => {
       <aside class="bg-base-200 w-60 min-h-full p-4 flex flex-col border-r border-base-300">
         <!-- Logo -->
         <router-link to="/dashboard" class="flex items-center gap-2 font-display text-lg font-bold text-base-content no-underline mb-2 px-2">
-          <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-brand to-amber-deep flex items-center justify-center text-white text-sm">
+          <span class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-content text-sm">
             ✎
           </span>
           爱小说

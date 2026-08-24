@@ -2,107 +2,59 @@
 @plugin "daisyui";
 
 /* ================================================================
- * 主题一：parchment（浅色 · 默认）— 羊皮纸暖白
+ * 换装过渡（PR1）：唯一主题对齐 C端 v2 设计 token
+ * 来源：Open Design 原型（list/index/book/model-config.html）:root
+ * = client/frontend/src/design/base.css（oklch 一字不改）
+ * daisyUI 仅作类名兼容层，PR5 退役；暗色主题已随本次换装退役。
  * ================================================================ */
 @plugin "daisyui/theme" {
   name: "parchment";
   default: true;
-  prefersdark: false;
   color-scheme: light;
 
-  --color-primary: #8b6914;
-  --color-primary-content: #faf6ee;
+  --color-primary: oklch(48% 0.11 170);
+  --color-primary-content: oklch(100% 0 0);
 
-  --color-secondary: #6b7a54;
-  --color-secondary-content: #faf6ee;
+  --color-secondary: oklch(41% 0.10 170);
+  --color-secondary-content: oklch(100% 0 0);
 
-  --color-accent: #a67c52;
-  --color-accent-content: #faf6ee;
+  --color-accent: oklch(48% 0.11 170);
+  --color-accent-content: oklch(100% 0 0);
 
-  --color-neutral: #3d352a;
-  --color-neutral-content: #e8ddd0;
+  --color-neutral: oklch(20% 0.02 240);
+  --color-neutral-content: oklch(98% 0.004 240);
 
-  --color-base-100: #fdf8f3;
-  --color-base-200: #f5e6d3;
-  --color-base-300: #e5d5c0;
-  --color-base-content: #3d352a;
+  --color-base-100: oklch(100% 0 0);
+  --color-base-200: oklch(98% 0.004 240);
+  --color-base-300: oklch(90% 0.006 240);
+  --color-base-content: oklch(20% 0.02 240);
 
-  --color-info: #7a9db8;
-  --color-info-content: #fdf8f3;
-  --color-success: #5a8a5a;
-  --color-success-content: #fdf8f3;
-  --color-warning: #b8944a;
-  --color-warning-content: #3d352a;
-  --color-error: #b85a5a;
-  --color-error-content: #fdf8f3;
+  --color-info: oklch(55% 0.08 240);
+  --color-info-content: oklch(100% 0 0);
+  --color-success: oklch(52% 0.11 155);
+  --color-success-content: oklch(100% 0 0);
+  --color-warning: oklch(50% 0.13 75);
+  --color-warning-content: oklch(20% 0.02 240);
+  --color-error: oklch(50% 0.17 25);
+  --color-error-content: oklch(100% 0 0);
 
-  --radius-selector: 0.5rem;
-  --radius-field: 0.5rem;
-  --radius-box: 0.75rem;
+  --radius-selector: 0.625rem;
+  --radius-field: 0.625rem;
+  --radius-box: 1rem;
   --border: 1px;
   --depth: 1;
   --noise: 0;
 }
 
 /* ================================================================
- * 主题二：novelforge（深色）— 深夜书房
- * ================================================================ */
-@plugin "daisyui/theme" {
-  name: "novelforge";
-  prefersdark: true;
-  color-scheme: dark;
-
-  --color-primary: #d4a373;
-  --color-primary-content: #1a1410;
-
-  --color-secondary: #8a9b7a;
-  --color-secondary-content: #1a1410;
-
-  --color-accent: #e8c87a;
-  --color-accent-content: #1a1410;
-
-  --color-neutral: #2d2418;
-  --color-neutral-content: #d4c9b8;
-
-  --color-base-100: #14100b;
-  --color-base-200: #1d1812;
-  --color-base-300: #2a2118;
-  --color-base-content: #d4c9b8;
-
-  --color-info: #7a9db8;
-  --color-info-content: #14100b;
-  --color-success: #7da87a;
-  --color-success-content: #14100b;
-  --color-warning: #c9a06b;
-  --color-warning-content: #14100b;
-  --color-error: #c97a7a;
-  --color-error-content: #14100b;
-
-  --radius-selector: 0.5rem;
-  --radius-field: 0.5rem;
-  --radius-box: 0.75rem;
-  --border: 1px;
-  --depth: 1;
-  --noise: 0;
-}
-
-/* ================================================================
- * @theme 层：字体族 + 品牌语义色
+ * @theme 层：字体族（系统栈，无 webfont）+ 动效
  * ================================================================ */
 @theme {
-  --font-display: "EB Garamond", "Noto Serif SC", serif;
-  --font-serif: "Noto Serif SC", serif;
-  --font-sans: "Noto Sans SC", -apple-system, BlinkMacSystemFont,
-    "PingFang SC", "Microsoft YaHei", sans-serif;
-
-  --color-cream: #fdf8f3;
-  --color-cream-dark: #f5e6d3;
-  --color-amber-brand: #d4a574;
-  --color-amber-hover: #c4955a;
-  --color-amber-deep: #a67c52;
-  --color-brown-deep: #3d2b1f;
-  --color-brown-mid: #5c4033;
-  --color-brown-light: #8b7355;
+  --font-display: 'Noto Serif SC', 'Songti SC', 'STSong', 'Iowan Old Style', Georgia, serif;
+  --font-serif: 'Noto Serif SC', 'Songti SC', 'STSong', 'Iowan Old Style', Georgia, serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', monospace;
 
   --animate-fade-up: fade-up 0.5s ease-out both;
   --animate-page-enter: page-fade-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -121,19 +73,9 @@
  * @layer base：全局基底
  * ================================================================ */
 @layer base {
-  html {
-    transition: background-color 0.2s ease, color 0.2s ease;
-  }
-
   body {
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
-    background-image: radial-gradient(
-      ellipse at 50% 0%,
-      color-mix(in oklch, var(--color-primary) 4%, transparent) 0%,
-      transparent 65%
-    );
-    background-attachment: fixed;
   }
 
   ::selection {

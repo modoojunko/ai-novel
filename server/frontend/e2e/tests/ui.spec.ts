@@ -5,42 +5,6 @@ function setToken(page: any, mockApi: any) {
 }
 
 test.describe('UI 基础设施', () => {
-  test.describe('主题切换', () => {
-    test('默认主题为 parchment', async ({ page }) => {
-      await page.goto('/')
-      const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'))
-      expect(theme).toBe('parchment')
-    })
-
-    test('主题切换按钮存在', async ({ page }) => {
-      await page.goto('/')
-      const toggleBtn = page.locator('.navbar button[aria-label*="主题"]')
-      await expect(toggleBtn).toBeVisible()
-    })
-
-    test('点击切换主题', async ({ page }) => {
-      await page.goto('/')
-      await page.locator('.navbar button[aria-label*="主题"]').click()
-      const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'))
-      expect(theme).toBe('novelforge')
-    })
-
-    test('主题持久化', async ({ page }) => {
-      await page.goto('/')
-      await page.locator('.navbar button[aria-label*="主题"]').click()
-      const saved = await page.evaluate(() => localStorage.getItem('theme'))
-      expect(saved).toBe('novelforge')
-    })
-
-    test('再次点击恢复', async ({ page }) => {
-      await page.goto('/')
-      await page.locator('.navbar button[aria-label*="主题"]').click()
-      await page.locator('.navbar button[aria-label*="主题"]').click()
-      const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'))
-      expect(theme).toBe('parchment')
-    })
-  })
-
   test.describe('导航栏', () => {
     test('Logo 显示', async ({ page }) => {
       await page.goto('/')
