@@ -89,7 +89,7 @@ async function submitAuth() {
     <!-- 授权表单 -->
     <template v-else>
       <div class="flex items-center gap-2 mb-4">
-        <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-brand to-amber-deep flex items-center justify-center text-white text-sm">✎</span>
+        <span class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-content text-sm">✎</span>
         <h1 class="font-display text-xl font-bold">设备授权</h1>
       </div>
       <p class="text-sm text-base-content/60 mb-6">
