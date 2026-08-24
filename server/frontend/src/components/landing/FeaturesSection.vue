@@ -1,8 +1,6 @@
 <script setup lang="ts">
-import AppCard from '@/components/ui/AppCard.vue'
-import {
-  BookOpen, Bot, Brain, FileText, Library, LineChart, ListTodo, Lock, PenLine, Settings, Wand2, Zap,
-} from 'lucide-vue-next'
+import Ico from '@/components/ui/Ico.vue'
+import { P } from '@/components/ui/icons'
 
 // 三大痛点支柱：怕烂尾 / 不像你 / 有 AI 味（文案以用户语言呈现，不用内部术语）
 const pillars = [
@@ -40,103 +38,109 @@ const pillars = [
 
 // 六阶段工作流的用户语言呈现（提示词为内部环节，不向用户展示——对齐 PM 评审）
 const workflowSteps = [
-  { icon: BookOpen, title: '建书', desc: '填个书名，10 秒开写' },
-  { icon: Settings, title: '设定', desc: '世界观与角色，可深可浅' },
-  { icon: ListTodo, title: '大纲', desc: '分卷规划，剧情不跑偏' },
-  { icon: FileText, title: '章纲', desc: '每章动笔前，先想好写什么' },
-  { icon: PenLine, title: '写作', desc: '手写或 AI 协作，一章一章推' },
-  { icon: Library, title: '归档', desc: '定稿收藏，随时回来改' },
+  { icon: P.book, title: '建书', desc: '填个书名，10 秒开写' },
+  { icon: P.tune, title: '设定', desc: '世界观与角色，可深可浅' },
+  { icon: P.list, title: '大纲', desc: '分卷规划，剧情不跑偏' },
+  { icon: P.doc, title: '章纲', desc: '每章动笔前，先想好写什么' },
+  { icon: P.pencil, title: '写作', desc: '手写或 AI 协作，一章一章推' },
+  { icon: P.archive, title: '归档', desc: '定稿收藏，随时回来改' },
 ]
 
 const keyFeatures = [
-  { icon: Zap, title: 'AI 写本章', desc: '一口气写完整章，也能续写、润色、扩写，随时喊停' },
-  { icon: Brain, title: '剧情推演', desc: '卡文时让角色先演一遍，看走向合不合理' },
-  { icon: Wand2, title: '去 AI 味', desc: '避开机器腔，越写越像你' },
-  { icon: Bot, title: '模型随你选', desc: '接你自己的 AI 服务，DeepSeek、Kimi、通义等主流模型都支持' },
-  { icon: Lock, title: '数据不出电脑', desc: '稿子存在本地，关网也能写' },
-  { icon: LineChart, title: '花费心中有数', desc: 'AI 按用量计费，写之前先告诉你大概花多少' },
+  { icon: P.spark, title: 'AI 写本章', desc: '一口气写完整章，也能续写、润色、扩写，随时喊停' },
+  { icon: P.bot, title: '剧情推演', desc: '卡文时让角色先演一遍，看走向合不合理' },
+  { icon: P.wand, title: '去 AI 味', desc: '避开机器腔，越写越像你' },
+  { icon: P.cpu, title: '模型随你选', desc: '接你自己的 AI 服务，DeepSeek、Kimi、通义等主流模型都支持' },
+  { icon: P.lock, title: '数据不出电脑', desc: '稿子存在本地，关网也能写' },
+  { icon: P.chart, title: '花费心中有数', desc: 'AI 按用量计费，写之前先告诉你大概花多少' },
 ]
 </script>
 
 <template>
-  <section id="features" class="py-16 lg:py-24">
-    <h2 class="font-display text-3xl font-bold text-center">设计思路</h2>
-    <p class="text-center text-base-content/60 mt-2 mb-12">三个最常见的写作困境，一次解决</p>
+  <section id="features" class="mkt-section">
+    <div class="mkt-in">
+      <span class="mkt-eyebrow">设计思路</span>
+      <h2 class="mkt-h2">三个最常见的写作困境，一次解决</h2>
+      <p class="mkt-lead max-w-lg">不是功能堆叠，是围绕写作困境设计的完整工作流。</p>
 
-    <!-- 三大痛点支柱 -->
-    <div class="grid md:grid-cols-3 gap-6">
-      <AppCard
-        v-for="(pillar, i) in pillars"
-        :key="pillar.num"
-        hoverable
-        class="animate-fade-up"
-        :style="{ animationDelay: `${i * 0.08}s` }"
-      >
-        <div class="font-display text-4xl font-bold text-primary/50">{{ pillar.num }}</div>
-        <h3 class="font-serif text-xl font-bold mt-2">{{ pillar.title }}</h3>
-        <p class="text-sm text-primary mt-1">{{ pillar.promise }}</p>
-        <div class="mt-4 space-y-3">
-          <div
-            v-for="point in pillar.points"
-            :key="point.title"
-            class="rounded-lg bg-base-200/60 border border-base-300/40 p-3"
-          >
-            <h4 class="text-sm font-medium">{{ point.title }}</h4>
-            <p class="text-xs text-base-content/50 mt-1">{{ point.desc }}</p>
+      <!-- 三大痛点支柱 -->
+      <div class="grid md:grid-cols-3 gap-5 mt-12">
+        <div
+          v-for="(pillar, i) in pillars"
+          :key="pillar.num"
+          class="mkt-card animate-fade-up"
+          :style="{ animationDelay: `${0.1 + i * 0.05}s` }"
+        >
+          <div class="pillar-num serif num">{{ pillar.num }}</div>
+          <h3>{{ pillar.title }}</h3>
+          <p class="promise">{{ pillar.promise }}</p>
+          <div class="mt-4 flex flex-col gap-2.5">
+            <div
+              v-for="point in pillar.points"
+              :key="point.title"
+              class="point"
+            >
+              <h4>{{ point.title }}</h4>
+              <p>{{ point.desc }}</p>
+            </div>
           </div>
         </div>
-      </AppCard>
-    </div>
+      </div>
 
-    <!-- 六阶段工作流：桌面端 6 列网格 -->
-    <div class="mt-16 mb-4 text-center">
-      <h3 class="font-display text-xl font-bold">六阶段创作流程</h3>
-      <p class="text-sm text-base-content/60 mt-1">从灵感到成书，每一步都有明确的出口</p>
-    </div>
-    <div class="hidden lg:grid lg:grid-cols-6 gap-4">
-      <AppCard
-        v-for="(step, i) in workflowSteps"
-        :key="step.title"
-        compact
-        hoverable
-        class="text-center animate-fade-up"
-        :style="{ animationDelay: `${i * 0.08}s` }"
-      >
-        <div class="mb-2 flex justify-center">
-          <component :is="step.icon" class="w-6 h-6 text-primary" />
+      <!-- 六阶段工作流 -->
+      <div class="mt-16 mb-4 text-center">
+        <span class="mkt-eyebrow">创作流程</span>
+        <h3 class="sub-h">六阶段创作流程</h3>
+        <p class="mkt-lead">从灵感到成书，每一步都有明确的出口</p>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+        <div
+          v-for="(step, i) in workflowSteps"
+          :key="step.title"
+          class="mkt-card wf animate-fade-up"
+          :style="{ animationDelay: `${0.1 + i * 0.05}s` }"
+        >
+          <div class="ico"><Ico :d="step.icon" /></div>
+          <div class="t">{{ step.title }}</div>
+          <div class="d">{{ step.desc }}</div>
         </div>
-        <div class="font-medium text-sm">{{ step.title }}</div>
-        <div class="text-xs text-base-content/50 mt-1">{{ step.desc }}</div>
-      </AppCard>
-    </div>
+      </div>
 
-    <!-- 六阶段工作流：移动端纵向 steps -->
-    <ul class="steps steps-vertical lg:hidden mt-6">
-      <li v-for="step in workflowSteps" :key="step.title" class="step">
-        <div class="text-left">
-          <div class="font-medium flex items-center gap-1.5">
-            <component :is="step.icon" class="w-4 h-4 text-primary" />
-            {{ step.title }}
+      <!-- 关键功能条 -->
+      <div class="mt-16 mb-4 text-center">
+        <span class="mkt-eyebrow">关键能力</span>
+        <h3 class="sub-h">为长篇而生的 AI 能力</h3>
+      </div>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div
+          v-for="(feature, i) in keyFeatures"
+          :key="feature.title"
+          class="mkt-card kf animate-fade-up"
+          :style="{ animationDelay: `${0.1 + i * 0.05}s` }"
+        >
+          <div class="ico"><Ico :d="feature.icon" /></div>
+          <div class="min-w-0">
+            <h3>{{ feature.title }}</h3>
+            <p>{{ feature.desc }}</p>
           </div>
-          <div class="text-xs text-base-content/50">{{ step.desc }}</div>
         </div>
-      </li>
-    </ul>
-
-    <!-- 关键功能条 -->
-    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-16">
-      <div
-        v-for="(feature, i) in keyFeatures"
-        :key="feature.title"
-        class="text-center animate-fade-up"
-        :style="{ animationDelay: `${i * 0.1}s` }"
-      >
-        <div class="mb-2 flex justify-center">
-          <component :is="feature.icon" class="w-7 h-7 text-primary" />
-        </div>
-        <div class="font-medium mb-1">{{ feature.title }}</div>
-        <div class="text-sm text-base-content/60">{{ feature.desc }}</div>
       </div>
     </div>
   </section>
 </template>
+
+<style scoped>
+.sub-h { font-family: var(--font-display); font-size: 22px; font-weight: 600; margin: 10px 0 8px; line-height: 1.3; }
+.pillar-num { font-size: 34px; font-weight: 600; color: color-mix(in oklch, var(--accent) 45%, transparent); line-height: 1; }
+.promise { font-size: 13.5px; color: var(--accent-strong); margin: 2px 0 0; }
+.point { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--fg-soft); }
+.point h4 { font-size: 13px; font-weight: 500; margin: 0; }
+.point p { font-size: 12.5px; color: var(--muted); margin: 4px 0 0; line-height: 1.6; }
+.wf { padding: 18px 14px; text-align: center; }
+.wf .ico { margin-inline: auto; }
+.wf .t { font-size: 14px; font-weight: 500; }
+.wf .d { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.6; }
+.kf { display: flex; gap: 16px; align-items: flex-start; padding: 22px; }
+.kf .ico { margin-bottom: 0; flex: none; }
+.kf h3 { margin-top: 1px; }
+</style>

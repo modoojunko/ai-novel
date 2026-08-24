@@ -16,9 +16,9 @@ test.describe('Landing Page', () => {
   })
 
   test('导航栏显示登录和注册链接（未登录）', async ({ page }) => {
-    const loginBtn = page.locator('.navbar a[href="/login"]').first()
+    const loginBtn = page.locator('.mkt-nav a[href="/login"]').first()
     await expect(loginBtn).toBeVisible()
-    const registerBtn = page.locator('.navbar a[href="/register"]').first()
+    const registerBtn = page.locator('.mkt-nav a[href="/register"]').first()
     await expect(registerBtn).toBeVisible()
   })
 
@@ -27,8 +27,8 @@ test.describe('Landing Page', () => {
     await page.goto('/')
     await page.evaluate((token) => localStorage.setItem('token', token), mockApi.token)
     await page.goto('/')
-    await expect(page.locator('.navbar a[href="/dashboard"]')).toBeVisible()
-    await expect(page.locator('.navbar a[href="/login"]')).not.toBeVisible()
+    await expect(page.locator('.mkt-nav a[href="/dashboard"]')).toBeVisible()
+    await expect(page.locator('.mkt-nav a[href="/login"]')).not.toBeVisible()
   })
 
   test('功能区块存在六个工作流步骤', async ({ page }) => {
@@ -41,7 +41,7 @@ test.describe('Landing Page', () => {
 
   test('套餐区块显示卡片', async ({ page }) => {
     await page.locator('#pricing').scrollIntoViewIfNeeded()
-    const cards = page.locator('#pricing .panel')
+    const cards = page.locator('#pricing .mkt-plan')
     const count = await cards.count()
     expect(count).toBe(5)
   })
@@ -72,8 +72,8 @@ test.describe('Landing Page', () => {
   test('桌面端 > lg 时导航菜单可见', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.goto('/')
-    await expect(page.locator('.navbar-center a[href="#features"]')).toBeVisible()
-    await expect(page.locator('.navbar-center a[href="#pricing"]')).toBeVisible()
+    await expect(page.locator('.mkt-nav a[href="#features"]')).toBeVisible()
+    await expect(page.locator('.mkt-nav a[href="#pricing"]')).toBeVisible()
   })
 
   test('Trial 卡「注册领取」按钮跳注册页', async ({ page }) => {

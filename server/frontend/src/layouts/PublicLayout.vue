@@ -2,7 +2,6 @@
 import { onMounted } from 'vue'
 import { useSessionStore } from '@/stores/session'
 import AppButton from '@/components/ui/AppButton.vue'
-import { Menu } from 'lucide-vue-next'
 
 const session = useSessionStore()
 
@@ -12,59 +11,41 @@ onMounted(() => {
     session.fetchUserInfo()
   }
 })
-
-function closeMobileMenu(e: MouseEvent) {
-  // 点击锚点后收起移动端菜单
-  (e.target as HTMLElement).closest('details')?.removeAttribute('open')
-}
 </script>
 
 <template>
-  <div class="navbar bg-base-100/80 backdrop-blur border-b border-base-300 sticky top-0 z-40 px-4 lg:px-8">
-    <div class="navbar-start gap-2">
-      <!-- 移动端导航菜单（桌面端隐藏） -->
-      <details class="dropdown lg:hidden">
-        <summary class="btn btn-ghost btn-sm" aria-label="打开导航菜单">
-          <Menu class="w-4 h-4" />
-        </summary>
-        <ul
-          class="menu dropdown-content z-50 mt-2 w-44 p-2 bg-base-100 border border-base-300 rounded-box shadow-lg"
-          @click="closeMobileMenu"
-        >
-          <li><a href="#features">功能</a></li>
-          <li><a href="#roadmap">路线图</a></li>
-          <li><a href="#pricing">套餐</a></li>
-          <li><a href="#guide">激活指南</a></li>
-        </ul>
-      </details>
-
-      <router-link to="/" class="flex items-center gap-2 font-display text-lg font-bold text-base-content no-underline">
-        <span class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-content text-sm">
-          ✎
-        </span>
-        爱小说
+  <header class="mkt-nav">
+    <div class="mkt-nav-in">
+      <router-link to="/" class="mkt-logo">
+        <span class="logo-mark">爱</span>
+        爱<span>小说</span>
       </router-link>
+      <nav class="mkt-navlinks">
+        <a href="#features" class="nl">功能</a>
+        <a href="#roadmap" class="nl">路线图</a>
+        <a href="#pricing" class="nl">套餐</a>
+        <a href="#guide" class="nl">激活指南</a>
+      </nav>
+      <div class="mkt-acts">
+        <template v-if="session.isLoggedIn">
+          <AppButton to="/dashboard" size="sm">我的账号</AppButton>
+        </template>
+        <template v-else>
+          <AppButton to="/login" variant="ghost" size="sm">登录</AppButton>
+          <AppButton to="/register" size="sm">注册</AppButton>
+        </template>
+      </div>
     </div>
-    <div class="navbar-center hidden lg:flex">
-      <ul class="menu menu-horizontal gap-1">
-        <li><a href="#features" class="btn btn-ghost btn-sm">功能</a></li>
-        <li><a href="#roadmap" class="btn btn-ghost btn-sm">路线图</a></li>
-        <li><a href="#pricing" class="btn btn-ghost btn-sm">套餐</a></li>
-        <li><a href="#guide" class="btn btn-ghost btn-sm">激活指南</a></li>
-      </ul>
-    </div>
-    <div class="navbar-end gap-2">
-      <template v-if="session.isLoggedIn">
-        <AppButton to="/dashboard" size="sm">我的账号</AppButton>
-      </template>
-      <template v-else>
-        <AppButton to="/login" variant="ghost" size="sm">登录</AppButton>
-        <AppButton to="/register" size="sm">注册</AppButton>
-      </template>
-    </div>
-  </div>
+  </header>
 
   <main>
     <router-view />
   </main>
 </template>
+
+<style scoped>
+.mkt-logo span {
+  color: var(--accent);
+  font-weight: inherit;
+}
+</style>
