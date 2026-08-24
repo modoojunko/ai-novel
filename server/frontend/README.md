@@ -16,20 +16,19 @@ CI（`server-frontend-ci.yml`、`s-server-deploy.yml`、`docker-build-ci.yml`）
 | 构建 | Vite 6 |
 | 路由 | Vue Router 4 (History mode) |
 | 状态管理 | Pinia |
-| UI | daisyUI 5 (Tailwind CSS 4) |
+| UI | Tailwind CSS 4（布局工具）+ 自建设计系统 `src/design/*.css` |
 | HTTP | axios |
-| 图标 | lucide-vue-next |
+| 图标 | 内联 SVG 路径注册表（`src/components/ui/icons.ts`） |
 | 测试 | Playwright |
 | 语言 | TypeScript (strict) |
 
-## 双主题
+## 设计体系（换装 v2，对齐 Open Design 原型 = C端 终态）
 
-| 主题 | 色值 | 氛围 |
-|------|------|------|
-| `parchment`（默认） | 暖白 `#fdf8f3` | 书房白天的日光 |
-| `novelforge` | 暖暗 `#14100b` | 深夜书房琥珀台灯 |
-
-选择持久化在 `localStorage('theme')`；`index.html` 内联脚本会在 CSS 应用前写入 `data-theme`，避免深色用户刷新时闪白。
+- **配色**：冷调中性底 + 单一墨绿 accent，全部 oklch token + `color-mix` 派生（`src/design/base.css`），禁裸 hex/rgb
+- **字体**：宋体展示栈（`--font-display`）+ 系统黑体正文 + 等宽数字 `.num`，无 webfont
+- **组件类**：btn 族 / `.b` 徽标 / panel / field+input / scrim+mcard 弹窗 / appbar / stat-tiles / strip 消息条等，落在 `design/base.css`（通用）与 `design/landing.css`（营销页）、`design/dashboard.css`（控制台）
+- daisyUI 与暗色主题已退役（换装 PR #191–#195）；图标统一走 `icons.ts` 注册表，禁 lucide/emoji
+- **词汇守护**：`npm run design:lint`——档位外 opacity / 未登记任意值 / 原生色板 / 裸色值 / emoji / daisyUI 类回归即失败；白名单在 `scripts/design-vocab.mjs`（严格范围 = 全部 src）
 
 ## API 地址配置
 
@@ -66,6 +65,9 @@ npm run build
 # 类型检查
 npx vue-tsc --noEmit
 
+# 设计词汇 lint（详见「设计体系」节）
+npm run design:lint
+
 # E2E 测试（自动启动 dev server）
 npx playwright test
 
@@ -82,13 +84,15 @@ server/frontend/
 │   ├── stores/         Pinia (toast/session/devices)
 │   ├── router/         路由表 + 双向守卫
 │   ├── layouts/        PublicLayout / AuthLayout / DashboardLayout
-│   ├── views/          页面组件 (8 个)
-│   ├── components/     可复用组件 (16 个)
+│   ├── design/         设计系统 CSS（base / landing / dashboard）
+│   ├── views/          页面组件 (9 个)
+│   ├── components/     可复用组件 (21 个，含 ui/ 图标注册表与包装层)
 │   └── composables/    组合式函数
+├── scripts/            design-lint / design-vocab（词汇守护）
 ├── e2e/                Playwright E2E 测试
 │   ├── fixtures.ts     测试 fixture
 │   ├── mocks/          API Mock 层
-│   └── tests/          测试用例 (82 个)
+│   └── tests/          测试用例 (9 个 spec)
 └── dist/               构建产物 (gitignore)
 ```
 
