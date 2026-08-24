@@ -1,20 +1,23 @@
 <script setup lang="ts">
+import Ico from './Ico.vue'
+
 withDefaults(defineProps<{
+  /** 图标路径（icons.ts 的 P.*）；缺省不渲染图标 */
   icon?: string
   title?: string
   description?: string
 }>(), {
-  icon: '📭',
+  icon: undefined,
   title: '暂无内容',
   description: '',
 })
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center py-16 text-center">
-    <div class="text-5xl mb-4 opacity-40">{{ icon }}</div>
-    <h3 class="font-display text-lg font-semibold mb-2">{{ title }}</h3>
-    <p v-if="description" class="text-base-content/60 text-sm mb-6 max-w-xs">{{ description }}</p>
+  <div class="empty">
+    <Ico v-if="icon" :d="icon" :sw="1.8" />
+    <h3 class="serif">{{ title }}</h3>
+    <p v-if="description">{{ description }}</p>
     <slot />
   </div>
 </template>

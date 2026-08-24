@@ -41,7 +41,7 @@ test.describe('Landing Page', () => {
 
   test('套餐区块显示卡片', async ({ page }) => {
     await page.locator('#pricing').scrollIntoViewIfNeeded()
-    const cards = page.locator('#pricing .card')
+    const cards = page.locator('#pricing .panel')
     const count = await cards.count()
     expect(count).toBe(5)
   })

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
+import Ico from './Ico.vue'
+import { P } from './icons'
 
 const props = withDefaults(defineProps<{
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'error' | 'link'
@@ -22,6 +24,16 @@ const props = withDefaults(defineProps<{
   href: undefined,
 })
 
+const VARIANT_CLS: Record<string, string> = {
+  primary: 'btn-primary',
+  secondary: 'btn-secondary',
+  // 原型无独立 outline 档：描边按钮即 btn-secondary
+  outline: 'btn-secondary',
+  ghost: 'btn-ghost',
+  error: 'btn-danger',
+  link: 'lnk',
+}
+
 const tag = computed(() => {
   if (props.to) return RouterLink
   if (props.href) return 'a'
@@ -37,28 +49,20 @@ const tagAttrs = computed(() => {
   }
   return { disabled: props.disabled || props.loading }
 })
+
+const cls = computed(() => [
+  VARIANT_CLS[props.variant],
+  props.size === 'lg' && 'btn-lg',
+  props.size === 'sm' && 'btn-sm',
+  props.size === 'xs' && 'btn-xs',
+  props.block && 'btn-block',
+  props.loading && 'pointer-events-none',
+])
 </script>
 
 <template>
-  <component
-    :is="tag"
-    v-bind="tagAttrs"
-    class="btn"
-    :class="[
-      variant === 'primary' && 'btn-primary',
-      variant === 'secondary' && 'btn-secondary',
-      variant === 'outline' && 'btn-outline btn-primary',
-      variant === 'ghost' && 'btn-ghost',
-      variant === 'error' && 'btn-error btn-outline',
-      variant === 'link' && 'btn-link no-underline',
-      size === 'lg' && 'btn-lg',
-      size === 'sm' && 'btn-sm',
-      size === 'xs' && 'btn-xs',
-      block && 'btn-block',
-      loading && 'pointer-events-none',
-    ]"
-  >
-    <span v-if="loading" class="loading loading-spinner loading-sm"></span>
+  <component :is="tag" v-bind="tagAttrs" class="btn" :class="cls">
+    <Ico v-if="loading" :d="P.spinner" class="spin" />
     <slot />
   </component>
 </template>

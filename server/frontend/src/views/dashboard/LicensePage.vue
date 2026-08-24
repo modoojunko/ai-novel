@@ -8,6 +8,7 @@ import AppModal from '@/components/ui/AppModal.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
 import ActivateCodeForm from '@/components/dashboard/ActivateCodeForm.vue'
+import { P } from '@/components/ui/icons'
 
 const session = useSessionStore()
 const showActivateModal = ref(false)
@@ -35,7 +36,7 @@ const { loadError, retry } = usePageLoad(() => session.fetchUserInfo())
       <div>
         <h2 class="font-display text-lg font-semibold mb-4">已绑定的激活码</h2>
         <EmptyState
-          icon="🔑"
+          :icon="P.key"
           title="激活码明细即将上线"
           description="当前暂不支持查看已绑定的激活码列表"
         />

@@ -7,6 +7,7 @@ import AppButton from '@/components/ui/AppButton.vue'
 import AppModal from '@/components/ui/AppModal.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
+import { P } from '@/components/ui/icons'
 
 const deviceStore = useDeviceStore()
 
@@ -60,7 +61,7 @@ async function doRemove() {
     <!-- 空态 -->
     <EmptyState
       v-else-if="deviceStore.devices.length === 0"
-      icon="🖥️"
+      :icon="P.monitor"
       title="暂无绑定设备"
       description="在桌面端完成首次授权后，设备会出现在这里"
     />
