@@ -345,12 +345,12 @@ test("角色：真实创建角色（创建弹窗 → 基本信息 → 确认完�
       timeout: 10000,
     });
 
-    // 创建弹窗：角色名 + 反派 role + ✦ 创建（面板无选中时弹窗输入唯一；
-    // 取 .last() 防面板「角色名」同名 placeholder 干扰）
+    // 创建弹窗：角色名 + 反派 role + 创建（按钮为 spark 图标 + 文案；
+    // 面板无选中时弹窗输入唯一，取 .last() 防面板「角色名」同名 placeholder 干扰）
     await page.getByRole("button", { name: "新建角色" }).click();
     await page.getByPlaceholder("角色名").last().fill("林晚");
     await page.getByRole("button", { name: "角色：反派" }).click();
-    await page.getByRole("button", { name: "✦ 创建" }).click();
+    await page.getByRole("button", { name: "创建", exact: true }).click();
 
     // 创建后自动选中：列表行 + 表单角色名（异步加载完成再输入，避免覆盖）
     await expect(
@@ -573,16 +573,20 @@ test("P2-1b 角色切换守卫：脏表单切换需确认，取消保留输入",
     await page.getByRole("button", { name: /^设定/ }).click();
     await openSetting(page, "角色");
 
-    // 创建两个角色（走真实创建弹窗；面板选中角色的「角色名」输入与弹窗同名
-    // placeholder → .last() 取弹窗内输入）
+    // 创建两个角色（走真实创建弹窗）。弹窗 portal 到 body 且带 200ms 退场，
+    // 面板选中角色又有同名 placeholder 输入 → 统一收窄到激活态弹窗
+    // （.modal.show：进场即挂、退场立刻摘 .show）避免 .last() 竞态填错框。
     for (const name of ["阿甲", "阿乙"]) {
       await page.getByRole("button", { name: "新建角色" }).click();
-      await page.getByPlaceholder("角色名").last().fill(name);
-      await page.getByRole("button", { name: "角色：配角" }).click();
-      await page.getByRole("button", { name: "✦ 创建" }).click();
+      const dlg = page.locator("div.modal.show");
+      await expect(dlg).toBeVisible();
+      await dlg.getByPlaceholder("角色名").fill(name);
+      await dlg.getByRole("button", { name: "角色：配角" }).click();
+      await dlg.getByRole("button", { name: "创建", exact: true }).click();
       await expect(
         page.locator(".char-row", { hasText: name }),
       ).toBeVisible({ timeout: 5000 });
+      await expect(dlg).toBeHidden({ timeout: 5000 });
     }
     // 创建第二个角色后自动选中「阿乙」；先切回「阿甲」（干净，无弹窗）。
     // 阿甲数据为异步加载（GET /settings/character/阿甲），须等表单角色名=阿甲

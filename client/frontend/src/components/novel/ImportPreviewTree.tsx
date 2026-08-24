@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { Loader2, FileText, Book } from "lucide-react";
+import { Ico, P } from "@/components/icons";
 import StructureTree, { TreeNode } from "./StructureTree";
 import type { VolumeImportData } from "@/lib/api";
 import { cnNum } from "@/lib/nodeTitle";
@@ -25,7 +25,7 @@ function buildTreeNodes(volumes: VolumeImportData[]): TreeNode[] {
     id: `vol-${vi}`,
     // 兜底序号与树列口径统一（中文数字，spec-review 轻微 #1）
     label: vol.title || `第${cnNum(vi + 1)}卷`,
-    icon: <Book className="w-3 h-3" />,
+    icon: <Ico d={P.doc} size={12} />,
     children: vol.chapters.map((ch, ci) => ({
       id: `ch-${vi}-${ci}`,
       label: ch.title || `第${cnNum(ci + 1)}章`,
@@ -121,12 +121,15 @@ export default function ImportPreviewTree({
     <div className="space-y-4">
       {/* Title header */}
       <div className="flex items-center gap-2">
-        <FileText className="w-5 h-5 text-primary" />
+        <Ico d={P.doc} size={18} style={{ color: "var(--accent)" }} />
         <h4 className="font-semibold text-base">{title || "导入预览"}</h4>
       </div>
 
       {/* Editable tree */}
-      <div className="bg-base-200/50 border border-base-300/50 rounded-lg p-3 max-h-64 overflow-y-auto">
+      <div
+        className="rounded-lg p-3 max-h-64 overflow-y-auto"
+        style={{ background: "var(--fg-soft)", border: "1px solid var(--border)" }}
+      >
         <StructureTree
           nodes={nodes}
           selectedId={selectedId}
@@ -141,17 +144,14 @@ export default function ImportPreviewTree({
       </div>
 
       {/* Stats */}
-      <p className="text-[11px] text-base-content/40">
+      <p className="text-xs" style={{ color: "var(--muted)" }}>
         共 {totalChapters} 章节 · {totalWords.toLocaleString("zh-CN")} 字
       </p>
 
       {/* Reset link */}
       {onReset && (
         <div className="text-center">
-          <button
-            className="text-xs link link-secondary opacity-60 hover:opacity-100 transition-opacity"
-            onClick={onReset}
-          >
+          <button className="lnk text-xs" onClick={onReset}>
             重置为原始结构
           </button>
         </div>
@@ -173,7 +173,7 @@ export default function ImportPreviewTree({
         >
           {loading ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Ico d={P.spinner} className="spin" size={14} />
               入库中…
             </>
           ) : (

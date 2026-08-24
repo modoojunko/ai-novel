@@ -1,9 +1,14 @@
 // 设计词汇 lint（design:check 第 0 层）：
-//   严格模式（原型 + 已收编屏）出现档位外 opacity / 未登记任意值 / 原生色板 → 退出码 1
+//   严格模式（原型 + 已收编屏）出现档位外 opacity / 未登记任意值 / 原生色板 /
+//   裸 hex·rgb / emoji / daisyUI 语义类回归 → 退出码 1
 //   存量 src 只输出分布统计（冻结观察，供 DESIGN.md 定档），不阻断
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import path from "node:path";
-import { strictGlobs, strictSrcGlobs, reportGlobs, allowedArbitrary, allowedOpacity, paletteRegex } from "./design-vocab.mjs";
+import {
+  strictGlobs, strictSrcGlobs, reportGlobs,
+  allowedArbitrary, allowedOpacity, paletteRegex,
+  hexRegex, rgbRegex, emojiRegex, bannedDaisyRegex,
+} from "./design-vocab.mjs";
 
 const ROOT = path.resolve(process.cwd());
 
@@ -76,22 +81,38 @@ function checkToken(token) {
   if (bracketAt > 0 && token.includes("]") && !allowedArbitrary.has(token)) {
     problems.push({ kind: "arbitrary", token });
   }
-  // 2) opacity 档位（先剥 hover:/group-hover:/断点 等变体前缀再判属性族；
-  //    w-1/2、w-3/4 等是宽度分数工具类，不是 opacity，跳过）
+  // 2) opacity 档位（先剥变体前缀/前导负号再判属性族；
+  //    top-1/2、-translate-y-1/2、w-3/4 等是位置/尺寸分数工具类，不是 opacity，跳过）
   const m = token.match(/^(.+?)\/(\d{1,3})$/);
-  if (m && !/^(?:[a-zA-Z0-9-]+:)*(?:w|h)-\d+$/.test(m[1])) {
-    const base = m[1].replace(/^(?:[a-zA-Z0-9-]+:)+/, "");
-    const val = parseInt(m[2], 10);
-    const family = OPACITY_PROP_FAMILIES.find((f) => base === f || base.startsWith(f + "-"));
-    const allowed = allowedOpacity[family ?? "default"] ?? allowedOpacity.default;
-    if (!allowed.includes(val)) {
-      problems.push({ kind: "opacity", token, detail: `${family ?? "default"} 档位外 /${val}` });
+  if (m) {
+    const base = m[1].replace(/^(?:[a-zA-Z0-9-]+:)+/, "").replace(/^-/, "");
+    const isPosUtil = /^(?:(?:w|h|basis|top|left|right|bottom|inset)-\d+|translate-[xy]-\d+)$/.test(base);
+    if (!isPosUtil) {
+      const val = parseInt(m[2], 10);
+      const family = OPACITY_PROP_FAMILIES.find((f) => base === f || base.startsWith(f + "-"));
+      const allowed = allowedOpacity[family ?? "default"] ?? allowedOpacity.default;
+      if (!allowed.includes(val)) {
+        problems.push({ kind: "opacity", token, detail: `${family ?? "default"} 档位外 /${val}` });
+      }
     }
   }
   // 3) 原生编号色板
   if (paletteRegex.test(token)) {
     problems.push({ kind: "palette", token });
   }
+  // 4) daisyUI 语义类回归（token 级全词匹配）
+  if (bannedDaisyRegex.test(token)) {
+    problems.push({ kind: "daisy", token });
+  }
+  return problems;
+}
+
+// 文本级检查（不按类名拆分）：裸 hex/rgb 色值、emoji 字符
+function checkText(source) {
+  const problems = [];
+  if (hexRegex.test(source)) problems.push({ kind: "hex", token: "裸 hex 色值" });
+  if (rgbRegex.test(source)) problems.push({ kind: "rgb", token: "rgb()/rgba() 色值" });
+  if (emojiRegex.test(source)) problems.push({ kind: "emoji", token: "emoji 字符" });
   return problems;
 }
 
@@ -108,10 +129,14 @@ for (const file of strictFiles) {
       violations.push({ file: path.relative(ROOT, file), line, ...p });
     }
   }
+  // 文本级（hex/rgb/emoji）只查源码文件；原型 html 的 <style> 有 token 化色值豁免路径，同样适用
+  for (const p of checkText(src)) {
+    violations.push({ file: path.relative(ROOT, file), line: 1, ...p });
+  }
 }
 
 // 存量统计（只看分布）
-const stats = { opacity: {}, arbitrary: {}, palette: 0 };
+const stats = { opacity: {}, arbitrary: {}, palette: 0, daisy: 0, hex: 0, rgb: 0, emoji: 0 };
 for (const file of reportFiles) {
   const src = readFileSync(file, "utf-8");
   for (const token of extractTokens(src)) {
@@ -119,7 +144,11 @@ for (const file of reportFiles) {
     if (m) stats.opacity[m[1]] = (stats.opacity[m[1]] ?? 0) + 1;
     if (/\[[^\]]+\]/.test(token)) stats.arbitrary[token] = (stats.arbitrary[token] ?? 0) + 1;
     if (paletteRegex.test(token)) stats.palette += 1;
+    if (bannedDaisyRegex.test(token)) stats.daisy += 1;
   }
+  if (hexRegex.test(src)) stats.hex += 1;
+  if (rgbRegex.test(src)) stats.rgb += 1;
+  if (emojiRegex.test(src)) stats.emoji += 1;
 }
 
 console.log(`design:lint — 严格扫描 ${strictFiles.length} 个文件，存量统计 ${reportFiles.length} 个文件\n`);
@@ -132,6 +161,6 @@ if (violations.length) {
 console.log(`\n存量 src 分布（冻结观察，不阻断）：`);
 console.log(`  opacity 档位：${JSON.stringify(Object.fromEntries(Object.entries(stats.opacity).sort((a, b) => b[1] - a[1])))}`);
 console.log(`  任意值种类：${Object.keys(stats.arbitrary).length} 种，共 ${Object.values(stats.arbitrary).reduce((a, b) => a + b, 0)} 处`);
-console.log(`  原生色板：${stats.palette} 处`);
+console.log(`  原生色板：${stats.palette} 处；daisyUI 类：${stats.daisy} 处；裸 hex：${stats.hex} 文件；rgb：${stats.rgb} 文件；emoji：${stats.emoji} 文件`);
 
 process.exit(violations.length ? 1 : 0);

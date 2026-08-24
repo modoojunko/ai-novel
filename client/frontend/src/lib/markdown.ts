@@ -4,7 +4,7 @@
  * HTML is escaped to prevent XSS.
  */
 export function renderMarkdown(text: string): string {
-  if (!text) return '<p class="text-base-content/40">暂无内容</p>';
+  if (!text) return '<p style="color:var(--muted)">暂无内容</p>';
 
   // Escape HTML to prevent XSS
   const escaped = text

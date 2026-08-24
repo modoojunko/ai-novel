@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
-import { X } from "lucide-react";
 import ImportUploadZone from "./ImportUploadZone";
 import ImportPreviewTree from "./ImportPreviewTree";
+import Modal from "@/components/design/Modal";
 import { importParse, importPersist, type ImportPreviewData, type VolumeImportData } from "@/lib/api";
 import { toast } from "@/lib/toast";
 
@@ -78,37 +78,27 @@ export default function ImportNovelModal({
     }
   }, [preview, volumes, reset, onImported]);
 
-  if (!open) return null;
-
   return (
-    <div className="modal modal-open" onClick={handleClose}>
-      <div className="modal-box max-w-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="font-bold font-serif text-lg">导入小说</h3>
-          <button
-            onClick={handleClose}
-            className="btn btn-sm btn-circle btn-ghost disabled:opacity-30 disabled:pointer-events-none"
-            aria-label="关闭"
-            disabled={parsing || saving}
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {step === "upload" ? (
-          <ImportUploadZone onFileSelected={handleFileSelected} onCancel={handleClose} />
-        ) : (
-          <ImportPreviewTree
-            title={preview?.title}
-            volumes={volumes}
-            onVolumesChange={setVolumes}
-            onConfirm={() => void handleConfirm()}
-            onBack={() => setStep("upload")}
-            onReset={() => setVolumes(originalVolumesRef.current)}
-            loading={saving}
-          />
-        )}
-      </div>
-    </div>
+    <Modal
+      open={open}
+      onClose={handleClose}
+      locked={parsing || saving}
+      title="导入小说"
+      width={560}
+    >
+      {step === "upload" ? (
+        <ImportUploadZone onFileSelected={handleFileSelected} onCancel={handleClose} />
+      ) : (
+        <ImportPreviewTree
+          title={preview?.title}
+          volumes={volumes}
+          onVolumesChange={setVolumes}
+          onConfirm={() => void handleConfirm()}
+          onBack={() => setStep("upload")}
+          onReset={() => setVolumes(originalVolumesRef.current)}
+          loading={saving}
+        />
+      )}
+    </Modal>
   );
 }

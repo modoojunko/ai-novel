@@ -1,17 +1,8 @@
 // ── Genre data model ──────────────────────────────────────────────────────
 // 题材定义已改为后端数据库存储（全局题材库，预置 24 条启动时 seed），
-// 本文件只保留：类型定义 + 分类 taxonomy + 分类图标 + 异步访问函数。
-// 预置题材的 icon 字段已删除 —— 列表/卡片统一按分类取图标（genreIcon）。
+// 本文件只保留：类型定义 + 分类 taxonomy + 异步访问函数。
+// 预置题材的 icon 字段已删除 —— 列表/卡片统一按分类取图标（genreIconPath）。
 
-import type { LucideIcon } from "lucide-react";
-import {
-  Building,
-  Scroll,
-  Sparkles,
-  Search,
-  Rocket,
-  BookOpen,
-} from "lucide-react";
 import { api } from "@/lib/api";
 
 // ── Category slugs ────────────────────────────────────────────────────────
@@ -37,22 +28,6 @@ export const GENRE_CATEGORIES: GenreCategoryInfo[] = [
   { id: "scifi",      label: "科幻系" },
   { id: "independent",label: "独立类型" },
 ];
-
-// ── Category icons ────────────────────────────────────────────────────────
-
-/** 分类默认图标；未知 category 兜底 Sparkles */
-export const CATEGORY_ICONS: Record<GenreCategory, LucideIcon> = {
-  urban: Building,
-  historical: Scroll,
-  xianhuan: Sparkles,
-  suspense: Search,
-  scifi: Rocket,
-  independent: BookOpen,
-};
-
-export function genreIcon(genre: { category: GenreCategory }): LucideIcon {
-  return CATEGORY_ICONS[genre.category] ?? Sparkles;
-}
 
 // ── Genre definition ──────────────────────────────────────────────────────
 

@@ -22,7 +22,7 @@ export type FeatureKey =
   | "ai-model";
 
 export const FEATURES: Record<FeatureKey, { memberOnly: boolean }> = {
-  // 免费 ✅：完整人工写作能力
+  // 免费：完整人工写作能力
   "tree-crud": { memberOnly: false },
   "prose-edit": { memberOnly: false },
   "version-history": { memberOnly: false },
@@ -30,7 +30,7 @@ export const FEATURES: Record<FeatureKey, { memberOnly: boolean }> = {
   "volume-chapter-config": { memberOnly: false },
   "advanced-config-entry": { memberOnly: false },
   "settings-7-items": { memberOnly: false },
-  // 会员 🔒：AI 能力（入口可见、使用需会员）
+  // 会员：AI 能力（入口可见、使用需会员）
   "settings-ai-fields": { memberOnly: true },
   "outline-advanced-fields": { memberOnly: true },
   "ai-generate": { memberOnly: true },

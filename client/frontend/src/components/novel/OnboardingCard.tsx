@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Ico, P } from "@/components/icons";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,38 +46,53 @@ export default function OnboardingCard({
   const handleStart = onStart ?? onDismiss;
 
   return (
-    <div className="relative border-b border-primary/20 bg-gradient-to-r from-primary/[0.06] to-primary/[0.02] animate-fade-up">
+    <div
+      className="relative animate-fade-up"
+      style={{
+        borderBottom: "1px solid color-mix(in oklch, var(--accent) 20%, transparent)",
+        background:
+          "linear-gradient(to right, color-mix(in oklch, var(--accent) 6%, transparent), color-mix(in oklch, var(--accent) 2%, transparent))",
+      }}
+    >
       <div className="px-6 py-5">
         {/* Close button */}
         <button
           onClick={onDismiss}
-          className="absolute top-3 right-3 btn btn-ghost btn-xs btn-square"
+          className="icon-btn absolute top-3 right-3"
           aria-label="关闭"
         >
-          <X className="w-4 h-4" />
+          <Ico d={P.close} size={15} />
         </button>
 
         {/* Title */}
-        <h3 className="font-serif font-semibold text-base-content text-lg mb-1">
+        <h3 className="serif font-semibold text-lg mb-1" style={{ color: "var(--fg)" }}>
           {isImported ? "稿子已导入！接下来补充设定" : "你的第一本书从设定开始"}
         </h3>
 
         {/* Description */}
-        <p className="text-sm text-base-content/50 mb-5 max-w-lg leading-relaxed">
+        <p
+          className="text-sm mb-5 max-w-lg leading-relaxed"
+          style={{ color: "var(--muted)" }}
+        >
           {isImported
             ? "卷纲和章纲已由导入完成，补充设定后就能进入提示词和写作阶段。"
             : "按照六阶段创作流程，从设定开始，逐步完成卷纲、章纲、提示词、写作，最后归档。"}
         </p>
 
-        {/* Mini timeline — daisyUI steps */}
-        <div className="flex flex-wrap gap-x-1 mb-5">
-          {steps.map((step, i) => (
-            <div
-              key={i}
-              className={`step text-xs before:!h-2 before:!w-2 ${step.active ? "step-primary" : ""}`}
+        {/* Mini timeline：点 + 标签（当前步高亮，其余弱化） */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-5">
+          {steps.map((step) => (
+            <span
+              key={step.label}
+              className="flex items-center gap-1.5 text-xs"
+              style={{ color: step.active ? "var(--accent-strong)" : "var(--muted)" }}
             >
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ background: step.active ? "var(--accent)" : "var(--fg-soft)" }}
+              />
               {step.label}
-            </div>
+            </span>
           ))}
         </div>
 
@@ -88,7 +103,8 @@ export default function OnboardingCard({
           </button>
           <button
             onClick={onDismiss}
-            className="text-sm text-base-content/40 hover:text-base-content/60 transition-colors"
+            className="text-sm"
+            style={{ color: "var(--muted)" }}
           >
             知道了
           </button>

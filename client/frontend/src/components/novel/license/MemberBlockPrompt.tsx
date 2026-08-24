@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchPortalUrl } from "@/lib/portal";
+import Modal from "@/components/design/Modal";
 
 /**
  * 全局会员拦截弹窗（2026-08-18 口径）：AI 调用被后端 member_required 403
@@ -24,15 +25,17 @@ export default function MemberBlockPrompt() {
       window.removeEventListener("member-block", onBlock as EventListener);
   }, []);
 
-  if (!message) return null;
-
   return (
-    <div className="modal modal-open" data-testid="member-block-prompt">
-      <div className="modal-box max-w-sm">
-        <h3 className="font-bold text-base">✨ PRO 专属功能</h3>
-        <p className="py-4 text-sm text-base-content/70">{message}</p>
-        <div className="modal-action">
-          <button className="btn btn-ghost btn-sm" onClick={() => setMessage(null)}>
+    <Modal
+      open={message !== null}
+      onClose={() => setMessage(null)}
+      title="PRO 专属功能"
+      footer={
+        <>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setMessage(null)}
+          >
             稍后再说
           </button>
           {portalUrl ? (
@@ -46,12 +49,27 @@ export default function MemberBlockPrompt() {
               去 S 端开通 / 续费
             </a>
           ) : (
-            <button className="btn btn-primary btn-sm" onClick={() => setMessage(null)}>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => setMessage(null)}
+            >
               知道了
             </button>
           )}
-        </div>
+        </>
+      }
+    >
+      <div data-testid="member-block-prompt">
+        <p
+          className="text-sm"
+          style={{
+            color: "color-mix(in oklch, var(--fg) 75%, transparent)",
+            padding: "6px 0 10px",
+          }}
+        >
+          {message}
+        </p>
       </div>
-    </div>
+    </Modal>
   );
 }

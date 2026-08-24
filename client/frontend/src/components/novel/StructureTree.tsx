@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Lock, Plus, Trash2 } from "lucide-react";
+import { Ico, P } from "@/components/icons";
 
 export type TreeNodeAction = {
   icon: React.ReactNode;
@@ -137,45 +137,41 @@ function TreeNodeItem({
   return (
     <div>
       <div
-        className={`group flex items-center gap-1 w-full px-2 py-1.5 rounded transition-colors cursor-pointer
-          ${isSelected
-            ? "bg-primary/10 text-primary font-medium"
-            : "hover:bg-base-300/30 text-base-content/70"
-          } ${isLocked ? "opacity-60 bg-base-200/30" : ""}`}
+        className={`stree-row row${isSelected ? " on" : ""}${isLocked ? " locked" : ""}`}
         style={{ paddingLeft: `${12 + depth * 16}px` }}
         onClick={() => onSelect(node)}
       >
         {/* Expand/collapse arrow */}
         {hasChildren ? (
-          <span
-            className="text-[10px] text-base-content/40 hover:text-base-content/70 flex-shrink-0 w-3 text-center"
+          <button
+            className="chev"
             onClick={(e) => {
               e.stopPropagation();
               onToggle(node.id);
             }}
           >
-            {isExpanded ? "▾" : "▸"}
-          </span>
+            <Ico d={isExpanded ? P.chevronDown : P.chevronRight} size={10} />
+          </button>
         ) : (
           <span className="w-3 flex-shrink-0" />
         )}
 
         {/* Node icon */}
         {node.icon && (
-          <span className="text-xs text-base-content/50 flex-shrink-0">
+          <span className="nicon">
             {node.icon}
           </span>
         )}
 
         {/* Lock icon */}
         {isLocked && (
-          <Lock className="w-3 h-3 text-base-content/30 flex-shrink-0" />
+          <Ico d={P.lock} size={12} className="flex-shrink-0" style={{ color: "var(--muted)" }} />
         )}
 
         {/* Label or Edit input */}
         {isEditing ? (
           <input
-            className="input input-ghost input-xs flex-1 min-w-0 px-0 py-0 h-auto text-xs"
+            className="edit"
             value={editingValue}
             onChange={(e) => onUpdateEdit(e.target.value)}
             onKeyDown={handleEditKeyDown}
@@ -185,7 +181,7 @@ function TreeNodeItem({
           />
         ) : (
           <span
-            className="text-xs truncate flex-1"
+            className="lbl"
             onDoubleClick={handleDoubleClick}
           >
             {node.label ?? "(未命名)"}
@@ -195,12 +191,12 @@ function TreeNodeItem({
         {/* Badge */}
         {node.badge && (
           <span
-            className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 leading-none"
+            className="badge"
             style={{
               backgroundColor: node.badgeColor
-                ? `${node.badgeColor}20`
-                : undefined,
-              color: node.badgeColor ?? undefined,
+                ? "color-mix(in oklch, " + node.badgeColor + " 14%, transparent)"
+                : "var(--fg-soft)",
+              color: node.badgeColor ?? "var(--muted)",
             }}
           >
             {node.badge}
@@ -209,27 +205,26 @@ function TreeNodeItem({
 
         {/* Right side group (delete + existing actions) */}
         {showRightSide && (
-          <div className="flex items-center gap-0.5 ml-auto flex-shrink-0">
+          <div className="acts">
             {/* 行内新建插槽（FE-11）：卷节点 hover「+」 */}
             {onAddChild && hasChildren && (
               <button
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-base-content/40 hover:text-primary"
                 onClick={(e) => {
                   e.stopPropagation();
                   onAddChild(node);
                 }}
                 title="在卷下新建章节"
               >
-                <Plus className="w-3 h-3" />
+                <Ico d={P.plus} size={12} />
               </button>
             )}
 
             {/* Delete button with inline confirmation */}
             {!isEditing && onDelete && !hasChildren &&
               (isConfirmingDelete ? (
-                <span className="flex items-center gap-1 text-[10px]">
+                <span className="del-confirm stay">
                   <button
-                    className="text-error font-medium hover:underline whitespace-nowrap"
+                    className="yes"
                     onClick={(e) => {
                       e.stopPropagation();
                       onCommitDelete(node.id);
@@ -238,7 +233,7 @@ function TreeNodeItem({
                     确认删除?
                   </button>
                   <button
-                    className="text-base-content/40 hover:text-base-content/70"
+                    className="no"
                     onClick={(e) => {
                       e.stopPropagation();
                       onCancelDelete();
@@ -249,42 +244,38 @@ function TreeNodeItem({
                 </span>
               ) : (
                 <button
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-base-content/40 hover:text-error"
+                  className="danger"
                   onClick={(e) => {
                     e.stopPropagation();
                     onStartDelete(node.id);
                   }}
                   title="删除"
                 >
-                  <Trash2 className="w-3 h-3" />
+                  <Ico d={P.trash} size={12} />
                 </button>
               ))}
 
             {/* Existing action buttons (visible on hover) */}
-            {node.actions && node.actions.length > 0 && (
-              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                {node.actions.map((action, i) => (
-                  <button
-                    key={i}
-                    title={action.label}
-                    className="btn btn-ghost btn-xs px-1 text-base-content/40 hover:text-base-content"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      action.onClick(node);
-                    }}
-                  >
-                    <span className="text-xs">{action.icon}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+            {node.actions && node.actions.length > 0 &&
+              node.actions.map((action, i) => (
+                <button
+                  key={i}
+                  title={action.label}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    action.onClick(node);
+                  }}
+                >
+                  {action.icon}
+                </button>
+              ))}
           </div>
         )}
       </div>
 
       {/* Children (recursive) */}
       {hasChildren && isExpanded && (
-        <div className="ml-4 border-l border-base-300/50 pl-2">
+        <div className="kids">
           {node.children!.map((child) => (
             <TreeNodeItem
               key={child.id}
@@ -383,14 +374,14 @@ export default function StructureTree({
 
   if (!nodes || nodes.length === 0) {
     return (
-      <div className="flex items-center justify-center py-8 text-sm text-base-content/40">
+      <div className="stree tree-empty">
         暂无内容
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="stree">
       {nodes.map((node) => (
         <TreeNodeItem
           key={node.id}

@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback } from "react";
-import { Upload } from "lucide-react";
+import { Ico, P } from "@/components/icons";
 import { downloadTemplate } from "@/lib/api";
 import { toast } from "@/lib/toast";
 
@@ -96,25 +96,24 @@ export default function ImportUploadZone({
 
   return (
     <div className="space-y-4">
-      <button
-        className="btn btn-ghost btn-xs gap-1 text-base-content/40 hover:text-base-content/70 -ml-2"
-        onClick={onCancel}
-      >
+      <button className="btn btn-ghost btn-xs -ml-2" onClick={onCancel}>
         ← 返回选择
       </button>
 
       <h3 className="font-bold font-serif text-lg">导入已有稿子</h3>
-      <p className="text-sm text-base-content/50 leading-relaxed">
+      <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
         支持 .txt、.md、.docx 格式，单文件不超过 10MB。
       </p>
 
       {/* Upload zone */}
       <div
-        className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors ${
-          dragging
-            ? "border-primary bg-primary/5"
-            : "border-base-300 hover:border-primary/40"
-        }`}
+        className="border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors"
+        style={{
+          borderColor: dragging ? "var(--accent)" : "var(--border)",
+          background: dragging
+            ? "color-mix(in oklch, var(--accent) 5%, transparent)"
+            : undefined,
+        }}
         onClick={() => inputRef.current?.click()}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -125,15 +124,19 @@ export default function ImportUploadZone({
           if (e.key === "Enter") inputRef.current?.click();
         }}
       >
-        <Upload
-          className={`w-10 h-10 mx-auto mb-3 transition-colors ${
-            dragging ? "text-primary" : "text-base-content/30"
-          }`}
-        />
-        <p className="text-sm text-base-content/50">
+        <div className="mb-3">
+          <Ico
+            d={P.upload}
+            size={40}
+            style={{ color: dragging ? "var(--accent)" : "var(--muted)" }}
+          />
+        </div>
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
           {dragging ? "松开鼠标以选择此文件" : "拖拽文件到此处，或点击选择文件"}
         </p>
-        <p className="text-xs text-base-content/30 mt-1">.md / .txt / .docx</p>
+        <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+          .md / .txt / .docx
+        </p>
         <input
           ref={inputRef}
           type="file"
@@ -144,11 +147,7 @@ export default function ImportUploadZone({
       </div>
 
       <div className="text-center">
-        <a
-          href="#"
-          className="text-xs link link-primary"
-          onClick={handleDownloadTemplate}
-        >
+        <a href="#" className="lnk text-xs" onClick={handleDownloadTemplate}>
           下载模板参考 →
         </a>
       </div>

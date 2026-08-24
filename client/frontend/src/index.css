@@ -1,8 +1,7 @@
 /*
- * Tailwind 过渡期入口：daisyUI/工具类服务于未迁移屏（书工作台/登录/营销），
- * 设计系统在 design/base.css 之后加载并覆盖共享类；PR 收尾退役本文件里的 daisyUI。
- * 视觉一律走 design/（oklch token + 组件类），此处只保留布局工具类所需的
- * tailwind 指令、全链高度，以及未迁移屏仍在用的旧动画。
+ * Tailwind 只服务布局工具类（flex/grid/间距/字号/响应式）。
+ * 视觉（色彩/组件样式）一律走 design/*.css 的 oklch token + 组件类，
+ * 在本文件之后加载。此处仅保留 tailwind 指令、全链高度与路由转场动画。
  */
 @tailwind base;
 @tailwind components;
@@ -22,7 +21,7 @@ body,
   min-height: 100vh;
 }
 
-/* ── 未迁移屏的旧动画（收尾 PR 随 daisyUI 一起清） ── */
+/* ── 路由转场（App.tsx page-enter） ── */
 @keyframes page-fade-in {
   from {
     opacity: 0;
@@ -38,40 +37,4 @@ body,
 
 .page-enter {
   animation: page-fade-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-up {
-  animation: fade-up 0.5s ease-out both;
-}
-
-.animate-fade-up-1 { animation-delay: 0.1s; }
-.animate-fade-up-2 { animation-delay: 0.2s; }
-.animate-fade-up-3 { animation-delay: 0.3s; }
-.animate-fade-up-4 { animation-delay: 0.4s; }
-
-/* GateBanner 滑入动画 */
-@keyframes gate-slide-down {
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.gate-slide-down {
-  animation: gate-slide-down 200ms ease-out both;
 }

@@ -1,10 +1,10 @@
 // ── GenreEditModal ────────────────────────────────────────────────────────
 // Create/edit a custom genre in the global library. 创建/编辑双模式：
 // genre 为 null → 创建；否则编辑。storyArcTemplates v1 不开放编辑。
-// Follows the fixed-overlay pattern of CharacterCreateModal.
 
 import { useState } from "react";
-import { X, ChevronDown, ChevronUp } from "lucide-react";
+import { Ico, P } from "@/components/icons";
+import Modal from "@/components/design/Modal";
 import {
   GENRE_CATEGORIES,
   createGenre,
@@ -31,6 +31,16 @@ function suggestSlug(name: string): string {
   return `custom-${Date.now().toString(36)}`;
 }
 
+/** 表单小标签：题材表单统一口径（11px 上下、muted、必填星标 err） */
+function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <label className="text-xs font-medium block mb-1 tracking-wide" style={{ color: "var(--muted)" }}>
+      {children}
+      {required && <span style={{ color: "var(--err)" }}> *</span>}
+    </label>
+  );
+}
+
 function StringList({
   items,
   onChange,
@@ -45,7 +55,7 @@ function StringList({
       {items.map((item, i) => (
         <div key={i} className="flex items-center gap-2">
           <input
-            className="flex-1 bg-base-200/40 border border-base-300/60 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-primary/40 placeholder:text-base-content/20"
+            className="input flex-1"
             value={item}
             onChange={(e) => {
               const n = [...items];
@@ -56,18 +66,19 @@ function StringList({
           />
           <button
             onClick={() => onChange(items.filter((_, j) => j !== i))}
-            className="text-base-content/20 hover:text-error transition-colors text-sm px-1"
+            className="icon-btn"
+            style={{ width: 24, height: 24 }}
             title="移除"
           >
-            X
+            <Ico d={P.close} size={12} />
           </button>
         </div>
       ))}
       <button
         onClick={() => onChange([...items, ""])}
-        className="text-xs text-primary/60 hover:text-primary transition-colors inline-flex items-center gap-1"
+        className="lnk text-xs inline-flex items-center gap-1"
       >
-        <span className="text-base leading-none">+</span> 添加一项
+        <Ico d={P.plus} size={11} /> 添加一项
       </button>
     </div>
   );
@@ -156,210 +167,192 @@ export default function GenreEditModal({ genre, onClose, onSaved }: GenreEditMod
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-
-      <div
-        className="relative w-full max-w-lg bg-base-100 border border-base-300/50 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="h-1.5 bg-gradient-to-r from-primary/60 via-primary to-accent/60" />
-
-        {/* ── Header ────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-3">
-          <h3 className="text-lg font-serif font-semibold text-base-content">
-            {isEdit ? "编辑题材" : "新建题材"}
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-base-content/40 hover:text-base-content transition-colors"
-          >
-            <X className="w-4 h-4" />
+    <Modal
+      open
+      onClose={onClose}
+      title={isEdit ? "编辑题材" : "新建题材"}
+      width={520}
+      wbStyle
+      footer={
+        <>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>
+            取消
           </button>
+          <button className="btn btn-primary btn-sm" onClick={handleSubmit} disabled={saving}>
+            {saving && <Ico d={P.spinner} className="spin" size={12} />}
+            {isEdit ? "保存修改" : "创建"}
+          </button>
+        </>
+      }
+    >
+      {error && (
+        <p className="text-sm" style={{ color: "var(--err)" }}>
+          {error}
+        </p>
+      )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2 sm:col-span-1">
+          <FieldLabel required>题材名称</FieldLabel>
+          <input
+            value={name}
+            onChange={(e) => handleNameChange(e.target.value)}
+            placeholder="例如：末日种田"
+            className="input w-full"
+          />
         </div>
-
-        {/* ── Body (scrollable) ─────────────────────────────────── */}
-        <div className="px-6 pb-6 overflow-y-auto space-y-4">
-          {error && <p className="text-sm text-error/80">{error}</p>}
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 sm:col-span-1">
-              <label className="text-[11px] text-base-content/50 font-medium block mb-1 tracking-wide">
-                题材名称 <span className="text-error">*</span>
-              </label>
-              <input
-                value={name}
-                onChange={(e) => handleNameChange(e.target.value)}
-                placeholder="例如：末日种田"
-                className="w-full bg-base-200/40 border border-base-300/60 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary/40 placeholder:text-base-content/20"
-              />
-            </div>
-            <div className="col-span-2 sm:col-span-1">
-              <label className="text-[11px] text-base-content/50 font-medium block mb-1 tracking-wide">
-                题材 ID（英文 slug）<span className="text-error">*</span>
-              </label>
-              {isEdit ? (
-                <div className="px-3 py-2 text-sm bg-base-200/30 border border-base-300/30 rounded-lg text-base-content/40">
-                  {genre?.id}
-                </div>
-              ) : (
-                <input
-                  value={id}
-                  onChange={(e) => {
-                    setId(e.target.value);
-                    setIdTouched(true);
-                  }}
-                  onFocus={() => setIdTouched(true)}
-                  placeholder="daily-life"
-                  className="w-full bg-base-200/40 border border-base-300/60 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary/40 placeholder:text-base-content/20"
-                />
-              )}
-              {!isEdit && (
-                <p className="text-[11px] text-base-content/30 mt-1">
-                  仅小写字母、数字、连字符，以小写字母开头
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-[11px] text-base-content/50 font-medium block mb-1 tracking-wide">
-              分类
-            </label>
-            <div className="flex flex-wrap gap-1.5">
-              {GENRE_CATEGORIES.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setCategory(c.id)}
-                  className={`px-2.5 py-1 text-xs rounded-lg border transition-colors ${
-                    category === c.id
-                      ? "border-primary/40 bg-primary/10 text-primary"
-                      : "border-base-300/50 text-base-content/50 hover:border-base-300/80"
-                  }`}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-[11px] text-base-content/50 font-medium block mb-1 tracking-wide">
-              题材说明
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="一句话描述这个题材的特征……"
-              rows={2}
-              className="w-full bg-base-200/40 border border-base-300/60 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary/40 placeholder:text-base-content/20 resize-none"
-            />
-          </div>
-
-          <div>
-            <label className="text-[11px] text-base-content/50 font-medium block mb-1 tracking-wide">
-              叙事者角色
-            </label>
-            <input
-              value={narratorRole}
-              onChange={(e) => setNarratorRole(e.target.value)}
-              placeholder="例如：贴近主角内心的全知第三人称"
-              className="w-full bg-base-200/40 border border-base-300/60 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary/40 placeholder:text-base-content/20"
-            />
-          </div>
-
-          <div>
-            <label className="text-[11px] text-base-content/50 font-medium block mb-1 tracking-wide">
-              提示词注入段
-            </label>
-            <textarea
-              value={promptInjection}
-              onChange={(e) => setPromptInjection(e.target.value)}
-              placeholder="会嵌入发送给 AI 的系统提示词，影响写作风格与行为"
-              rows={2}
-              className="w-full bg-base-200/40 border border-base-300/60 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary/40 placeholder:text-base-content/20 resize-none font-mono text-xs"
-            />
-          </div>
-
-          {/* ── Optional advanced block ─────────────────────────── */}
-          <div className="border border-base-300/40 rounded-xl overflow-hidden">
-            <button
-              onClick={() => setAdvancedOpen(!advancedOpen)}
-              className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-base-content/70 hover:bg-base-200/30 transition-colors"
+        <div className="col-span-2 sm:col-span-1">
+          <FieldLabel required>题材 ID（英文 slug）</FieldLabel>
+          {isEdit ? (
+            <div
+              className="px-3 py-2 text-sm rounded-lg"
+              style={{
+                background: "var(--fg-soft)",
+                border: "1px solid var(--border)",
+                color: "var(--muted)",
+              }}
             >
-              <span>可选：禁忌与文风蓝图</span>
-              {advancedOpen ? (
-                <ChevronUp className="w-4 h-4 text-base-content/30" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-base-content/30" />
-              )}
-            </button>
-            {advancedOpen && (
-              <div className="px-4 pb-4 space-y-4 border-t border-base-300/40 pt-3">
-                <div>
-                  <label className="text-[11px] text-base-content/50 font-medium block mb-1.5 tracking-wide">类型禁忌</label>
-                  <StringList items={taboos} onChange={setTaboos} placeholder="例如：超自然元素" />
-                </div>
-                <div>
-                  <label className="text-[11px] text-base-content/50 font-medium block mb-1.5 tracking-wide">氛围选项</label>
-                  <StringList items={atmosphereOptions} onChange={setAtmosphereOptions} placeholder="例如：温馨治愈" />
-                </div>
-                <div>
-                  <label className="text-[11px] text-base-content/50 font-medium block mb-1.5 tracking-wide">叙事视角（POV）</label>
-                  <StringList items={povOptions} onChange={setPovOptions} placeholder="例如：第三人称有限视角" />
-                </div>
-                <div>
-                  <label className="text-[11px] text-base-content/50 font-medium block mb-1.5 tracking-wide">描写技法</label>
-                  <StringList items={techniqueTags} onChange={setTechniqueTags} placeholder="例如：场景细节描写" />
-                </div>
-                <div>
-                  <label className="text-[11px] text-base-content/50 font-medium block mb-1.5 tracking-wide">满足类型</label>
-                  <StringList items={fulfillmentTypes} onChange={setFulfillmentTypes} placeholder="例如：人物成长" />
-                </div>
-                <div>
-                  <label className="text-[11px] text-base-content/50 font-medium block mb-1.5 tracking-wide">章节类型</label>
-                  <StringList items={chapterTypes} onChange={setChapterTypes} placeholder="例如：日常" />
-                </div>
-                <div>
-                  <label className="text-[11px] text-base-content/50 font-medium block mb-1.5 tracking-wide">节奏规则</label>
-                  <StringList items={pacingRules} onChange={setPacingRules} placeholder="例如：每章至少 1 次情感刻画" />
-                </div>
-                <div>
-                  <label className="text-[11px] text-base-content/50 font-medium block mb-1.5 tracking-wide">疲劳词</label>
-                  <StringList items={fatigueWords} onChange={setFatigueWords} placeholder="例如：突然" />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {isEdit && (
-            <p className="text-[11px] text-base-content/30 leading-relaxed">
-              改动会影响所有使用该题材的作品（各项目的覆盖项仍单独生效）。
+              {genre?.id}
+            </div>
+          ) : (
+            <input
+              value={id}
+              onChange={(e) => {
+                setId(e.target.value);
+                setIdTouched(true);
+              }}
+              onFocus={() => setIdTouched(true)}
+              placeholder="daily-life"
+              className="input w-full"
+            />
+          )}
+          {!isEdit && (
+            <p
+              className="text-xs mt-1"
+              style={{ color: "color-mix(in oklch, var(--fg) 30%, transparent)" }}
+            >
+              仅小写字母、数字、连字符，以小写字母开头
             </p>
           )}
         </div>
+      </div>
 
-        {/* ── Footer ────────────────────────────────────────────── */}
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-base-300/40 bg-base-200/20">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-base-content/40 hover:text-base-content/70 transition-colors"
-          >
-            取消
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="px-5 py-2 text-sm bg-primary/10 border border-primary/30 text-primary rounded-lg font-medium hover:bg-primary/20 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            {saving && <span className="loading loading-spinner loading-xs" />}
-            {isEdit ? "保存修改" : "✦ 创建"}
-          </button>
+      <div>
+        <FieldLabel>分类</FieldLabel>
+        <div className="flex flex-wrap gap-1.5">
+          {GENRE_CATEGORIES.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setCategory(c.id)}
+              className="px-2.5 py-1 text-xs rounded-lg border transition-colors"
+              style={
+                category === c.id
+                  ? {
+                      borderColor: "color-mix(in oklch, var(--accent) 40%, transparent)",
+                      background: "var(--accent-soft)",
+                      color: "var(--accent-strong)",
+                    }
+                  : { borderColor: "var(--border)", color: "var(--muted)" }
+              }
+            >
+              {c.label}
+            </button>
+          ))}
         </div>
       </div>
-    </div>
+
+      <div>
+        <FieldLabel>题材说明</FieldLabel>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="一句话描述这个题材的特征……"
+          rows={2}
+          className="input w-full resize-none"
+        />
+      </div>
+
+      <div>
+        <FieldLabel>叙事者角色</FieldLabel>
+        <input
+          value={narratorRole}
+          onChange={(e) => setNarratorRole(e.target.value)}
+          placeholder="例如：贴近主角内心的全知第三人称"
+          className="input w-full"
+        />
+      </div>
+
+      <div>
+        <FieldLabel>提示词注入段</FieldLabel>
+        <textarea
+          value={promptInjection}
+          onChange={(e) => setPromptInjection(e.target.value)}
+          placeholder="会嵌入发送给 AI 的系统提示词，影响写作风格与行为"
+          rows={2}
+          className="input w-full resize-none font-mono text-xs"
+        />
+      </div>
+
+      {/* ── Optional advanced block ─────────────────────────── */}
+      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+        <button
+          onClick={() => setAdvancedOpen(!advancedOpen)}
+          className="w-full flex items-center justify-between px-4 py-2.5 text-sm"
+          style={{ color: "color-mix(in oklch, var(--fg) 75%, transparent)" }}
+        >
+          <span>可选：禁忌与文风蓝图</span>
+          <Ico
+            d={advancedOpen ? P.up : P.chevronDown}
+            size={14}
+            style={{ color: "var(--muted)" }}
+          />
+        </button>
+        {advancedOpen && (
+          <div className="px-4 pb-4 space-y-4 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+            <div>
+              <FieldLabel>类型禁忌</FieldLabel>
+              <StringList items={taboos} onChange={setTaboos} placeholder="例如：超自然元素" />
+            </div>
+            <div>
+              <FieldLabel>氛围选项</FieldLabel>
+              <StringList items={atmosphereOptions} onChange={setAtmosphereOptions} placeholder="例如：温馨治愈" />
+            </div>
+            <div>
+              <FieldLabel>叙事视角（POV）</FieldLabel>
+              <StringList items={povOptions} onChange={setPovOptions} placeholder="例如：第三人称有限视角" />
+            </div>
+            <div>
+              <FieldLabel>描写技法</FieldLabel>
+              <StringList items={techniqueTags} onChange={setTechniqueTags} placeholder="例如：场景细节描写" />
+            </div>
+            <div>
+              <FieldLabel>满足类型</FieldLabel>
+              <StringList items={fulfillmentTypes} onChange={setFulfillmentTypes} placeholder="例如：人物成长" />
+            </div>
+            <div>
+              <FieldLabel>章节类型</FieldLabel>
+              <StringList items={chapterTypes} onChange={setChapterTypes} placeholder="例如：日常" />
+            </div>
+            <div>
+              <FieldLabel>节奏规则</FieldLabel>
+              <StringList items={pacingRules} onChange={setPacingRules} placeholder="例如：每章至少 1 次情感刻画" />
+            </div>
+            <div>
+              <FieldLabel>疲劳词</FieldLabel>
+              <StringList items={fatigueWords} onChange={setFatigueWords} placeholder="例如：突然" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {isEdit && (
+        <p
+          className="text-xs leading-relaxed"
+          style={{ color: "color-mix(in oklch, var(--fg) 30%, transparent)" }}
+        >
+          改动会影响所有使用该题材的作品（各项目的覆盖项仍单独生效）。
+        </p>
+      )}
+    </Modal>
   );
 }
