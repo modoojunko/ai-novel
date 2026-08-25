@@ -1,11 +1,10 @@
-// 角色设定（book.html v2 设定视图·角色面板）：
-//   列表区（char-row 头像/名称/故事角色/删除）+ 新建角色；
-//   选中角色 → 3 组 .cfg 折叠卡（基本信息/认知模型/扩展信息，14 字段全保留）。
+// 角色设定（settings-three-col：内嵌子双栏）：
+//   内嵌左栏（.sub-list）= 角色列表 + 新建（行内输入，创建弹窗退役）；
+//   内嵌右侧（.sub-form）= 选中角色的 3 组 .cfg 折叠卡（14 字段全保留）。
 // 保存/确认语义收敛到面板脚注（gap3）：SettingsView 持 ref，确认完成前先 save。
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { api } from "@/lib/api";
 import { useDirtyState } from "@/hooks/useDirtyState";
-import CharacterCreateModal from "./CharacterCreateModal";
 import DeleteConfirmModal from "../DeleteConfirmModal";
 import { Ico, P } from "@/components/icons";
 import { Cfg, Field, SettingSaveHandle } from "./FormField";
@@ -50,7 +49,9 @@ const CharacterManager = forwardRef<SettingSaveHandle, Props>(function Character
   const [char, setChar] = useState<CharData>(emptyChar());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newRole, setNewRole] = useState("supporting");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [charError, setCharError] = useState("");
   const { isDirty, snapshotLoaded, markSaved } = useDirtyState(char, onDirtyChange);
@@ -78,35 +79,24 @@ const CharacterManager = forwardRef<SettingSaveHandle, Props>(function Character
     setSelected(name);
     try {
       const d = await api.get(`/novels/${projectId}/settings/character/${name}`);
-      if (d && typeof d === "object") {
-        const ch = {
-          name: d.name || name,
-          role: d.role || "supporting",
-          appearance: d.appearance || "",
-          background: d.background || "",
-          speech: d.speech || "",
-          world_view: d.world_view || "",
-          self_image: d.self_image || "",
-          values: d.values || "",
-          abilities: d.abilities || "",
-          skills: d.skills || "",
-          environment: d.environment || "",
-          possessions: d.possessions || "",
-          relationships: d.relationships || "",
-          experiences: d.experiences || "",
-        };
-        setChar(ch);
-        snapshotLoaded(ch);
-      } else {
-        const ch = emptyChar(name);
-        setChar(ch);
-        snapshotLoaded(ch);
-      }
+      const src = d && typeof d === "object" ? d : {};
+      const ch: CharData = { ...emptyChar(name), ...pick(src) };
+      setChar(ch);
+      snapshotLoaded(ch);
     } catch {
       const ch = emptyChar(name);
       setChar(ch);
       snapshotLoaded(ch);
     }
+  }
+
+  function pick(d: any): Partial<CharData> {
+    const out: Partial<CharData> = {};
+    for (const k of Object.keys(emptyChar()) as (keyof CharData)[]) {
+      if (typeof d[k] === "string") out[k] = d[k];
+    }
+    if (d.role) out.role = String(d.role);
+    return out;
   }
 
   async function saveCharacter() {
@@ -134,16 +124,20 @@ const CharacterManager = forwardRef<SettingSaveHandle, Props>(function Character
     loadCharacter(name);
   }
 
-  async function addCharacter(name: string, role: string) {
+  /** 行内新建（settings-three-col：创建弹窗退役，左栏直接加） */
+  async function addCharacter() {
+    const name = newName.trim();
     if (!projectId) { setCharError("项目未加载"); return; }
+    if (!name) { setCharError("先给角色起个名字"); return; }
+    const payload = emptyChar(name);
+    payload.role = newRole;
     try {
-      const payload = { name, role, appearance: "", background: "", speech: "", world_view: "", self_image: "", values: "", abilities: "", skills: "", environment: "", possessions: "", relationships: "", experiences: "" };
       await api.put(`/novels/${projectId}/settings/character/${name}`, payload);
       await loadNames();
       setSelected(name);
       setChar(payload);
       snapshotLoaded(payload);
-      setShowCreate(false);
+      setAdding(false); setNewName(""); setNewRole("supporting");
       setCharError("");
     } catch (e: any) {
       console.error("addCharacter error:", e);
@@ -168,86 +162,106 @@ const CharacterManager = forwardRef<SettingSaveHandle, Props>(function Character
   if (loading) return <p className="opt">加载中…</p>;
 
   return (
-    <div>
-      <div className="field">
-        <label>角色 <span className="opt">{names.length} 个</span></label>
-        {names.length === 0
-          ? <p className="sub-empty">暂无角色 · 点下方新建</p>
-          : names.map((n) => (
-            <div
-              key={n}
-              className={`char-row${selected === n ? " sel" : ""}`}
-              onClick={() => handleSelectChar(n)}
+    <div className="subsplit">
+      <aside className="sub-list">
+        <div className="sub-list-head">角色 <span className="opt">{names.length} 个</span></div>
+        {names.length === 0 && !adding && (
+          <p className="sub-empty">暂无角色 · 点下方新建</p>
+        )}
+        {names.map((n) => (
+          <div
+            key={n}
+            className={`char-row${selected === n ? " sel" : ""}`}
+            onClick={() => handleSelectChar(n)}
+          >
+            <span className="avatar serif">{n[0]}</span>
+            <div>
+              <div className="cname">{n}</div>
+              <div className="cdesc">{ROLE_LABEL[roles[n]] || "配角"}</div>
+            </div>
+            <button
+              className="icon-btn del"
+              type="button"
+              title="移除"
+              onClick={(e) => { e.stopPropagation(); setDeleteTarget(n); }}
             >
-              <span className="avatar serif">{n[0]}</span>
-              <div>
-                <div className="cname">{n}</div>
-                <div className="cdesc">{ROLE_LABEL[roles[n]] || "配角"}</div>
-              </div>
-              <button
-                className="icon-btn del"
-                type="button"
-                title="移除"
-                onClick={(e) => { e.stopPropagation(); setDeleteTarget(n); }}
-              >
-                <Ico d={P.trash} sw={1.7} />
-              </button>
+              <Ico d={P.trash} sw={1.7} />
+            </button>
+          </div>
+        ))}
+        {adding ? (
+          <div className="sub-add">
+            <input
+              className="input"
+              placeholder="角色名"
+              value={newName}
+              autoFocus
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void addCharacter()}
+            />
+            <select className="input" value={newRole} onChange={(e) => setNewRole(e.target.value)}>
+              <option value="protagonist">主角</option>
+              <option value="antagonist">反派</option>
+              <option value="supporting">配角</option>
+            </select>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => void addCharacter()}>添加</button>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setAdding(false)}>取消</button>
             </div>
-          ))}
-        <button className="text-btn" type="button" onClick={() => setShowCreate(true)}>
-          <Ico d={P.plus} sw={2} size={13} />
-          新建角色
-        </button>
+          </div>
+        ) : (
+          <button className="text-btn" type="button" onClick={() => setAdding(true)}>
+            <Ico d={P.plus} sw={2} size={13} />
+            新建角色
+          </button>
+        )}
+      </aside>
+
+      <div className="sub-form">
+        {selected ? (
+          <>
+            <Cfg title="基本信息" open>
+              <div className="tpl-row">
+                <div className="field tpl-select">
+                  <label>角色名</label>
+                  <input className="input" value={char.name} placeholder="角色名"
+                    onChange={(e) => setChar((p) => ({ ...p, name: e.target.value }))} />
+                </div>
+                <div className="field stage-map">
+                  <label>故事角色</label>
+                  <select className="input" value={char.role}
+                    onChange={(e) => setChar((p) => ({ ...p, role: e.target.value }))}>
+                    <option value="protagonist">主角</option>
+                    <option value="antagonist">反派</option>
+                    <option value="supporting">配角</option>
+                  </select>
+                </div>
+              </div>
+              <Field label="外貌" value={char.appearance} onChange={(v) => setChar((p) => ({ ...p, appearance: v }))} />
+              <Field label="背景" value={char.background} onChange={(v) => setChar((p) => ({ ...p, background: v }))} />
+              <Field label="语言特征" value={char.speech} onChange={(v) => setChar((p) => ({ ...p, speech: v }))} />
+            </Cfg>
+            <Cfg title="认知模型">
+              <p className="opt" style={{ margin: "0 0 12px" }}>上层难改变（世界观/自我/价值观），下层随情节自然变化（能力/技能/环境）</p>
+              <Field label="世界观" hint="角色对世界运作方式的信念" value={char.world_view} onChange={(v) => setChar((p) => ({ ...p, world_view: v }))} />
+              <Field label="自我定位" hint="角色如何看待自己（可能与现实不同）" value={char.self_image} onChange={(v) => setChar((p) => ({ ...p, self_image: v }))} />
+              <Field label="价值观" hint="行为边界：什么绝不做，什么会打破原则" value={char.values} onChange={(v) => setChar((p) => ({ ...p, values: v }))} />
+              <Field label="能力" hint="具体能力，有上限。如：十步内可感知杀意" value={char.abilities} onChange={(v) => setChar((p) => ({ ...p, abilities: v }))} />
+              <Field label="技能" hint="习得技能及来源。如：码头帮派学的搏击" value={char.skills} onChange={(v) => setChar((p) => ({ ...p, skills: v }))} />
+              <Field label="环境" hint="成长背景 + 当前处境" value={char.environment} onChange={(v) => setChar((p) => ({ ...p, environment: v }))} />
+            </Cfg>
+            <Cfg title="扩展信息">
+              <Field label="持有物" value={char.possessions} onChange={(v) => setChar((p) => ({ ...p, possessions: v }))} />
+              <Field label="关系" value={char.relationships} onChange={(v) => setChar((p) => ({ ...p, relationships: v }))} />
+              <Field label="经历" value={char.experiences} onChange={(v) => setChar((p) => ({ ...p, experiences: v }))} />
+            </Cfg>
+          </>
+        ) : (
+          <p className="sub-empty">从左侧选择角色，或新建一个角色开始配置。</p>
+        )}
+
+        {charError && <p className="opt" style={{ color: "var(--err)" }}>{charError}</p>}
       </div>
-
-      {selected && (
-        <>
-          <Cfg title="基本信息" open>
-            <div className="tpl-row">
-              <div className="field tpl-select">
-                <label>角色名</label>
-                <input className="input" value={char.name} placeholder="角色名"
-                  onChange={(e) => setChar((p) => ({ ...p, name: e.target.value }))} />
-              </div>
-              <div className="field stage-map">
-                <label>故事角色</label>
-                <select className="input" value={char.role}
-                  onChange={(e) => setChar((p) => ({ ...p, role: e.target.value }))}>
-                  <option value="protagonist">主角</option>
-                  <option value="antagonist">反派</option>
-                  <option value="supporting">配角</option>
-                </select>
-              </div>
-            </div>
-            <Field label="外貌" value={char.appearance} onChange={(v) => setChar((p) => ({ ...p, appearance: v }))} />
-            <Field label="背景" value={char.background} onChange={(v) => setChar((p) => ({ ...p, background: v }))} />
-            <Field label="语言特征" value={char.speech} onChange={(v) => setChar((p) => ({ ...p, speech: v }))} />
-          </Cfg>
-          <Cfg title="认知模型">
-            <p className="opt" style={{ margin: "0 0 12px" }}>上层难改变（世界观/自我/价值观），下层随情节自然变化（能力/技能/环境）</p>
-            <Field label="世界观" hint="角色对世界运作方式的信念" value={char.world_view} onChange={(v) => setChar((p) => ({ ...p, world_view: v }))} />
-            <Field label="自我定位" hint="角色如何看待自己（可能与现实不同）" value={char.self_image} onChange={(v) => setChar((p) => ({ ...p, self_image: v }))} />
-            <Field label="价值观" hint="行为边界：什么绝不做，什么会打破原则" value={char.values} onChange={(v) => setChar((p) => ({ ...p, values: v }))} />
-            <Field label="能力" hint="具体能力，有上限。如：十步内可感知杀意" value={char.abilities} onChange={(v) => setChar((p) => ({ ...p, abilities: v }))} />
-            <Field label="技能" hint="习得技能及来源。如：码头帮派学的搏击" value={char.skills} onChange={(v) => setChar((p) => ({ ...p, skills: v }))} />
-            <Field label="环境" hint="成长背景 + 当前处境" value={char.environment} onChange={(v) => setChar((p) => ({ ...p, environment: v }))} />
-          </Cfg>
-          <Cfg title="扩展信息">
-            <Field label="持有物" value={char.possessions} onChange={(v) => setChar((p) => ({ ...p, possessions: v }))} />
-            <Field label="关系" value={char.relationships} onChange={(v) => setChar((p) => ({ ...p, relationships: v }))} />
-            <Field label="经历" value={char.experiences} onChange={(v) => setChar((p) => ({ ...p, experiences: v }))} />
-          </Cfg>
-        </>
-      )}
-
-      {charError && <p className="opt" style={{ color: "var(--err)" }}>{charError}</p>}
-
-      {showCreate && (
-        <CharacterCreateModal
-          onConfirm={(name, role) => addCharacter(name, role)}
-          onCancel={() => setShowCreate(false)}
-        />
-      )}
 
       {deleteTarget && (
         <DeleteConfirmModal

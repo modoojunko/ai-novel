@@ -131,6 +131,27 @@ input, textarea, select { font: inherit; }
 .tone-opt:hover { border-color: color-mix(in oklch, var(--accent) 35%, var(--border)); }
 .tone-opt.on { border-color: var(--accent); background: color-mix(in oklch, var(--accent) 6%, var(--surface)); }
 .tone-opt.on b { color: var(--accent); }
+.tone-opt.tone-custom { padding: 4px 6px; align-items: center; }
+.tone-custom-btn { border: none; background: none; padding: 3px 4px; font-size: 13px; cursor: pointer; color: var(--fg); }
+.tone-custom.on { border-color: var(--accent); background: color-mix(in oklch, var(--accent) 6%, var(--surface)); }
+.tone-custom.on .tone-custom-btn b { color: var(--accent); }
+
+/* ─── 设定视图三段式（settings-three-col）：右栏=AI 栏，多对象面板内嵌子双栏 ── */
+.settings-v .arc-wizard { display: grid; gap: 6px; }
+.rail-sec-head { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.rail-sec-head svg { color: var(--accent); }
+.rail-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--surface); display: grid; gap: 6px; }
+.rail-card b { font-size: 13px; }
+.subsplit { display: grid; grid-template-columns: 180px 1fr; gap: 14px; min-height: 0; }
+.sub-list { border-right: 1px solid var(--border); padding-right: 10px; display: flex; flex-direction: column; gap: 6px; max-height: 560px; overflow-y: auto; }
+.sub-list-head { font-size: 13px; font-weight: 500; display: flex; align-items: baseline; gap: 6px; margin-bottom: 2px; }
+.sub-group { display: grid; gap: 2px; }
+.sub-group-label { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em; color: var(--muted); margin-top: 8px; }
+.sub-form { min-width: 0; }
+.sub-add { display: grid; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); }
+.hook-item { padding: 6px 8px; border-radius: 8px; font-size: 12.5px; color: var(--fg); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hook-item:hover { background: var(--fg-soft); }
+.hook-item.sel { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
 
 .pagefoot { flex-shrink: 0; border-top: 1px solid var(--border); padding: 20px 0; color: var(--muted); font-size: 12px; text-align: center; }
 

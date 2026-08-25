@@ -1,7 +1,11 @@
+// 伏笔设定（settings-three-col：内嵌子双栏）：
+//   内嵌左栏 = 按状态分组的伏笔列表（活跃/已收束/废弃）+ 添加伏笔；
+//   内嵌右侧 = 选中伏笔的配置表单（描述/引入/类型/优先级/状态搬移 + AI 帮我填）。
+// 数据模型不变：active/resolved/abandoned 三数组整存整取。
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { api } from "@/lib/api";
 import { useDirtyState } from "@/hooks/useDirtyState";
-import { Cfg, SettingSaveHandle } from "./FormField";
+import { SettingSaveHandle } from "./FormField";
 import AISuggestionModal from "./AISuggestionModal";
 import { Ico, P } from "@/components/icons";
 
@@ -19,6 +23,17 @@ const HOOK_TYPES = [
   { value: "emotion", label: "情感" }, { value: "choice", label: "选择" }, { value: "desire", label: "欲望" },
 ];
 
+type Group = "active" | "resolved" | "abandoned";
+
+const GROUPS: { key: Group; label: string }[] = [
+  { key: "active", label: "活跃" },
+  { key: "resolved", label: "已收束" },
+  { key: "abandoned", label: "废弃" },
+];
+
+/** 选中键：组名-下标 */
+type SelKey = string;
+
 const HooksSettingForm = forwardRef<SettingSaveHandle, Props>(function HooksSettingForm(
   { projectId, settingKey, onDirtyChange },
   ref,
@@ -29,16 +44,15 @@ const HooksSettingForm = forwardRef<SettingSaveHandle, Props>(function HooksSett
   const [active, setActive] = useState<any[]>([]);
   const [resolved, setResolved] = useState<any[]>([]);
   const [abandoned, setAbandoned] = useState<any[]>([]);
+  const [sel, setSel] = useState<SelKey | null>(null);
 
   // AI modal state
-  const [aiField, setAiField] = useState<string | null>(null);
-  const [aiFieldLabel, setAiFieldLabel] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
   const [aiContent, setAiContent] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiPendingField, setAiPendingField] = useState<string | null>(null);
 
   const currentShape = { active, resolved, abandoned };
-  const { snapshotLoaded, markSaved } = useDirtyState(currentShape, onDirtyChange);
+  const { isDirty, snapshotLoaded, markSaved } = useDirtyState(currentShape, onDirtyChange);
 
   useEffect(() => {
     setLoading(true);
@@ -79,159 +93,184 @@ const HooksSettingForm = forwardRef<SettingSaveHandle, Props>(function HooksSett
   // gap3：完成设定前先把当前表单内容落库（恒保存，幂等）
   useImperativeHandle(ref, () => ({ save: handleSave }));
 
-  async function handleAIGenerate(tabName: string, hookIndex: number) {
-    const fieldKey = `${tabName}-${hookIndex}`;
-    setAiPendingField(fieldKey);
+  const groupArr = (g: Group) => (g === "active" ? active : g === "resolved" ? resolved : abandoned);
+  const groupSet = (g: Group) => (g === "active" ? setActive : g === "resolved" ? setResolved : setAbandoned);
+
+  const selParts = sel ? sel.split("-") : null;
+  const selGroup = (selParts?.[0] as Group) ?? null;
+  const selIdx = selParts ? parseInt(selParts[1], 10) : -1;
+  const selHook = selGroup ? groupArr(selGroup)[selIdx] : undefined;
+
+  function select(g: Group, i: number, dirty: boolean) {
+    if (dirty) {
+      const ok = window.confirm("当前伏笔有未保存的修改，切换将丢失这些修改。确定继续吗？");
+      if (!ok) return;
+    }
+    setSel(`${g}-${i}`);
+  }
+
+  function patchSel(patchObj: Record<string, string>) {
+    if (!selGroup) return;
+    const arr = [...groupArr(selGroup)];
+    arr[selIdx] = { ...arr[selIdx], ...patchObj };
+    groupSet(selGroup)(arr);
+  }
+
+  /** 状态搬移：从当前组删除并追加到目标组（选中跟随） */
+  function moveSel(to: Group) {
+    if (!selGroup) return;
+    const arr = [...groupArr(selGroup)];
+    const [item] = arr.splice(selIdx, 1);
+    groupSet(selGroup)(arr);
+    const dst = [...groupArr(to), item];
+    groupSet(to)(dst);
+    setSel(`${to}-${dst.length - 1}`);
+  }
+
+  function addHook() {
+    setActive([...active, { description: "", introduced_in: "", type: "mystery", priority: "2" }]);
+    setSel(`active-${active.length}`);
+  }
+
+  function removeSel() {
+    if (!selGroup) return;
+    const arr = [...groupArr(selGroup)];
+    arr.splice(selIdx, 1);
+    groupSet(selGroup)(arr);
+    setSel(null);
+  }
+
+  async function handleAIGenerate() {
+    if (!selGroup) return;
     setAiLoading(true);
-    setAiField(fieldKey);
-    setAiFieldLabel("伏笔描述");
+    setAiOpen(true);
     setAiContent("");
     try {
-      const hooks = tabName === "active" ? active : tabName === "resolved" ? resolved : abandoned;
+      const hooks = groupArr(selGroup);
       const res = await api.post(`/novels/${projectId}/settings/ai/hooks/description`, {
-        context: { hooks, index: hookIndex, current: hooks[hookIndex] },
+        context: { hooks, index: selIdx, current: hooks[selIdx] },
       });
       setAiContent(typeof res.value === "string" ? res.value : JSON.stringify(res.value, null, 2));
     } catch (e: any) {
       setAiContent(`生成失败：${e.message}`);
     } finally {
       setAiLoading(false);
-      setAiPendingField(null);
     }
-  }
-
-  function handleAIAccept() {
-    if (!aiField) return;
-    const parts = aiField.split("-");
-    const tabName = parts[0];
-    const index = parseInt(parts[1], 10);
-    const updater = (hooks: any[]) => {
-      const n = [...hooks];
-      n[index] = { ...n[index], description: aiContent };
-      return n;
-    };
-    if (tabName === "active") setActive(updater(active));
-    else if (tabName === "resolved") setResolved(updater(resolved));
-    else setAbandoned(updater(abandoned));
-    setAiField(null);
-    setAiContent("");
   }
 
   if (loading) return <p className="opt">加载中…</p>;
 
   return (
-    <div>
-      <Cfg title="活跃伏笔" open>
-        <HookTable hooks={active} onChange={setActive} simple={false}
-          onAIGenerate={(i) => handleAIGenerate("active", i)}
-          isAiLoading={(i) => aiPendingField === `active-${i}`} />
-      </Cfg>
-      <Cfg title="已收束">
-        <HookTable hooks={resolved} onChange={setResolved} simple={false}
-          onAIGenerate={(i) => handleAIGenerate("resolved", i)}
-          isAiLoading={(i) => aiPendingField === `resolved-${i}`} />
-      </Cfg>
-      <Cfg title="废弃" tag="可后补">
-        <HookTable hooks={abandoned} onChange={setAbandoned} simple={true}
-          onAIGenerate={(i) => handleAIGenerate("abandoned", i)}
-          isAiLoading={(i) => aiPendingField === `abandoned-${i}`} />
-      </Cfg>
+    <div className="subsplit">
+      <aside className="sub-list">
+        <div className="sub-list-head">伏笔 <span className="opt">{active.length + resolved.length + abandoned.length} 条</span></div>
+        {GROUPS.map((g) => {
+          const arr = groupArr(g.key);
+          return (
+            <div key={g.key} className="sub-group">
+              <span className="sub-group-label">{g.label} · {arr.length}</span>
+              {arr.map((h, i) => (
+                <div
+                  key={`${g.key}-${i}`}
+                  className={`hook-item${sel === `${g.key}-${i}` ? " sel" : ""}`}
+                  onClick={() => select(g.key, i, isDirty)}
+                  title={h.description || "未填写描述"}
+                >
+                  {h.description ? (h.description.length > 14 ? `${h.description.slice(0, 14)}…` : h.description) : "未填写"}
+                </div>
+              ))}
+            </div>
+          );
+        })}
+        <button className="text-btn" type="button" onClick={addHook}>
+          <Ico d={P.plus} sw={2} size={13} />
+          添加伏笔
+        </button>
+      </aside>
 
-      {error && <p className="opt" style={{ color: "var(--err)" }}>{error}</p>}
+      <div className="sub-form">
+        {selHook ? (
+          <div style={{ display: "grid", gap: 10 }}>
+            <div className="field">
+              <label>
+                伏笔描述
+                <button
+                  className="text-btn"
+                  type="button"
+                  style={{ marginLeft: "auto" }}
+                  onClick={() => void handleAIGenerate()}
+                  disabled={aiLoading}
+                >
+                  <Ico d={P.spark} sw={1.8} size={13} />
+                  {aiLoading ? "AI 生成中…" : "AI 帮我填"}
+                </button>
+              </label>
+              <input
+                className="input"
+                placeholder="伏笔描述"
+                value={selHook.description || ""}
+                onChange={(e) => patchSel({ description: e.target.value })}
+              />
+            </div>
+            <div className="tpl-row">
+              <div className="field tpl-select">
+                <label>引入</label>
+                <input
+                  className="input"
+                  placeholder="在哪章引入"
+                  value={selHook.introduced_in || ""}
+                  onChange={(e) => patchSel({ introduced_in: e.target.value })}
+                />
+              </div>
+              <div className="field tpl-select">
+                <label>类型</label>
+                <select className="input" value={selHook.type || "mystery"}
+                  onChange={(e) => patchSel({ type: e.target.value })}>
+                  {HOOK_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div className="field tpl-select">
+                <label>优先级</label>
+                <select className="input" value={selHook.priority || "2"}
+                  onChange={(e) => patchSel({ priority: e.target.value })}>
+                  <option value="1">高</option><option value="2">中</option><option value="3">低</option>
+                </select>
+              </div>
+              <div className="field tpl-select">
+                <label>状态</label>
+                <select className="input" value={selGroup || "active"}
+                  onChange={(e) => moveSel(e.target.value as Group)}>
+                  <option value="active">活跃</option>
+                  <option value="resolved">已收束</option>
+                  <option value="abandoned">废弃</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={removeSel}>
+                <Ico d={P.trash} sw={1.7} />
+                删除这条伏笔
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="sub-empty">从左侧选择一条伏笔，或点「添加伏笔」开始埋线。</p>
+        )}
+
+        {error && <p className="opt" style={{ color: "var(--err)" }}>{error}</p>}
+      </div>
 
       <AISuggestionModal
-        open={aiField !== null}
-        fieldLabel={aiFieldLabel}
+        open={aiOpen}
+        fieldLabel="伏笔描述"
         content={aiContent}
         loading={aiLoading}
-        onAccept={handleAIAccept}
-        onRetry={() => {
-          if (aiField) {
-            const parts = aiField.split("-");
-            handleAIGenerate(parts[0], parseInt(parts[1], 10));
-          }
-        }}
-        onClose={() => { setAiField(null); setAiContent(""); }}
+        onAccept={() => { patchSel({ description: aiContent }); setAiOpen(false); setAiContent(""); }}
+        onRetry={() => void handleAIGenerate()}
+        onClose={() => { setAiOpen(false); setAiContent(""); }}
       />
     </div>
   );
 });
 
 export default HooksSettingForm;
-
-function HookTable({ hooks, onChange, simple, onAIGenerate, isAiLoading }: {
-  hooks: any[]; onChange: (v: any[]) => void; simple: boolean;
-  onAIGenerate?: (i: number) => void;
-  isAiLoading?: (i: number) => boolean;
-}) {
-  return (
-    <div>
-      {hooks.length === 0 && <p className="sub-empty">暂无</p>}
-      {hooks.map((h, i) => (
-        <div className="hook-row" key={i}>
-          <button
-            className="icon-btn"
-            type="button"
-            title="AI 帮我填"
-            onClick={() => onAIGenerate!(i)}
-            disabled={isAiLoading?.(i) ?? false}
-          >
-            <Ico d={P.spark} sw={1.8} />
-          </button>
-          <input
-            className="input desc"
-            placeholder="伏笔描述"
-            value={h.description || ""}
-            onChange={(e) => update(hooks, onChange, i, "description", e.target.value)}
-          />
-          {!simple && (
-            <>
-              <input
-                className="input in-ch"
-                placeholder="引入"
-                value={h.introduced_in || ""}
-                onChange={(e) => update(hooks, onChange, i, "introduced_in", e.target.value)}
-              />
-              <select
-                className="input sel-type"
-                value={h.type || "mystery"}
-                onChange={(e) => update(hooks, onChange, i, "type", e.target.value)}
-              >
-                {HOOK_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-              <select
-                className="input sel-pri"
-                value={h.priority || "2"}
-                onChange={(e) => update(hooks, onChange, i, "priority", e.target.value)}
-              >
-                <option value="1">高</option><option value="2">中</option><option value="3">低</option>
-              </select>
-            </>
-          )}
-          <button
-            className="icon-btn"
-            type="button"
-            title="删除"
-            onClick={() => onChange(hooks.filter((_, j) => j !== i))}
-          >
-            <Ico d={P.trash} sw={1.7} />
-          </button>
-        </div>
-      ))}
-      <button
-        className="text-btn"
-        type="button"
-        onClick={() => onChange([...hooks, { description: "", introduced_in: "", type: "mystery", priority: "2" }])}
-      >
-        <Ico d={P.plus} sw={2} size={13} />
-        添加伏笔
-      </button>
-    </div>
-  );
-}
-
-function update(arr: any[], set: (v: any[]) => void, i: number, field: string, value: string) {
-  const n = [...arr];
-  n[i] = { ...n[i], [field]: value };
-  set(n);
-}

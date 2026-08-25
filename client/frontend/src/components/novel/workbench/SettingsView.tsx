@@ -25,6 +25,8 @@ import HooksSettingForm from "@/components/novel/settings/HooksSettingForm";
 import CharacterManager from "@/components/novel/settings/CharacterManager";
 import ModelSettingForm from "@/components/novel/settings/ModelSettingForm";
 import StoryArcForm from "@/components/novel/settings/StoryArcForm";
+import ArcWizard from "@/components/novel/settings/ArcWizard";
+import { useStoryArc } from "@/components/novel/settings/useStoryArc";
 import GenreSettingForm, { type GenreHandle } from "@/components/novel/settings/GenreSettingForm";
 
 // ── 面板注册表（顺序/命名与原型 navItems 一致；settingsKey 对后端口径）──
@@ -118,6 +120,9 @@ export default function SettingsView({
     [panel, dirty, handleDirtyChange],
   );
 
+  // 主线卡共享状态（settings-three-col）：表单与右栏 AI 向导同源，向导落卡不覆盖表单编辑
+  const arcCtl = useStoryArc(projectId, panel === "arc", handleDirtyChange);
+
   const item = SETTINGS_ITEMS.find((i) => i.k === panel);
   const isModel = panel === "aiModel";
   const confirmed = item ? !!settingsStatus?.[item.settingsKey] : false;
@@ -184,7 +189,7 @@ export default function SettingsView({
         : "确认后计入设定进度";
 
   return (
-    <div className="view two-col on">
+    <div className="view three-col on settings-v">
       <aside className="col-tree">
         <div className="tree-head">
           <span className="t">
@@ -238,7 +243,8 @@ export default function SettingsView({
         </div>
       </aside>
 
-      <main className="col-panel">
+      <main className="col-middle">
+        <div className="col-panel">
         <div className="panel">
           <div className="panel-head">
             <h2>{panelTitle}</h2>
@@ -268,7 +274,7 @@ export default function SettingsView({
               <StoryArcForm
                 ref={formRef}
                 projectId={projectId}
-                onDirtyChange={handleDirtyChange}
+                ctl={arcCtl}
               />
             )}
             {panel === "world" && (
@@ -338,7 +344,29 @@ export default function SettingsView({
             )}
           </div>
         </div>
+        </div>
       </main>
+
+      {/* 右侧 AI 栏（settings-three-col）：与写作页右栏同构；主线时为四步向导 */}
+      <aside className="col-ai">
+        {panel === "arc" ? (
+          <ArcWizard ctl={arcCtl} />
+        ) : panel === "world" || panel === "style" || panel === "antiAI" ? (
+          <div className="rail-card">
+            <b>{item?.name} · AI 能力</b>
+            <p className="opt" style={{ fontSize: 12 }}>
+              各字段行内的「AI 帮我填」按钮随字段就地可用：点一下，AI 按已确认的题材与简介给建议，结果可采纳或重试。
+            </p>
+          </div>
+        ) : (
+          <div className="rail-card">
+            <b>当前设定项暂无 AI 功能</b>
+            <p className="opt" style={{ fontSize: 12 }}>
+              「主线」面板的右栏是 AI 拆主线四步向导；世界/风格/AI痕迹控制的字段旁有「AI 帮我填」。
+            </p>
+          </div>
+        )}
+      </aside>
     </div>
   );
 }

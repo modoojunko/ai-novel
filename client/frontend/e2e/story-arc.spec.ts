@@ -83,7 +83,7 @@ async function apiGetJSON(request: APIRequestContext, token: string, path: strin
 
 async function openArcPanel(page: Page) {
   await page.getByRole("button", { name: /^设定/ }).click();
-  await page.locator(".two-col aside").getByText("主线", { exact: true }).click();
+  await page.locator(".settings-v .col-tree").getByText("主线", { exact: true }).click();
 }
 
 test.describe("主线卡", () => {
@@ -138,20 +138,19 @@ test.describe("主线卡", () => {
     }
   });
 
-  test("免费点「AI 帮我拆」→ 403 升级引导弹窗，手动填写不受影响", async ({ page }) => {
+  test("免费跑向导 → 403 升级引导弹窗，手动填写不受影响", async ({ page }) => {
     const { restore } = await setupSession(page, "none");
     try {
       await createNovel(page, `主线拦截${Date.now() % 100000}`);
       await openArcPanel(page);
 
-      await page.getByRole("button", { name: "AI 帮我拆" }).click();
-      // 向导输入框 = 打开后面板里最后一个 textbox
-      const wizInput = page.getByRole("textbox").last();
+      // 向导常驻右栏（.col-ai），输入框为右栏里的 textarea
+      const wizInput = page.locator(".col-ai").getByRole("textbox");
       await wizInput.fill("我想写一个侦探故事");
       const wizard403 = page.waitForResponse(
         (r) => r.url().includes("/story/arc/wizard/condense") && r.status() === 403,
       );
-      await page.getByRole("button", { name: /让 AI 处理/ }).click();
+      await page.locator(".col-ai").getByRole("button", { name: /让 AI 处理/ }).click();
       await wizard403;
 
       // 全局升级引导弹窗（MemberBlockPrompt）
@@ -191,31 +190,30 @@ test.describe("AI 四步向导（会员，浏览器侧打桩 AI 响应）", () =
       });
 
       await openArcPanel(page);
-      await page.getByRole("button", { name: "AI 帮我拆" }).click();
 
-      // 第 1 步：说想法 → 浓缩落卡
-      await page.getByRole("textbox").last().fill("陆征是私家侦探，苏棠姐姐来找他说妹妹失踪了……");
-      await page.getByRole("button", { name: /让 AI 处理/ }).click();
+      // 第 1 步：说想法 → 浓缩落卡（向导常驻右栏 .col-ai）
+      await page.locator(".col-ai").getByRole("textbox").fill("陆征是私家侦探，苏棠姐姐来找他说妹妹失踪了……");
+      await page.locator(".col-ai").getByRole("button", { name: /让 AI 处理/ }).click();
       await expect(page.getByPlaceholder(/陆征追查失踪案/)).toHaveValue(/触及警队保护伞/, { timeout: 5000 });
 
       // 第 2 步：聊结局 → 落结局三字段
       await expect(page.getByRole("button", { name: "2. 聊结局" })).toHaveClass(/on/);
-      await page.getByRole("textbox").last().fill("案子破了但他知道还有很多没挖出来");
-      await page.getByRole("button", { name: /让 AI 处理/ }).click();
+      await page.locator(".col-ai").getByRole("textbox").fill("案子破了但他知道还有很多没挖出来");
+      await page.locator(".col-ai").getByRole("button", { name: /让 AI 处理/ }).click();
       await expect(page.getByPlaceholder("最后一幕画面（例：侦探所里看着旧卷宗）")).toHaveValue("侦探所旧卷宗", { timeout: 5000 });
 
-      // 中途退出：收起向导 → 重开按卡片内容回到第 3 步（倒推分卷）
-      await page.getByRole("button", { name: "收起向导" }).click();
-      await page.getByRole("button", { name: "AI 帮我拆" }).click();
+      // 中途离开再回来：切到「世界」再切回「主线」，右栏向导按卡片内容续到第 3 步
+      await page.locator(".s-item", { hasText: "世界" }).click();
+      await page.locator(".s-item", { hasText: "主线" }).click();
       await expect(page.getByRole("button", { name: "3. 倒推分卷" })).toHaveClass(/on/, { timeout: 5000 });
 
       // 第 3 步：倒推分卷 → 落分卷表
-      await page.getByRole("textbox").last().fill("按三个大转折分");
-      await page.getByRole("button", { name: /让 AI 处理/ }).click();
+      await page.locator(".col-ai").getByRole("textbox").fill("按三个大转折分");
+      await page.locator(".col-ai").getByRole("button", { name: /让 AI 处理/ }).click();
       await expect(page.getByPlaceholder("卷名").first()).toHaveValue("失踪", { timeout: 5000 });
 
       // 第 4 步：自查 → 三问结果 + 结构归纳
-      await page.getByRole("textbox").last().fill("自查一下");
+      await page.locator(".col-ai").getByRole("textbox").fill("自查一下");
       await page.getByRole("button", { name: "开始自查" }).click();
       await expect(page.getByText(/三卷式/)).toBeVisible({ timeout: 5000 });
 

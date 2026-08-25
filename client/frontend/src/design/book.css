@@ -417,3 +417,15 @@ body.focus .editor-wrap { padding-inline: 8vw; }
 .pm-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
 .pm-bar-title { font-size: 13.5px; font-weight: 500; }
 .pm-bar .grow { flex: 1; }
+
+/* ─── 设定视图三段式（settings-three-col）：窄屏右栏堆叠不隐藏 + 子双栏收单列 ── */
+@media (max-width: 1024px) {
+  .settings-v.view.on.three-col { grid-template-columns: 1fr; grid-template-rows: auto minmax(200px, 260px) minmax(240px, 1fr) auto; }
+  .settings-v.view.on.three-col .col-tree { border-right: 0; border-bottom: 1px solid var(--border); }
+  .settings-v.view.on.three-col .col-ai { display: block; border-left: 0; border-top: 1px solid var(--border); max-height: 45vh; }
+  .settings-v.view.on.three-col .col-middle { min-height: 0; }
+}
+@media (max-width: 640px) {
+  .subsplit { grid-template-columns: 1fr; }
+  .sub-list { border-right: 0; border-bottom: 1px solid var(--border); padding-bottom: 10px; max-height: 220px; }
+}

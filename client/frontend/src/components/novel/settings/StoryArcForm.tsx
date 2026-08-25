@@ -1,203 +1,61 @@
-// 主线卡（story-arc-planning）：建书后、卷纲前的拆纲环节。
-// 三块内容：一句话主线 / 结局想法（三字段，可待定）/ 分卷规划（行编辑，后卷可整行待定）。
-// 「AI 帮我拆」四步向导（会员）：每步 AI 干一活 → 产出落卡（自动保存）→ 作者可改；
-// 中途退出按卡片内容续步（next_step 保守取第一个未完成步骤）。
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { api } from "@/lib/api";
-import { toast } from "@/lib/toast";
-import { useDirtyState } from "@/hooks/useDirtyState";
+// 主线卡表单（story-arc-planning / settings-three-col）：
+// 一句话主线 / 结局想法（基调=问句+带解释的选择题，含「自己写」填空）/ 分卷规划。
+// 「AI 帮我拆」四步向导已拆至右栏 ArcWizard（共享 useStoryArc 状态）。
+import { forwardRef, useImperativeHandle, useRef } from "react";
 import { type SettingSaveHandle } from "@/components/novel/settings/FormField";
 import { Ico, P } from "@/components/icons";
+import {
+  useStoryArc,
+  type ArcCtl,
+  type ArcData,
+  type ArcVolumeRow,
+} from "./useStoryArc";
 
-export interface ArcVolumeRow {
-  title: string;
-  conflict: string;
-  chapters: string;
-}
+export type { ArcVolumeRow, ArcData } from "./useStoryArc";
 
-export interface ArcData {
-  premise: string;
-  ending: { scene: string; hero: string; tone: string };
-  volumes: ArcVolumeRow[];
-}
-
-const EMPTY_ARC: ArcData = { premise: "", ending: { scene: "", hero: "", tone: "" }, volumes: [] };
-
-const STEPS = [
-  { n: 1, key: "condense", name: "说想法", hint: "用你的话讲讲这个故事——主角最想达成什么？" },
-  { n: 2, key: "ending", name: "聊结局", hint: "想象最后一幕：主角最终站在什么位置？（没想好可跳过）" },
-  { n: 3, key: "split", name: "倒推分卷", hint: "AI 基于主线+结局提一版分卷方案，你可以增删改。" },
-  { n: 4, key: "audit", name: "自查", hint: "AI 三问自查：每卷挂主线吗？卷连成线吗？能拼回主线吗？" },
-] as const;
-
-// 基调选择题：问句 + 每项一句人话解释；旧数据里的占位值（待定/？）按未选处理
+// 基调选择题：问句 + 每项一句人话解释 + 作家自定义填空
 const TONE_CHOICES = [
   { v: "悲", desc: "主角没得到想要的，或付出惨痛代价" },
   { v: "喜", desc: "目标达成，苦尽甘来" },
   { v: "开放", desc: "结局留白，答案交给读者" },
 ];
 
-const normTone = (t: unknown) =>
-  TONE_CHOICES.some((c) => c.v === t) ? String(t) : "";
+const PRESETS = TONE_CHOICES.map((c) => c.v);
 
 interface Props {
   projectId: string;
   onDirtyChange?: (dirty: boolean) => void;
+  /** 外部共享状态（SettingsView 持有，与右栏向导同源）；缺省时自持（单测/独立使用） */
+  ctl?: ArcCtl;
 }
 
 const StoryArcForm = forwardRef<SettingSaveHandle, Props>(function StoryArcForm(
-  { projectId, onDirtyChange },
+  { projectId, onDirtyChange, ctl: external },
   ref,
 ) {
-  const [arc, setArc] = useState<ArcData>(EMPTY_ARC);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  // 向导态（resumeStep = 后端按卡片内容推断的续步位置）
-  const [wizOpen, setWizOpen] = useState(false);
-  const [step, setStep] = useState(1);
-  const [resumeStep, setResumeStep] = useState(1);
-  const [input, setInput] = useState("");
-  const [running, setRunning] = useState(false);
-  const [audit, setAudit] = useState<any>(null);
-  const [endingNotes, setEndingNotes] = useState<{ contradiction: string; notes: string } | null>(null);
+  const own = useStoryArc(projectId, !external, onDirtyChange);
+  const c = external ?? own;
+  const { arc, saving } = c;
 
-  const { snapshotLoaded, markSaved } = useDirtyState(arc, onDirtyChange);
-  // P3-4：晚到的挂载 fetch 不得覆盖用户输入
-  const editedRef = useRef(false);
+  useImperativeHandle(ref, () => ({ save: () => c.save() }), [c]);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    api
-      .fetchStoryArc(projectId)
-      .then((d: any) => {
-        if (cancelled || editedRef.current) return;
-        const next: ArcData = {
-          premise: d.premise ?? "",
-          ending: {
-            scene: d.ending?.scene ?? "",
-            hero: d.ending?.hero ?? "",
-            tone: normTone(d.ending?.tone),
-          },
-          volumes: Array.isArray(d.volumes)
-            ? d.volumes.map((v: any) => ({
-                title: v.title ?? "", conflict: v.conflict ?? "", chapters: v.chapters ?? "",
-              }))
-            : [],
-        };
-        setArc(next);
-        setResumeStep(typeof d.next_step === "number" ? d.next_step : 1);
-        snapshotLoaded(next);
-      })
-      .catch(() => snapshotLoaded(EMPTY_ARC))
-      .finally(() => !cancelled && setLoading(false));
-    return () => { cancelled = true; };
-    // snapshotLoaded 引用稳定；仅项目切换重拉
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+  const patch = (p: Partial<ArcData>) => c.patch(p);
 
-  const save = useCallback(async (): Promise<boolean> => {
-    if (saving) return false;
-    setSaving(true);
-    try {
-      await api.updateStoryArc(projectId, arc);
-      markSaved();
-      return true;
-    } catch {
-      toast.error("主线保存失败");
-      return false;
-    } finally {
-      setSaving(false);
-    }
-  }, [projectId, arc, saving, markSaved]);
+  const patchVolume = (i: number, p: Partial<ArcVolumeRow>) =>
+    c.patch({ volumes: arc.volumes.map((v, idx) => (idx === i ? { ...v, ...p } : v)) });
 
-  useImperativeHandle(ref, () => ({ save }), [save]);
+  const addVolume = () =>
+    c.patch({ volumes: [...arc.volumes, { title: "", conflict: "", chapters: "" }] });
+  const removeVolume = (i: number) =>
+    c.patch({ volumes: arc.volumes.filter((_, idx) => idx !== i) });
+  const markTbd = (i: number) =>
+    patchVolume(i, { title: "待定", conflict: "待定", chapters: "?" });
 
-  const patch = useCallback((p: Partial<ArcData>) => {
-    editedRef.current = true;
-    setArc((prev) => ({ ...prev, ...p }));
-  }, []);
+  const tone = arc.ending.tone;
+  const isCustom = tone !== "" && !PRESETS.includes(tone);
+  const customRef = useRef<HTMLInputElement>(null);
 
-  const patchVolume = useCallback((i: number, p: Partial<ArcVolumeRow>) => {
-    editedRef.current = true;
-    setArc((prev) => ({
-      ...prev,
-      volumes: prev.volumes.map((v, idx) => (idx === i ? { ...v, ...p } : v)),
-    }));
-  }, []);
-
-  const addVolume = () => {
-    editedRef.current = true;
-    setArc((prev) => ({ ...prev, volumes: [...prev.volumes, { title: "", conflict: "", chapters: "" }] }));
-  };
-  const removeVolume = (i: number) => {
-    editedRef.current = true;
-    setArc((prev) => ({ ...prev, volumes: prev.volumes.filter((_, idx) => idx !== i) }));
-  };
-  const markTbd = (i: number) => patchVolume(i, { title: "待定", conflict: "待定", chapters: "?" });
-
-  // ── 向导：跑一步，产出落卡并自动保存（可续的持久化基础）──────────────
-  const runStep = async () => {
-    if (running) return;
-    const s = STEPS.find((x) => x.n === step)!;
-    if (!input.trim()) {
-      toast.info("先在这一步写点想法（哪怕很散）");
-      return;
-    }
-    setRunning(true);
-    try {
-      const r = await api.runArcWizard(projectId, s.key, { input, arc });
-      const v = r.value ?? {};
-      const next = { ...arc };
-      if (s.key === "condense" && v.premise) {
-        next.premise = String(v.premise);
-        if (v.notes) toast.info(String(v.notes));
-      } else if (s.key === "ending") {
-        if (v.ending) {
-          next.ending = {
-            scene: String(v.ending.scene ?? arc.ending.scene),
-            hero: String(v.ending.hero ?? arc.ending.hero),
-            tone: v.ending.tone !== undefined ? normTone(v.ending.tone) : arc.ending.tone,
-          };
-        }
-        setEndingNotes({
-          contradiction: String(v.contradiction ?? ""),
-          notes: String(v.notes ?? ""),
-        });
-      } else if (s.key === "split" && Array.isArray(v.volumes)) {
-        next.volumes = v.volumes.map((row: any) => ({
-          title: String(row.title ?? ""), conflict: String(row.conflict ?? ""), chapters: String(row.chapters ?? ""),
-        }));
-        if (v.notes) toast.info(String(v.notes));
-      } else if (s.key === "audit") {
-        setAudit(v);
-      }
-      editedRef.current = true;
-      setArc(next);
-      setInput("");
-      // 每步产出先落卡：向导内自动保存（作者随后可改，改完走面板保存）
-      await api.updateStoryArc(projectId, next).catch(() => toast.error("主线保存失败"));
-      markSaved();
-      if (s.n < 4) {
-        setStep(s.n + 1);
-        setResumeStep(s.n + 1);
-      }
-    } catch {
-      // 403 member_required 已由全局升级弹窗提示；此处只收尾
-    } finally {
-      setRunning(false);
-    }
-  };
-
-  const openWizard = () => {
-    // 中途退出可续：重开按卡片内容回到第一个未完成的步骤
-    setStep(resumeStep);
-    setWizOpen(true);
-    setEndingNotes(null);
-    setAudit(null);
-  };
-
-  if (loading) {
+  if (c.loading) {
     return <p className="opt">加载主线卡…</p>;
   }
 
@@ -238,25 +96,51 @@ const StoryArcForm = forwardRef<SettingSaveHandle, Props>(function StoryArcForm(
             onChange={(e) => patch({ ending: { ...arc.ending, hero: e.target.value } })}
           />
         </div>
-        {/* 基调：先出题再给选项，再点已选项 = 取消 */}
+        {/* 基调：先出题再给选项，再点已选项 = 取消；末项「自己写」= 自定义填空 */}
         <div role="radiogroup" aria-label="结局基调" style={{ display: "grid", gap: 4, marginTop: 8 }}>
           <span className="opt" style={{ fontSize: 12 }}>故事读到最后，你想要哪种感觉？（可不选）</span>
-          {TONE_CHOICES.map((c) => (
+          {TONE_CHOICES.map((ch) => (
             <button
-              key={c.v}
+              key={ch.v}
               type="button"
               role="radio"
-              aria-checked={arc.ending.tone === c.v}
-              className={`tone-opt${arc.ending.tone === c.v ? " on" : ""}`}
+              aria-checked={tone === ch.v}
+              className={`tone-opt${tone === ch.v ? " on" : ""}`}
               disabled={saving}
-              onClick={() =>
-                patch({ ending: { ...arc.ending, tone: arc.ending.tone === c.v ? "" : c.v } })
-              }
+              onClick={() => patch({ ending: { ...arc.ending, tone: tone === ch.v ? "" : ch.v } })}
             >
-              <b>{c.v}</b>
-              <span className="opt" style={{ fontSize: 12 }}>{c.desc}</span>
+              <b>{ch.v}</b>
+              <span className="opt" style={{ fontSize: 12 }}>{ch.desc}</span>
             </button>
           ))}
+          <div className={`tone-opt tone-custom${isCustom ? " on" : ""}`}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={isCustom}
+              className="tone-custom-btn"
+              disabled={saving}
+              onClick={() => {
+                if (isCustom) {
+                  patch({ ending: { ...arc.ending, tone: "" } });
+                } else {
+                  patch({ ending: { ...arc.ending, tone: "" } });
+                  customRef.current?.focus();
+                }
+              }}
+            >
+              <b>自己写</b>
+            </button>
+            <input
+              ref={customRef}
+              className="input"
+              style={{ flex: 1, minWidth: 0 }}
+              placeholder="例：先悲后喜 / 团圆但留遗憾"
+              value={isCustom ? tone : ""}
+              disabled={saving}
+              onChange={(e) => patch({ ending: { ...arc.ending, tone: e.target.value } })}
+            />
+          </div>
         </div>
       </div>
 
@@ -267,7 +151,7 @@ const StoryArcForm = forwardRef<SettingSaveHandle, Props>(function StoryArcForm(
         </label>
         <div style={{ display: "grid", gap: 8 }}>
           {arc.volumes.length === 0 && (
-            <p className="opt" style={{ fontSize: 12 }}>还没有分卷行。可手加，也可用下面的 AI 向导倒推。</p>
+            <p className="opt" style={{ fontSize: 12 }}>还没有分卷行。可手加，也可用右侧 AI 向导倒推。</p>
           )}
           {arc.volumes.map((v, i) => (
             <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -322,89 +206,6 @@ const StoryArcForm = forwardRef<SettingSaveHandle, Props>(function StoryArcForm(
       <p className="opt" style={{ fontSize: 12, margin: "-4px 0 16px" }}>
         分卷是规划草稿，不会自动变成实际的卷；主线没填也不影响直接去建卷写章。
       </p>
-
-      {/* AI 向导入口（会员；免费点击走全局升级引导） */}
-      {!wizOpen ? (
-        <div style={{ display: "flex", gap: 8 }}>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={openWizard}>
-            AI 帮我拆
-          </button>
-          <span className="opt" style={{ fontSize: 12, alignSelf: "center" }}>
-            会员功能 · 四步向导，每步产出先落卡、随时可改、中途可续
-          </span>
-        </div>
-      ) : (
-        <div className="arc-wizard" style={{ border: "1px solid var(--line)", borderRadius: 10, padding: 12, display: "grid", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <b style={{ fontSize: 13 }}>AI 拆主线</b>
-            <div className="seg" style={{ marginLeft: "auto" }}>
-              {STEPS.map((s) => (
-                <button
-                  key={s.n}
-                  type="button"
-                  className={`seg-btn${step === s.n ? " on" : ""}`}
-                  onClick={() => { setStep(s.n); setEndingNotes(null); setAudit(null); }}
-                >
-                  {s.n}. {s.name}
-                </button>
-              ))}
-            </div>
-            <button type="button" className="icon-btn" aria-label="收起向导" onClick={() => setWizOpen(false)}>
-              <Ico d={P.close} />
-            </button>
-          </div>
-
-          {step === 2 && endingNotes && (endingNotes.contradiction || endingNotes.notes) && (
-            <div className="notice info" style={{ margin: 0 }}>
-              <span className="nt">
-                {endingNotes.contradiction && <b>{endingNotes.contradiction}</b>}
-                <span>{endingNotes.notes}</span>
-              </span>
-            </div>
-          )}
-          {step === 4 && audit && (
-            <div style={{ display: "grid", gap: 4 }}>
-              {(audit.checks ?? []).map((c: any, i: number) => (
-                <p key={i} style={{ fontSize: 12, margin: 0 }}>
-                  {c.passed ? "✓" : "✗"} {c.question}：{c.detail}
-                </p>
-              ))}
-              {audit.structure && (
-                <p style={{ fontSize: 12, margin: 0 }}>
-                  <b>{audit.structure}</b>
-                </p>
-              )}
-            </div>
-          )}
-
-          <p className="opt" style={{ fontSize: 12, margin: 0 }}>
-            {STEPS.find((s) => s.n === step)!.hint}
-          </p>
-          <textarea
-            className="textarea"
-            rows={3}
-            value={input}
-            disabled={running}
-            placeholder={step === 1 ? "把想法散着说也行，AI 会浓缩成一句话请你确认" : "写给 AI 的话（第 2 步没想好可填「跳过」）"}
-            onChange={(e) => setInput(e.target.value)}
-          />
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" className="btn btn-primary btn-sm" disabled={running} onClick={() => void runStep()}>
-              {running ? "AI 处理中…" : step === 4 ? "开始自查" : "让 AI 处理并进下一步"}
-            </button>
-            {step === 2 && (
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                disabled={running}
-                onClick={() => { setStep(3); setResumeStep(3); }}
-              >
-                没想好，先跳过
-              </button>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 });
