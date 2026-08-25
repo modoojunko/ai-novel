@@ -125,9 +125,9 @@ async function apiGetJSON(request: APIRequestContext, token: string, path: strin
   return r.json();
 }
 
-/** 在设定左栏点一个导航项（v2 two-col aside 内精确匹配短名：题材/简介/世界/…）。 */
+/** 在设定左栏点一个导航项（settings-three-col 后 col-tree 内精确匹配短名：题材/简介/世界/…）。 */
 async function openSetting(page: Page, label: string) {
-  await page.locator(".two-col aside").getByText(label, { exact: true }).click();
+  await page.locator(".settings-v .col-tree").getByText(label, { exact: true }).click();
 }
 
 /**

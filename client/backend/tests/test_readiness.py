@@ -146,19 +146,23 @@ class TestReadiness:
         assert r.status_code == 200
         data = r.json()
         keys = {m["key"] for m in data["missing"]}
-        # synopsis/genre/world/hooks/characters 为空 → missing；style/anti-ai 模板有默认 → 通过
-        assert keys == {"synopsis", "genre", "world", "hooks", "characters"}
+        # synopsis/story-arc/genre/world/hooks/characters 为空 → missing；style/anti-ai 模板有默认 → 通过
+        assert keys == {"synopsis", "story-arc", "genre", "world", "hooks", "characters"}
         assert not data["complete"]
         assert "还差" in data["warning"]
         # 中文 label + jump
         labels = {m["label"] for m in data["missing"]}
-        assert labels == {"故事简介", "题材类型", "世界设定", "伏笔管理", "角色管理"}
+        assert labels == {"故事简介", "主线规划", "题材类型", "世界设定", "伏笔管理", "角色管理"}
         for m in data["missing"]:
-            assert m["jump"] in {"synopsis", "genre", "world", "hooks", "characters"}
+            assert m["jump"] in {"synopsis", "story-arc", "genre", "world", "hooks", "characters"}
 
     def test_all_filled_complete(self, client):
         pid = _create_project(client)
         client.put(f"/api/novels/{pid}/story", json={"synopsis": "一个关于稻田的故事"})
+        client.put(
+            f"/api/novels/{pid}/story/arc",
+            json={"premise": "主角守护稻田对抗征迁", "ending": {}, "volumes": []},
+        )
         client.put(f"/api/novels/{pid}/settings/genre", json={"genre_id": "urban-romance"})
         _fill_world(client, pid, filled=4)
         client.put(f"/api/novels/{pid}/settings/hooks", json={"active": [{"id": "h1", "description": "一个钩子"}]})
@@ -313,12 +317,16 @@ class TestGateSettingsWarnings:
         """7 项内容填满 + 全部确认 → settings 无警告（AC-4.1）。"""
         pid = _create_project_with_chapter(client)
         client.put(f"/api/novels/{pid}/story", json={"synopsis": "一个关于稻田的故事"})
+        client.put(
+            f"/api/novels/{pid}/story/arc",
+            json={"premise": "主角守护稻田对抗征迁", "ending": {}, "volumes": []},
+        )
         client.put(f"/api/novels/{pid}/settings/genre", json={"genre_id": "urban-romance"})
         _fill_world(client, pid, filled=4)
         client.put(f"/api/novels/{pid}/settings/hooks", json={"active": [{"id": "h1", "description": "一个钩子"}]})
         client.put(f"/api/novels/{pid}/settings/character/张三", json={"name": "张三"})
         # style/anti-ai 模板默认已通过内容判定
-        for t in ["synopsis", "genre", "world", "style", "anti-ai", "hooks", "characters"]:
+        for t in ["synopsis", "story-arc", "genre", "world", "style", "anti-ai", "hooks", "characters"]:
             r = client.put(f"/api/novels/{pid}/settings/status/{t}")
             assert r.status_code == 200, f"confirm {t} failed: {r.text}"
         msgs = _settings_warnings(client, pid)

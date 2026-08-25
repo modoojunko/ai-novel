@@ -24,12 +24,16 @@ import AntiAiSettingForm from "@/components/novel/settings/AntiAiSettingForm";
 import HooksSettingForm from "@/components/novel/settings/HooksSettingForm";
 import CharacterManager from "@/components/novel/settings/CharacterManager";
 import ModelSettingForm from "@/components/novel/settings/ModelSettingForm";
+import StoryArcForm from "@/components/novel/settings/StoryArcForm";
+import ArcWizard from "@/components/novel/settings/ArcWizard";
+import { useStoryArc } from "@/components/novel/settings/useStoryArc";
 import GenreSettingForm, { type GenreHandle } from "@/components/novel/settings/GenreSettingForm";
 
 // ── 面板注册表（顺序/命名与原型 navItems 一致；settingsKey 对后端口径）──
 const SETTINGS_ITEMS = [
   { k: "genre", name: "题材", settingsKey: "genre", canDefer: false },
   { k: "intro", name: "简介", settingsKey: "synopsis", canDefer: false },
+  { k: "arc", name: "主线", settingsKey: "story-arc", canDefer: true },
   { k: "world", name: "世界", settingsKey: "world", canDefer: true },
   { k: "style", name: "风格", settingsKey: "style", canDefer: false },
   { k: "antiAI", name: "AI痕迹控制", settingsKey: "anti-ai", canDefer: true },
@@ -40,6 +44,7 @@ const SETTINGS_ITEMS = [
 const DESCS: Record<string, string> = {
   genre: "题材决定后续表单模板与 AI 生成的口味，是设定的第一步。",
   intro: "让读者（和 AI）知道这是一个怎样的故事。",
+  arc: "这本书讲什么、结局想怎样、分几卷——定总方向盘，不拦写作。",
   world: "地理、政治与规则——故事发生的世界如何运转。",
   style: "用谁的视角讲，用什么语气讲。",
   antiAI: "控制生成正文的 AI 痕迹，让文字更像人写的。",
@@ -70,7 +75,7 @@ export interface SettingsViewProps {
 /** 旧面板键 → 新面板键（外部 jump 载荷兼容） */
 function normalizePanel(v: string | undefined): string {
   const map: Record<string, string> = {
-    genre: "genre", synopsis: "intro", intro: "intro",
+    genre: "genre", synopsis: "intro", intro: "intro", "story-arc": "arc", arc: "arc",
     world: "world", style: "style", "anti-ai": "antiAI",
     hooks: "foreshadow", characters: "chars", "ai-model": "aiModel",
   };
@@ -115,18 +120,22 @@ export default function SettingsView({
     [panel, dirty, handleDirtyChange],
   );
 
+  // 主线卡共享状态（settings-three-col）：表单与右栏 AI 向导同源，向导落卡不覆盖表单编辑
+  const arcCtl = useStoryArc(projectId, panel === "arc", handleDirtyChange);
+
   const item = SETTINGS_ITEMS.find((i) => i.k === panel);
   const isModel = panel === "aiModel";
   const confirmed = item ? !!settingsStatus?.[item.settingsKey] : false;
 
   // ── 进度（两态口径：done/empty；readiness 拉取失败按 0 计，与 modnav 一致）──
+  const total = SETTINGS_ITEMS.length;
   const done = settingsStatus
     ? SETTINGS_ITEMS.filter((i) => settingsStatus[i.settingsKey]).length
     : 0;
   const progNote =
-    done === 7
-      ? "七项全部确认"
-      : `${7 - done} 项未填 · 均可后补`;
+    done === total
+      ? "设定项全部确认"
+      : `${total - done} 项未填 · 均可后补`;
 
   // ── 确认完成 / 保存修改（gap3：先 save 后 confirm；已确认态只 save）────
   const handleFootAction = useCallback(async () => {
@@ -180,7 +189,7 @@ export default function SettingsView({
         : "确认后计入设定进度";
 
   return (
-    <div className="view two-col on">
+    <div className="view three-col on settings-v">
       <aside className="col-tree">
         <div className="tree-head">
           <span className="t">
@@ -188,11 +197,11 @@ export default function SettingsView({
           </span>
         </div>
         <div className="settings-progress">
-          <span className={`pl num${done === 7 ? " done" : ""}`}>
-            设定 <b>{done}</b>/7
+          <span className={`pl num${done === total ? " done" : ""}`}>
+            设定 <b>{done}</b>/{total}
           </span>
-          <div className={`pbar${done === 7 ? " done" : ""}`}>
-            <i style={{ width: `${(done / 7) * 100}%` }} />
+          <div className={`pbar${done === total ? " done" : ""}`}>
+                <i style={{ width: `${(done / total) * 100}%` }} />
           </div>
         </div>
         <div className="settings-nav-wrap">
@@ -234,8 +243,11 @@ export default function SettingsView({
         </div>
       </aside>
 
-      <main className="col-panel">
-        <div className="panel">
+      <main className="col-middle">
+        <div className="col-panel">
+        <div
+          className={`panel${panel === "chars" || panel === "foreshadow" ? " sub-fill" : ""}`}
+        >
           <div className="panel-head">
             <h2>{panelTitle}</h2>
             <span className={`badge ${badgeCls}`}>
@@ -245,7 +257,9 @@ export default function SettingsView({
           </div>
           <p className="desc">{panelDesc}</p>
 
-          <div>
+          <div
+            className={panel === "chars" || panel === "foreshadow" ? "sub-wrap" : undefined}
+          >
             {panel === "genre" && (
               <GenreSettingForm
                 ref={genreRef}
@@ -258,6 +272,13 @@ export default function SettingsView({
                 ref={introRef}
                 projectId={projectId}
                 onDirtyChange={handleDirtyChange}
+              />
+            )}
+            {panel === "arc" && (
+              <StoryArcForm
+                ref={formRef}
+                projectId={projectId}
+                ctl={arcCtl}
               />
             )}
             {panel === "world" && (
@@ -327,7 +348,29 @@ export default function SettingsView({
             )}
           </div>
         </div>
+        </div>
       </main>
+
+      {/* 右侧 AI 栏（settings-three-col）：与写作页右栏同构；主线时为四步向导 */}
+      <aside className="col-ai">
+        {panel === "arc" ? (
+          <ArcWizard ctl={arcCtl} />
+        ) : panel === "world" || panel === "style" || panel === "antiAI" ? (
+          <div className="rail-card">
+            <b>{item?.name} · AI 能力</b>
+            <p className="opt" style={{ fontSize: 12 }}>
+              各字段行内的「AI 帮我填」按钮随字段就地可用：点一下，AI 按已确认的题材与简介给建议，结果可采纳或重试。
+            </p>
+          </div>
+        ) : (
+          <div className="rail-card">
+            <b>当前设定项暂无 AI 功能</b>
+            <p className="opt" style={{ fontSize: 12 }}>
+              「主线」面板的右栏是 AI 拆主线四步向导；世界/风格/AI痕迹控制的字段旁有「AI 帮我填」。
+            </p>
+          </div>
+        )}
+      </aside>
     </div>
   );
 }

@@ -417,3 +417,22 @@ body.focus .editor-wrap { padding-inline: 8vw; }
 .pm-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
 .pm-bar-title { font-size: 13.5px; font-weight: 500; }
 .pm-bar .grow { flex: 1; }
+
+/* ─── 设定视图三段式（settings-three-col）：窄屏右栏堆叠不隐藏 + 子双栏收单列 ── */
+@media (max-width: 1024px) {
+  .settings-v.view.on.three-col { grid-template-columns: 1fr; grid-template-rows: auto minmax(200px, 260px) minmax(240px, 1fr) auto; }
+  .settings-v.view.on.three-col .col-tree { border-right: 0; border-bottom: 1px solid var(--border); }
+  .settings-v.view.on.three-col .col-ai { display: block; border-left: 0; border-top: 1px solid var(--border); max-height: 45vh; }
+  .settings-v.view.on.three-col .col-middle { min-height: 0; }
+}
+@media (max-width: 640px) {
+  .subsplit { grid-template-columns: 1fr; }
+  .sub-list, .settings-v .panel.sub-fill .sub-list { border-right: 0; border-bottom: 1px solid var(--border); padding-bottom: 10px; max-height: 220px; height: auto; }
+}
+
+/* ─── 多对象面板满栏（settings-sub-fill）：角色/伏笔子双栏占满中间栏整宽整高 ── */
+.settings-v .panel.sub-fill { max-width: none; width: 100%; margin: 0; display: flex; flex-direction: column; min-height: 100%; }
+.settings-v .panel.sub-fill .sub-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.settings-v .panel.sub-fill .subsplit { flex: 1; min-height: 0; }
+.settings-v .panel.sub-fill .sub-list { max-height: none; height: 100%; }
+.settings-v .panel.sub-fill .sub-form { min-height: 0; overflow-y: auto; padding-right: 4px; }
