@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EMPTY_OG_FORM,
+  ogFormIssues,
   ogGaps,
   ogToForm,
   ogToPartial,
@@ -77,6 +78,11 @@ describe("ogToForm/ogToPartial round-trip（章纲新格子）", () => {
     expect(ogToPartial({ ...EMPTY_OG_FORM, wt: "2500" }).word_target).toBe(2500);
   });
 
+  it("word_target 越界值兜底 clamp 到 500-6000（正常路径由 ogFormIssues 拦截）", () => {
+    expect(ogToPartial({ ...EMPTY_OG_FORM, wt: "100" }).word_target).toBe(500);
+    expect(ogToPartial({ ...EMPTY_OG_FORM, wt: "99999" }).word_target).toBe(6000);
+  });
+
   it("存量非法枚举值回读兜底（weight/focus 清空，kind 回落 clue）", () => {
     const legacy = {
       ...FILLED,
@@ -114,5 +120,40 @@ describe("存量章纲空值不警告", () => {
     expect(form.payoffs).toEqual([]);
     expect(form.ladder).toBe("");
     expect(form.wt).toBe("");
+  });
+});
+
+describe("ogFormIssues（保存前拦截校验）", () => {
+  it("场景行有内容但缺场景名 → 报告行号", () => {
+    const issues = ogFormIssues({
+      ...EMPTY_OG_FORM,
+      scenes: [
+        { n: "城门", g: "入城", o: "", h: "", w: "", f: "" },
+        { n: "", g: "逃亡", o: "追兵", h: "", w: "high", f: "" },
+      ],
+    });
+    expect(issues).toEqual(["场景卡第 2 行填写了内容但缺少场景名"]);
+  });
+
+  it("整行空白（无名称也无内容）不报；仅填场景名不报", () => {
+    expect(
+      ogFormIssues({
+        ...EMPTY_OG_FORM,
+        scenes: [
+          { n: "", g: "", o: "", h: "", w: "", f: "" },
+          { n: "渡口", g: "", o: "", h: "", w: "", f: "" },
+        ],
+      }),
+    ).toEqual([]);
+  });
+
+  it("目标字数越界/非数字 → 报告；空串与区间内不报", () => {
+    expect(ogFormIssues({ ...EMPTY_OG_FORM, wt: "100" })).toEqual([
+      "本章目标字数需在 500-6000 之间（留空默认 2500）",
+    ]);
+    expect(ogFormIssues({ ...EMPTY_OG_FORM, wt: "6001" }).length).toBe(1);
+    expect(ogFormIssues({ ...EMPTY_OG_FORM, wt: "abc" }).length).toBe(1);
+    expect(ogFormIssues({ ...EMPTY_OG_FORM, wt: "" })).toEqual([]);
+    expect(ogFormIssues({ ...EMPTY_OG_FORM, wt: "6000" })).toEqual([]);
   });
 });

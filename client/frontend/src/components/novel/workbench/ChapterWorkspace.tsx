@@ -26,6 +26,7 @@ import { ArchiveModal, HistoryModal } from "./modals";
 import type { RailChapterData } from "./Rail";
 import {
   EMPTY_OG_FORM,
+  ogFormIssues,
   ogGaps,
   ogToForm,
   ogToPartial,
@@ -213,6 +214,11 @@ export default function ChapterWorkspace({
 
   const saveOg = useCallback(async (): Promise<boolean> => {
     if (ogLoadingRef.current) return false;
+    const issues = ogFormIssues(ogForm);
+    if (issues.length > 0) {
+      toast.error(issues[0]);
+      return false;
+    }
     setOgSaving(true);
     try {
       await outline.saveChapter(
@@ -235,6 +241,8 @@ export default function ChapterWorkspace({
   useEffect(() => {
     if (ogLoadingRef.current) return;
     if (ogKey === ogSnapRef.current) return;
+    // 校验不过时静默跳过（不打扰），待用户补齐后下一次输入触发重试
+    if (ogFormIssues(ogForm).length > 0) return;
     const t = setTimeout(() => {
       outline
         .saveChapter(chapterRef, ogToPartial(ogForm, outline.chaptersMap.get(chapterRef)))

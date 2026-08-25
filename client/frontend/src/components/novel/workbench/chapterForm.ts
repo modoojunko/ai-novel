@@ -174,6 +174,25 @@ export function ogToForm(d: ChapterData | null | undefined): OgForm {
   };
 }
 
+/** 场景名门槛 + 字数区间校验：返回用户可读问题列表，非空则保存被拦截。
+ *  只拦「行内有内容但缺场景名」——整行空白仍允许（可空格子）。 */
+export function ogFormIssues(form: OgForm): string[] {
+  const issues: string[] = [];
+  form.scenes.forEach((sc, i) => {
+    const hasContent = [sc.g, sc.o, sc.h, sc.w, sc.f].some((v) => String(v ?? "").trim() !== "");
+    if (!sc.n.trim() && hasContent) {
+      issues.push(`场景卡第 ${i + 1} 行填写了内容但缺少场景名`);
+    }
+  });
+  if (form.wt.trim() !== "") {
+    const wt = parseInt(form.wt, 10);
+    if (!Number.isFinite(wt) || wt < 500 || wt > 6000) {
+      issues.push("本章目标字数需在 500-6000 之间（留空默认 2500）");
+    }
+  }
+  return issues;
+}
+
 /** 保留 existing 中未知扩展键（后端 forward-compat），只覆写表单覆盖的字段 */
 export function ogToPartial(
   form: OgForm,
@@ -234,6 +253,7 @@ export function ogToPartial(
         ...(mp.l ? { location: mp.l } : {}),
       })),
     ladder_exit: form.ladder.trim(),
-    word_target: Number.isFinite(wt) && wt > 0 ? wt : null,
+    // 兜底 clamp（正常路径已被 ogFormIssues 拦截，此处防绕过）
+    word_target: Number.isFinite(wt) && wt > 0 ? Math.min(6000, Math.max(500, wt)) : null,
   };
 }

@@ -353,7 +353,7 @@ const ProsePane = forwardRef<ProseHandle, ProsePaneProps>(function ProsePane(
             )}
             {qcReport.self_check && qcReport.self_check.length === 0 && (
               <span data-testid="qc-self" style={{ display: "block" }}>
-                <b>叙事自查</b>：六条规则均未命中。
+                <b>叙事自查</b>：七条规则均未命中。
               </span>
             )}
           </span>
