@@ -126,6 +126,12 @@ input, textarea, select { font: inherit; }
 .seg button:hover { color: var(--fg); }
 .seg button.on { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px color-mix(in oklch, var(--fg) 8%, transparent); font-weight: 500; }
 
+/* 主线卡基调选择题：整行可点的单选项，选中描边高亮（再点一次取消） */
+.tone-opt { display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); cursor: pointer; text-align: left; font-size: 13px; color: var(--fg); }
+.tone-opt:hover { border-color: color-mix(in oklch, var(--accent) 35%, var(--border)); }
+.tone-opt.on { border-color: var(--accent); background: color-mix(in oklch, var(--accent) 6%, var(--surface)); }
+.tone-opt.on b { color: var(--accent); }
+
 .pagefoot { flex-shrink: 0; border-top: 1px solid var(--border); padding: 20px 0; color: var(--muted); font-size: 12px; text-align: center; }
 
 /* 窄屏：收拢 appbar，主 CTA 换行成全宽，防止横向溢出 */

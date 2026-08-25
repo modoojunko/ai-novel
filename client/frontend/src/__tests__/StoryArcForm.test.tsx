@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 // ---------------------------------------------------------------------------
 // StoryArcForm — 主线卡（story-arc-planning）
 // - 挂载拉卡回显；保存走 PUT（整存整取）
+// - 基调：选择题选/再点取消；旧数据「待定」按未选处理
 // - 分卷行：加行/待定/删除
 // - 「AI 帮我拆」：免费 403 member_required 不改卡内容（全局升级弹窗由 request 广播）
 // - 会员四步：产出落卡 + 每步自动保存；中途退出重开按 next_step 续步
@@ -69,15 +70,54 @@ describe("主线卡表单", () => {
     expect((screen.getByPlaceholderText("最后一幕画面（例：侦探所里看着旧卷宗）") as HTMLInputElement).value).toBe("侦探所");
   });
 
+  it("基调：选择题选上 → 再点取消 → 保存写对应值/空", async () => {
+    const { ref } = await mount();
+    const bei = screen.getByRole("radio", { name: /^悲/ });
+    expect(bei.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(bei);
+    expect(bei.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(bei); // 再点已选项 = 取消
+    expect(bei.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(bei);
+    let ok = false;
+    await actasync(async () => {
+      ok = await ref.current.save();
+    });
+    expect(ok).toBe(true);
+    expect(apiState.updateStoryArc).toHaveBeenCalledWith(
+      "p1",
+      expect.objectContaining({ ending: expect.objectContaining({ tone: "悲" }) }),
+    );
+  });
+
+  it("基调旧数据「待定」：按未选显示，保存清成空", async () => {
+    apiState.fetchStoryArc.mockResolvedValue({
+      premise: "p",
+      ending: { scene: "", hero: "", tone: "待定" },
+      volumes: [],
+      next_step: 2,
+      has_content: true,
+    });
+    const { ref } = await mount();
+    for (const r of screen.getAllByRole("radio")) {
+      expect(r.getAttribute("aria-checked")).toBe("false");
+    }
+    let ok = false;
+    await actasync(async () => {
+      ok = await ref.current.save();
+    });
+    expect(ok).toBe(true);
+    expect(apiState.updateStoryArc).toHaveBeenCalledWith(
+      "p1",
+      expect.objectContaining({ ending: expect.objectContaining({ tone: "" }) }),
+    );
+  });
+
   it("分卷行：加行 → 待定 → 删除", async () => {
     await mount();
     fireEvent.click(screen.getByText("加一卷"));
     expect(screen.getByPlaceholderText("卷名")).toBeTruthy();
-    // 避开基调 seg 里的「待定」按钮：分卷行的待定按钮是 btn 类
-    const rowTbd = screen
-      .getAllByRole("button", { name: "待定" })
-      .find((b) => b.className.includes("btn-secondary"))!;
-    fireEvent.click(rowTbd);
+    fireEvent.click(screen.getByRole("button", { name: "待定" }));
     expect((screen.getByPlaceholderText("卷名") as HTMLInputElement).value).toBe("待定");
     fireEvent.click(screen.getByRole("button", { name: "删除卷1" }));
     expect(screen.queryByPlaceholderText("卷名")).toBeNull();

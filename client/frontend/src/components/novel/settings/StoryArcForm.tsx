@@ -30,7 +30,15 @@ const STEPS = [
   { n: 4, key: "audit", name: "自查", hint: "AI 三问自查：每卷挂主线吗？卷连成线吗？能拼回主线吗？" },
 ] as const;
 
-const TONE_OPTIONS = ["", "悲", "喜", "开放", "待定"];
+// 基调选择题：问句 + 每项一句人话解释；旧数据里的占位值（待定/？）按未选处理
+const TONE_CHOICES = [
+  { v: "悲", desc: "主角没得到想要的，或付出惨痛代价" },
+  { v: "喜", desc: "目标达成，苦尽甘来" },
+  { v: "开放", desc: "结局留白，答案交给读者" },
+];
+
+const normTone = (t: unknown) =>
+  TONE_CHOICES.some((c) => c.v === t) ? String(t) : "";
 
 interface Props {
   projectId: string;
@@ -69,7 +77,7 @@ const StoryArcForm = forwardRef<SettingSaveHandle, Props>(function StoryArcForm(
           ending: {
             scene: d.ending?.scene ?? "",
             hero: d.ending?.hero ?? "",
-            tone: d.ending?.tone ?? "",
+            tone: normTone(d.ending?.tone),
           },
           volumes: Array.isArray(d.volumes)
             ? d.volumes.map((v: any) => ({
@@ -149,7 +157,7 @@ const StoryArcForm = forwardRef<SettingSaveHandle, Props>(function StoryArcForm(
           next.ending = {
             scene: String(v.ending.scene ?? arc.ending.scene),
             hero: String(v.ending.hero ?? arc.ending.hero),
-            tone: String(v.ending.tone ?? arc.ending.tone),
+            tone: v.ending.tone !== undefined ? normTone(v.ending.tone) : arc.ending.tone,
           };
         }
         setEndingNotes({
@@ -213,7 +221,7 @@ const StoryArcForm = forwardRef<SettingSaveHandle, Props>(function StoryArcForm(
 
       {/* 结局想法 */}
       <div className="field">
-        <label>结局想法 <span className="opt">三项都可只填部分、可「待定」、可全空</span></label>
+        <label>结局想法 <span className="opt">三项都可只填部分、可全空</span></label>
         <div style={{ display: "grid", gap: 8 }}>
           <input
             className="input"
@@ -229,19 +237,26 @@ const StoryArcForm = forwardRef<SettingSaveHandle, Props>(function StoryArcForm(
             disabled={saving}
             onChange={(e) => patch({ ending: { ...arc.ending, hero: e.target.value } })}
           />
-          <div className="seg">
-            {TONE_OPTIONS.map((t) => (
-              <button
-                key={t || "none"}
-                type="button"
-                className={`seg-btn${arc.ending.tone === t ? " on" : ""}`}
-                disabled={saving}
-                onClick={() => patch({ ending: { ...arc.ending, tone: t } })}
-              >
-                {t || "未定"}
-              </button>
-            ))}
-          </div>
+        </div>
+        {/* 基调：先出题再给选项，再点已选项 = 取消 */}
+        <div role="radiogroup" aria-label="结局基调" style={{ display: "grid", gap: 4, marginTop: 8 }}>
+          <span className="opt" style={{ fontSize: 12 }}>故事读到最后，你想要哪种感觉？（可不选）</span>
+          {TONE_CHOICES.map((c) => (
+            <button
+              key={c.v}
+              type="button"
+              role="radio"
+              aria-checked={arc.ending.tone === c.v}
+              className={`tone-opt${arc.ending.tone === c.v ? " on" : ""}`}
+              disabled={saving}
+              onClick={() =>
+                patch({ ending: { ...arc.ending, tone: arc.ending.tone === c.v ? "" : c.v } })
+              }
+            >
+              <b>{c.v}</b>
+              <span className="opt" style={{ fontSize: 12 }}>{c.desc}</span>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -382,7 +397,7 @@ const StoryArcForm = forwardRef<SettingSaveHandle, Props>(function StoryArcForm(
                 type="button"
                 className="btn btn-secondary btn-sm"
                 disabled={running}
-                onClick={() => { patch({ ending: { ...arc.ending, tone: arc.ending.tone || "待定" } }); setStep(3); setResumeStep(3); }}
+                onClick={() => { setStep(3); setResumeStep(3); }}
               >
                 没想好，先跳过
               </button>

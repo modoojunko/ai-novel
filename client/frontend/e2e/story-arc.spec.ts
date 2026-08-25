@@ -98,10 +98,10 @@ test.describe("主线卡", () => {
         .getByPlaceholder(/陆征追查失踪案/)
         .fill("陆征追查苏棠失踪案，越查越深触及警队内部势力");
 
-      // 结局三字段（画面 + 主角结局；基调点「悲」）
+      // 结局三字段（画面 + 主角结局；基调选择题点「悲」）
       await page.getByPlaceholder("最后一幕画面（例：侦探所里看着旧卷宗）").fill("侦探所里看着旧卷宗");
       await page.getByPlaceholder("主角最终怎样（例：破案但心里装了更多）").fill("破案但心里装了更多");
-      await page.locator(".seg").getByRole("button", { name: "悲" }).click();
+      await page.getByRole("radio", { name: /^悲/ }).click();
 
       // 分卷两行：卷 1 实填，卷 2 整行待定
       await page.getByRole("button", { name: "加一卷" }).click();
