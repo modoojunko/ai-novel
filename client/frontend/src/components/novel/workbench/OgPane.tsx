@@ -1,8 +1,20 @@
 // 章纲面板（book.html renderOgPane 复刻）：5 个 details.cfg 字段组全字段
 // + 主情绪选择（9 选 + 自定义 ≤50）+ 段落规划行（增删/上移/合计）
+// + 提示词格子（ai-prompt-crafting）：场景卡行（名/目标/阻碍/钩子 + 权重 + 焦点）、
+// 读者获得列表（7 类型 + 描述 + 前中后位置）、章末落点、本章目标字数。
+// 确认缺读者获得时仅提醒不阻断（存量章不回溯）。
 // + gap-line 缺字段 chip（点击滚动 flash 1400ms + focus）+ 底部三按钮。
 // 必填口径 = 后端 gate_chapter_ready 六项（task/rstate/rstrat/changes/mood/segs）。
-import type { OgForm } from "./chapterForm";
+import { useState } from "react";
+import {
+  PAYOFF_KINDS,
+  PAYOFF_LOCATIONS,
+  SCENE_FOCUS,
+  SCENE_WEIGHTS,
+  type OgForm,
+  type OgPayoff,
+  type OgScene,
+} from "./chapterForm";
 
 interface OgPaneProps {
   form: OgForm;
@@ -47,6 +59,21 @@ export default function OgPane({
   const moodCustom = moodVal && !MOODS.includes(moodVal) ? moodVal : "";
   const moodSel = moodCustom ? "__custom" : moodVal;
   const segTotal = form.segs.reduce((a, s) => a + (parseInt(String(s.w), 10) || 0), 0);
+  const payoffFilled = form.payoffs.some((p) => p.d.trim());
+  // 缺读者获得的确认提醒：一次会话提醒一次，不阻断确认（存量章不回溯）
+  const [payoffReminded, setPayoffReminded] = useState(false);
+  const showPayoffHint = payoffReminded && !payoffFilled;
+
+  const patchScene = (i: number, patch: Partial<OgScene>) => {
+    const scenes = form.scenes.slice();
+    scenes[i] = { ...scenes[i], ...patch };
+    onPatch({ scenes });
+  };
+  const patchPayoff = (i: number, patch: Partial<OgPayoff>) => {
+    const payoffs = form.payoffs.slice();
+    payoffs[i] = { ...payoffs[i], ...patch };
+    onPatch({ payoffs });
+  };
 
   return (
     <div className="og-pane">
@@ -345,10 +372,259 @@ export default function OgPane({
           </div>
         </details>
 
+        <details className="cfg" id="wf-scenes">
+          <summary>
+            场景卡 <span className="opt">提示词原材料 · 可空</span>
+            <Chev />
+          </summary>
+          <div className="inner">
+            <p
+              className="note"
+              style={{ fontSize: "12.5px", color: "var(--muted)", margin: "0 0 10px" }}
+            >
+              每卡一条外部动作链（目标 → 阻碍 → 钩子）；权重决定笔墨分配，焦点决定展开方向。
+            </p>
+            <div className="seg-list" data-testid="scene-list">
+              {form.scenes.map((sc, i) => (
+                <div className="scene-card" key={i} data-scene={i}>
+                  <div className="scene-head">
+                    <span className="num seg-i">{i + 1}</span>
+                    <input
+                      className="input"
+                      data-scene="n"
+                      placeholder="场景名，如：酒馆对峙"
+                      value={sc.n}
+                      onChange={(e) => patchScene(i, { n: e.target.value })}
+                    />
+                    <select
+                      className="input"
+                      data-scene="w"
+                      title="权重（笔墨分配）"
+                      value={sc.w}
+                      onChange={(e) => patchScene(i, { w: e.target.value as OgScene["w"] })}
+                    >
+                      <option value="">权重</option>
+                      {SCENE_WEIGHTS.map((x) => (
+                        <option key={x.value} value={x.value}>
+                          {x.label}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="input"
+                      data-scene="f"
+                      title="焦点（展开方向）"
+                      value={sc.f}
+                      onChange={(e) => patchScene(i, { f: e.target.value as OgScene["f"] })}
+                    >
+                      <option value="">焦点</option>
+                      {SCENE_FOCUS.map((f) => (
+                        <option key={f} value={f}>
+                          {f}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="acts">
+                      <button
+                        className="icon-btn"
+                        title="上移"
+                        disabled={i === 0}
+                        onClick={() => {
+                          const scenes = form.scenes.slice();
+                          const [x] = scenes.splice(i, 1);
+                          scenes.splice(i - 1, 0, x);
+                          onPatch({ scenes });
+                        }}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M6 15l6-6 6 6" />
+                        </svg>
+                      </button>
+                      <button
+                        className="icon-btn"
+                        title="删除场景卡"
+                        onClick={() => {
+                          const scenes = form.scenes.slice();
+                          scenes.splice(i, 1);
+                          onPatch({ scenes });
+                        }}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+                        </svg>
+                      </button>
+                    </span>
+                  </div>
+                  <div className="scene-chain">
+                    <input
+                      className="input"
+                      data-scene="g"
+                      placeholder="目标（他想要什么）"
+                      value={sc.g}
+                      onChange={(e) => patchScene(i, { g: e.target.value })}
+                    />
+                    <input
+                      className="input"
+                      data-scene="o"
+                      placeholder="阻碍（谁/什么拦住他）"
+                      value={sc.o}
+                      onChange={(e) => patchScene(i, { o: e.target.value })}
+                    />
+                    <input
+                      className="input"
+                      data-scene="h"
+                      placeholder="钩子（留什么悬念）"
+                      value={sc.h}
+                      onChange={(e) => patchScene(i, { h: e.target.value })}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="seg-add-row">
+              <button
+                className="btn btn-secondary btn-sm sub-add"
+                data-add="scene"
+                onClick={() =>
+                  onPatch({ scenes: [...form.scenes, { n: "", g: "", o: "", h: "", w: "", f: "" }] })
+                }
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                添加场景卡
+              </button>
+            </div>
+          </div>
+        </details>
+
+        <details className="cfg" id="wf-payoffs">
+          <summary>
+            读者获得与章末落点 <span className="opt">提示词原材料 · 可空</span>
+            <Chev />
+          </summary>
+          <div className="inner">
+            <p
+              className="note"
+              style={{ fontSize: "12.5px", color: "var(--muted)", margin: "0 0 10px" }}
+            >
+              读者获得 = 本章给读者的爽点（拿到什么/看清什么/情绪被什么击中）。
+            </p>
+            {showPayoffHint && (
+              <p
+                className="note"
+                data-testid="payoff-hint"
+                style={{ fontSize: "12.5px", color: "var(--warn, #b8860b)", margin: "0 0 10px" }}
+              >
+                本章未设置读者获得——可后补，不拦截确认。
+              </p>
+            )}
+            <div className="seg-list" data-testid="payoff-list">
+              {form.payoffs.map((mp, i) => (
+                <div className="payoff-row" key={i} data-payoff={i}>
+                  <select
+                    className="input"
+                    data-payoff="k"
+                    title="类型"
+                    value={mp.k}
+                    onChange={(e) => patchPayoff(i, { k: e.target.value })}
+                  >
+                    {PAYOFF_KINDS.map((x) => (
+                      <option key={x.value} value={x.value}>
+                        {x.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="input"
+                    data-payoff="d"
+                    placeholder="一句话描述，如：主角拿到半块玉佩"
+                    value={mp.d}
+                    onChange={(e) => patchPayoff(i, { d: e.target.value })}
+                  />
+                  <select
+                    className="input"
+                    data-payoff="l"
+                    title="位置"
+                    value={mp.l}
+                    onChange={(e) => patchPayoff(i, { l: e.target.value as OgPayoff["l"] })}
+                  >
+                    <option value="">位置</option>
+                    {PAYOFF_LOCATIONS.map((l) => (
+                      <option key={l} value={l}>
+                        {l}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="acts">
+                    <button
+                      className="icon-btn"
+                      title="删除"
+                      onClick={() => {
+                        const payoffs = form.payoffs.slice();
+                        payoffs.splice(i, 1);
+                        onPatch({ payoffs });
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+                      </svg>
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="seg-add-row">
+              <button
+                className="btn btn-secondary btn-sm sub-add"
+                data-add="payoff"
+                onClick={() =>
+                  onPatch({ payoffs: [...form.payoffs, { k: "clue", d: "", l: "" }] })
+                }
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                添加读者获得
+              </button>
+            </div>
+            <div className="tpl-row">
+              <div className="field">
+                <label>
+                  章末落点 <span className="opt">结尾停在哪个紧张度上</span>
+                </label>
+                <input
+                  className="input"
+                  id="wf-ladder"
+                  placeholder="如：拿到半张地图，连夜出门，更不安"
+                  value={form.ladder}
+                  onChange={(e) => onPatch({ ladder: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label>
+                  本章目标字数 <span className="opt">500-6000，留空默认 2500</span>
+                </label>
+                <input
+                  className="input num"
+                  id="wf-wt"
+                  type="number"
+                  min={500}
+                  max={6000}
+                  step={100}
+                  placeholder="2500"
+                  value={form.wt}
+                  onChange={(e) => onPatch({ wt: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+        </details>
+
         <details className="cfg" id="wf-segs" open>
           <summary>
             段落规划 <span className="req">*</span>{" "}
-            <span className="tag">每段 = 一次 AI 生成的单元</span>
+            <span className="tag">章内节奏拆解；正文按整章生成</span>
             <Chev />
           </summary>
           <div className="inner">
@@ -467,7 +743,10 @@ export default function OgPane({
           </button>
           <button
             className="btn btn-primary"
-            onClick={onConfirm}
+            onClick={() => {
+              if (!payoffFilled) setPayoffReminded(true);
+              onConfirm();
+            }}
             disabled={confirmed || gaps.length > 0 || saving}
           >
             确认章纲

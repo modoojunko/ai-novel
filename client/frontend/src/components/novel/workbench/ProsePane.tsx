@@ -18,6 +18,7 @@ import {
   polishText,
   streamChapterContinue,
   streamChapterWrite,
+  type StreamDoneMeta,
 } from "@/lib/ai";
 import type { SelectionCapture } from "@/lib/selection";
 import type { FontSizePref, LineHeightPref } from "@/lib/prefs";
@@ -109,6 +110,8 @@ const ProsePane = forwardRef<ProseHandle, ProsePaneProps>(function ProsePane(
   // 流式现场（停止时收尾用）
   const streamBaseRef = useRef("");
   const streamReceivedRef = useRef("");
+  // 生成完工检查（三工序③：字数 + 叙事自查；提示性质，可关闭）
+  const [qcReport, setQcReport] = useState<StreamDoneMeta | null>(null);
   const [preview, setPreview] = useState<{
     mode: "polish" | "expand";
     capture: SelectionCapture;
@@ -135,8 +138,9 @@ const ProsePane = forwardRef<ProseHandle, ProsePaneProps>(function ProsePane(
     }
   }, []);
 
-  // 卸载/切章：中断流式
+  // 卸载/切章：中断流式 + 清完工检查
   useEffect(() => {
+    setQcReport(null);
     return () => {
       abortRef.current?.abort();
       streamingRef.current = false;
@@ -192,7 +196,7 @@ const ProsePane = forwardRef<ProseHandle, ProsePaneProps>(function ProsePane(
   }, []);
 
   const finishStream = useCallback(
-    (fullText: string, ok: boolean) => {
+    (fullText: string, ok: boolean, meta?: StreamDoneMeta) => {
       if (!streamingRef.current) return; // 已收尾（停止后又 onDone 等）
       streamingRef.current = false;
       setStreaming(false);
@@ -202,7 +206,10 @@ const ProsePane = forwardRef<ProseHandle, ProsePaneProps>(function ProsePane(
       const next = [base, generated].filter((s) => s && s.trim()).join("\n");
       lastRenderedRef.current = next;
       setProse(next);
-      if (ok) toast.success("AI 生成完成 · 已保存");
+      if (ok) {
+        toast.success("AI 生成完成 · 已保存");
+        if (meta && (meta.word_check || meta.self_check)) setQcReport(meta);
+      }
     },
     [setProse, onAIStateChange],
   );
@@ -228,7 +235,7 @@ const ProsePane = forwardRef<ProseHandle, ProsePaneProps>(function ProsePane(
           streamReceivedRef.current += t;
           renderStreamed(streamBaseRef.current, streamReceivedRef.current);
         },
-        onDone: (full: string) => finishStream(full, true),
+        onDone: (full: string, meta?: StreamDoneMeta) => finishStream(full, true, meta),
         onError: (e: string) => {
           toast.error(e);
           finishStream(streamReceivedRef.current, false);
@@ -299,6 +306,66 @@ const ProsePane = forwardRef<ProseHandle, ProsePaneProps>(function ProsePane(
 
   return (
     <>
+      {/* 生成完工检查（三工序③：字数 ±10% + 叙事自查；提示性质，可关闭） */}
+      {qcReport && (qcReport.word_check || qcReport.self_check) && (
+        <div
+          className="readonly-banner"
+          data-testid="qc-banner"
+          hidden={hidden}
+          style={{ alignItems: "flex-start" }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M9 11l3 3 8-8" />
+            <path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9" />
+          </svg>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            {qcReport.word_check && (
+              <span data-testid="qc-word" style={{ display: "block" }}>
+                {qcReport.word_check.below_limit ? (
+                  <>
+                    <b>字数未达标</b>：目标约 {qcReport.word_check.target} 字 · 实写{" "}
+                    {qcReport.word_check.actual} 字（低于目标 90%），可用「续写」补足。
+                  </>
+                ) : (
+                  <>
+                    <b>字数达标</b>：实写 {qcReport.word_check.actual} / 目标约{" "}
+                    {qcReport.word_check.target} 字。
+                  </>
+                )}
+              </span>
+            )}
+            {qcReport.self_check && qcReport.self_check.length > 0 && (
+              <span data-testid="qc-self" style={{ display: "block" }}>
+                <b>叙事自查提示</b>（非阻断）：
+                {qcReport.self_check.map((issue) => (
+                  <span key={issue.rule} style={{ display: "block" }}>
+                    · {issue.rule}（{issue.excerpts.length} 处）
+                    {issue.excerpts[0] && (
+                      <i style={{ color: "var(--muted)" }}>
+                        {" "}
+                        如「{issue.excerpts[0].slice(0, 30)}
+                        {issue.excerpts[0].length > 30 ? "…" : ""}」
+                      </i>
+                    )}
+                  </span>
+                ))}
+              </span>
+            )}
+            {qcReport.self_check && qcReport.self_check.length === 0 && (
+              <span data-testid="qc-self" style={{ display: "block" }}>
+                <b>叙事自查</b>：七条规则均未命中。
+              </span>
+            )}
+          </span>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setQcReport(null)}
+            data-testid="qc-close"
+          >
+            知道了
+          </button>
+        </div>
+      )}
       <div className="editor-wrap" hidden={hidden}>
         {/* contentEditable 用字符串 "false"：布尔 false 会被 React 整个丢掉属性，
             归档/流式态需要 contenteditable="false" 保住只读语义（a11y + e2e 可判定） */}

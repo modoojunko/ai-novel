@@ -2,8 +2,9 @@
 
 覆盖 resolve_genre_context（缺 genre.yaml / genre_id 空 / 定义缺失 → None、
 overrides 合并、prompt_injection_enabled 关闭）、build_genre_section 渲染内容、
-两条写作路径（assemble_segment_prompt / build_chapter_context+to_prompt）注入
-题材块 + 疲劳词合并，以及定义缺失时的优雅降级（不报错、无题材块）。
+整章写作路径（build_chapter_context+to_prompt）注入题材块 + 疲劳词合并，
+以及定义缺失时的优雅降级（不报错、无题材块）。
+分段路径（assembler）已退役（ai-prompt-crafting），仅保留整章口径。
 """
 
 import asyncio
@@ -20,16 +21,15 @@ _tmp_data_root = tempfile.mkdtemp(prefix="test_genres_injection_")
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_tmp_db.name}"
 os.environ["DATA_ROOT"] = _tmp_data_root
 
-from db import Base, async_session, engine
-from filesystem.storage import get_storage
-from genres.service import (
+from db import Base, async_session, engine  # noqa: E402
+from filesystem.storage import get_storage  # noqa: E402
+from genres.service import (  # noqa: E402
     build_genre_section,
     create_genre,
     ensure_seed_genres,
     resolve_genre_context,
 )
-from prompt.assembler import assemble_segment_prompt
-from write.chapter_writer import build_chapter_context
+from write.chapter_writer import build_chapter_context  # noqa: E402
 
 # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -91,41 +91,6 @@ async def _create_genre(gid: str):
                 ],
             },
         )
-
-
-def _seed_assembler(root: str):
-    """最小 assembler 文件结构（与 test_prompt_assembler._seed 一致）。"""
-    _run_async(
-        get_storage().write_yaml(
-            root,
-            "settings/writing-style.yaml",
-            {"role": "一位小说家", "core_principles": "", "possible_mistakes": ""},
-        )
-    )
-    _run_async(
-        get_storage().write_yaml(
-            root,
-            "settings/anti-ai.yaml",
-            {"fatigue_words_zh": {}, "structural_tic_patterns": []},
-        )
-    )
-    _run_async(get_storage().write_yaml(root, "threads.yaml", {"threads": {}}))
-    from conftest import seed_chapter_db
-
-    _run_async(
-        seed_chapter_db(
-            root,
-            {
-                "volume": 1,
-                "chapter": 1,
-                "title": "第一章",
-                "outline": {"summary": "主角来到边境城邦。", "characters": []},
-                "memo": {},
-                "emotional_design": {"primary_mood": "紧张"},
-                "segments": [{"summary": "城门初见", "target_words": 800}],
-            },
-        )
-    )
 
 
 def _seed_writer(root: str):
@@ -274,40 +239,6 @@ class TestBuildGenreSection:
 
     def test_none_returns_empty(self):
         assert build_genre_section(None) == ""
-
-
-# ── 分段路径 assembler ──────────────────────────────────────────────────
-
-
-class TestAssemblerInjection:
-    def test_injects_genre_section_and_merges_fatigue(self):
-        _run_async(_create_genre("asm-genre"))
-        root = _tmp_root()
-        _seed_assembler(root)
-        _run_async(
-            get_storage().write_yaml(
-                root,
-                "settings/genre.yaml",
-                {
-                    "genre_id": "asm-genre",
-                    "config_overrides": {"fatigue_words": ["genre-疲劳词"]},
-                },
-            )
-        )
-        prompt = _run_async(assemble_segment_prompt(root, "vol-1-ch-1", 0, "测试小说"))
-        assert "## 题材设定" in prompt
-        assert "题材：注入测试" in prompt
-        assert "禁止使用以下词汇：genre-疲劳词" in prompt
-
-    def test_degrades_gracefully_when_definition_missing(self):
-        root = _tmp_root()
-        _seed_assembler(root)
-        _run_async(
-            get_storage().write_yaml(root, "settings/genre.yaml", {"genre_id": "unknown-id"})
-        )
-        prompt = _run_async(assemble_segment_prompt(root, "vol-1-ch-1", 0, "测试小说"))
-        assert "## 题材设定" not in prompt
-        assert "本段目标：城门初见" in prompt  # 其余组装不受影响
 
 
 # ── 整章路径 chapter_writer ─────────────────────────────────────────────

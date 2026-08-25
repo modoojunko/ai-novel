@@ -1,34 +1,33 @@
-// 提示词管理（章手风琴 + 分段提示词查看/编辑）。PR 5 轻重皮：
-// daisyUI/lucide 全部换 design 类与图标注册表；「生成段落提示词」措辞
-// 按 spec-review #9（与章级提示词区分）。
+// 提示词管理（整章单卡，ai-prompt-crafting）：每章一张卡，承载该章唯一的
+// 整章写作提示词 —— 查看分段渲染 / 编辑保存 / 「AI 润色」（素材包 → 大模型
+// 润色 → 校验落库）。分段提示词列表与「生成段落提示词」按钮已随分段链路退役。
+// PR 5 轻重皮：design 类与图标注册表（pm-* 壳沿用）。
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ico, P } from "@/components/icons";
 import { api, request } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { getToken } from "@/lib/auth";
 import { getApiBaseUrl } from "@/lib/env";
+import { polishWritePrompt } from "@/lib/ai";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-interface PromptFile {
-  filename: string;
-  seg: number;
-  title: string;
-}
-
-interface ChapterPromptInfo {
-  chapterRef: string;
-  chapterTitle: string;
-  segments: PromptFile[];
-  status: "generated" | "none" | "modified";
-}
-
 interface VolumeInfo {
   name: string;
   volNum: number;
   chapters: { ref: string; title: string }[];
+}
+
+/** 章卡状态：none = 无存量；saved = 存量整章提示词；polished/modified = 本会话润色/编辑过 */
+type ChapterStatus = "none" | "saved" | "polished" | "modified";
+
+interface ChapterPromptInfo {
+  chapterRef: string;
+  chapterTitle: string;
+  hasStored: boolean;
+  status: ChapterStatus;
 }
 
 // ---------------------------------------------------------------------------
@@ -37,43 +36,25 @@ interface VolumeInfo {
 
 interface PromptManagementPageProps {
   projectId: string;
-  /** 传入时 overview 只渲染该章的手风琴卡片（工作台「提示词」子 label 按当前章过滤，011） */
+  /** 传入时 overview 只渲染该章的卡片（工作台「提示词」子 label 按当前章过滤，011） */
   chapterRef?: string;
 }
 
 // ---------------------------------------------------------------------------
-// Parse helpers
+// Helpers
 // ---------------------------------------------------------------------------
 
 /**
- * Parse a prompt filename like "vol-1-ch-1-seg-1-prompt.md" for a given
- * chapterRef into the segment key ("seg-1") and numeric index (1).
- */
-function parsePromptFilename(
-  chapterRef: string,
-  filename: string,
-): { segKey: string; segNum: number } | null {
-  if (!filename.endsWith("-prompt.md")) return null;
-  const withoutPrefix = filename.startsWith(chapterRef + "-")
-    ? filename.slice(chapterRef.length + 1)
-    : filename;
-  const segPart = withoutPrefix.replace("-prompt.md", "");
-  const match = segPart.match(/^seg-(\d+)$/);
-  if (!match) return null;
-  return { segKey: segPart, segNum: parseInt(match[1], 10) };
-}
-
-/**
  * Fetch raw text prompt content from the API (PlainTextResponse).
+ * seg 固定 "write"：整章单卡退役了分段 seg-N（后端其余 seg 404）。
  */
 async function fetchPromptText(
   projectId: string,
   chapterRef: string,
-  segKey: string,
 ): Promise<string> {
   const token = getToken();
   const res = await fetch(
-    `${getApiBaseUrl()}/api/novels/${projectId}/chapters/${chapterRef}/prompts/${segKey}`,
+    `${getApiBaseUrl()}/api/novels/${projectId}/chapters/${chapterRef}/prompts/write`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
   if (!res.ok) {
@@ -104,9 +85,6 @@ export default function PromptManagementPage({
   const [overviewLoading, setOverviewLoading] = useState(true);
   // 未配 AI Key（prompts 端点 503）：就地提示 + 去配置，不再整页跳 /config
   const [aiUnavailable, setAiUnavailable] = useState(false);
-  const [generatingChapters, setGeneratingChapters] = useState<Set<string>>(
-    new Set(),
-  );
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(
     new Set(),
   );
@@ -120,19 +98,17 @@ export default function PromptManagementPage({
     [volumes, chapterRef],
   );
 
-  // 传入 chapterRef 时自动展开该章，直达提示词列表
+  // 传入 chapterRef 时自动展开该章，直达提示词卡
   useEffect(() => {
     if (chapterRef) setExpandedChapters(new Set([chapterRef]));
   }, [chapterRef]);
 
   // ── Viewer / editor state ──────────────────────────────────────────
   const [viewerChapterRef, setViewerChapterRef] = useState("");
-  const [viewerSegKey, setViewerSegKey] = useState("");
-  const [viewerSegTitle, setViewerSegTitle] = useState("");
   const [viewerContent, setViewerContent] = useState("");
   const [viewerLoading, setViewerLoading] = useState(false);
-  const [viewerError, setViewerError] = useState<string | null>(null);
-  const [modifiedSegs, setModifiedSegs] = useState<Set<string>>(new Set());
+  const [polishing, setPolishing] = useState(false);
+  const [polishError, setPolishError] = useState<string | null>(null);
 
   // ── Editor state ───────────────────────────────────────────────────
   const [editorContent, setEditorContent] = useState("");
@@ -151,8 +127,7 @@ export default function PromptManagementPage({
       setOverviewLoading(true);
       try {
         // change 006：GET /volumes 返回 DB 全量树（卷含 ref + chapters 元数据），
-        // 卷章一次到位，无需逐卷二次请求。旧形状按 v.name/v.filename 读 →
-        // filename 为 undefined → /volumes/undefined 404 → 空态「暂无章节」。
+        // 卷章一次到位，无需逐卷二次请求。
         const vols: any[] = await api.get(`/novels/${projectId}/volumes`);
         const result: VolumeInfo[] = vols.map((v) => {
           const volNum =
@@ -177,7 +152,7 @@ export default function PromptManagementPage({
     };
   }, [projectId]);
 
-  // Fetch prompt files for chapters（chapterRef 时仅拉该章）
+  // Fetch stored-prompt existence per chapter（chapterRef 时仅拉该章）
   useEffect(() => {
     if (volumes.length === 0) return;
     let cancelled = false;
@@ -189,35 +164,17 @@ export default function PromptManagementPage({
       const newMap: Record<string, ChapterPromptInfo> = {};
       for (const ch of allChapters) {
         try {
+          // 整章单卡：list 只回 [{ref}-write-prompt.md] 一条（存量 seg 行不返回）
           const files: string[] = await request(
             `/novels/${projectId}/chapters/${ch.ref}/prompts`,
             { soft503: true },
           );
-          const segments: PromptFile[] = files
-            .map((f) => {
-              const parsed = parsePromptFilename(ch.ref, f);
-              if (!parsed) return null;
-              return {
-                filename: f,
-                seg: parsed.segNum,
-                title: `段落 ${parsed.segNum}`,
-              };
-            })
-            .filter((s): s is PromptFile => s !== null);
-
-          let status: ChapterPromptInfo["status"] = "none";
-          if (segments.length > 0) {
-            const anyModified = segments.some((s) =>
-              modifiedSegs.has(`${ch.ref}-${s.seg}`),
-            );
-            status = anyModified ? "modified" : "generated";
-          }
-
+          const hasStored = files.some((f) => f.endsWith("-write-prompt.md"));
           newMap[ch.ref] = {
             chapterRef: ch.ref,
             chapterTitle: ch.title,
-            segments,
-            status,
+            hasStored,
+            status: hasStored ? "saved" : "none",
           };
         } catch (e: any) {
           // 503 = 会员但未配 AI Key：就地提示并终止加载（其余章必然同样 503）
@@ -228,7 +185,7 @@ export default function PromptManagementPage({
           newMap[ch.ref] = {
             chapterRef: ch.ref,
             chapterTitle: ch.title,
-            segments: [],
+            hasStored: false,
             status: "none",
           };
         }
@@ -241,89 +198,56 @@ export default function PromptManagementPage({
     return () => {
       cancelled = true;
     };
-  }, [visibleChapters, projectId, modifiedSegs]);
+  }, [visibleChapters, projectId]);
 
   // =====================================================================
   // Actions
   // =====================================================================
 
-  const handleGenerate = useCallback(
-    async (chapterRef: string) => {
-      setGeneratingChapters((prev) => new Set(prev).add(chapterRef));
-      try {
-        await api.post(
-          `/novels/${projectId}/chapters/${chapterRef}/prompts/generate`,
-        );
-        toast.success("提示词生成完成");
-
-        // Reload prompts for this chapter
-        const files: string[] = await request(
-          `/novels/${projectId}/chapters/${chapterRef}/prompts`,
-          { soft503: true },
-        );
-        const segments: PromptFile[] = files
-          .map((f) => {
-            const parsed = parsePromptFilename(chapterRef, f);
-            if (!parsed) return null;
-            return {
-              filename: f,
-              seg: parsed.segNum,
-              title: `段落 ${parsed.segNum}`,
-            };
-          })
-          .filter((s): s is PromptFile => s !== null);
-
-        setChapterPrompts((prev) => {
-          const existing = prev[chapterRef];
-          return {
-            ...prev,
-            [chapterRef]: {
-              chapterRef,
-              chapterTitle: existing?.chapterTitle || "",
-              segments,
-              status: segments.length > 0 ? "generated" : "none",
-            },
-          };
-        });
-      } catch (e: any) {
-        toast.error(e.message || "生成段落提示词失败");
-      } finally {
-        setGeneratingChapters((prev) => {
-          const next = new Set(prev);
-          next.delete(chapterRef);
-          return next;
-        });
-      }
-    },
-    [projectId],
-  );
-
-  const handleViewPrompt = useCallback(
-    async (
-      chapterRef: string,
-      _seg: number,
-      segKey: string,
-      title: string,
-    ) => {
+  const openViewer = useCallback(
+    async (chRef: string) => {
       setView("viewer");
-      setViewerChapterRef(chapterRef);
-      setViewerSegKey(segKey);
-      setViewerSegTitle(title);
+      setViewerChapterRef(chRef);
       setViewerLoading(true);
-      setViewerError(null);
+      setPolishError(null);
       setViewerContent("");
-
       try {
-        const text = await fetchPromptText(projectId, chapterRef, segKey);
+        const text = await fetchPromptText(projectId, chRef);
         setViewerContent(text);
-      } catch (e: any) {
-        setViewerError(e.message || "获取提示词失败");
+      } catch {
+        // 无存量（404/空）→ 展示空态引导（润色或生成时会落库）
+        setViewerContent("");
       } finally {
         setViewerLoading(false);
       }
     },
     [projectId],
   );
+
+  const handlePolish = useCallback(async () => {
+    if (polishing || !viewerChapterRef) return;
+    setPolishing(true);
+    setPolishError(null);
+    try {
+      const text = await polishWritePrompt(projectId, viewerChapterRef);
+      setViewerContent(text);
+      setEditorContent(text);
+      setChapterPrompts((prev) => {
+        const ch = prev[viewerChapterRef];
+        if (!ch) return prev;
+        return {
+          ...prev,
+          [viewerChapterRef]: { ...ch, hasStored: true, status: "polished" },
+        };
+      });
+      toast.success("AI 润色完成 · 已保存");
+    } catch (e: any) {
+      // 502（润色未过校验/模型出错）不动既有行 → 就地提示可重试
+      setPolishError(e?.message || "润色失败，请重试");
+    } finally {
+      setPolishing(false);
+    }
+  }, [projectId, viewerChapterRef, polishing]);
 
   const handleEdit = useCallback(() => {
     setEditorContent(viewerContent);
@@ -334,22 +258,18 @@ export default function PromptManagementPage({
     setSaving(true);
     try {
       await api.put(
-        `/novels/${projectId}/chapters/${viewerChapterRef}/prompts/${viewerSegKey}`,
+        `/novels/${projectId}/chapters/${viewerChapterRef}/prompts/write`,
         { content: editorContent },
       );
       setViewerContent(editorContent);
-
-      // Track modified
-      const segNum = parseInt(viewerSegKey.replace("seg-", ""), 10);
-      setModifiedSegs((prev) => new Set(prev).add(`${viewerChapterRef}-${segNum}`));
-
-      // Mark chapter status as modified
       setChapterPrompts((prev) => {
         const ch = prev[viewerChapterRef];
         if (!ch) return prev;
-        return { ...prev, [viewerChapterRef]: { ...ch, status: "modified" as const } };
+        return {
+          ...prev,
+          [viewerChapterRef]: { ...ch, hasStored: true, status: "modified" },
+        };
       });
-
       toast.success("保存成功");
       setView("viewer");
     } catch (e: any) {
@@ -357,7 +277,7 @@ export default function PromptManagementPage({
     } finally {
       setSaving(false);
     }
-  }, [projectId, viewerChapterRef, viewerSegKey, editorContent]);
+  }, [projectId, viewerChapterRef, editorContent]);
 
   const handleCancelEdit = useCallback(() => {
     setView("viewer");
@@ -371,33 +291,6 @@ export default function PromptManagementPage({
       toast.error("复制失败");
     }
   }, [viewerContent]);
-
-  const handleRestore = useCallback(async () => {
-    if (!viewerChapterRef || !viewerSegKey) return;
-    setViewerLoading(true);
-    try {
-      const text = await fetchPromptText(
-        projectId,
-        viewerChapterRef,
-        viewerSegKey,
-      );
-      setViewerContent(text);
-
-      // Remove modified mark
-      const segNum = parseInt(viewerSegKey.replace("seg-", ""), 10);
-      setModifiedSegs((prev) => {
-        const next = new Set(prev);
-        next.delete(`${viewerChapterRef}-${segNum}`);
-        return next;
-      });
-
-      toast.success("已恢复原始内容");
-    } catch (e: any) {
-      toast.error(e.message || "恢复失败");
-    } finally {
-      setViewerLoading(false);
-    }
-  }, [projectId, viewerChapterRef, viewerSegKey]);
 
   const handleBackToOverview = useCallback(() => {
     setView("overview");
@@ -477,7 +370,7 @@ export default function PromptManagementPage({
           <div className="pm-empty-text">
             <p>尚未配置模型 API Key</p>
             <p className="sub">
-              提示词的生成与查看需要 AI 能力，请先配置 API Key 后再使用。
+              提示词的润色与查看需要 AI 能力，请先配置 API Key 后再使用。
             </p>
           </div>
           <a href="#/config" className="btn btn-primary btn-sm">
@@ -508,26 +401,29 @@ export default function PromptManagementPage({
 
         {allChapters.map((ch) => {
           const info = chapterPrompts[ch.ref];
-          const segs = info?.segments || [];
           const status = info?.status || "none";
 
           const statusBadge =
-            status === "generated" ? (
+            status === "polished" ? (
               <span className="badge ok">
-                <Ico d={P.check} sw={2.6} size={10} />
-                已生成
+                <Ico d={P.spark} size={10} />
+                已润色
               </span>
             ) : status === "modified" ? (
               <span className="badge warn">
                 <Ico d={P.dot} fill size={10} />
                 已修改
               </span>
+            ) : status === "saved" ? (
+              <span className="badge ok">
+                <Ico d={P.check} sw={2.6} size={10} />
+                已保存
+              </span>
             ) : (
               <span className="badge empty">未生成</span>
             );
 
           const isExpanded = expandedChapters.has(ch.ref);
-          const isGenerating = generatingChapters.has(ch.ref);
 
           return (
             <div key={ch.ref} className="pm-card">
@@ -540,74 +436,34 @@ export default function PromptManagementPage({
                   style={{ color: "var(--muted)", flex: "none" }}
                 />
                 <span className="pm-title">{ch.title}</span>
-                <span className="cnt" style={{ marginRight: 6 }}>
-                  {segs.length} 段
-                </span>
                 {statusBadge}
               </button>
 
-              {/* Expanded content */}
+              {/* Expanded content：整章单卡 */}
               {isExpanded && (
                 <div className="pm-body">
-                  {segs.length > 0 ? (
-                    segs.map((seg) => {
-                      const isModified = modifiedSegs.has(
-                        `${ch.ref}-${seg.seg}`,
-                      );
-                      return (
-                        <div
-                          key={seg.filename}
-                          className="pm-row"
-                          onClick={() =>
-                            handleViewPrompt(
-                              ch.ref,
-                              seg.seg,
-                              `seg-${seg.seg}`,
-                              seg.title,
-                            )
-                          }
-                        >
-                          <span className="idx">{seg.seg}.</span>
-                          <span
-                            style={{
-                              flex: 1,
-                              minWidth: 0,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {seg.title}
-                          </span>
-                          {isModified && (
-                            <span className="badge warn">已修改</span>
-                          )}
-                          <Ico d={P.eye} size={14} style={{ color: "var(--muted)" }} />
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="pm-none">暂无提示词</p>
-                  )}
-
-                  {/* Generate button */}
-                  <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 6 }}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleGenerate(ch.ref);
+                  <div
+                    className="pm-row"
+                    data-testid="pm-write-row"
+                    onClick={() => void openViewer(ch.ref)}
+                  >
+                    <span className="idx">W.</span>
+                    <span
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
                       }}
-                      disabled={isGenerating}
-                      className="btn btn-secondary btn-sm"
                     >
-                      {isGenerating ? (
-                        <Ico d={P.spinner} className="spin" size={12} />
-                      ) : (
-                        <Ico d={P.spark} size={12} />
-                      )}
-                      {isGenerating ? "生成中…" : "生成段落提示词"}
-                    </button>
+                      整章写作提示词
+                    </span>
+                    <Ico d={P.eye} size={14} style={{ color: "var(--muted)" }} />
                   </div>
+                  <p className="pm-none">
+                    每章一条整章提示词 ·「AI 生成正文」弹窗内可先润色再生成
+                  </p>
                 </div>
               )}
             </div>
@@ -622,9 +478,6 @@ export default function PromptManagementPage({
   // =====================================================================
 
   const renderViewer = () => {
-    const segNum = parseInt(viewerSegKey.replace("seg-", ""), 10);
-    const isModified = modifiedSegs.has(`${viewerChapterRef}-${segNum}`);
-
     return (
       <div>
         {/* Action bar */}
@@ -634,54 +487,68 @@ export default function PromptManagementPage({
             返回
           </button>
           <span className="grow" />
-          <span className="cnt">{viewerSegTitle}</span>
+          <span className="cnt">整章写作提示词</span>
           <span className="tsep" />
+          <button
+            onClick={() => void handlePolish()}
+            disabled={polishing}
+            className="btn btn-secondary btn-sm"
+            data-testid="pm-polish"
+          >
+            {polishing ? (
+              <Ico d={P.spinner} className="spin" size={12} />
+            ) : (
+              <Ico d={P.spark} size={12} />
+            )}
+            {polishing ? "润色中…" : "AI 润色"}
+          </button>
           <button onClick={handleCopy} className="btn btn-secondary btn-sm">
             <Ico d={P.copy} size={13} />
             复制全文
           </button>
-          {isModified && (
-            <button onClick={handleRestore} className="btn btn-secondary btn-sm">
-              <Ico d={P.refresh} size={13} />
-              恢复原始
-            </button>
-          )}
           <button onClick={handleEdit} className="btn btn-primary btn-sm">
             <Ico d={P.pencil} size={13} />
             编辑
           </button>
         </div>
 
+        {/* 润色失败：就地重试（后端失败不清空既有行） */}
+        {polishError && (
+          <p style={{ margin: "0 0 10px", fontSize: 12.5, color: "var(--err)" }}>
+            {polishError} ·{" "}
+            <button
+              className="btn btn-ghost btn-sm"
+              disabled={polishing}
+              onClick={() => void handlePolish()}
+            >
+              重试润色
+            </button>
+          </p>
+        )}
+
         {/* Content area */}
         {viewerLoading ? (
           <div className="pm-loading">
             <Ico d={P.spinner} className="spin" size={18} style={{ color: "var(--accent)" }} />
           </div>
-        ) : viewerError ? (
-          <div className="pm-empty">
-            <p style={{ color: "var(--err)", fontSize: 13 }}>{viewerError}</p>
-            <button
-              onClick={() =>
-                handleViewPrompt(
-                  viewerChapterRef,
-                  segNum,
-                  viewerSegKey,
-                  viewerSegTitle,
-                )
-              }
-              className="btn btn-ghost btn-sm"
-            >
-              重试
-            </button>
-          </div>
-        ) : (
-          <div>
+        ) : viewerContent ? (
+          <div data-testid="pm-write-view">
             {parsedSections.map((section, i) => (
               <div key={i} className="pm-sec" style={{ marginBottom: 10 }}>
                 {section.heading && <h3>{section.heading}</h3>}
                 <pre>{section.body.join("\n")}</pre>
               </div>
             ))}
+          </div>
+        ) : (
+          <div className="pm-empty" data-testid="pm-write-empty">
+            <Ico d={P.doc} size={28} style={{ color: "var(--muted)" }} />
+            <div className="pm-empty-text">
+              <p>本章还没有整章提示词</p>
+              <p className="sub">
+                点「AI 润色」由设定 + 章纲生成润色稿；或在「AI 生成正文」弹窗中直接组装。
+              </p>
+            </div>
           </div>
         )}
       </div>
@@ -697,13 +564,18 @@ export default function PromptManagementPage({
       <div>
         {/* Action bar */}
         <div className="pm-bar">
-          <span className="pm-bar-title">{viewerSegTitle} · 编辑</span>
+          <span className="pm-bar-title">整章写作提示词 · 编辑</span>
           <span className="grow" />
           <button onClick={handleCancelEdit} disabled={saving} className="btn btn-secondary btn-sm">
             <Ico d={P.close} size={13} />
             取消
           </button>
-          <button onClick={handleSave} disabled={saving} className="btn btn-primary btn-sm">
+          <button
+            onClick={() => void handleSave()}
+            disabled={saving}
+            className="btn btn-primary btn-sm"
+            data-testid="pm-save"
+          >
             {saving ? (
               <Ico d={P.spinner} className="spin" size={12} />
             ) : (
@@ -719,6 +591,7 @@ export default function PromptManagementPage({
           style={{ height: "calc(100vh - 16rem)", minHeight: 400 }}
           value={editorContent}
           onChange={(e) => setEditorContent(e.target.value)}
+          data-testid="pm-editor"
         />
       </div>
     );

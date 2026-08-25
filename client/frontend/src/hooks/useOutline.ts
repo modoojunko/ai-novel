@@ -50,6 +50,24 @@ export interface ChapterData {
     target_words?: number;
     [key: string]: unknown;
   }>;
+  /** 提示词格子（ai-prompt-crafting）：场景卡 / 读者获得 / 章末落点 / 目标字数 */
+  scene_cards?: Array<{
+    scene_name?: string;
+    goal?: string;
+    obstacle?: string;
+    hook?: string;
+    weight?: string;
+    focus?: string;
+    [key: string]: unknown;
+  }>;
+  micro_payoffs?: Array<{
+    kind?: string;
+    description?: string;
+    location?: string;
+    [key: string]: unknown;
+  }>;
+  ladder_exit?: string;
+  word_target?: number | null;
   prose?: string;
   word_count?: number;
   [key: string]: unknown;

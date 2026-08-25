@@ -26,6 +26,7 @@ import { ArchiveModal, HistoryModal } from "./modals";
 import type { RailChapterData } from "./Rail";
 import {
   EMPTY_OG_FORM,
+  ogFormIssues,
   ogGaps,
   ogToForm,
   ogToPartial,
@@ -153,6 +154,11 @@ export default function ChapterWorkspace({
     setShowHistory(false);
   }, [chapterRef]);
 
+  // 会员降级兜底：提示词页签 PRO-only，免费态强制回落章纲
+  useEffect(() => {
+    if (!isPro && chTab === "prompt") setChTab("og");
+  }, [isPro, chTab]);
+
   // 生成启动信号（页面解锁链/AiModal 确认后递增）：切正文页签 + 聚焦（真 bug #2）
   useEffect(() => {
     if (!aiWriteSignal) return;
@@ -208,6 +214,11 @@ export default function ChapterWorkspace({
 
   const saveOg = useCallback(async (): Promise<boolean> => {
     if (ogLoadingRef.current) return false;
+    const issues = ogFormIssues(ogForm);
+    if (issues.length > 0) {
+      toast.error(issues[0]);
+      return false;
+    }
     setOgSaving(true);
     try {
       await outline.saveChapter(
@@ -230,6 +241,8 @@ export default function ChapterWorkspace({
   useEffect(() => {
     if (ogLoadingRef.current) return;
     if (ogKey === ogSnapRef.current) return;
+    // 校验不过时静默跳过（不打扰），待用户补齐后下一次输入触发重试
+    if (ogFormIssues(ogForm).length > 0) return;
     const t = setTimeout(() => {
       outline
         .saveChapter(chapterRef, ogToPartial(ogForm, outline.chaptersMap.get(chapterRef)))
@@ -284,8 +297,13 @@ export default function ChapterWorkspace({
   }, [saveOg, proseRef]);
 
   // ── 提示词能力探测（tab 徽标 + PromptPane 共用；quiet：403 不弹升级） ──
+  // 提示词子 label PRO-only（ai-prompt-crafting spec：免费隐藏 → 探测也只跑 PRO）
   const [hasPrompts, setHasPrompts] = useState<boolean | null>(null);
   useEffect(() => {
+    if (!isPro) {
+      setHasPrompts(null);
+      return;
+    }
     let cancelled = false;
     setHasPrompts(null);
     request(`/novels/${projectId}/chapters/${chapterRef}/prompts`, {
@@ -301,7 +319,7 @@ export default function ChapterWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [projectId, chapterRef]);
+  }, [projectId, chapterRef, isPro]);
 
   // ── 排版偏好（per-book：pref.book.{pid}.*，全局默认兜底） ─────────────
   const [fs, setFs] = useState<FontSizePref>(() => getBookFontSize(projectId));
@@ -470,7 +488,8 @@ export default function ChapterWorkspace({
         {(
           [
             ["og", "章纲", ogCnt],
-            ["prompt", "提示词", promptCnt],
+            // 提示词子 label PRO-only：免费态隐藏（workbench-3-label spec）
+            ...(isPro ? ([["prompt", "提示词", promptCnt]] as const) : []),
             ["prose", "正文", proseCnt],
           ] as const
         ).map(([key, text, cnt]) => (

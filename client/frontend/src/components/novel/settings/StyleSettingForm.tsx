@@ -64,6 +64,8 @@ const StyleSettingForm = forwardRef<SettingSaveHandle, Props>(function StyleSett
   const [atmosphere, setAtmosphere] = useState<string[]>([""]);
   const [pov, setPov] = useState<string[]>([""]);
   const [toneTechniques, setToneTechniques] = useState<string[]>([""]);
+  // 文风例句（ai-prompt-crafting）：1-3 条，透传进整章提示词的案例段
+  const [fewShots, setFewShots] = useState<string[]>([""]);
 
   // AI modal state
   const [aiField, setAiField] = useState<string | null>(null);
@@ -72,7 +74,7 @@ const StyleSettingForm = forwardRef<SettingSaveHandle, Props>(function StyleSett
   const [aiPendingField, setAiPendingField] = useState<string | null>(null);
 
   const currentValues = { role, core_principles: principles, possible_mistakes: mistakes, depiction_techniques: techniques };
-  const currentShape = { role, principles, mistakes, techniques, narratorRole, defaultTone, atmosphere, pov, toneTechniques };
+  const currentShape = { role, principles, mistakes, techniques, narratorRole, defaultTone, atmosphere, pov, toneTechniques, fewShots };
   const { snapshotLoaded, markSaved } = useDirtyState(currentShape, onDirtyChange);
 
   useEffect(() => {
@@ -92,6 +94,7 @@ const StyleSettingForm = forwardRef<SettingSaveHandle, Props>(function StyleSett
         const a = toFlatList(tone.atmosphere);
         const v = toFlatList(tone.pov);
         const tt = toFlatList(tone.techniques);
+        const fs = toFlatList(d.few_shot_examples);
         const roleN = d.role || "";
         const principlesN = p.length ? p : [""];
         const mistakesN = m.length ? m : [""];
@@ -101,6 +104,7 @@ const StyleSettingForm = forwardRef<SettingSaveHandle, Props>(function StyleSett
         const atmosphereN = a.length ? a : [""];
         const povN = v.length ? v : [""];
         const toneTechniquesN = tt.length ? tt : [""];
+        const fewShotsN = fs.length ? fs.slice(0, 3) : [""];
         setRole(roleN);
         setPrinciples(principlesN);
         setMistakes(mistakesN);
@@ -110,7 +114,8 @@ const StyleSettingForm = forwardRef<SettingSaveHandle, Props>(function StyleSett
         setAtmosphere(atmosphereN);
         setPov(povN);
         setToneTechniques(toneTechniquesN);
-        snapshotLoaded({ role: roleN, principles: principlesN, mistakes: mistakesN, techniques: techniquesN, narratorRole: narratorN, defaultTone: defaultToneN, atmosphere: atmosphereN, pov: povN, toneTechniques: toneTechniquesN });
+        setFewShots(fewShotsN);
+        snapshotLoaded({ role: roleN, principles: principlesN, mistakes: mistakesN, techniques: techniquesN, narratorRole: narratorN, defaultTone: defaultToneN, atmosphere: atmosphereN, pov: povN, toneTechniques: toneTechniquesN, fewShots: fewShotsN });
       })
       .catch(() => {
         setError("加载失败");
@@ -130,6 +135,7 @@ const StyleSettingForm = forwardRef<SettingSaveHandle, Props>(function StyleSett
         possible_mistakes: mistakes.filter(Boolean),
         depiction_techniques: techniques.filter(Boolean),
         narrator_role: narratorRole,
+        few_shot_examples: fewShots.map((s) => s.trim()).filter(Boolean).slice(0, 3),
         // tone 子键逐项合并，保留既有 tone 里的其他键（若有）
         tone: {
           ...(existing?.tone as Record<string, unknown> | undefined),
@@ -265,6 +271,15 @@ const StyleSettingForm = forwardRef<SettingSaveHandle, Props>(function StyleSett
         <ListEditor label="氛围关键词" items={atmosphere} onChange={setAtmosphere} placeholder="氛围关键词，如：压抑" />
         <ListEditor label="叙事视角" items={pov} onChange={setPov} placeholder="叙事视角，如：第三人称有限视角" />
         <ListEditor label="描写技法偏好" items={toneTechniques} onChange={setToneTechniques} placeholder="描写技法偏好，如：动作外化情绪" />
+      </Cfg>
+      <Cfg title="文风例句" tag="1-3 条">
+        <ListEditor
+          items={fewShots}
+          onChange={setFewShots}
+          maxItems={3}
+          placeholder="如：雨点砸在铁皮棚上，他没有抬头。"
+        />
+        <p className="opt">最能代表目标文风的完整句子，将作为案例段透传进整章写作提示词。</p>
       </Cfg>
 
       {error && <p className="opt" style={{ color: "var(--err)" }}>{error}</p>}
