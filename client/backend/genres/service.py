@@ -3,8 +3,8 @@
 题材定义全局共享（C端 SQLite genres 表）。嵌套结构以 JSON 字符串存入 Text 列，
 camelCase（前端 GenreDefinition 形状）↔ 模型列之间的转换集中在这里。
 
-resolve_genre_context / build_genre_section 供写作链路（prompt/assembler.py 与
-write/chapter_writer.py）复用：项目 settings/genre.yaml 里的 genre_id → 全局定义 →
+resolve_genre_context / build_genre_section 供写作链路
+（write/chapter_writer.py）复用：项目 settings/genre.yaml 里的 genre_id → 全局定义 →
 合并项目 overrides → 渲染「## 题材设定」块。genre_id 为空或定义缺失时优雅降级
 返回 None（不强制 genre_id 必须存在于库，存量项目/测试不破）。
 """
@@ -238,7 +238,7 @@ def _fmt(v) -> str:
 def build_genre_section(ctx: dict | None) -> str:
     """Render the '## 题材设定' markdown block for prompt injection.
 
-    Returns "" when ctx is None. Shared by assembler.py and chapter_writer.py.
+    Returns "" when ctx is None. Consumed by chapter_writer.py.
     """
     if not ctx:
         return ""

@@ -5,8 +5,28 @@ const API_BASE = `${getApiBaseUrl()}/api`;
 
 export interface StreamCallbacks {
   onChunk: (text: string) => void;
-  onDone: (fullText: string) => void;
+  /** meta：done 事件附带的完工检查（ai-prompt-crafting 三工序③） */
+  onDone: (fullText: string, meta?: StreamDoneMeta) => void;
   onError: (error: string) => void;
+}
+
+/** 字数校验（目标 ±10% 口径；below_limit = 低于目标 90%） */
+export interface WordCheck {
+  target: number;
+  actual: number;
+  below_limit: boolean;
+  message?: string;
+}
+
+/** 叙事自查命中的规则（提示性质，非阻断） */
+export interface SelfCheckIssue {
+  rule: string;
+  excerpts: string[];
+}
+
+export interface StreamDoneMeta {
+  word_check?: WordCheck;
+  self_check?: SelfCheckIssue[];
 }
 
 // ---------------------------------------------------------------------------
@@ -93,7 +113,10 @@ function doStreamFetch(
             if (data.type === "chunk") {
               callbacks.onChunk(data.text);
             } else if (data.type === "done") {
-              callbacks.onDone(data.full_text);
+              callbacks.onDone(data.full_text, {
+                word_check: data.word_check,
+                self_check: data.self_check,
+              });
             } else if (data.type === "error") {
               callbacks.onError(data.error);
             }
@@ -162,4 +185,20 @@ export async function expandText(
     { selected_text: selectedText, context_before: contextBefore, context_after: contextAfter },
   );
   return data.expanded_text;
+}
+
+// ---------------------------------------------------------------------------
+// Two-stage prompt pipeline (ai-prompt-crafting)
+// ---------------------------------------------------------------------------
+
+/** AI 润色整章提示词：素材包 → 大模型润色 → 校验落库（后端 502 时不动既有行） */
+export async function polishWritePrompt(
+  projectId: string,
+  chapterRef: string,
+): Promise<string> {
+  const data = await doJsonPost(
+    `${API_BASE}/novels/${projectId}/chapters/${chapterRef}/write/prompt/polish`,
+    {},
+  );
+  return data.prompt as string;
 }

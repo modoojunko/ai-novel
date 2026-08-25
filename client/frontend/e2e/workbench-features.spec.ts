@@ -8,8 +8,9 @@ import { test, expect, type Page, type APIRequestContext } from "@playwright/tes
 //   ① 章纲：选中章 →「章纲」页签 → OgPane 平面全字段表单编辑 + 保存草稿
 //   ② 卷纲面板（PR4）：点卷节点 → 常编辑态全字段 + 子表行 → 保存卷纲 + 去配章纲
 //   ③ 专注模式：body.focus 隐藏左树右栏 + Esc 退出
-//   ④ 提示词面板：「提示词」页签；当前章过滤 + 空态 + API 种子后查看/编辑（非 AI 链路）
-//   ⑤ 免费态三页签入口均可见（#152 口径：入口可见、使用需会员）
+//   ④ 提示词面板：整章单卡（ai-prompt-crafting）——种子查看/编辑；无分段列表/生成按钮
+//   ⑤ 免费态提示词子 label 隐藏（PRO-only 口径，取代 #152 入口可见）
+//   ⑧ 章纲提示词新格子（ai-prompt-crafting）：场景卡权重/焦点 + 读者获得 + 章末落点 + 目标字数
 //   ⑥ PR3 行为：点章恒落「章纲」页签（设计稿拍板，取代 PR2 按进度分流）+ 右栏本章进度卡
 // =========================================================================
 // 与 creation-flow.spec.ts 共享鉴权手法：S端 真实注册登录 → 写 docker 容器的
@@ -346,10 +347,10 @@ test("专注模式：隐藏左树右栏 + Esc 退出", async ({ page }) => {
 });
 
 // -------------------------------------------------------------------------
-// ④ 提示词面板：当前章过滤 + API 种子后查看/编辑/已修改徽标（非 AI 链路）
+// ④ 提示词面板：整章单卡（ai-prompt-crafting）—— 种子查看/编辑/已修改徽标（非 AI 链路）
 // -------------------------------------------------------------------------
 
-test("提示词面板：当前章过滤 + 种子提示词查看/编辑/已修改徽标", async ({
+test("提示词面板：整章单卡 + 种子提示词查看/编辑/已修改徽标", async ({
   page,
   request,
 }) => {
@@ -361,39 +362,40 @@ test("提示词面板：当前章过滤 + 种子提示词查看/编辑/已修改
     // 提示词后端接口需过 require_ai_access 门控：先注入 active ApiConfig（不测连接）
     await ensurePromptAccess(request, token);
 
-    // API 种子 seg-1 提示词（手动保存路径，非 AI 生成）
+    // API 种子整章提示词（手动保存路径，非 AI 生成）
     const seed = await request.put(
-      `${ORIGIN}/api/novels/${pid}/chapters/vol-1-ch-1/prompts/seg-1`,
+      `${ORIGIN}/api/novels/${pid}/chapters/vol-1-ch-1/prompts/write`,
       {
-        data: { content: "# 段落任务\n\n描写主角收到匿名信的场景。" },
+        data: { content: "# 整章任务\n\n描写主角收到匿名信的场景。" },
         headers: { Authorization: `Bearer ${token}` },
       },
     );
     expect(seed.ok()).toBeTruthy();
 
-    // 切到章「提示词」页签 → 当前章自动展开，显示种子段落
+    // 切到章「提示词」页签 → 当前章自动展开：整章单卡 + 已保存徽标
     await page.getByRole("tab", { name: /^提示词/ }).click();
     await expect(page.getByText("提示词管理")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText("段落 1")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText("1 段")).toBeVisible();
+    await expect(page.getByText("整章写作提示词")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("已保存")).toBeVisible();
+    // 分段链路退役：无分段行/段数/生成按钮
+    await expect(page.getByText("段落 1")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "生成段落提示词" })).toHaveCount(0);
 
     // 查看 → 内容可见
-    await page.getByText("段落 1").click();
+    await page.getByTestId("pm-write-row").click();
     await expect(page.getByText("描写主角收到匿名信的场景。")).toBeVisible({
       timeout: 5000,
     });
 
     // 编辑 → 修改 → 保存 → 已修改
-    // （章页签含「章纲/正文」文案 → 必须 exact 命中提示词编辑器「编辑」）
     await page.getByRole("button", { name: "编辑", exact: true }).click();
-    await page.locator("textarea").last().fill("# 段落任务\n\n描写主角收到匿名信后追出城门的场景。");
+    await page.locator("textarea").last().fill("# 整章任务\n\n描写主角收到匿名信后追出城门的场景。");
     const save = page.waitForResponse(
-      (r) => r.request().method() === "PUT" && r.url().includes("/prompts/seg-1"),
+      (r) => r.request().method() === "PUT" && r.url().includes("/prompts/write"),
     );
     await page.locator("main").getByRole("button", { name: "保存", exact: true }).click();
     await save;
     await expect(page.getByText("保存成功")).toBeVisible({ timeout: 5000 });
-    await expect(page.getByRole("button", { name: "恢复原始" })).toBeVisible();
 
     // 返回概览 → 章节徽标「已修改」
     await page.getByRole("button", { name: "返回" }).click();
@@ -434,10 +436,10 @@ test("提示词无Key：进入提示词tab就地提示去配置，不整页跳�
 });
 
 // -------------------------------------------------------------------------
-// ⑤ 免费态三页签入口均可见（#152 口径：入口可见、使用需会员，后端拦截）
+// ⑤ 免费态提示词子 label 隐藏（ai-prompt-crafting PRO-only 口径，取代 #152 入口可见）
 // -------------------------------------------------------------------------
 
-test("免费态：正文/章纲/提示词入口均可见（#152 入口可见口径）", async ({
+test("免费态：正文/章纲可见，提示词子 label 隐藏", async ({
   page,
 }) => {
   const { restore } = await setupSession(page, "none");
@@ -447,8 +449,8 @@ test("免费态：正文/章纲/提示词入口均可见（#152 入口可见口�
 
     await expect(page.getByRole("tab", { name: /^正文/ })).toBeVisible();
     await expect(page.getByRole("tab", { name: /^章纲/ })).toBeVisible();
-    // 提示词不再 TierGate 隐藏——免费可见入口，点击使用时由后端 member_required 拦截
-    await expect(page.getByRole("tab", { name: /^提示词/ })).toBeVisible();
+    // 提示词子 label PRO-only：免费态隐藏（内容本身也由后端 member_required 拦截）
+    await expect(page.getByRole("tab", { name: /^提示词/ })).toHaveCount(0);
   } finally {
     restore();
   }
@@ -542,6 +544,135 @@ test("点章强制落章纲：确认/有正文后重挂载仍落章纲 + 右栏�
     await expect(page.getByText("目标字数", { exact: true })).toBeVisible();
     await expect(page.getByText("本书总字数")).toBeVisible();
     await expect(page.getByText("本章草稿")).toBeVisible();
+  } finally {
+    restore();
+  }
+});
+
+// -------------------------------------------------------------------------
+// ⑧ 章纲提示词新格子（ai-prompt-crafting）：场景卡（名/目标/阻碍/钩子/权重/焦点）
+//    + 读者获得（类型/描述/位置）+ 章末落点 + 目标字数 —— 填值保存、后端落盘、重载回读
+// -------------------------------------------------------------------------
+
+test("章纲新格子：场景卡/读者获得/章末落点/目标字数填值保存 + 回读", async ({
+  page,
+  request,
+}) => {
+  const { restore, token } = await setupSession(page);
+  try {
+    const pid = await createNovel(page, `格子${Date.now() % 100000}`);
+    await writeFirstChapter(page);
+
+    // 回「章纲」页签
+    await page.getByRole("tab", { name: /^章纲/ }).click();
+    await expect(
+      page.getByText(/章纲：明确「这一章写什么」/),
+    ).toBeVisible({ timeout: 10000 });
+
+    // 必填六项补齐（新建章 segments 为空数组 → 段落规划也是缺口）——
+    // 缺口未清空前「确认章纲」禁用
+    await page.locator("#wf-task").fill("查明妹妹失踪的真相");
+    await page.locator("#wf-rstate").fill("不知道匿名信从何而来");
+    await page.locator("#wf-rstrat").fill("读者会猜测寄信人是故人");
+    await page.locator("#wf-changes").fill("主角拿到入城许可");
+    await page.locator("#wf-mood select").selectOption({ label: "悬疑" });
+    await page.getByRole("button", { name: "添加段落" }).click();
+    await page.locator('.seg-row [data-seg="s"]').first().fill("港区之夜 · 信标亮起");
+
+    // 展开两个新折叠区
+    await page.locator("#wf-scenes summary").click();
+    await page.locator("#wf-payoffs summary").click();
+
+    // 空读者获得时点「确认章纲」→ 非阻断提醒（不拦截，必填缺口另有提示）。
+    // 确认链路 = PUT 存量 → POST confirm → setVolumes → loadChapterData 身份翻新 →
+    // 加载 effect 重跑，表单会按服务端数据重置一次；必须等链路彻底落定
+    // （done-note + 确认引发的两次章 GET 均已返回）再填新格子，否则填值被重置卷走。
+    const chapterGets: number[] = [];
+    page.on("response", (r) => {
+      if (
+        r.request().method() === "GET" &&
+        r.url().includes(`/chapters/vol-1-ch-1`)
+      ) {
+        chapterGets.push(Date.now());
+      }
+    });
+    await page.getByRole("button", { name: "确认章纲" }).click();
+    await expect(page.getByTestId("payoff-hint")).toBeVisible({ timeout: 5000 });
+    await expect(
+      page.locator(".panel-foot .done-note", { hasText: "章纲已确认" }),
+    ).toBeVisible({ timeout: 5000 });
+    await expect
+      .poll(() => chapterGets.length, { timeout: 5000 })
+      .toBeGreaterThanOrEqual(2);
+
+    // 场景卡：添加一张，填名/目标/阻碍/钩子 + 权重高 + 焦点核心冲突
+    await page.getByRole("button", { name: "添加场景卡" }).click();
+    const scene = page.locator(".scene-card").first();
+    await scene.locator('[data-scene="n"]').fill("城门对峙");
+    await scene.locator('[data-scene="g"]').fill("带信入城");
+    await scene.locator('[data-scene="o"]').fill("守卫盘查");
+    await scene.locator('[data-scene="h"]').fill("通缉令画像");
+    await scene.locator('[data-scene="w"]').selectOption("high");
+    await scene.locator('[data-scene="f"]').selectOption("核心冲突");
+
+    // 读者获得：一条（反转 / 描述 / 后段）
+    await page.getByRole("button", { name: "添加读者获得" }).click();
+    const payoff = page.locator(".payoff-row").first();
+    await payoff.locator('[data-payoff="k"]').selectOption("twist");
+    await payoff.locator('[data-payoff="d"]').fill("匿名信的火漆印是自家纹章");
+    await payoff.locator('[data-payoff="l"]').selectOption("后段");
+
+    // 章末落点 + 目标字数
+    await page.locator("#wf-ladder").fill("他收起通缉令，转身没入夜色");
+    await page.locator("#wf-wt").fill("4000");
+
+    // 保存草稿 → PUT 落盘（须甄别请求体：前一步「确认章纲」的 PUT 可能仍在途，
+    // 裸等 method+url 会抢到未带新格子的那次响应）
+    const save = page.waitForResponse(
+      (r) =>
+        r.request().method() === "PUT" &&
+        r.url().includes(`/chapters/vol-1-ch-1`) &&
+        (r.request().postDataJSON() as { scene_cards?: unknown[] })
+          ?.scene_cards?.length === 1,
+    );
+    await page.getByRole("button", { name: "保存草稿" }).click();
+    await save;
+
+    // 后端直查：新格子全部落盘（枚举值原样）
+    const ch = await apiGetJSON(request, token, `/novels/${pid}/chapters/vol-1-ch-1`);
+    expect(ch.scene_cards).toEqual([
+      {
+        scene_name: "城门对峙",
+        goal: "带信入城",
+        obstacle: "守卫盘查",
+        hook: "通缉令画像",
+        weight: "high",
+        focus: "核心冲突",
+      },
+    ]);
+    expect(ch.micro_payoffs).toEqual([
+      { kind: "twist", description: "匿名信的火漆印是自家纹章", location: "后段" },
+    ]);
+    expect(ch.ladder_exit).toBe("他收起通缉令，转身没入夜色");
+    expect(ch.word_target).toBe(4000);
+
+    // 重载回读：重新展开两个折叠区，值都在
+    await page.reload();
+    await page.locator(".col-tree .ch", { hasText: "第一章" }).click();
+    await page.getByRole("tab", { name: /^章纲/ }).click();
+    await page.locator("#wf-scenes summary").click();
+    await page.locator("#wf-payoffs summary").click();
+    await expect(page.locator(".scene-card").first().locator('[data-scene="n"]')).toHaveValue(
+      "城门对峙",
+    );
+    await expect(page.locator(".scene-card").first().locator('[data-scene="w"]')).toHaveValue(
+      "high",
+    );
+    await expect(page.locator(".payoff-row").first().locator('[data-payoff="k"]')).toHaveValue(
+      "twist",
+    );
+    await expect(page.locator("#wf-ladder")).toHaveValue("他收起通缉令，转身没入夜色");
+    await expect(page.locator("#wf-wt")).toHaveValue("4000");
   } finally {
     restore();
   }

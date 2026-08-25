@@ -1,8 +1,8 @@
-"""chapter_prompts 表持久化回环测试（PR④ 数据全量入库）。
+"""chapter_prompts 表持久化回环测试（PR④ 数据全量入库；ai-prompt-crafting 整章化）。
 
-覆盖：assemble_all_segments 生成 → DB 行（seg-N-prompt）+ 对外路径形态；
-save_prompt/load_prompt 读写回环 + upsert 覆写；HTTP 列表/读取/编辑三端点。
-文件形态 {ref}-{name}.md 由派生保持（前端零改动），不再落盘。
+覆盖：save_prompt/load_prompt 读写回环 + upsert 覆写；
+HTTP 列表（只回 write-prompt 一条）/{seg} 收敛（仅 write，其余 404）/
+存量 seg 行不迁移不返回。
 
 用法：
     cd client/backend
@@ -12,6 +12,7 @@ save_prompt/load_prompt 读写回环 + upsert 覆写；HTTP 列表/读取/编辑
 import asyncio
 import os
 import tempfile
+import uuid
 
 _tmp_db = tempfile.NamedTemporaryFile(suffix="_prompt_db.db", delete=False)  # noqa: SIM115
 _tmp_db.close()
@@ -20,16 +21,15 @@ _tmp_data_root = tempfile.mkdtemp(prefix="test_prompt_store_db_")
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_tmp_db.name}"
 os.environ["DATA_ROOT"] = _tmp_data_root
 
-from conftest import seed_chapter_db
-from sqlalchemy import select
+from conftest import seed_chapter_db  # noqa: E402
+from sqlalchemy import select  # noqa: E402
 
-from db import Base, async_session, engine
-from filesystem.storage import get_storage
-from models.archive import ChapterPrompt
-from models.chapter import Chapter
-from models.project import Novel
-from prompt.assembler import assemble_all_segments
-from prompt.store import load_prompt, save_prompt
+from db import Base, async_session, engine  # noqa: E402
+from filesystem.storage import get_storage  # noqa: E402
+from models.archive import ChapterPrompt  # noqa: E402
+from models.chapter import Chapter  # noqa: E402
+from models.project import Novel  # noqa: E402
+from prompt.store import load_prompt, save_prompt  # noqa: E402
 
 
 def _run_async(coro):
@@ -47,10 +47,6 @@ _CHAPTER = {
     "title": "第一章",
     "outline": {"summary": "主角来到边境城邦。", "characters": ["张三"]},
     "memo": {},
-    "segments": [
-        {"summary": "城门初见城邦", "target_words": 800},
-        {"summary": "遇到神秘商人", "target_words": 1200},
-    ],
 }
 
 
@@ -60,11 +56,6 @@ def _seed(root: str) -> None:
             root,
             "settings/writing-style.yaml",
             {"role": "一位小说家", "core_principles": "", "possible_mistakes": ""},
-        )
-    )
-    _run_async(
-        get_storage().write_yaml(
-            root, "settings/anti-ai.yaml", {"fatigue_words_zh": {}, "structural_tic_patterns": []}
         )
     )
     _run_async(seed_chapter_db(root, _CHAPTER))
@@ -80,25 +71,6 @@ async def _prompt_rows(root: str) -> list[ChapterPrompt]:
             .order_by(ChapterPrompt.name)
         )
         return (await session.scalars(stmt)).all()
-
-
-def test_assemble_all_segments_persists_rows():
-    root = tempfile.mkdtemp(prefix="psdb1_")
-    _seed(root)
-
-    paths = _run_async(assemble_all_segments(root, "vol-1-ch-1", "测试小说"))
-
-    # 对外路径形态保持（前端零改动）
-    assert paths == [
-        "prompts/vol-1-ch-1-seg-1-prompt.md",
-        "prompts/vol-1-ch-1-seg-2-prompt.md",
-    ]
-    rows = _run_async(_prompt_rows(root))
-    assert [r.name for r in rows] == ["seg-1-prompt", "seg-2-prompt"]
-    assert all("城门" in rows[0].content or rows[0].content for r in rows)
-    assert rows[0].content, "提示词全文应入库"
-    # 不再落盘
-    assert _run_async(get_storage().list_dir(root, "prompts")) == []
 
 
 def test_save_and_load_prompt_upsert():
@@ -122,19 +94,17 @@ def test_save_prompt_missing_chapter_silent():
     assert _run_async(_prompt_rows(root)) == []
 
 
-# ── HTTP 层：list / get / put 三端点 ───────────────────────────────────────
+# ── HTTP 层：list / get / put 三端点（整章单卡契约）────────────────────────
 
 
-import uuid
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
-import pytest
-from fastapi.testclient import TestClient
-
-from auth_local.deps import require_ai_access, require_project_limit
-from auth_local.middleware import get_current_user
-from db import get_db
-from main import app
-from models.user import User
+from auth_local.deps import require_ai_access, require_project_limit  # noqa: E402
+from auth_local.middleware import get_current_user  # noqa: E402
+from db import get_db  # noqa: E402
+from main import app  # noqa: E402
+from models.user import User  # noqa: E402
 
 
 async def _create_tables():
@@ -193,16 +163,12 @@ def client():
 
 
 class TestPromptHTTPEndpoints:
-    def test_generate_list_get_put_roundtrip(self, client):
+    def test_write_only_roundtrip_and_seg_404(self, client):
         # 建项目 + 卷 + 章（HTTP 正规链路）
         name = f"psdb-{uuid.uuid4().hex[:6]}"
         r = client.post("/api/novels", json={"name": name})
         assert r.status_code in (200, 201), r.text
         pid = r.json()["id"]
-        client.put(
-            f"/api/novels/{pid}/settings/world",
-            json={"geography": {"scenes": "g"}, "politics": {}, "rules": {}},
-        )
         r2 = client.post(f"/api/novels/{pid}/volumes", json={"title": "第一卷"})
         assert r2.status_code in (200, 201), r2.text
         r3 = client.post(
@@ -211,47 +177,73 @@ class TestPromptHTTPEndpoints:
         assert r3.status_code in (200, 201), r3.text
         ref = r3.json()["ref"]
 
-        # 大纲带两段（生成提示词的前置）
-        outline = client.get(f"/api/novels/{pid}/chapters/{ref}").json()
-        outline.setdefault("segments", [])
-        outline["segments"] = [
-            {"summary": "城门初见", "target_words": 800},
-            {"summary": "遇到商人", "target_words": 1200},
-        ]
-        r4 = client.put(f"/api/novels/{pid}/chapters/{ref}", json=outline)
-        assert r4.status_code == 200, r4.text
-
-        # 生成 → DB 行 + 对外路径形态
-        r5 = client.post(f"/api/novels/{pid}/chapters/{ref}/prompts/generate")
-        assert r5.status_code == 200, r5.text
-        assert r5.json()["prompts"] == [
-            f"prompts/{ref}-seg-1-prompt.md",
-            f"prompts/{ref}-seg-2-prompt.md",
-        ]
-
-        # 列表 → 文件名形态
+        # 无 write-prompt 行 → 列表空；GET write → 空文本（对齐缺文件语义）
         r6 = client.get(f"/api/novels/{pid}/chapters/{ref}/prompts")
         assert r6.status_code == 200, r6.text
-        assert sorted(r6.json()) == [
-            f"{ref}-seg-1-prompt.md",
-            f"{ref}-seg-2-prompt.md",
-        ]
-
-        # 读取 → PlainText 全文
-        r7 = client.get(f"/api/novels/{pid}/chapters/{ref}/prompts/seg-1")
+        assert r6.json() == []
+        r7 = client.get(f"/api/novels/{pid}/chapters/{ref}/prompts/write")
         assert r7.status_code == 200, r7.text
-        assert "城门初见" in r7.text
+        assert r7.text == ""
 
-        # 编辑 → upsert 覆写
+        # 编辑 upsert → 读回
         r8 = client.put(
-            f"/api/novels/{pid}/chapters/{ref}/prompts/seg-1",
-            json={"content": "手改后的提示词"},
+            f"/api/novels/{pid}/chapters/{ref}/prompts/write",
+            json={"content": "手改后的整章提示词"},
         )
         assert r8.status_code == 200, r8.text
-        r9 = client.get(f"/api/novels/{pid}/chapters/{ref}/prompts/seg-1")
-        assert r9.text == "手改后的提示词"
+        r9 = client.get(f"/api/novels/{pid}/chapters/{ref}/prompts/write")
+        assert r9.text == "手改后的整章提示词"
 
-        # 缺失 → 空文本 200（对齐 read_md 缺文件）
-        r10 = client.get(f"/api/novels/{pid}/chapters/{ref}/prompts/seg-9")
-        assert r10.status_code == 200, r10.text
-        assert r10.text == ""
+        # 列表只回整章一条（文件名形态保持）
+        r10 = client.get(f"/api/novels/{pid}/chapters/{ref}/prompts")
+        assert r10.json() == [f"{ref}-write-prompt.md"]
+
+        # 分段已退役：seg 路径 404（读/写皆拒）
+        assert (
+            client.get(f"/api/novels/{pid}/chapters/{ref}/prompts/seg-1").status_code
+            == 404
+        )
+        assert (
+            client.put(
+                f"/api/novels/{pid}/chapters/{ref}/prompts/seg-1",
+                json={"content": "x"},
+            ).status_code
+            == 404
+        )
+
+    def test_legacy_seg_rows_not_listed(self, client):
+        """存量 seg-N-prompt 行不迁移不删除，但读端点不再返回它们。"""
+        name = f"psdb-{uuid.uuid4().hex[:6]}"
+        r = client.post("/api/novels", json={"name": name})
+        pid = r.json()["id"]
+        client.post(f"/api/novels/{pid}/volumes", json={"title": "第一卷"})
+        r3 = client.post(
+            f"/api/novels/{pid}/volumes/vol-1/chapters", json={"title": "第一章"}
+        )
+        ref = r3.json()["ref"]
+
+        # 直接落一条旧形态 seg 行（模拟存量库）
+        from models import Novel
+
+        async def _seed_legacy():
+            async with async_session() as session:
+                proj = await session.get(Novel, pid)
+                await save_prompt(proj.root_path, ref, "seg-1-prompt", "旧分段提示词")
+
+        _run_async(_seed_legacy())
+
+        r6 = client.get(f"/api/novels/{pid}/chapters/{ref}/prompts")
+        assert r6.json() == []
+        assert (
+            client.get(f"/api/novels/{pid}/chapters/{ref}/prompts/seg-1").status_code
+            == 404
+        )
+        # 存量行仍在库里（不迁移不删除）
+        from models import Novel as _N
+
+        async def _count():
+            async with async_session() as session:
+                proj = await session.get(_N, pid)
+                return await load_prompt(proj.root_path, ref, "seg-1-prompt")
+
+        assert _run_async(_count()) == "旧分段提示词"

@@ -245,10 +245,10 @@ test("解锁链：归档章点 AI → 解除只读 → AiModal 提示词；确�
     await expect(ai.getByRole("heading", { name: "AI 生成正文" })).toBeVisible({
       timeout: 10000,
     });
-    // 提示词加载完成（textarea 解禁 + 组装说明；本章未配章纲 → 对应提示）
+    // 提示词加载完成（textarea 解禁 + 两段式说明；本章未配章纲 → 对应提示）
     await expect(ai.getByTestId("ai-prompt")).toBeEnabled({ timeout: 10000 });
     await expect(
-      ai.getByText(/提示词已由设定与章纲组装|本章尚未配置章纲/),
+      ai.getByText(/两段式：先「AI 润色」|本章尚未配置章纲/),
     ).toBeVisible();
 
     // 弹窗取消 → 不生成，但解锁已生效（编辑器翻回可编辑、只读横幅撤下）

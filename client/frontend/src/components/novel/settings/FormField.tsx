@@ -87,10 +87,10 @@ export function InputField({
 
 // ── ListEditor（li-row 列表 + 添加一项）────────────────────────────
 export function ListEditor({
-  label, hint, items, onChange, placeholder, maxLength, aiGeneratable, onAIGenerate, aiLoading,
+  label, hint, items, onChange, placeholder, maxLength, maxItems, aiGeneratable, onAIGenerate, aiLoading,
 }: {
   label?: string; hint?: string; items: string[]; onChange: (v: string[]) => void;
-  placeholder?: string; maxLength?: number;
+  placeholder?: string; maxLength?: number; maxItems?: number;
 } & AIProps) {
   return (
     <div className="field">
@@ -127,10 +127,12 @@ export function ListEditor({
           </span>
         </div>
       ))}
-      <button className="text-btn" type="button" onClick={() => onChange([...items, ""])}>
-        <Ico d={P.plus} sw={2} size={13} />
-        添加一项
-      </button>
+      {(!maxItems || items.length < maxItems) && (
+        <button className="text-btn" type="button" onClick={() => onChange([...items, ""])}>
+          <Ico d={P.plus} sw={2} size={13} />
+          添加一项
+        </button>
+      )}
     </div>
   );
 }

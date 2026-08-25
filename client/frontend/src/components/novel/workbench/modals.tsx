@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import Modal from "@/components/design/Modal";
 import VersionDiff from "@/components/novel/VersionDiff";
 import { api, request } from "@/lib/api";
+import { polishWritePrompt } from "@/lib/ai";
 import { toast } from "@/lib/toast";
 
 const fmt = (n: number) => n.toLocaleString("zh-CN");
@@ -344,7 +345,8 @@ export function HistoryModal({
 }
 
 // ---------------------------------------------------------------------------
-// AI 生成正文（tall；提示词由「设定 + 章纲」组装、可编辑、确认后流式追加）
+// AI 生成正文（tall；两段式 ai-prompt-crafting：打开展示存量/粗组 →
+// 「AI 润色」→ 作家过目/编辑 →「生成正文」流式追加）
 // ---------------------------------------------------------------------------
 
 export function AiModal({
@@ -363,23 +365,35 @@ export function AiModal({
 }) {
   const [prompt, setPrompt] = useState("");
   const [hasOutline, setHasOutline] = useState(true);
+  // polished：true = 存量提示词（润色或作家编辑落库）；false = 程序粗组稿
+  const [polished, setPolished] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [polishing, setPolishing] = useState(false);
+  const [polishError, setPolishError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setPolishError(null);
     request(`/novels/${projectId}/chapters/${chapterRef}/write/prompt`, {
       quiet: true,
     })
-      .then((d: { prompt?: string; has_outline?: boolean }) => {
-        if (cancelled) return;
-        setPrompt(d?.prompt ?? "");
-        setHasOutline(!!d?.has_outline);
-      })
+      .then(
+        (d: {
+          prompt?: string;
+          has_outline?: boolean;
+          polished?: boolean;
+        }) => {
+          if (cancelled) return;
+          setPrompt(d?.prompt ?? "");
+          setHasOutline(!!d?.has_outline);
+          setPolished(!!d?.polished);
+        },
+      )
       .catch((e: Error) => {
         if (!cancelled) setError(e?.message || "提示词组装失败");
       })
@@ -390,6 +404,23 @@ export function AiModal({
       cancelled = true;
     };
   }, [open, projectId, chapterRef, reloadKey]);
+
+  const handlePolish = async () => {
+    if (polishing) return;
+    setPolishing(true);
+    setPolishError(null);
+    try {
+      const text = await polishWritePrompt(projectId, chapterRef);
+      setPrompt(text);
+      setPolished(true);
+      toast.success("AI 润色完成 · 已保存，可继续编辑");
+    } catch (e) {
+      // 502（润色未过校验/模型出错）不动既有行 → 就地提示可重试
+      setPolishError((e as Error)?.message || "润色失败，请重试");
+    } finally {
+      setPolishing(false);
+    }
+  };
 
   return (
     <Modal
@@ -411,10 +442,20 @@ export function AiModal({
           <button className="btn btn-secondary" onClick={onClose}>
             取消
           </button>
+          {polished === false && (
+            <button
+              className="btn btn-secondary"
+              data-testid="ai-polish"
+              disabled={polishing || loading}
+              onClick={() => void handlePolish()}
+            >
+              {polishing ? "润色中…" : "AI 润色"}
+            </button>
+          )}
           <button
             className="btn btn-primary"
             data-testid="ai-confirm"
-            disabled={loading || !!error}
+            disabled={loading || !!error || polishing}
             onClick={() => {
               onClose();
               onConfirm(prompt);
@@ -427,18 +468,39 @@ export function AiModal({
     >
       <div className="field">
         <label>
-          本章提示词 <span className="opt">由「设定 + 章纲」自动组装，可直接编辑</span>
+          本章提示词{" "}
+          {polished === false ? (
+            <span className="badge warn" data-testid="ai-raw-tag">
+              未润色
+            </span>
+          ) : polished === true ? (
+            <span className="badge ok" data-testid="ai-polished-tag">
+              已润色
+            </span>
+          ) : null}{" "}
+          <span className="opt">由「设定 + 章纲」组装，可先 AI 润色再编辑</span>
         </label>
         <textarea
           className="ai-prompt"
           value={prompt}
-          disabled={loading}
+          disabled={loading || polishing}
           placeholder={loading ? "组装中…" : ""}
           onChange={(e) => setPrompt(e.target.value)}
           data-testid="ai-prompt"
         />
       </div>
-      {error ? (
+      {polishError ? (
+        <p style={{ margin: 0, fontSize: 12.5, color: "var(--err)" }}>
+          {polishError} ·{" "}
+          <button
+            className="btn btn-ghost btn-sm"
+            disabled={polishing}
+            onClick={() => void handlePolish()}
+          >
+            重试润色
+          </button>
+        </p>
+      ) : error ? (
         <p style={{ margin: 0, fontSize: 12.5, color: "var(--err)" }}>
           {error}·
           <button
@@ -451,7 +513,7 @@ export function AiModal({
       ) : (
         <p style={{ margin: 0, fontSize: 12.5, color: "var(--muted)" }}>
           {hasOutline
-            ? "提示词已由设定与章纲组装 · 可直接编辑。生成内容将追加到本章末尾。"
+            ? "两段式：先「AI 润色」成稿 → 过目编辑 → 生成。生成内容将追加到本章末尾。"
             : "本章尚未配置章纲，将仅依据设定生成。建议先去「大纲」补章纲（不强制）。"}
         </p>
       )}

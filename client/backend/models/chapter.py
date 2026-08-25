@@ -89,6 +89,8 @@ class Chapter(Base):
     expectation_detail: Mapped[str | None] = mapped_column(String(300))
     # outline.perspective_guidance — 视角转换产物（prompt/router 持久化）
     perspective_guidance: Mapped[str | None] = mapped_column(String(300))
+    # 章末落点 — 结尾停在哪个紧张度上，须给下一章更高起点（提示词前情消费）
+    ladder_exit: Mapped[str | None] = mapped_column(String(300))
 
     # Relationships
     project = relationship("Novel", back_populates="chapters")
@@ -110,6 +112,12 @@ class Chapter(Base):
         "ChapterSceneCard",
         cascade="all, delete-orphan",
         order_by="ChapterSceneCard.sort_order",
+        lazy="selectin",
+    )
+    micro_payoffs = relationship(
+        "ChapterMicroPayoff",
+        cascade="all, delete-orphan",
+        order_by="ChapterMicroPayoff.sort_order",
         lazy="selectin",
     )
     payoff_items = relationship(
@@ -200,7 +208,11 @@ class ChapterCharacter(_ChapterChildMixin, Base):
 
 
 class ChapterSceneCard(_ChapterChildMixin, Base):
-    """章纲场景卡三要素（一章 2-5 卡，spec §场景卡）。"""
+    """章纲场景卡三要素（一章 2-5 卡，spec §场景卡）。
+
+    weight/focus 为提示词格子：权重定笔墨分配（high ≥70% 笔墨 / low ≤100 字转场），
+    焦点三选一（核心冲突/人物情绪/信息差）。
+    """
 
     __tablename__ = "chapter_scene_cards"
     __table_args__ = (
@@ -210,6 +222,24 @@ class ChapterSceneCard(_ChapterChildMixin, Base):
     goal: Mapped[str] = mapped_column(String(300), nullable=False, default="")
     obstacle: Mapped[str] = mapped_column(String(300), nullable=False, default="")
     hook: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    # high / mid / low（可空=未标注）
+    weight: Mapped[str | None] = mapped_column(String(10))
+    # 核心冲突 / 人物情绪 / 信息差（可空=未标注）
+    focus: Mapped[str | None] = mapped_column(String(50))
+
+
+class ChapterMicroPayoff(_ChapterChildMixin, Base):
+    """memo 读者获得（爽点）— 每章 ≥1 只警告不拦（D1 口径），提示词叙事目标消费。"""
+
+    __tablename__ = "chapter_micro_payoffs"
+    __table_args__ = (
+        UniqueConstraint("chapter_id", "sort_order", name="uq_chmp_chapter_sort"),
+    )
+    # info/relationship/emotion/clue/ability/resource/recognition
+    kind: Mapped[str] = mapped_column(String(50), nullable=False, default="")
+    description: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    # 前段 / 中段 / 后段
+    location: Mapped[str] = mapped_column(String(20), nullable=False, default="")
 
 
 class ChapterPayoffItem(_ChapterChildMixin, Base):
@@ -294,7 +324,7 @@ class ChapterSegment(_ChapterChildMixin, Base):
     # 这段写什么（人类编辑主字段）
     summary: Mapped[str] = mapped_column(String(300), nullable=False, default="")
     target_words: Mapped[int | None] = mapped_column(Integer)
-    # AI 生成时的增强键（assembler 消费；人工分段通常为空）
+    # AI 生成时的增强键（分段提示词链路已退役，保留存量数据；人工分段通常为空）
     what_to_write: Mapped[str | None] = mapped_column(String(300))
     goal: Mapped[str | None] = mapped_column(String(300))
     emotional_tone: Mapped[str | None] = mapped_column(String(50))

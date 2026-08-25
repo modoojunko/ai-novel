@@ -98,6 +98,16 @@ def _int_or_none(value):
         return None
 
 
+def _normalize_enum(value, allowed: set, width: int):
+    """枚举列写入守卫：合法值截断落库，非法/空值置 None（读侧 ``or ""`` 语义不变）。"""
+    if value is None:
+        return None
+    s = str(value).strip()
+    if s not in allowed:
+        return None
+    return _fit(s, width)
+
+
 # ── 组装：DB 行 → 章 JSON（形态对齐 YAML 时代）──────────────────────────────
 
 
@@ -112,6 +122,8 @@ def assemble_chapter(row) -> dict:
     }
     if row.word_target is not None:
         data["word_target"] = row.word_target
+    if row.ladder_exit:
+        data["ladder_exit"] = row.ladder_exit
 
     outline: dict = {
         "key_points": [_format_key_point(k.func_tag, k.content) for k in row.key_points],
@@ -165,8 +177,19 @@ def assemble_chapter(row) -> dict:
                 "goal": s.goal,
                 "obstacle": s.obstacle,
                 "hook": s.hook,
+                **({"weight": s.weight} if s.weight else {}),
+                **({"focus": s.focus} if s.focus else {}),
             }
             for s in row.scene_cards
+        ]
+    if row.micro_payoffs:
+        data["micro_payoffs"] = [
+            {
+                "kind": m.kind,
+                "description": m.description,
+                "location": m.location,
+            }
+            for m in row.micro_payoffs
         ]
     if row.knowledge_states:
         data["knowledge_states"] = [
@@ -217,13 +240,18 @@ def _disassemble_scalars(row, data: dict) -> None:
     for json_key, col, width in _EMOTIONAL_SCALARS:
         setattr(row, col, _fit(emotional.get(json_key), width))
     row.word_target = _int_or_none(data.get("word_target"))
+    row.ladder_exit = _fit(data.get("ladder_exit"), 300)
 
 
 _CHILD_ATTRS = (
     "key_points", "characters", "payoff_items", "downtime_functions",
     "key_choices", "required_changes", "prohibitions",
-    "scene_cards", "knowledge_states", "segments",
+    "scene_cards", "micro_payoffs", "knowledge_states", "segments",
 )
+
+# 场景卡权重/焦点的合法值（越界值置空，防脏数据进提示词）
+_SCENE_WEIGHTS = {"high", "mid", "low"}
+_SCENE_FOCUS = {"核心冲突", "人物情绪", "信息差"}
 
 
 def _replace_children(row, data: dict) -> None:
@@ -234,6 +262,7 @@ def _replace_children(row, data: dict) -> None:
         ChapterKeyChoice,
         ChapterKeyPoint,
         ChapterKnowledgeState,
+        ChapterMicroPayoff,
         ChapterPayoffItem,
         ChapterProhibition,
         ChapterRequiredChange,
@@ -298,9 +327,21 @@ def _replace_children(row, data: dict) -> None:
             goal=_fit(sc.get("goal", ""), 300) or "",
             obstacle=_fit(sc.get("obstacle", ""), 300) or "",
             hook=_fit(sc.get("hook", ""), 300) or "",
+            weight=_normalize_enum(sc.get("weight"), _SCENE_WEIGHTS, 10),
+            focus=_normalize_enum(sc.get("focus"), _SCENE_FOCUS, 50),
         )
         for i, sc in enumerate(data.get("scene_cards") or [])
         if isinstance(sc, dict)
+    ]
+    row.micro_payoffs = [
+        ChapterMicroPayoff(
+            sort_order=i,
+            kind=_fit(mp.get("kind", ""), 50) or "",
+            description=_fit(mp.get("description", ""), 300) or "",
+            location=_fit(mp.get("location", ""), 20) or "",
+        )
+        for i, mp in enumerate(data.get("micro_payoffs") or [])
+        if isinstance(mp, dict) and str(mp.get("description") or "").strip()
     ]
     row.knowledge_states = [
         ChapterKnowledgeState(

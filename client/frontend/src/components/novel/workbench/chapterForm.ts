@@ -1,12 +1,49 @@
 // 章纲表单模型（OgPane / ChapterWorkspace 共用）：
 // 扁平 OgForm ↔ 后端 ChapterData 的纯映射 + 必填缺口计算。
 // 必填口径 = 后端 gate_chapter_ready 六项（与 book.html REQUIRED 一致）。
+// ai-prompt-crafting：新增提示词格子（场景卡 weight/focus、读者获得、章末落点、
+// 目标字数）——全部可空，不进必填缺口。
 import type { ChapterData } from "@/hooks/useOutline";
 
 export interface OgSeg {
   s: string;
   w: number;
 }
+
+export interface OgScene {
+  n: string; // scene_name 场景名
+  g: string; // goal 目标
+  o: string; // obstacle 阻碍
+  h: string; // hook 钩子
+  w: "" | "high" | "mid" | "low"; // 权重（高/中/低）
+  f: "" | "核心冲突" | "人物情绪" | "信息差"; // 焦点
+}
+
+export interface OgPayoff {
+  k: string; // kind 类型枚举（PAYOFF_KINDS 的 key）
+  d: string; // description 一句话描述
+  l: "" | "前段" | "中段" | "后段"; // location
+}
+
+export const SCENE_WEIGHTS = [
+  { value: "high", label: "高" },
+  { value: "mid", label: "中" },
+  { value: "low", label: "低" },
+] as const;
+
+export const SCENE_FOCUS = ["核心冲突", "人物情绪", "信息差"] as const;
+
+export const PAYOFF_KINDS = [
+  { value: "clue", label: "线索" },
+  { value: "reveal", label: "真相揭示" },
+  { value: "twist", label: "反转" },
+  { value: "emotion", label: "情绪共鸣" },
+  { value: "power", label: "实力成长" },
+  { value: "relation", label: "关系进展" },
+  { value: "relief", label: "压力释放" },
+] as const;
+
+export const PAYOFF_LOCATIONS = ["前段", "中段", "后段"] as const;
 
 export interface OgForm {
   title: string;
@@ -28,6 +65,11 @@ export interface OgForm {
   ban: string; // 一行一个 → memo.prohibitions[]
   mood: string; // * → emotional_design.primary_mood
   segs: OgSeg[]; // * → segments[{summary,target_words}]
+  // ── 提示词格子（ai-prompt-crafting，全可空）──
+  scenes: OgScene[]; // → scene_cards[]
+  payoffs: OgPayoff[]; // → micro_payoffs[]
+  ladder: string; // → ladder_exit 章末落点
+  wt: string; // → word_target 本章目标字数（500-6000）
 }
 
 export const REQ_FIELDS: { key: keyof OgForm; label: string }[] = [
@@ -59,10 +101,19 @@ export const EMPTY_OG_FORM: OgForm = {
   ban: "",
   mood: "",
   segs: [{ s: "", w: 800 }],
+  scenes: [],
+  payoffs: [],
+  ladder: "",
+  wt: "",
 };
 
 const lines = (s: string): string[] =>
   s.split("\n").map((x) => x.trim()).filter(Boolean);
+
+const SCENE_WEIGHT_SET = new Set<string>(SCENE_WEIGHTS.map((x) => x.value));
+const SCENE_FOCUS_SET = new Set<string>(SCENE_FOCUS);
+const PAYOFF_KIND_SET = new Set<string>(PAYOFF_KINDS.map((x) => x.value));
+const PAYOFF_LOC_SET = new Set<string>(PAYOFF_LOCATIONS);
 
 export function ogGaps(form: OgForm): { key: string; label: string }[] {
   const gaps: { key: string; label: string }[] = [];
@@ -105,6 +156,21 @@ export function ogToForm(d: ChapterData | null | undefined): OgForm {
       s: s.summary ?? "",
       w: s.target_words ?? 800,
     })),
+    scenes: (d?.scene_cards ?? []).map((sc) => ({
+      n: sc.scene_name ?? "",
+      g: sc.goal ?? "",
+      o: sc.obstacle ?? "",
+      h: sc.hook ?? "",
+      w: SCENE_WEIGHT_SET.has(sc.weight as OgScene["w"]) ? (sc.weight as OgScene["w"]) : "",
+      f: SCENE_FOCUS_SET.has(sc.focus ?? "") ? (sc.focus as OgScene["f"]) : "",
+    })),
+    payoffs: (d?.micro_payoffs ?? []).map((mp) => ({
+      k: PAYOFF_KIND_SET.has(mp.kind ?? "") ? (mp.kind as string) : "clue",
+      d: mp.description ?? "",
+      l: PAYOFF_LOC_SET.has(mp.location ?? "") ? (mp.location as OgPayoff["l"]) : "",
+    })),
+    ladder: d?.ladder_exit ?? "",
+    wt: d?.word_target != null ? String(d.word_target) : "",
   };
 }
 
@@ -113,6 +179,7 @@ export function ogToPartial(
   form: OgForm,
   existing?: ChapterData | null,
 ): Partial<ChapterData> {
+  const wt = parseInt(form.wt, 10);
   return {
     title: form.title,
     outline: {
@@ -148,5 +215,25 @@ export function ogToPartial(
       primary_mood: form.mood,
     },
     segments: form.segs.map((s) => ({ summary: s.s, target_words: s.w })),
+    // 提示词格子：场景卡只存非空场景名行（后端对空行 description 过滤同理）
+    scene_cards: form.scenes
+      .filter((sc) => sc.n.trim())
+      .map((sc) => ({
+        scene_name: sc.n.trim(),
+        goal: sc.g.trim(),
+        obstacle: sc.o.trim(),
+        hook: sc.h.trim(),
+        ...(sc.w ? { weight: sc.w } : {}),
+        ...(sc.f ? { focus: sc.f } : {}),
+      })),
+    micro_payoffs: form.payoffs
+      .filter((mp) => mp.d.trim())
+      .map((mp) => ({
+        kind: mp.k,
+        description: mp.d.trim(),
+        ...(mp.l ? { location: mp.l } : {}),
+      })),
+    ladder_exit: form.ladder.trim(),
+    word_target: Number.isFinite(wt) && wt > 0 ? wt : null,
   };
 }

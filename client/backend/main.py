@@ -248,6 +248,30 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass  # 列已存在
 
+    # ── 提示词格子：chapters/scene_cards 扩列（存在性守卫，幂等补列）──
+    # DDL 标识符无法走绑定参数；列名/类型取自静态元组，不掺运行期输入。
+    _ADD_COLUMNS: tuple[tuple[str, str, str], ...] = (
+        ("chapters", "ladder_exit", "VARCHAR(300)"),
+        ("chapter_scene_cards", "weight", "VARCHAR(10)"),
+        ("chapter_scene_cards", "focus", "VARCHAR(50)"),
+    )
+    async with engine.begin() as conn:
+
+        def _add_missing(sync_conn):
+            from sqlalchemy import inspect
+
+            insp = inspect(sync_conn)
+            for tbl, col, col_type in _ADD_COLUMNS:
+                if tbl in insp.get_table_names() and col not in (
+                    c["name"] for c in insp.get_columns(tbl)
+                ):
+                    sync_conn.execute(
+                        # nosec B608：静态元组拼接，无用户输入
+                        text(f"ALTER TABLE {tbl} ADD COLUMN {col} {col_type}")
+                    )
+
+        await conn.run_sync(_add_missing)
+
     # ── Seed preset genres ──────────────────────────────────────────
     try:
         from genres.service import ensure_seed_genres

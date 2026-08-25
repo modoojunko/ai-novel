@@ -211,12 +211,12 @@ describe("免费态：选中章 → 章对象工作台", () => {
     mockOneChapterTree();
     renderWorkspace("none");
     await selectFirstChapter();
-    // 三页签（章纲默认选中）
+    // 两页签（章纲默认选中；提示词子 label PRO-only：免费隐藏 ai-prompt-crafting）
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.length).toBe(3);
+    expect(tabs.length).toBe(2);
     const ogTab = screen.getByRole("tab", { name: /^章纲/ });
     expect(ogTab.getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByRole("tab", { name: /^提示词/ })).toBeDefined();
+    expect(screen.queryByRole("tab", { name: /^提示词/ })).toBeNull();
     expect(screen.getByRole("tab", { name: /^正文/ })).toBeDefined();
     // 工具栏章名（树行 + 工具栏两处「第一章」→ chMeta 对齐成功的证据）
     expect(screen.getAllByText("第一章").length).toBeGreaterThanOrEqual(2);

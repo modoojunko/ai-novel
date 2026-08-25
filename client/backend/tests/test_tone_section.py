@@ -1,16 +1,16 @@
 """叙事基调「## 叙事基调」块注入测试（ADR-007 题材/文风分离）。
 
 覆盖：build_tone_section 纯函数渲染（narrator_role + tone{default_tone,
-atmosphere, pov, techniques}，dict/list 双态，全空不注入）；两条写作路径
-（assemble_segment_prompt / build_chapter_context+to_prompt）都注入该块；
-题材定义（toneBlueprint）不再向提示词注入基调——只有文风表单的 tone 生效。
+atmosphere, pov, techniques}，dict/list 双态，全空不注入）；整章写作路径
+（build_chapter_context+to_prompt）注入该块；题材定义（toneBlueprint）
+不再向提示词注入基调——只有文风表单的 tone 生效。
+分段路径（assembler）已退役（ai-prompt-crafting），仅保留整章口径。
 """
 
 import asyncio
 import tempfile
 
 from filesystem.storage import get_storage
-from prompt.assembler import assemble_segment_prompt
 from settings.render import build_tone_section
 from write.chapter_writer import build_chapter_context
 
@@ -26,40 +26,6 @@ def _run_async(coro):
 
 def _tmp_root() -> str:
     return tempfile.mkdtemp(prefix="test_tone_section_")
-
-
-def _seed_assembler(root: str, style: dict):
-    """最小 assembler 文件结构 + 指定 writing-style。"""
-    _run_async(
-        get_storage().write_yaml(
-            root,
-            "settings/writing-style.yaml",
-            {"role": "一位小说家", "core_principles": "", "possible_mistakes": "", **style},
-        )
-    )
-    _run_async(
-        get_storage().write_yaml(
-            root,
-            "settings/anti-ai.yaml",
-            {"fatigue_words_zh": {}, "structural_tic_patterns": []},
-        )
-    )
-    _run_async(get_storage().write_yaml(root, "threads.yaml", {"threads": {}}))
-    _run_async(
-        get_storage().write_yaml(
-            root,
-            "chapters/vol-1-ch-1.yaml",
-            {
-                "volume": 1,
-                "chapter": 1,
-                "title": "第一章",
-                "outline": {"summary": "主角来到边境城邦。", "characters": []},
-                "memo": {},
-                "emotional_design": {"primary_mood": "紧张"},
-                "segments": [{"summary": "城门初见", "target_words": 800}],
-            },
-        )
-    )
 
 
 def _seed_writer(root: str, style: dict):
@@ -155,25 +121,6 @@ class TestBuildToneSection:
         assert build_tone_section({"tone": {}}) == ""
 
 
-# ── 分段路径 assembler ──────────────────────────────────────────────────
-
-
-class TestAssemblerToneInjection:
-    def test_injects_tone_block_from_style(self):
-        root = _tmp_root()
-        _seed_assembler(root, FULL_STYLE)
-        prompt = _run_async(assemble_segment_prompt(root, "vol-1-ch-1", 0, "测试小说"))
-        assert "## 叙事基调" in prompt
-        assert "叙事者角色：贴近主角的第三人称" in prompt
-        assert "氛围：压抑、烟火气" in prompt
-
-    def test_no_tone_means_no_block(self):
-        root = _tmp_root()
-        _seed_assembler(root, {})  # 无 narrator_role / tone
-        prompt = _run_async(assemble_segment_prompt(root, "vol-1-ch-1", 0, "测试小说"))
-        assert "## 叙事基调" not in prompt
-
-
 # ── 整章路径 chapter_writer ─────────────────────────────────────────────
 
 
@@ -201,7 +148,7 @@ class TestGenreDoesNotInjectTone:
     def test_genre_tone_blueprint_ignored_without_style_tone(self):
         """题材定义带 toneBlueprint 但文风无 tone → 提示词无「## 叙事基调」块。"""
         root = _tmp_root()
-        _seed_assembler(root, {})
+        _seed_writer(root, {})
         # genre.yaml 指定了题材 id，但该 id 在库中不存在 → resolve 优雅降级，
         # 且即使题材定义携带 toneBlueprint，也不应注入基调。
         _run_async(
@@ -209,6 +156,6 @@ class TestGenreDoesNotInjectTone:
                 root, "settings/genre.yaml", {"genre_id": "tone-ignored-genre"}
             )
         )
-        prompt = _run_async(assemble_segment_prompt(root, "vol-1-ch-1", 0, "测试小说"))
-        assert "## 题材设定" not in prompt
-        assert "## 叙事基调" not in prompt
+        ctx = _run_async(build_chapter_context(root, "vol-1-ch-1", "测试小说"))
+        assert "## 题材设定" not in ctx.to_prompt()
+        assert "## 叙事基调" not in ctx.to_prompt()

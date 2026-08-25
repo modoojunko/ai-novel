@@ -127,8 +127,11 @@ class TestExportFromDb:
         r4 = client.put(f"/api/novels/{pid}/chapters/{ref}", json=ch)
         assert r4.status_code == 200, r4.text
 
-        # 生成提示词（chapter_prompts 表）
-        r5 = client.post(f"/api/novels/{pid}/chapters/{ref}/prompts/generate")
+        # 生成提示词（chapter_prompts 表，整章单卡：PUT write 行）
+        r5 = client.put(
+            f"/api/novels/{pid}/chapters/{ref}/prompts/write",
+            json={"content": "整章写作提示词（城门初见）。"},
+        )
         assert r5.status_code == 200, r5.text
 
         # 归档（archives 表）
@@ -173,12 +176,9 @@ class TestExportFromDb:
         snapshot = json.loads(zf.read(version_names[0]))
         assert "灯火在雨里摇晃" in snapshot["prose"]
 
-        # 6. 生成提示词
+        # 6. 生成提示词（整章单卡，文件名形态 {ref}-write-prompt.md）
         prompt_names = sorted(n for n in names if n.startswith("prompts/"))
-        assert prompt_names == [
-            f"prompts/{ref}-seg-1-prompt.md",
-            f"prompts/{ref}-seg-2-prompt.md",
-        ]
+        assert prompt_names == [f"prompts/{ref}-write-prompt.md"]
         assert "城门初见" in zf.read(prompt_names[0]).decode("utf-8")
 
         # 7. 归档（派生文件名形态 vol-N-ch-M-{slug}.md）
