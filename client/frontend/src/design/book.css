@@ -427,5 +427,12 @@ body.focus .editor-wrap { padding-inline: 8vw; }
 }
 @media (max-width: 640px) {
   .subsplit { grid-template-columns: 1fr; }
-  .sub-list { border-right: 0; border-bottom: 1px solid var(--border); padding-bottom: 10px; max-height: 220px; }
+  .sub-list, .settings-v .panel.sub-fill .sub-list { border-right: 0; border-bottom: 1px solid var(--border); padding-bottom: 10px; max-height: 220px; height: auto; }
 }
+
+/* ─── 多对象面板满栏（settings-sub-fill）：角色/伏笔子双栏占满中间栏整宽整高 ── */
+.settings-v .panel.sub-fill { max-width: none; width: 100%; margin: 0; display: flex; flex-direction: column; min-height: 100%; }
+.settings-v .panel.sub-fill .sub-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.settings-v .panel.sub-fill .subsplit { flex: 1; min-height: 0; }
+.settings-v .panel.sub-fill .sub-list { max-height: none; height: 100%; }
+.settings-v .panel.sub-fill .sub-form { min-height: 0; overflow-y: auto; padding-right: 4px; }

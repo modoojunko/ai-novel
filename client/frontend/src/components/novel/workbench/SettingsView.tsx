@@ -245,7 +245,9 @@ export default function SettingsView({
 
       <main className="col-middle">
         <div className="col-panel">
-        <div className="panel">
+        <div
+          className={`panel${panel === "chars" || panel === "foreshadow" ? " sub-fill" : ""}`}
+        >
           <div className="panel-head">
             <h2>{panelTitle}</h2>
             <span className={`badge ${badgeCls}`}>
@@ -255,7 +257,9 @@ export default function SettingsView({
           </div>
           <p className="desc">{panelDesc}</p>
 
-          <div>
+          <div
+            className={panel === "chars" || panel === "foreshadow" ? "sub-wrap" : undefined}
+          >
             {panel === "genre" && (
               <GenreSettingForm
                 ref={genreRef}

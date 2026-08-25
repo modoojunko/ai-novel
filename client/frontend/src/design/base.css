@@ -143,7 +143,7 @@ input, textarea, select { font: inherit; }
 .rail-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--surface); display: grid; gap: 6px; }
 .rail-card b { font-size: 13px; }
 .subsplit { display: grid; grid-template-columns: 180px 1fr; gap: 14px; min-height: 0; }
-.sub-list { border-right: 1px solid var(--border); padding-right: 10px; display: flex; flex-direction: column; gap: 6px; max-height: 560px; overflow-y: auto; }
+.sub-list { border-right: 1px solid var(--border); padding-right: 10px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
 .sub-list-head { font-size: 13px; font-weight: 500; display: flex; align-items: baseline; gap: 6px; margin-bottom: 2px; }
 .sub-group { display: grid; gap: 2px; }
 .sub-group-label { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em; color: var(--muted); margin-top: 8px; }
