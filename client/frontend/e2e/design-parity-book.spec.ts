@@ -302,7 +302,7 @@ test.describe("design-parity 书工作台屏（book.html）", () => {
         const genreLoaded = appPage.waitForResponse("**/api/genres/deep-space");
         await appPage.locator(".modnav button", { hasText: "设定" }).click();
         await genreLoaded;
-        await appPage.waitForSelector(".two-col main h2");
+        await appPage.waitForSelector(".settings-v main h2");
       } else if (c.screen === "preview") {
         const proseLoaded = appPage.waitForResponse(
           `**/api/novels/${PID}/chapters/vol-1-ch-1`,

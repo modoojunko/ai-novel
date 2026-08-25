@@ -149,9 +149,9 @@ test("免费建书直达写作工作台：零 phase-status，无阶段催促，m
 
     // ⑦ 免费可进设定视图 → 经 modnav「写作」返回
     await page.getByRole("button", { name: /^设定/ }).click();
-    // v2 two-col 设定视图挂载（左栏导航短名「世界」可见即证明）
+    // 设定视图挂载（三栏 col-tree 左栏导航短名「世界」可见即证明）
     await expect(
-      page.locator(".two-col aside").getByText("世界", { exact: true }),
+      page.locator(".settings-v .col-tree").getByText("世界", { exact: true }),
     ).toBeVisible({ timeout: 5000 });
     await page.getByRole("button", { name: /^写作/ }).click();
     await expect(page.getByText("开始创作")).toBeVisible();

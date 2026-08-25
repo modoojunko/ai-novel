@@ -30,6 +30,7 @@ from prompt.router import router as prompt_router
 from settings.ai_router import router as settings_ai_router
 from settings.router import router as settings_router
 from settings.status import router as settings_status_router
+from story.arc_wizard import router as story_arc_wizard_router
 from story.router import router as story_router
 from workflow.router import backfill_router as workflow_backfill_router
 from workflow.router import router as workflow_router
@@ -392,6 +393,7 @@ app.include_router(archive_router)
 app.include_router(archives_router)
 app.include_router(chapters_versions_router)
 app.include_router(story_router)
+app.include_router(story_arc_wizard_router)
 app.include_router(workflow_router)
 app.include_router(workflow_backfill_router)
 

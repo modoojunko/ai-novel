@@ -54,6 +54,56 @@ class UpdateStoryBody(BaseModel):
     synopsis: str = ""
 
 
+class ArcVolumeRow(BaseModel):
+    title: str = ""
+    conflict: str = ""
+    chapters: str = ""  # 字符串：数字或「待定」/?
+
+
+class ArcEndingBody(BaseModel):
+    scene: str = ""  # 最后一幕画面
+    hero: str = ""  # 主角最终怎样
+    tone: str = ""  # 基调（悲/喜/开放）
+
+
+class StoryArcBody(BaseModel):
+    premise: str = ""  # 一句话主线：谁+想要什么+什么拦着
+    ending: ArcEndingBody = ArcEndingBody()
+    volumes: list[ArcVolumeRow] = []
+
+
+def _arc_volume_effective(row: dict) -> bool:
+    """分卷行有有效内容（非整行待定/空）。"""
+    for f in ("title", "conflict", "chapters"):
+        v = str(row.get(f, "")).strip()
+        if v and v not in ("待定", "?", "？"):
+            return True
+    return False
+
+
+def _arc_has_content(arc: dict) -> bool:
+    """主线有有效内容：一句话主线非空，或任一分卷行非待定。"""
+    if str(arc.get("premise", "")).strip():
+        return True
+    volumes = arc.get("volumes")
+    if isinstance(volumes, list):
+        return any(isinstance(v, dict) and _arc_volume_effective(v) for v in volumes)
+    return False
+
+
+def _arc_next_step(arc: dict) -> int:
+    """向导续步推断（保守取第一个未完成步骤）：1 主线 / 2 结局 / 3 分卷 / 4 自查。"""
+    if not str(arc.get("premise", "")).strip():
+        return 1
+    ending = arc.get("ending") or {}
+    if not any(str(ending.get(f, "")).strip() for f in ("scene", "hero", "tone")):
+        return 2
+    volumes = arc.get("volumes") or []
+    if not any(isinstance(v, dict) and _arc_volume_effective(v) for v in volumes):
+        return 3
+    return 4
+
+
 GENRE_CORPUS_NAMES = {
     "suspense-crime": "悬疑刑侦",
     "urban-romance": "都市言情",
@@ -321,6 +371,67 @@ async def update_story(
     story["synopsis"] = body.synopsis.strip()
     await get_storage().write_yaml(project.root_path, "story.yaml", story)
     return {"ok": True, "synopsis": body.synopsis.strip()}
+
+
+@router.get("/{project_id}/story/arc")
+async def get_story_arc(
+    project_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """读主线卡（story.yaml.story_arc，整存整取；空卡返回空结构）。"""
+    project = await get_novel(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Novel not found")
+    story = await get_storage().read_yaml(project.root_path, "story.yaml") or {}
+    arc = story.get("story_arc") or {}
+    if not isinstance(arc, dict):
+        arc = {}
+    ending = arc.get("ending") or {}
+    volumes = arc.get("volumes") if isinstance(arc.get("volumes"), list) else []
+    data = {
+        "premise": str(arc.get("premise", "") or ""),
+        "ending": {f: str(ending.get(f, "") or "") for f in ("scene", "hero", "tone")},
+        "volumes": [
+            {f: str(v.get(f, "") or "") for f in ("title", "conflict", "chapters")}
+            for v in volumes
+            if isinstance(v, dict)
+        ],
+    }
+    return {**data, "next_step": _arc_next_step(data), "has_content": _arc_has_content(data)}
+
+
+@router.put("/{project_id}/story/arc")
+async def update_story_arc(
+    project_id: str,
+    body: StoryArcBody,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """写主线卡（整份覆盖；空/待定均合法，不触发 AI）。"""
+    project = await get_novel(db, project_id, user["id"])
+    if not project:
+        raise HTTPException(404, "Novel not found")
+    arc = {
+        "premise": body.premise.strip(),
+        "ending": {
+            "scene": body.ending.scene.strip(),
+            "hero": body.ending.hero.strip(),
+            "tone": body.ending.tone.strip(),
+        },
+        "volumes": [
+            {
+                "title": v.title.strip(),
+                "conflict": v.conflict.strip(),
+                "chapters": v.chapters.strip(),
+            }
+            for v in body.volumes
+        ],
+    }
+    story = await get_storage().read_yaml(project.root_path, "story.yaml") or {}
+    story["story_arc"] = arc
+    await get_storage().write_yaml(project.root_path, "story.yaml", story)
+    return {"ok": True, **arc, "next_step": _arc_next_step(arc)}
 
 
 @router.delete("/{project_id}")

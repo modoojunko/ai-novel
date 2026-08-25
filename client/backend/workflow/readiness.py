@@ -75,9 +75,21 @@ async def _check_characters(root_path: str) -> bool:
     return any(f.endswith(".yaml") for f in files)
 
 
+async def _check_story_arc(root_path: str) -> bool:
+    """主线卡：一句话主线非空，或任一分卷行有非待定内容（novels/router 同源逻辑）。"""
+    from novels.router import _arc_has_content
+
+    story = await get_storage().read_yaml(root_path, "story.yaml") or {}
+    arc = story.get("story_arc")
+    if not isinstance(arc, dict):
+        return False
+    return _arc_has_content(arc)
+
+
 # 判定表（单一来源）：key -> (label, jump, checker)
 READINESS_CHECKERS: list[tuple[str, str, str, object]] = [
     ("synopsis", "故事简介", "synopsis", _check_synopsis),
+    ("story-arc", "主线规划", "story-arc", _check_story_arc),
     ("genre", "题材类型", "genre", _check_genre),
     ("world", "世界设定", "world", _check_world),
     ("style", "写作风格", "style", _check_style),

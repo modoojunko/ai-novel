@@ -225,7 +225,7 @@ export default function LandingPage() {
                   "归档阅读",
                   "卷章配置",
                   "进阶设定入口",
-                  "7 项创作设定",
+                  "8 项创作设定",
                 ].map((f) => (
                   <div key={f} className="f">
                     <Ico d={P.check} size={14} style={{ color: "var(--ok)" }} />

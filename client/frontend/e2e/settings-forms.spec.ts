@@ -159,11 +159,11 @@ async function apiPostJSON(
   return r.json();
 }
 
-// ── v2 设定视图定位助手（.two-col = 设定/预览视图根；写作视图常驻挂载但非 two-col）──
+// ── v2 设定视图定位助手（settings-three-col 后设定根 = .settings-v 三栏：col-tree/col-middle/col-ai；预览仍 two-col）──
 
-/** 在设定左栏点一个导航项（aside 内精确匹配短名：题材/简介/世界/风格/…）。 */
+/** 在设定左栏点一个导航项（col-tree 内精确匹配短名：题材/简介/世界/风格/…）。 */
 async function openSetting(page: Page, label: string) {
-  await page.locator(".two-col aside").getByText(label, { exact: true }).click();
+  await page.locator(".settings-v .col-tree").getByText(label, { exact: true }).click();
 }
 
 /**
@@ -231,7 +231,7 @@ test("题材：真实题材选择器（空态 → 选 都市日常 → 应用题
     await page.getByRole("button", { name: /^设定/ }).click();
     // v2 默认面板 = 题材（左栏首项）
     await expect(
-      page.locator(".two-col main h2", { hasText: "题材" }),
+      page.locator(".settings-v main h2", { hasText: "题材" }),
     ).toBeVisible({ timeout: 10000 });
 
     // 空态：cur-genre「未选择」+ 选择题材按钮
@@ -372,12 +372,11 @@ test("角色：真实创建角色（创建弹窗 → 基本信息 → 确认完�
       timeout: 10000,
     });
 
-    // 创建弹窗：角色名 + 反派 role + 创建（按钮为 spark 图标 + 文案；
-    // 面板无选中时弹窗输入唯一，取 .last() 防面板「角色名」同名 placeholder 干扰）
+    // 行内新建（settings-three-col 子双栏）：左栏「新建角色」→ 名称 + 角色 select + 添加
     await page.getByRole("button", { name: "新建角色" }).click();
-    await page.getByPlaceholder("角色名").last().fill("林晚");
-    await page.getByRole("button", { name: "角色：反派" }).click();
-    await page.getByRole("button", { name: "创建", exact: true }).click();
+    await page.locator(".sub-add").getByPlaceholder("角色名").fill("林晚");
+    await page.locator(".sub-add").getByRole("combobox").selectOption("antagonist");
+    await page.getByRole("button", { name: "添加", exact: true }).click();
 
     // 创建后自动选中：列表行 + 表单角色名（异步加载完成再输入，避免覆盖）
     await expect(
@@ -578,7 +577,7 @@ test("P2-1 面板切换守卫：脏表单切换需确认，取消保留输入", 
     page.once("dialog", (d) => void d.accept());
     await openSetting(page, "风格");
     await expect(
-      page.locator(".two-col main h2", { hasText: "风格" }),
+      page.locator(".settings-v main h2", { hasText: "风格" }),
     ).toBeVisible({ timeout: 5000 });
 
     // 后端未写入任何世界设定（脏输入未保存）
@@ -600,20 +599,14 @@ test("P2-1b 角色切换守卫：脏表单切换需确认，取消保留输入",
     await page.getByRole("button", { name: /^设定/ }).click();
     await openSetting(page, "角色");
 
-    // 创建两个角色（走真实创建弹窗）。弹窗 portal 到 body 且带 200ms 退场，
-    // 面板选中角色又有同名 placeholder 输入 → 统一收窄到激活态弹窗
-    // （.modal.show：进场即挂、退场立刻摘 .show）避免 .last() 竞态填错框。
+    // 创建两个角色（行内新建：左栏输入名称 → 添加；配角为默认角色）
     for (const name of ["阿甲", "阿乙"]) {
       await page.getByRole("button", { name: "新建角色" }).click();
-      const dlg = page.locator("div.modal.show");
-      await expect(dlg).toBeVisible();
-      await dlg.getByPlaceholder("角色名").fill(name);
-      await dlg.getByRole("button", { name: "角色：配角" }).click();
-      await dlg.getByRole("button", { name: "创建", exact: true }).click();
+      await page.locator(".sub-add").getByPlaceholder("角色名").fill(name);
+      await page.getByRole("button", { name: "添加", exact: true }).click();
       await expect(
         page.locator(".char-row", { hasText: name }),
       ).toBeVisible({ timeout: 5000 });
-      await expect(dlg).toBeHidden({ timeout: 5000 });
     }
     // 创建第二个角色后自动选中「阿乙」；先切回「阿甲」（干净，无弹窗）。
     // 阿甲数据为异步加载（GET /settings/character/阿甲），须等表单角色名=阿甲
