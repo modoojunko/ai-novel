@@ -8,7 +8,19 @@ from auth_local.deps import require_ai_access
 from auth_local.middleware import get_current_user
 from db import get_db
 from novels.service import get_novel
-from workflow.engine import _validate_ref, load_chapter, update_phase
+from workflow.engine import _validate_ref, can_transition, load_chapter, update_phase
+
+
+def _advance_phase(project, target: str) -> None:
+    """宽容推进：阶段机只进不退，返工（如 write 阶段重润色→prompt）不允许回退。
+
+    此时跳过推进而非抛 ValueError→500——润色/生成结果本身已合法落库，
+    阶段标记保持现状不影响后续操作（write/archive 均为幂等入口）。
+    """
+    if project.current_phase == target or can_transition(
+        project.current_phase, target
+    ):
+        update_phase(project, target)
 from write.auxiliary import expand_text, polish_text, stream_continue
 from write.quality import run_quality_checks
 
@@ -191,8 +203,8 @@ async def polish_write_prompt(
     from prompt.store import save_prompt
 
     await save_prompt(project.root_path, chapter_ref, "write-prompt", polished)
-    # 润色接管分段 generate 退役后的阶段推进（outline→prompt）
-    update_phase(project, "prompt")
+    # 润色接管分段 generate 退役后的阶段推进（outline→prompt；返工回退跳过）
+    _advance_phase(project, "prompt")
     await db.commit()
 
     from api_configs.usage import record_usage
@@ -240,17 +252,25 @@ async def write_chapter(
     from write.chapter_writer import build_chapter_context
 
     ctx = await build_chapter_context(project.root_path, chapter_ref, project.name)
-    prompt = prompt_override or ctx.to_prompt()
+    if prompt_override:
+        prompt = prompt_override
+    else:
+        # 无覆盖直写：优先复用存量 write-prompt（通常是已润色版），与 GET 端点同优先级；
+        # 避免粗组兜底静默覆盖已润色内容。无存量才落粗组。
+        from prompt.store import load_prompt
+
+        stored = (await load_prompt(project.root_path, chapter_ref, "write-prompt")).strip()
+        prompt = stored or ctx.to_prompt()
 
     # Save prompt for review（chapter_prompts 表，PR④）
     from prompt.store import save_prompt
 
     await save_prompt(project.root_path, chapter_ref, "write-prompt", prompt)
 
-    # 粗组兜底路径允许跳过润色直写：outline→prompt→write 桥接（阶段机不放宽）
+    # 粗组兜底路径允许跳过润色直写：outline→prompt→write 桥接；返工回退跳过
     if project.current_phase == "outline":
-        update_phase(project, "prompt")
-    update_phase(project, "write")
+        _advance_phase(project, "prompt")
+    _advance_phase(project, "write")
     await db.commit()
 
     return StreamingResponse(

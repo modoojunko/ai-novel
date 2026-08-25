@@ -10,7 +10,7 @@ from db import get_db
 from models.archive import ChapterPrompt
 from novels.service import get_novel
 from repositories import chapter_repo
-from workflow.engine import _validate_ref
+from workflow.engine import _validate_ref, load_chapter
 
 
 class UpdatePromptRequest(BaseModel):
@@ -89,6 +89,7 @@ async def list_prompts(
     project = await get_novel(db, project_id, user["id"])
     if not project:
         raise HTTPException(404, "Project not found")
+    _validate_ref(chapter_ref)
     ch_row = await chapter_repo.get_by_ref(db, project.id, chapter_ref)
     if ch_row is None:
         return []

@@ -63,8 +63,13 @@ async function sRegisterAndLogin() {
 /**
  * 把 S端 会话写入 docker 容器的 config.json，返回恢复函数。
  * tier：trial（PRO，无 project_limit）/ none（免费，限 1 部作品）。
+ *
+ * 竞态守卫：上一测试 teardown 时残留页面的 check-auth（restore 已还回真实
+ * pc_hash → S端 grant code 0）会在 C端 后端异步回写 config.json，可能晚于
+ * 本次写入落地，把注入 token 冲掉 → 业务请求 401。写入后观察一段时间，
+ * 被冲掉即重写，连续两轮稳定才放行。
  */
-function writeOAuthSession(t: string, u: string, tier = "trial") {
+async function writeOAuthSession(t: string, u: string, tier = "trial") {
   const original = fs.readFileSync(CONFIG_PATH, "utf-8");
   const cfg = JSON.parse(original);
   cfg.token = t;
@@ -77,7 +82,17 @@ function writeOAuthSession(t: string, u: string, tier = "trial") {
   // 关键：随机 pc_hash 使 S端 check-auth 无该设备 grant（返回 code 1），useAuthHeal 不覆盖
   // config.json，注入 token 保持有效。保留真实 pc_hash 会命中 modoojunko 已授权设备 → 401。
   cfg.pc_hash = randomUUID().replace(/-/g, "");
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
+  const mine = JSON.stringify(cfg, null, 2);
+  const writeMine = () => fs.writeFileSync(CONFIG_PATH, mine);
+  writeMine();
+  for (let stable = 0, tries = 0; stable < 2 && tries < 10; tries++) {
+    await new Promise((r) => setTimeout(r, 300));
+    if (fs.readFileSync(CONFIG_PATH, "utf-8") === mine) stable += 1;
+    else {
+      writeMine();
+      stable = 0;
+    }
+  }
   return () => fs.writeFileSync(CONFIG_PATH, original);
 }
 
@@ -90,7 +105,7 @@ async function setupSession(
   tier = "trial",
 ): Promise<{ restore: () => void; token: string }> {
   const { token, username } = await sRegisterAndLogin();
-  const restore = writeOAuthSession(token, username, tier);
+  const restore = await writeOAuthSession(token, username, tier);
   await page.addInitScript((t) => localStorage.setItem("auth_token", t), token);
   return { restore, token };
 }

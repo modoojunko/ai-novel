@@ -54,7 +54,11 @@ async function sRegisterAndLogin() {
   return { token: loginBody.data.token as string, username: name };
 }
 
-function writeOAuthSession(t: string, u: string, tier = "trial") {
+/** 写 config.json 带竞态守卫：上一测试 teardown 残留页面的 check-auth（真实
+ * pc_hash 命中 grant）会在服务端异步回写冲掉注入 token → 401；写入后观察，
+ * 被冲掉即重写，连续两轮稳定才放行。
+ */
+async function writeOAuthSession(t: string, u: string, tier = "trial") {
   const original = fs.readFileSync(CONFIG_PATH, "utf-8");
   const cfg = JSON.parse(original);
   cfg.token = t;
@@ -63,13 +67,23 @@ function writeOAuthSession(t: string, u: string, tier = "trial") {
   delete cfg.expires_at;
   cfg.last_login_at = new Date().toISOString();
   cfg.pc_hash = randomUUID().replace(/-/g, "");
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
+  const mine = JSON.stringify(cfg, null, 2);
+  const writeMine = () => fs.writeFileSync(CONFIG_PATH, mine);
+  writeMine();
+  for (let stable = 0, tries = 0; stable < 2 && tries < 10; tries++) {
+    await new Promise((r) => setTimeout(r, 300));
+    if (fs.readFileSync(CONFIG_PATH, "utf-8") === mine) stable += 1;
+    else {
+      writeMine();
+      stable = 0;
+    }
+  }
   return () => fs.writeFileSync(CONFIG_PATH, original);
 }
 
 async function setupSession(page: Page): Promise<{ restore: () => void; token: string }> {
   const { token, username } = await sRegisterAndLogin();
-  const restore = writeOAuthSession(token, username);
+  const restore = await writeOAuthSession(token, username);
   await page.addInitScript((t) => localStorage.setItem("auth_token", t), token);
   return { restore, token };
 }

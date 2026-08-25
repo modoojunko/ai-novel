@@ -4,7 +4,9 @@ target-version = "py312"
 [lint]
 # B008 — FastAPI Depends() in default argument is the standard framework pattern
 # ASYNC230 — blocking calls in async functions; we accept this in startup/shutdown
-ignore = ["B008", "ASYNC230"]
+# RUF100 — ruff 0.16 默认不启用 E402，测试文件「env 先于 import」的
+# # noqa: E402 会被判 unused；保留 noqa 作未来口径防御，忽略此告警
+ignore = ["B008", "ASYNC230", "RUF100"]
 
 # Per-file: broad exception catches are intentional
 [lint.per-file-ignores]

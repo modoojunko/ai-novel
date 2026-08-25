@@ -53,8 +53,10 @@ def clamp_word_target(value) -> int:
     return n
 
 
-# 润色产物必备锚词（模板「硬性纪律」要求保留；缺失即轻校验不合格）
-_POLISH_ANCHORS = ("任务指示", "前情", "场景原材料", "红线", "质感")
+# 润色产物必备锚词（模板「硬性纪律」要求保留；缺失即轻校验不合格）。
+# 前情/场景原材料与素材包是否有对应段落强相关（无场景卡的章不能要求模型凭空产场景段），
+# 故不进无条件清单，改在 validate 内按素材有无条件校验。
+_POLISH_ANCHORS = ("任务指示", "红线", "质感")
 _PLACEHOLDER_RE = re.compile(r"\{[^}\n]*\}")
 
 
@@ -74,7 +76,9 @@ def validate_polished_prompt(text: str, ctx: "ChapterContext") -> list[str]:
     场景原材料段仅在素材包确有场景卡时才要求；爽点锚词仅在确有爽点时要求。
     """
     missing = [a for a in _POLISH_ANCHORS if a not in text]
-    if ctx.scene_cards and "场景" not in text:
+    if (ctx.previous_context or ctx.previous_chapter_recap) and "前情" not in text:
+        missing.append("前情")
+    if ctx._scene_material_text() and "场景原材料" not in text:
         missing.append("场景原材料")
     if ctx.micro_payoffs and "爽点" not in text:
         missing.append("爽点设计")
