@@ -175,9 +175,18 @@ def _existing_outline_markdown(chapter: dict) -> str:
     """本章现有章纲（改写基底）；空返回提示行。"""
     o = chapter.get("outline") if isinstance(chapter.get("outline"), dict) else {}
     memo = chapter.get("memo") if isinstance(chapter.get("memo"), dict) else {}
-    has = any(str(v or "").strip() for v in o.values()) or str(
-        memo.get("current_task", "") or ""
-    ).strip()
+    # 全格子口径：任一章纲格子有内容即视为「有现有章纲」（与前端覆盖确认判定同范围）
+    has = (
+        any(str(v or "").strip() for v in o.values())
+        or str(memo.get("current_task", "") or "").strip()
+        or any(
+            isinstance(s, dict) and str(s.get("summary", "") or "").strip()
+            for s in chapter.get("segments") or []
+        )
+        or bool(chapter.get("scene_cards"))
+        or bool(chapter.get("micro_payoffs"))
+        or str(chapter.get("ladder_exit", "") or "").strip()
+    )
     if not has:
         return "（无现有章纲，从零起草）"
     return json.dumps(

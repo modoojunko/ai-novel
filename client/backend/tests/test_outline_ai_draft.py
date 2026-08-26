@@ -277,6 +277,35 @@ class TestAiDraftSuccess:
         assert r.status_code == 200
         assert "作者已定的任务" in fake.last_kwargs["system"]
         assert "无现有章纲" not in fake.last_kwargs["system"]
+        # 首章（前情=哨兵）：素材包不含前情段
+        assert "【前情" not in fake.last_kwargs["system"]
+
+    def test_segments_only_counts_as_rewrite_base(self, client, monkeypatch):
+        """hardening：只填段落/场景卡的章不再被判「无现有章纲」（review P3）。"""
+        _set_tier("trial")
+        calls: list = []
+        fake = _setup_ai(monkeypatch, calls)
+        pid, ref = _create_project_and_chapter(client)
+
+        async def _seed():
+            session = async_session()
+            proj = await session.get(Novel, pid)
+            root = proj.root_path
+            await session.close()
+            await chapters_store.save_chapter(
+                root,
+                ref,
+                {
+                    "segments": [{"summary": "既定段落", "target_words": 900}],
+                    "scene_cards": [{"scene_name": "渡口", "goal": "出城"}],
+                },
+            )
+
+        _run_async(_seed())
+        r = client.post(f"/api/novels/{pid}/chapters/{ref}/outline/ai-draft")
+        assert r.status_code == 200
+        assert "既定段落" in fake.last_kwargs["system"]
+        assert "无现有章纲" not in fake.last_kwargs["system"]
 
 
 class TestAiDraftGuarded:
