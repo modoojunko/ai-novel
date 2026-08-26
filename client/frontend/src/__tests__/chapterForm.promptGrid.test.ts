@@ -157,3 +157,33 @@ describe("ogFormIssues（保存前拦截校验）", () => {
     expect(ogFormIssues({ ...EMPTY_OG_FORM, wt: "6000" })).toEqual([]);
   });
 });
+
+describe("AI 起草回填映射（outline-ai-draft）", () => {
+  it("草稿覆盖章纲格子，服务端非章纲字段保留、title 不被草稿改写", () => {
+    const server = {
+      ...FILLED,
+      title: "第三章（作者定名）",
+      scene_cards: [{ scene_name: "旧场景" }],
+      word_target: 3000,
+    } as ChapterData;
+    const draft = {
+      outline: { summary: "夜探账房" },
+      memo: { current_task: "拿到亏空证据" },
+      segments: [{ summary: "潜入", target_words: 800 }],
+      scene_cards: [
+        { scene_name: "账房", goal: "取证", obstacle: "守夜", hook: "暗格" },
+      ],
+      word_target: 4000,
+    };
+    const form = ogToForm({ ...server, ...draft } as ChapterData);
+    expect(form.title).toBe("第三章（作者定名）"); // title 保留服务端值
+    expect(form.summary).toBe("夜探账房");
+    expect(form.task).toBe("拿到亏空证据");
+    expect(form.scenes).toEqual([
+      { n: "账房", g: "取证", o: "守夜", h: "暗格", w: "", f: "" },
+    ]); // 草稿场景卡覆盖服务端旧卡
+    expect(form.wt).toBe("4000");
+    // 展开语义：草稿缺的键保留服务端值；真实后端草稿恒为全字段形状（sanitize 兜底）
+    expect(form.ladder).toBe("他收起通缉令，转身入夜色。");
+  });
+});

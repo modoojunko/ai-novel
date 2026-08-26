@@ -33,6 +33,7 @@ import {
   type OgForm,
 } from "./chapterForm";
 import { useChapterData } from "@/hooks/useChapterData";
+import { draftOutline } from "@/lib/ai";
 import type { useOutline } from "@/hooks/useOutline";
 import type { useWorkbench } from "@/hooks/useWorkbench";
 import { api, request } from "@/lib/api";
@@ -295,6 +296,31 @@ export default function ChapterWorkspace({
     // 切页签重渲后才可聚焦
     setTimeout(() => proseRef.current?.focus(), 60);
   }, [saveOg, proseRef]);
+
+  // ── AI 起草章纲（outline-ai-draft）：草稿回填表单不落库，3s 自动保存/手动保存承接 ──
+  const [aiDrafting, setAiDrafting] = useState(false);
+  const handleAiDraft = useCallback(async () => {
+    const hasContent =
+      [ogForm.task, ogForm.summary, ogForm.mood, ogForm.rstate, ogForm.rstrat, ogForm.changes].some(
+        (v) => String(v ?? "").trim() !== "",
+      ) || ogForm.segs.length > 0;
+    if (hasContent && !window.confirm("AI 起草将覆盖当前表单内容（未保存的修改会丢失），继续？")) {
+      return;
+    }
+    setAiDrafting(true);
+    try {
+      const draft = await draftOutline(projectId, chapterRef);
+      const serverData = outline.chaptersMap.get(chapterRef);
+      // 以服务端数据为底、草稿覆盖章纲格子；title 保留服务端值
+      setOgForm(ogToForm({ ...(serverData ?? {}), ...draft } as never));
+      toast.success("AI 草稿已填入表单，检查修改后保存");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "AI 起草失败，请重试");
+    } finally {
+      setAiDrafting(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, chapterRef, ogForm, outline.chaptersMap]);
 
   // ── 提示词能力探测（tab 徽标 + PromptPane 共用；quiet：403 不弹升级） ──
   // 提示词子 label PRO-only（ai-prompt-crafting spec：免费隐藏 → 探测也只跑 PRO）
@@ -562,6 +588,9 @@ export default function ChapterWorkspace({
           onSaveDraft={() => void handleSaveDraft()}
           onConfirm={() => void handleConfirm()}
           onGoWrite={() => void handleGoWrite()}
+          canAiDraft={isPro}
+          aiDrafting={aiDrafting}
+          onAiDraft={() => void handleAiDraft()}
         />
       )}
 

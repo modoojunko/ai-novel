@@ -29,6 +29,10 @@ interface OgPaneProps {
   onSaveDraft: () => void;
   onConfirm: () => void;
   onGoWrite: () => void;
+  /** AI 起草（outline-ai-draft）：免费态不渲染入口；表单有内容时由上层 confirm */
+  canAiDraft?: boolean;
+  aiDrafting?: boolean;
+  onAiDraft?: () => void;
 }
 
 const MOODS = ["紧张", "悬疑", "温暖", "悲伤", "激昂", "轻松", "压抑", "浪漫", "惊悚"];
@@ -54,6 +58,9 @@ export default function OgPane({
   onSaveDraft,
   onConfirm,
   onGoWrite,
+  canAiDraft,
+  aiDrafting,
+  onAiDraft,
 }: OgPaneProps) {
   const moodVal = form.mood || "";
   const moodCustom = moodVal && !MOODS.includes(moodVal) ? moodVal : "";
@@ -80,6 +87,16 @@ export default function OgPane({
       <div className="panel">
         <div className="panel-head">
           <h2>章纲 · {label}</h2>
+          {canAiDraft && onAiDraft ? (
+            <button
+              className="btn btn-secondary btn-sm"
+              data-testid="og-ai-draft"
+              disabled={aiDrafting || saving}
+              onClick={onAiDraft}
+            >
+              {aiDrafting ? "AI 起草中…" : "AI 起草"}
+            </button>
+          ) : null}
           {confirmed ? (
             <span className="badge ok">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
