@@ -17,7 +17,11 @@ from filesystem.storage import get_storage
 from novels.service import get_novel
 from prompts import load as load_prompt
 from workflow.engine import _validate_ref, load_chapter
-from write.chapter_writer import build_chapter_context, strip_code_fences
+from write.chapter_writer import (
+    _CH1_PREVIOUS,
+    build_chapter_context,
+    strip_code_fences,
+)
 
 router = APIRouter(
     prefix="/api/novels/{project_id}/chapters/{chapter_ref}/outline", tags=["chapters"]
@@ -43,6 +47,14 @@ def _str_list(v) -> list[str]:
     return [str(x).strip() for x in v if str(x).strip()]
 
 
+def _seg_words(v) -> int:
+    """段落字数规整：字符串/非法值转 int，失败回落 800（与 word_target clamp 同风格）。"""
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return 800
+
+
 def _sanitize_draft(d: dict) -> dict | None:
     """字段级兜底（与 chapterForm 回读同口径）；骨架缺失返回 None → 502。"""
     outline = d.get("outline") if isinstance(d.get("outline"), dict) else {}
@@ -56,7 +68,7 @@ def _sanitize_draft(d: dict) -> dict | None:
     segments = [
         {
             "summary": str(s.get("summary", "") or "").strip(),
-            "target_words": s.get("target_words", 800),
+            "target_words": _seg_words(s.get("target_words", 800)),
         }
         for s in (d.get("segments") if isinstance(d.get("segments"), list) else [])
         if isinstance(s, dict) and str(s.get("summary", "") or "").strip()
@@ -210,7 +222,7 @@ async def ai_draft_outline(
     blocks = [f"# 《{project.name}》章纲起草素材包"]
     blocks.append(f"【主线卡】\n{arc_md}")
     prev = ctx.previous_context or ctx.previous_chapter_recap
-    if prev and prev != "无前置章节，开篇直接切入角色当下行动，禁止大段世界观背景介绍。":
+    if prev and prev != _CH1_PREVIOUS:
         blocks.append(f"【前情（上一章结尾处境）】\n{prev}")
     bg = []
     if ctx.premise:

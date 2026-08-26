@@ -280,6 +280,21 @@ class TestAiDraftSuccess:
 
 
 class TestAiDraftGuarded:
+    def test_seg_target_words_coerced(self, client, monkeypatch):
+        """段落字数规整：字符串转 int，非法/缺省回落 800（hardening）。"""
+        _set_tier("trial")
+        calls: list = []
+        reply = VALID_DRAFT.replace(
+            '"segments": [{"summary": "潜入", "target_words": 800}, {"summary": "翻账", "target_words": 1000}]',
+            '"segments": [{"summary": "潜入", "target_words": "800"},'
+            ' {"summary": "翻账", "target_words": "很多"}, {"summary": "收尾"}]',
+        )
+        _setup_ai(monkeypatch, calls, reply=reply)
+        pid, ref = _create_project_and_chapter(client)
+        r = client.post(f"/api/novels/{pid}/chapters/{ref}/outline/ai-draft")
+        assert r.status_code == 200, r.text
+        assert [s["target_words"] for s in r.json()["segments"]] == [800, 800, 800]
+
     def test_no_story_arc_422_and_ai_not_called(self, client, monkeypatch):
         _set_tier("trial")
         calls: list = []

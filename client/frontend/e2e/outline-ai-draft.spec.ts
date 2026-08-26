@@ -222,6 +222,45 @@ test("已有内容：confirm 覆盖后才发起起草", async ({ page, request }
   }
 });
 
+test("只填场景卡：同样要覆盖确认；取消保留表单（hardening）", async ({ page, request }) => {
+  const { restore, token } = await setupSession(page);
+  let draftCalls = 0;
+  try {
+    await ensurePromptAccess(request, token);
+    await setupFirstChapter(page, `e2e-oad-场景确认-${Date.now()}`);
+    await page.route("**/api/novels/*/chapters/*/outline/ai-draft", (route) => {
+      draftCalls += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(DRAFT),
+      });
+    });
+
+    // 只填场景卡一行（其余格子全空）：先加一行再填场景名
+    await page.locator("#wf-scenes summary").click();
+    await page.getByRole("button", { name: "添加场景卡" }).click();
+    await page.locator("#wf-scenes input[data-scene='n']").first().fill("渡口");
+
+    // 第一次：dismiss 取消 → 不发请求、表单保留
+    page.once("dialog", (d) => void d.dismiss());
+    await page.getByTestId("og-ai-draft").click();
+    await page.waitForTimeout(500);
+    expect(draftCalls).toBe(0);
+    await expect(page.locator("#wf-scenes input[data-scene='n']").first()).toHaveValue("渡口");
+
+    // 第二次：accept → 发起并回填
+    page.once("dialog", (d) => void d.accept());
+    await page.getByTestId("og-ai-draft").click();
+    await expect(page.locator("#wf-scenes input[data-scene='n']").first()).toHaveValue("账房", {
+      timeout: 10000,
+    });
+    expect(draftCalls).toBe(1);
+  } finally {
+    restore();
+  }
+});
+
 test("失败：502 toast 提示且表单不动", async ({ page, request }) => {
   const { restore, token } = await setupSession(page);
   try {

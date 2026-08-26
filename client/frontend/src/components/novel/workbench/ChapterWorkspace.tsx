@@ -300,10 +300,16 @@ export default function ChapterWorkspace({
   // ── AI 起草章纲（outline-ai-draft）：草稿回填表单不落库，3s 自动保存/手动保存承接 ──
   const [aiDrafting, setAiDrafting] = useState(false);
   const handleAiDraft = useCallback(async () => {
+    // 覆盖确认判定覆盖全部章纲格子（含 ai-prompt-crafting 新格子）
     const hasContent =
-      [ogForm.task, ogForm.summary, ogForm.mood, ogForm.rstate, ogForm.rstrat, ogForm.changes].some(
+      [ogForm.task, ogForm.summary, ogForm.mood, ogForm.rstate, ogForm.rstrat, ogForm.changes, ogForm.ladder, ogForm.wt].some(
         (v) => String(v ?? "").trim() !== "",
-      ) || ogForm.segs.length > 0;
+      ) ||
+      ogForm.segs.length > 0 ||
+      ogForm.scenes.some((sc) =>
+        [sc.n, sc.g, sc.o, sc.h].some((v) => v.trim() !== "") || sc.w !== "" || sc.f !== "",
+      ) ||
+      ogForm.payoffs.some((p) => p.d.trim() !== "");
     if (hasContent && !window.confirm("AI 起草将覆盖当前表单内容（未保存的修改会丢失），继续？")) {
       return;
     }
