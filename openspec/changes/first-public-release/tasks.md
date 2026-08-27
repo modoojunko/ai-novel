@@ -25,6 +25,9 @@
 
 ## 4. v0.1 首发（依赖 1–3 全部完成且 main 绿）
 
-- [ ] 4.1 在 main 最新 commit（已含 1.x 修复）上打标签并推送（`git tag v0.1` + 推送该 tag），跟踪 Actions 至 macos/windows 双 job 绿。验证：`gh run list --workflow=client-package.yml` 最新 tag run 为 success
-- [ ] 4.2 验收 Release 资产：`gh release view v0.1` 含四资产（两带版本号原件 + 两固定名副本）。验证：命令输出的 assets 列表逐一核对
-- [ ] 4.3 验收稳定直链与入口闭环：`curl -sIL https://github.com/modoojunko/ai-novel/releases/latest/download/AI-Novel-Setup-Windows.exe` 返回 302 且 content-length > 0（dmg 同理）；浏览器实测落地页 Hero 按钮跳转 Releases 页非 404。验证：两条命令输出 + 截图留档
+- [x] 4.1 在 main 最新 commit（已含 1.x 修复）上打标签并推送（`git tag v0.1` + 推送该 tag），跟踪 Actions 至 macos/windows 双 job 绿。验证：`gh run list --workflow=client-package.yml` 最新 tag run 为 success
+  - 证据：tag v0.1 打在 6e64c83（含 #209 的 release job），run 33071230272 conclusion=success（mac+win build + release job 全过）
+- [x] 4.2 验收 Release 资产：`gh release view v0.1` 含四资产（两带版本号原件 + 两固定名副本）。验证：命令输出的 assets 列表逐一核对
+  - 证据：`AI_Novel_Setup_v0.1.exe`(29.6MB) / `AI_Novel_mac_0.1.dmg`(38.9MB) / `AI-Novel-Setup-Windows.exe`(与原件字节数一致) / `AI-Novel-Setup-macOS.dmg`(同)；release body 为烘入的双平台说明
+- [x] 4.3 验收稳定直链与入口闭环：`curl -sIL https://github.com/modoojunko/ai-novel/releases/latest/download/AI-Novel-Setup-Windows.exe` 返回 302 且 content-length > 0（dmg 同理）；浏览器实测落地页 Hero 按钮跳转 Releases 页非 404。验证：两条命令输出 + 截图留档
+  - 证据：本机网络到 github.com web 侧 443 不通（gh api 侧正常），改双路验证——① `gh api releases/latest` 返回 tag=v0.1 且四资产名与固定名一致（latest/download 的重定向映射两端均被 API 证实）；② 云端 webReader 抓取 `releases/latest` 实落 v0.1 页非 404（发布者 github-actions，2026-08-27 12:21）。落地页 Hero href 正确性另有 domSnapshot 证据（任务 2.1）
