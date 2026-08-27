@@ -81,6 +81,9 @@ def start_server():
         os.environ.setdefault("DATA_ROOT", str(data_root))
         os.environ.setdefault("SERVER_API_BASE",
             os.environ.get("AI_NOVEL_SERVER_API", "https://your-cloudbase-app.com/api"))
+        # S端 兜底基址：自定义域名解析偶发抖动时，call_server_api 自动切直连云托管
+        os.environ.setdefault("SERVER_API_FALLBACK",
+            os.environ.get("AI_NOVEL_SERVER_API_FALLBACK", ""))
 
         # PyInstaller 打包后，设置前端 dist 与 reference 模板路径（按打包布局探测）
         res_root = get_resource_root()
