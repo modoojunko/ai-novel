@@ -3,6 +3,12 @@ import { useSessionStore } from '@/stores/session'
 import AppButton from '@/components/ui/AppButton.vue'
 import Ico from '@/components/ui/Ico.vue'
 import { P } from '@/components/ui/icons'
+import {
+  LATEST_CLIENT_VERSION,
+  WINDOWS_INSTALLER_URL,
+  MACOS_INSTALLER_URL,
+  RELEASES_PAGE_URL,
+} from '@/constants/client-release'
 
 const session = useSessionStore()
 
@@ -44,14 +50,16 @@ const books = [
         >
           进入控制台
         </AppButton>
-        <AppButton
-          v-else
-          href="https://github.com/modoojunko/ai-novel/releases/latest"
-          variant="primary"
-          size="lg"
-        >
-          下载 Windows 版
-        </AppButton>
+        <template v-else>
+          <AppButton :href="WINDOWS_INSTALLER_URL" variant="primary" size="lg">
+            <Ico :d="P.download" />
+            下载 Windows 版
+          </AppButton>
+          <AppButton :href="MACOS_INSTALLER_URL" variant="secondary" size="lg">
+            <Ico :d="P.download" />
+            下载 macOS 版
+          </AppButton>
+        </template>
         <AppButton href="#pricing" variant="secondary" size="lg">查看套餐</AppButton>
       </div>
 
@@ -60,7 +68,8 @@ const books = [
         <router-link to="/login" class="lnk">去控制台激活 →</router-link>
       </p>
       <p class="text-sm" style="color: color-mix(in oklch, var(--muted) 65%, transparent)">
-        Windows 版本 · ~120MB · 注册即送 7 天试用
+        v{{ LATEST_CLIENT_VERSION }} · 支持 Windows 与 macOS · 注册即送 7 天试用
+        <a :href="RELEASES_PAGE_URL" target="_blank" rel="noopener" class="lnk">其他版本 →</a>
       </p>
     </div>
 
