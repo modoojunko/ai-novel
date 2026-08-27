@@ -51,8 +51,9 @@ a = Analysis(
         # AI 提示词模板：prompts/*.prompt 是运行时数据（prompts/__init__.py 靠 __file__ 定位），
         # 不打包进 datas 则冻结包内 load_prompt() 抛 FileNotFoundError → 所有 AI 功能崩
         (str(backend_dir / "prompts"), "prompts"),
-        # 发布期注入的 S端 地址（CI 构建时生成在 spec 同目录；本地开发无此文件则不打）
-        *([(str(spec_dir / "release.json"), "release.json")] if (spec_dir / "release.json").exists() else []),
+        # 发布期注入的 S端 地址（CI 构建时生成在 spec 同目录；本地开发无此文件则不打）。
+        # 注意 datas 的目标段是「目录」语义——写成文件名会造出同名目录套娃，须落资源根 "."。
+        *([(str(spec_dir / "release.json"), ".")] if (spec_dir / "release.json").exists() else []),
     ],
     hiddenimports=[
         'main', 'config', 'db', 'ai_client',
