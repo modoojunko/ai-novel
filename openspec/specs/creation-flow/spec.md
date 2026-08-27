@@ -110,7 +110,7 @@ TBD - created by archiving change creation-simplify. Update Purpose after archiv
 
 ### Requirement: 设定视图三段式布局
 
-设定视图应与写作视图采用一致的三段式布局：左侧设定项导航、中间当前设定项表单、右侧 AI 栏。AI 相关功能在右侧 AI 栏呈现，而非嵌入表单内部。
+设定视图 SHALL 与写作视图采用一致的三段式布局：左侧设定项导航、中间当前设定项表单、右侧 AI 栏。AI 相关功能在右侧 AI 栏呈现，而非嵌入表单内部。
 
 #### Scenario: 三栏呈现
 
@@ -149,7 +149,7 @@ TBD - created by archiving change creation-simplify. Update Purpose after archiv
 
 ### Requirement: 主线卡结局基调选择
 
-主线卡结局想法中的基调字段应以「问句 + 带解释的选项」形式呈现，用户无需任何说明即可理解在选什么、可否不选、如何取消。
+主线卡结局想法中的基调字段 SHALL 以「问句 + 带解释的选项」形式呈现，用户无需任何说明即可理解在选什么、可否不选、如何取消。
 
 #### Scenario: 呈现形式
 
@@ -190,7 +190,7 @@ TBD - created by archiving change creation-simplify. Update Purpose after archiv
 
 ### Requirement: 多对象设定的内嵌子双栏
 
-「角色」「伏笔」设定项的中间栏呈内嵌子双栏，且占满中间栏内容区。
+「角色」「伏笔」设定项的中间栏 SHALL 呈内嵌子双栏，且占满中间栏内容区。
 
 #### Scenario: 子双栏占满中间栏
 

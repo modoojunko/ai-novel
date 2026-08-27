@@ -7,7 +7,7 @@ TBD - created by archiving change 008-e2e-assertion-polish. Update Purpose after
 
 ### Requirement: 免费主流程 E2E 在当前代码上通过
 
-`free-writing-flow.spec.ts` 的全部用例必须在当前代码（本地 Vite dev，代理到 docker client-backend）上通过：建书直达正文工作台、树常驻「+新建卷/章」、树 CRUD（双击重命名 + hover 删除）、空章「未写」弱化、实时字数 + 自动保存、免费归档不 500 + 树 📦 即时同步、全程零 phase-status 请求。
+系统 SHALL 实现本条——`free-writing-flow.spec.ts` 的全部用例必须在当前代码（本地 Vite dev，代理到 docker client-backend）上通过：建书直达正文工作台、树常驻「+新建卷/章」、树 CRUD（双击重命名 + hover 删除）、空章「未写」弱化、实时字数 + 自动保存、免费归档不 500 + 树 📦 即时同步、全程零 phase-status 请求。
 
 #### Scenario: 免费建书直达正文且零阶段请求
 
@@ -39,7 +39,7 @@ TBD - created by archiving change 008-e2e-assertion-polish. Update Purpose after
 
 ### Requirement: PRO 创建流程 E2E 在当前代码上通过
 
-`creation-flow.spec.ts` 的全部用例必须在当前代码上通过：建书即进小说页、简介空不可完成设定、EmptyState 无门控直写第一章、设定 7 项确认后门控横幅消失、改名即时生效。
+系统 SHALL 实现本条——`creation-flow.spec.ts` 的全部用例必须在当前代码上通过：建书即进小说页、简介空不可完成设定、EmptyState 无门控直写第一章、设定 7 项确认后门控横幅消失、改名即时生效。
 
 #### Scenario: 建书即进入小说页
 
@@ -49,7 +49,7 @@ TBD - created by archiving change 008-e2e-assertion-polish. Update Purpose after
 
 ### Requirement: E2E 断言反映 DB 树迁移后的行为
 
-change 006/007 后树以 DB 为结构准、归档停写内嵌列表——E2E 断言不得再依赖旧行为（卷 YAML 内嵌列表、文件扫描树）。
+系统 SHALL 实现本条——change 006/007 后树以 DB 为结构准、归档停写内嵌列表——E2E 断言不得再依赖旧行为（卷 YAML 内嵌列表、文件扫描树）。
 
 #### Scenario: 树断言仅依赖 UI 呈现而非内部存储
 
@@ -59,7 +59,7 @@ change 006/007 后树以 DB 为结构准、归档停写内嵌列表——E2E 断
 
 ### Requirement: 回归收口
 
-change 008 完成后全量回归必须全绿：后端 `pytest tests/`（当前 313）、前端 `tsc --noEmit`、`vitest`（44）、`npm run build`，外加两条 E2E flow spec。
+系统 SHALL 实现本条——change 008 完成后全量回归必须全绿：后端 `pytest tests/`（当前 313）、前端 `tsc --noEmit`、`vitest`（44）、`npm run build`，外加两条 E2E flow spec。
 
 #### Scenario: 全量回归零失败
 
