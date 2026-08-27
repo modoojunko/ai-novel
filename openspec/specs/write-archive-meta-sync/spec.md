@@ -7,7 +7,7 @@ TBD - created by archiving change 007-write-archive-meta-sync. Update Purpose af
 
 ### Requirement: SSE 初稿写完刷新 DB 章元数据
 
-`write_chapter` 的 SSE 流完成后（`_stream_chapter` `is_done`），已落盘 YAML 的章必须刷新 DB 章行（`refresh_chapter_meta`），使 `word_count`/`has_prose`/`outline_status` 与正文一致。
+系统 SHALL 实现本条——`write_chapter` 的 SSE 流完成后（`_stream_chapter` `is_done`），已落盘 YAML 的章必须刷新 DB 章行（`refresh_chapter_meta`），使 `word_count`/`has_prose`/`outline_status` 与正文一致。
 
 #### Scenario: SSE 初稿完成后 DB word_count 反映正文
 
@@ -18,7 +18,7 @@ TBD - created by archiving change 007-write-archive-meta-sync. Update Purpose af
 
 ### Requirement: 续写完成后刷新 DB 章元数据
 
-`continue_writing` 的 SSE 流完成后（`stream_continue` `is_done`），合并后的 prose 必须刷新 DB 章行。
+系统 SHALL 实现本条——`continue_writing` 的 SSE 流完成后（`stream_continue` `is_done`），合并后的 prose 必须刷新 DB 章行。
 
 #### Scenario: 续写完成后 DB word_count 反映新正文
 
@@ -28,7 +28,7 @@ TBD - created by archiving change 007-write-archive-meta-sync. Update Purpose af
 
 ### Requirement: 归档停写内嵌列表并同步 DB 章行 archived 态
 
-`archive_chapter` 不得再写 `volumes/vol-N.yaml` 内嵌 chapters 列表（§4.3 唯一属主非镜像，change 006 起停写）；`archive` 端点必须在归档后把 DB 章行置 `status='archived'` + `archived_at=now`。
+系统 SHALL 实现本条——`archive_chapter` 不得再写 `volumes/vol-N.yaml` 内嵌 chapters 列表（§4.3 唯一属主非镜像，change 006 起停写）；`archive` 端点必须在归档后把 DB 章行置 `status='archived'` + `archived_at=now`。
 
 #### Scenario: 归档后 DB 章行 archived 且内嵌列表不再更新
 
@@ -46,7 +46,7 @@ TBD - created by archiving change 007-write-archive-meta-sync. Update Purpose af
 
 ### Requirement: 项目详情响应补 genre 字段
 
-`GET /novels/{id}` 响应必须含 `genre`（题材库 id）与 `genre_name`（题材名）；未选题材时二者为 `None`。
+系统 SHALL 实现本条——`GET /novels/{id}` 响应必须含 `genre`（题材库 id）与 `genre_name`（题材名）；未选题材时二者为 `None`。
 
 #### Scenario: 已选题材的项目详情含 genre
 
@@ -62,7 +62,7 @@ TBD - created by archiving change 007-write-archive-meta-sync. Update Purpose af
 
 ### Requirement: unarchive 恢复章为可编辑态
 
-`POST /chapters/{ref}/unarchive` 必须把归档章恢复为可编辑：章 YAML `status` 置 `draft`、清除 `archive_path`/`archive_summary`、保留 prose；DB 章行清 `archived_at`、`status` 置 `draft`。
+系统 SHALL 实现本条——`POST /chapters/{ref}/unarchive` 必须把归档章恢复为可编辑：章 YAML `status` 置 `draft`、清除 `archive_path`/`archive_summary`、保留 prose；DB 章行清 `archived_at`、`status` 置 `draft`。
 
 #### Scenario: 归档章 unarchive 后树恢复非归档态
 
