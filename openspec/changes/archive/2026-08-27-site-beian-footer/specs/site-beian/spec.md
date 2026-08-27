@@ -40,10 +40,10 @@ WHEN 环境配置了公安备案号时 THEN 备案信息条 SHALL 在 ICP 号同
 - **WHEN** 访客在首页滚动到页尾
 - **THEN** 备案信息条仅出现一次（位于版权行之后），不存在两条相邻重复内容
 
-### Requirement: www 域名可达性
+### Requirement: 对外入口域名可达性
 
-主域名 apex 与 www 子域 SHALL 均能以 HTTP(S) 正常访问站点且看到上述备案信息条；www 无解析或未绑定托管时 MUST 在上线清单中作为阻断项处理。
+2026-08-27 运维拍板：以 `www.awesomenovel.com` 作为对外唯一入口域名；主域名 apex 因 CloudBase 自定义域名名额限制未续挂绑定，裁定放弃、不再作为验收口径。系统 SHALL 保证访客经 `https://www.awesomenovel.com` 可正常以 HTTP(S) 访问站点并看到上述备案信息条。
 
-#### Scenario: 核查方从 www 进入
+#### Scenario: 核查方从对外入口进入
 - **WHEN** 访客通过 `https://www.awesomenovel.com` 打开站点
-- **THEN** 与 apex 域名相同的站点内容呈现，页底可见备案号链接
+- **THEN** TLS 握手有效、页面加载成功，页底可见备案号链接且 JS 产物含备案号文本
