@@ -18,7 +18,8 @@
 
 - [x] 3.1 S端 前端门禁：`cd server/frontend && npm run design:lint && npx vue-tsc --noEmit && npm run build` 全绿。验证：三条命令退出码均为 0
   - 证据：design:lint 严格扫描 47 文件存量 0（exit 0）；`npm run build`（内含 vue-tsc --noEmit）built in 667ms（exit 0）
-- [ ] 3.2 开 PR 到 main：只圈定本变更文件（`.github/workflows/client-package.yml`、两个 landing 组件、`openspec/changes/first-public-release/`），不夹带工作区既有的 `openspec/config.yaml` 与 `specs/design-system/spec.md` 未提交改动。验证：PR Files changed 清单逐项核对
+- [x] 3.2 开 PR 到 main：只圈定本变更文件（`.github/workflows/client-package.yml`、两个 landing 组件、`openspec/changes/first-public-release/`），不夹带工作区既有的 `openspec/config.yaml` 与 `specs/design-system/spec.md` 未提交改动。验证：PR Files changed 清单逐项核对
+  - 证据：PR #209 Files changed 共 12 项，全部属于本变更；CI 全绿（双平台打包 pass、`release` job 对 PR 触发显示 skipping——即规格「PR 构建不对外发布」场景的实证）；config.yaml 与 design-system spec 保持未提交未入 PR
 - [x] 3.3 本地起 S端 dev server 截落地页 Hero + 激活指引对照图，归档至 `openspec/changes/first-public-release/`（纯 S端 免原型的证据要求）。验证：change 目录存在截图文件
   - 证据：`screenshots/landing-hero.png`（1280×900 视口，Hero 按钮与书架 mock）+ `screenshots/landing-guide.png`（锚点直达 #guide，三步指引含新双平台文案）
 
