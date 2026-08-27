@@ -22,6 +22,7 @@ concurrency:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   build:
@@ -213,7 +214,9 @@ jobs:
           rm -rf "$STAGE"; mkdir -p "$STAGE"
           cp -R "dist/AI Novel.app" "$STAGE/"
           ln -s /Applications "$STAGE/Applications"
-          hdiutil create -volname "AI Novel" -srcfolder "$STAGE" -ov -format UDZO "dist/AI_Novel_mac_$VERSION.dmg"
+          # 输出名带 v 前缀，与 exe（installer.iss 模板内置 v）统一——
+          # 落地页版本化直链按此文件名拼接（src/constants/client-release.ts）
+          hdiutil create -volname "AI Novel" -srcfolder "$STAGE" -ov -format UDZO "dist/AI_Novel_mac_v$VERSION.dmg"
           rm -rf "$STAGE"
 
       - name: Upload macOS DMG
@@ -228,22 +231,45 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
-      # 固定命名副本：releases/latest/download/<固定名> 成为长期有效的最新版直链，
-      # 文件名不随版本号变化（落地页与营销物料引用此直链）
-      - name: Copy stable-name duplicates
-        run: |
-          cp artifacts/*/AI_Novel_Setup_*.exe artifacts/AI-Novel-Setup-Windows.exe
-          cp artifacts/*/AI_Novel_mac_*.dmg   artifacts/AI-Novel-Setup-macOS.dmg
-          ls -l artifacts/
       - name: Release (exe + dmg)
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/**/*
           body: |
             双平台桌面客户端安装包：Windows（exe）与 macOS（DMG）。
-            `AI-Novel-Setup-Windows.exe` / `AI-Novel-Setup-macOS.dmg` 为固定命名的最新版副本，可通过 `releases/latest/download/<文件名>` 直链长期引用。
             macOS 首次打开若提示"无法验证开发者"：右键 App → 「打开」，再确认一次即可。
             Windows 若出现 SmartScreen 提示：点「更多信息」→「仍要运行」。
+            发布后请到 Pull requests 合入自动开出的「落地页版本号」更新 PR，官网下载入口才会指向本版本。
+      # 发版同步：自动开「落地页版本号 bump」PR，人合入后走既有 push-main 部署管线更新官网。
+      # 漏合入不坏链——落地页继续指向上一版资产（历史资产永久保留），PR 本身即待办提醒。
+      - name: Open landing version bump PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          FILE="server/frontend/src/constants/client-release.ts"
+          BRANCH="chore/bump-landing-version-${GITHUB_REF_NAME}"
+          if [ ! -f "$FILE" ]; then
+            echo "::warning::$FILE 不存在，跳过 bump PR"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH" origin/main
+          sed -i "s|export const LATEST_CLIENT_VERSION = '.*'|export const LATEST_CLIENT_VERSION = '${VER}'|" "$FILE"
+          if git diff --quiet -- "$FILE"; then
+            echo "版本常量已是 ${VER}，无需 bump"
+            exit 0
+          fi
+          git add "$FILE"
+          git commit -m "chore(landing): 落地页客户端版本号更新为 ${GITHUB_REF_NAME}"
+          git push origin "$BRANCH"
+          gh pr create --base main --head "$BRANCH" \
+            --title "${GITHUB_REF_NAME} 已发布：落地页版本号待更新" \
+            --body "Release [${GITHUB_REF_NAME}](https://github.com/modoojunko/ai-novel/releases/tag/${GITHUB_REF_NAME}) 已发布。合入本 PR 后，落地页下载按钮与版本副行指向 ${GITHUB_REF_NAME} 资产（改动仅一行常量）。"
