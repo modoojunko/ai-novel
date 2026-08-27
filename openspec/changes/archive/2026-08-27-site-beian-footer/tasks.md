@@ -21,9 +21,9 @@
 ## 4. CI 接线与上线清单（运维）
 
 - [x] 4.1 `s-server-deploy.yml` 构建行内联注入 `${{ secrets.VITE_BEIAN_ICP }}` 等三变量并接 `probe:beian`；`server-frontend-ci.yml` 加 probe（无 secret 时仅告警）。验证：PR CI 绿；部署 yaml 语法检查过。
-- [ ] 4.2 前置探测 www 子域：`dig www.awesomenovel.com` + 探活响应体是否含站点与备案号；若未解析则按现托管类型补 DNS CNAME 或 CloudBase 自定义域名绑定。验证：www 与 apex 都能打开含备案号的站点。
-- [ ] 4.3 建 GitHub Secrets（`VITE_BEIAN_ICP` 必填，公安两项可选）→ 合入 main 自动部署 → 线上 apex/www 探活复查响应体含真实号码与 `beian.miit.gov.cn`。验证：线上 curl 响应体核对。
+- [x] 4.2 前置探测 www 子域：`dig www.awesomenovel.com` + 探活响应体是否含站点与备案号；若未解析则按现托管类型补 DNS CNAME 或 CloudBase 自定义域名绑定。验证：www 与 apex 都能打开含备案号的站点。（终态：www 已绑定生效、五项全绿；apex 因自定义域名额被裁定弃用，见 spec 口径）
+- [x] 4.3 建 GitHub Secrets（`VITE_BEIAN_ICP` 必填，公安两项可选）→ 合入 main 自动部署 → 线上 apex/www 探活复查响应体含真实号码与 `beian.miit.gov.cn`。验证：线上 curl 响应体核对。（琼ICP备2026012341号 已在 www 线上 JS 分包验证命中）
 
 ## 5. 收尾
 
-- [ ] 5.1 全部任务完成后走 `/opsx:archive` 归档本 change 并同步 spec。验证：`openspec validate --strict` 绿，`openspec/specs/site-beian/spec.md` 落库。
+- [x] 5.1 全部任务完成后走 `/opsx:archive` 归档本 change 并同步 spec。验证：`openspec validate --strict` 绿，`openspec/specs/site-beian/spec.md` 落库。
