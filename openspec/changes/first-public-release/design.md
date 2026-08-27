@@ -29,9 +29,9 @@
 
 Hero 主按钮 href 从 `https://github.com/mooodjunko/ai-novel/releases/latest` 修正 owner 为 `modoojunko`，仍指向**页面**而非直接 `.exe`/.dmg 直链：直链会让 300MB 级安装包立即开始下载且无法选择平台；Releases 页让用户按平台自选，fail-safe。按钮动词起句（「免费下载」）不变。
 
-### D3 · v1.0 打标必须晚于本变更合入
+### D3 · v0.1 打标必须晚于本变更合入
 
-release job 的新步骤只对**标签指向 commit 上的 workflow 定义**生效。因此顺序强制为：合入 PR → main CI 绿 → 再打 `v1.0`。若先打标则发布的是旧逻辑（无固定名副本），需要删 Tag 重来。
+release job 的新步骤只对**标签指向 commit 上的 workflow 定义**生效。因此顺序强制为：合入 PR → main CI 绿 → 再打 `v0.1`。若先打标则发布的是旧逻辑（无固定名副本），需要删 Tag 重来。
 
 ### D4 · 发布失败走「删 Tag 重打」而非 RC 演练
 
@@ -47,11 +47,11 @@ release job 的新步骤只对**标签指向 commit 上的 workflow 定义**生�
 ## Migration Plan
 
 1. 合入本变更 PR（workflow 增强 + 落地页两处文案/链接），main 全绿。
-2. 在 main 上打 `v1.0` 并推送 → 观察 Actions run 至双平台绿。
-3. 验证 Release：`gh release view v1.0` 见四资产；`curl -sIL .../releases/latest/download/AI-Novel-Setup-Windows.exe` 返回 302 且有体积。
+2. 在 main 上打 `v0.1` 并推送 → 观察 Actions run 至双平台绿。
+3. 验证 Release：`gh release view v0.1` 见四资产；`curl -sIL .../releases/latest/download/AI-Novel-Setup-Windows.exe` 返回 302 且有体积。
 4. 落地页截图对照归档进 change 目录（S端 微改的证据要求）。
-5. 回滚路径：任何环节失败 → `gh release delete v1.0 --cleanup-tag`（或删远程 tag）→ 修复后重打 `v1.0.x`；落地页改动独立于发布链路，可单独 revert。
+5. 回滚路径：任何环节失败 → `gh release delete v0.1 --cleanup-tag`（或删远程 tag）→ 修复后重打 `v0.1.x`；落地页改动独立于发布链路，可单独 revert。
 
 ## Open Questions
 
-（无——版本号 v1.0 与固定名文件已在 proposal/评审时拍板。）
+（无——版本号 v0.1 与固定名文件已在 proposal/评审时拍板。）

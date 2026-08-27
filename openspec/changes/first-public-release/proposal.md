@@ -7,7 +7,7 @@
 - CI release job 增强：发布 v* tag 时除带版本号的安装包外，额外上传两份固定命名副本（`AI-Novel-Setup-Windows.exe` / `AI-Novel-Setup-macOS.dmg`），使 `releases/latest/download/<固定名>` 成为稳定直链。
 - 落地页 HeroSection 下载按钮修链接拼写错误：`mooodjunko/ai-novel` → `modoojunko/ai-novel/releases/latest`。
 - 落地页激活指引第 1 步文案补 macOS：从"仅 Windows 客户端"改为双平台口径。
-- 运维动作（非代码）：在 main 上打 `v1.0` tag 推送，触发首个线上公开版发布（版本号拍板 v1.0，作为正式上线的第一个公开版）。
+- 运维动作（非代码）：在 main 上打 `v0.1` tag 推送，触发首个线上公开版发布（版本号拍板 v0.1，作为正式上线的第一个公开版）。
 
 不在本变更范围：macOS 正经签名与公证（需 Apple 开发者证书，ad-hoc 签名维持现状）、旧 v0.4 Release 清理。
 

@@ -10,9 +10,9 @@
 
 系统 SHALL 在推送 `v*` 标签时自动构建 Windows 安装包与 macOS DMG，并把两者挂载到该标签对应的 GitHub Release 上。每个此类 Release 的资产 MUST 同时具备两种平台的安装包；缺任一平台视同发布失败。非标签触发（如 PR、手动 dispatch）的构建 SHALL 只产出工作流工件（artifact），MUST NOT 创建或修改任何 GitHub Release。
 
-#### Scenario: 推送 v1.0.0 触发首个公开版
-- **WHEN** 向仓库推送标签 `v1.0.0`
-- **THEN** 构建完成后出现同名 GitHub Release，其资产同时包含带版本号的 `AI_Novel_Setup_1.0.0.exe` 与 `AI_Novel_mac_1.0.0.dmg`
+#### Scenario: 推送 v0.1.0 触发首个公开版
+- **WHEN** 向仓库推送标签 `v0.1.0`
+- **THEN** 构建完成后出现同名 GitHub Release，其资产同时包含带版本号的 `AI_Novel_Setup_0.1.0.exe` 与 `AI_Novel_mac_0.1.0.dmg`
 
 #### Scenario: PR 构建不对外发布
 - **WHEN** 打包流水线由 PR 或手动 dispatch 触发

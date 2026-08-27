@@ -23,8 +23,8 @@
 - [x] 3.3 本地起 S端 dev server 截落地页 Hero + 激活指引对照图，归档至 `openspec/changes/first-public-release/`（纯 S端 免原型的证据要求）。验证：change 目录存在截图文件
   - 证据：`screenshots/landing-hero.png`（1280×900 视口，Hero 按钮与书架 mock）+ `screenshots/landing-guide.png`（锚点直达 #guide，三步指引含新双平台文案）
 
-## 4. v1.0 首发（依赖 1–3 全部完成且 main 绿）
+## 4. v0.1 首发（依赖 1–3 全部完成且 main 绿）
 
-- [ ] 4.1 在 main 最新 commit（已含 1.x 修复）上打标签并推送（`git tag v1.0` + 推送该 tag），跟踪 Actions 至 macos/windows 双 job 绿。验证：`gh run list --workflow=client-package.yml` 最新 tag run 为 success
-- [ ] 4.2 验收 Release 资产：`gh release view v1.0` 含四资产（两带版本号原件 + 两固定名副本）。验证：命令输出的 assets 列表逐一核对
+- [ ] 4.1 在 main 最新 commit（已含 1.x 修复）上打标签并推送（`git tag v0.1` + 推送该 tag），跟踪 Actions 至 macos/windows 双 job 绿。验证：`gh run list --workflow=client-package.yml` 最新 tag run 为 success
+- [ ] 4.2 验收 Release 资产：`gh release view v0.1` 含四资产（两带版本号原件 + 两固定名副本）。验证：命令输出的 assets 列表逐一核对
 - [ ] 4.3 验收稳定直链与入口闭环：`curl -sIL https://github.com/modoojunko/ai-novel/releases/latest/download/AI-Novel-Setup-Windows.exe` 返回 302 且 content-length > 0（dmg 同理）；浏览器实测落地页 Hero 按钮跳转 Releases 页非 404。验证：两条命令输出 + 截图留档
