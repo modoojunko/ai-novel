@@ -61,13 +61,21 @@ jobs:
         # printf 回答灰度提问（No=部署成功后自动切换流量）；--wait 等待构建完成
         run: printf 'n\n' | tcb cloudrun deploy --service-name novel-s-server --source ./server --env-id ${{ vars.TCB_ENV_ID }} --force --wait
 
-      # ── 前端：本地构建（注入后端 API 地址）→ 静态托管 app（独立域名 + 版本管理）──
+      # ── 前端：本地构建 → 静态托管 app（独立域名 + 版本管理）──
       # TCB_BACKEND_DOMAIN 支持两种形态：裸域名（https://<统一域名>）或已带 /api
       # 尾巴——这里先归一化去掉尾部斜杠与 /api 再统一补一次，保证绝不出现 /api/api
-      # 备案号走 Secret 变量替换注入，真实号码不入仓库；构建后 probe:beian 校验产物
+      #
+      # ⚠️ 备案号注入的两个事实（#204 复盘）：
+      # 1. `tcb app deploy` 的 --build-command "" 并不会跳过云端构建——平台侧
+      #    会检测 Vite 后用 npm run build 重建并作为线上最终产物，runner 上带
+      #    secret 的构建只随包上传、被云端产物覆盖（历史注释「CI 注入失效」同理：
+      #    VITE_API_BASE 当年也是被云端重建吃掉后才改写死 .env.production 的）。
+      # 2. 云端构建读不到 runner 的 export，但会读包内的 .env 文件。
+      # => 把 secret 值生成到 .env.production.local（vite 优先级高于
+      #    .env.production，无同键覆盖歧义）：文件仅存在于 runner 工作区，
+      #    *.local 在 .gitignore 内永不入库；打包上传后云端按值烘焙 = 变量替换生效。
       - name: 构建前端
         working-directory: server/frontend
-        # export 让 build 与 probe 共用同一组注入值；probe 校验「配置号码必在产物」
         run: |
           npm ci
           BASE="$(printf '%s' "${{ vars.TCB_BACKEND_DOMAIN }}" | sed -E 's#/*$##; s#/api$##')"
@@ -75,11 +83,15 @@ jobs:
           export VITE_BEIAN_ICP="${{ secrets.VITE_BEIAN_ICP }}"
           export VITE_BEIAN_POLICE="${{ secrets.VITE_BEIAN_POLICE }}"
           export VITE_BEIAN_POLICE_LINK="${{ secrets.VITE_BEIAN_POLICE_LINK }}"
+          {
+            printf 'VITE_BEIAN_ICP=%s\n' "$VITE_BEIAN_ICP"
+            printf 'VITE_BEIAN_POLICE=%s\n' "$VITE_BEIAN_POLICE"
+            printf 'VITE_BEIAN_POLICE_LINK=%s\n' "$VITE_BEIAN_POLICE_LINK"
+          } > .env.production.local
           npm run build && npm run probe:beian
 
       - name: 部署前端（novel-s-web）
         # 在根目录执行（与 login 同目录）；--cwd 指定项目目录
-        # --install-command/--build-command 置空：本地已构建 dist，云端仅上传
         # --ignore 排除 node_modules 等大目录（否则上传数百 MB 卡死）
         run: tcb app deploy novel-s-web --env-id ${{ vars.TCB_ENV_ID }} --cwd server/frontend --install-command "" --build-command "" --output-dir dist --deploy-path / --force --ignore "**/node_modules/**,**/e2e/**,**/playwright-report/**"
 

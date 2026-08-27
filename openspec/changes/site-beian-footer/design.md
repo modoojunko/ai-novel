@@ -33,8 +33,8 @@ S端 前端为 Vue 3 + Vite 单页应用（`server/frontend/`），三种布局�
 
 ### D2. 备案信息走构建期环境变量注入（变量替换），源码与仓库零写入
 
-备案号变更频率≈年；首屏多一次请求换不来任何收益，还给落地页增加后端可用性耦合，且会破坏「静态托管独立可用」的现状。用 `import.meta.env.VITE_*` 读取；**真实号码绝不进仓库**——部署工作流在构建行用 GitHub Secrets 内联展开完成变量替换（同 `VITE_API_BASE="${BASE}/api"` 既有模式），`.env.production` 只留空占位与说明注释。
-*备选*：① 后端 `/api/config/beian` 动态下发 → 弃，理由如上；② 号码写死 `.env.production` → 弃（用户拍板不写死，仓库属公开面）；③ 值写 `.env.production` 以规避 CI 注入失效旧坑 → 不需要：该坑指通过 environment 变量间接传递的失稳，内联 `${{ secrets.* }}` 展开每轮可见于构建日志，且有产物探针兜底检测。
+备案号变更频率≈年；首屏多一次请求换不来任何收益，还给落地页增加后端可用性耦合，且会破坏「静态托管独立可用」的现状。用 `import.meta.env.VITE_*` 读取；**真实号码绝不进仓库**——部署时由 GitHub Secrets 解出值，在 runner 工作区生成随包上传的 `.env.production.local`（`*.local` 在 .gitignore 内），云端重建按包内该文件烘焙。
+*备选*：① 后端 `/api/config/beian` 动态下发 → 弃，理由如上；② 号码写死 `.env.production` → 弃（用户拍板不写死）；③ 仅靠工作流 export 注入 → **不可行**：#204 实测 `tcb app deploy --build-command ""` 并不跳过云端构建，平台侧会用不含 runner 环境的独立环境重建并覆盖上传产物（线上空号事故复盘结论），而云端会读包内 .env 文件——故必须以文件为载体过桥。
 
 ### D3. 变量清单与缺省行为
 
@@ -73,7 +73,7 @@ S端 前端现有测试面是 Playwright（无 vitest），不为此需求引入
 
 ## Migration Plan
 
-纯前端增量发布，无数据迁移：GitHub 仓库建 Secrets（`VITE_BEIAN_ICP` 等）→ 合入 main 自动部署即完成变量替换注入 → 探活 apex/www 域名响应体含备案号。回滚 = 重发上一版本产物。
+纯前端增量发布，无数据迁移：GitHub 仓库建 Secrets（`VITE_BEIAN_ICP` 等）→ 合入 main 自动部署，部署时生成包内 `.env.production.local` 供云端重建烘焙 → 探活 apex/www 域名 JS 产物含备案号。回滚 = 重发上一版本产物。
 
 ## Open Questions
 
