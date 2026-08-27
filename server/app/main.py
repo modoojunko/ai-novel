@@ -18,17 +18,34 @@ from app.interfaces.middleware import register_middleware
 from app.models.base import Base, engine
 
 
+def _collect_api_paths(routes) -> frozenset[str]:
+    """递归收集 /api 前缀的路由路径（新版 FastAPI 把 include_router 包成
+    _IncludedRouter 懒解析节点：自身无 .path/.routes，真实路由在其
+    .original_router.routes 下）。"""
+    out: set[str] = set()
+    for route in routes:
+        path = getattr(route, "path", None)
+        if path:
+            if path.startswith("/api"):
+                out.add(path)
+            continue
+        inner = getattr(route, "routes", None)
+        if inner is None:
+            inner = getattr(getattr(route, "original_router", None), "routes", None)
+        if inner is not None:
+            out |= _collect_api_paths(inner)
+    return frozenset(out)
+
+
 def create_app() -> FastAPI:
     """应用工厂。"""
     setup_logging()
-
     app = FastAPI(
         title="AI Novel - S Server",
         version="2.0.0",
         description="License 授权与设备管理服务（重构版）",
     )
 
-    register_middleware(app)
     register_handlers(app)
 
     from app.interfaces.admin_api import admin_router
@@ -38,6 +55,11 @@ def create_app() -> FastAPI:
     app.include_router(client_router)
     app.include_router(web_router)
     app.include_router(admin_router)
+
+    # 路由表先收齐再注册中间件（归一化层精确匹配这张表）；
+    # 注册顺序 = CORS → 前缀归一化 → 限流 → 访问日志，与原先一致，
+    # 归一化在最外层使限流/日志看到的是补回前缀后的路径。
+    register_middleware(app, api_paths=_collect_api_paths(app.routes))
 
     return app
 

@@ -10,9 +10,30 @@ export interface ApiResponse<T = any> {
   active_limit?: number
 }
 
+/**
+ * S端 API 基址规范化：统一保证带上 /api 路由前缀。
+ *
+ * 线上域名的路由规则用 /api/ 分流到后端服务，调用侧地址必须带该前缀；
+ * 本地 dev 默认同源 /api（nginx 反代 / vite 代理），云端静态托管构建时
+ * 注入 VITE_API_BASE。注入值允许两种形态：
+ *   https://<域名>       → 自动补成 https://<域名>/api
+ *   https://<域名>/api   → 保持原样（自定义子路径配置一律不改动）
+ */
+function normalizeApiBase(raw: string): string {
+  const v = raw.trim().replace(/\/+$/, '')
+  if (!v) return '/api'
+  if (v.startsWith('/')) return v
+  try {
+    const u = new URL(v)
+    if (!u.pathname || u.pathname === '/') return `${v}/api`
+  } catch {
+    /* 非 URL 形态按原样返回，交由 axios/浏览器解析报错 */
+  }
+  return v
+}
+
 const request: AxiosInstance = axios.create({
-  // 默认同源 /api（本地 nginx 反代）；云端静态托管无反代，构建时注入 VITE_API_BASE 指向后端域名
-  baseURL: import.meta.env.VITE_API_BASE || '/api',
+  baseURL: normalizeApiBase(import.meta.env.VITE_API_BASE as string | undefined || ''),
   // 60s：云托管 MinNum=0 缩容后首次请求需冷启动（30-60s），15s 默认超时会误报失败
   timeout: 60000,
   headers: { 'Content-Type': 'application/json' },

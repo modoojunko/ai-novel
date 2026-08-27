@@ -14,10 +14,21 @@ import httpx
 
 
 # 从 config.json 读取 S端 API 地址，避免环境变量传递问题
+def _normalize_server_api(base: str) -> str:
+    """线上统一走 域名+/api/ 路由：配置裸域名（无路径）时自动补 /api。
+
+    线上域名的路由规则用 /api/ 分流到 S端 后端，调用侧地址必须带该前缀；
+    允许显式带自定义子路径的配置（非空 path 一律不改动），只兜裸域名。
+    """
+    base = base.rstrip("/")
+    if base and not urllib.parse.urlsplit(base).path:
+        base += "/api"
+    return base
+
+
 def _get_server_api() -> str:
-    cfg = get_local_config()
-    return (
-        cfg.get("server_api", "")
+    return _normalize_server_api(
+        get_local_config().get("server_api", "")
         or os.environ.get("SERVER_API_BASE")
         or "https://your-cloudbase-app.com/api"
     )
@@ -25,9 +36,8 @@ def _get_server_api() -> str:
 
 def _get_public_server_api() -> str:
     """宿主可访问的 S端 API 地址（前端打开授权页用）；默认与 SERVER_API_BASE 一致"""
-    cfg = get_local_config()
-    return (
-        cfg.get("public_server_api", "")
+    return _normalize_server_api(
+        get_local_config().get("public_server_api", "")
         or os.environ.get("PUBLIC_SERVER_API")
         or _get_server_api()
     )

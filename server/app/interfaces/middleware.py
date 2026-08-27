@@ -61,12 +61,43 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
         return response
 
 
-def register_middleware(app):
+class ApiPathNormalizeMiddleware:
+    """域名按路径路由兼容层：补回被网关剥掉的 /api 前缀。
+
+    线上统一域名上配了「/api/ → S端后端」的路由规则，转发时会剥掉这截
+    /api（后端收到的请求不带它）；而后端路由本身以 /api 开头硬编码声明。
+    本中间件在进入路由前，把「命中既有路由的非 /api 形态」请求内部改写为
+    带 /api 的形态——即同一路由同时接受 带前缀/剥前缀 两种进法：
+      /web/login   （网关剥过）→ 内部按 /api/web/login 匹配
+      /api/web/login（直连云托管域名，保持原样）
+    仅精确匹配启动时收集到的路由表，其余路径原样放行。
+    """
+
+    def __init__(self, app, api_paths: frozenset[str]):
+        self.app = app
+        self.api_paths = api_paths
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            path = scope.get("path", "")
+            if path and not path.startswith("/api/") and f"/api{path}" in self.api_paths:
+                scope = dict(scope)
+                scope["path"] = f"/api{path}"
+                if "raw_path" in scope:
+                    scope["raw_path"] = scope["path"].encode()
+                logger.info("event=api_path_normalized from=%s to=%s", path, scope["path"])
+        await self.app(scope, receive, send)
+
+
+def register_middleware(app, api_paths: frozenset[str] | None = None):
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    if api_paths is not None:
+        # 最外层注册 = 最先执行：限流/访问日志看到的都是归一化后的路径
+        app.add_middleware(ApiPathNormalizeMiddleware, api_paths=api_paths)
     app.add_middleware(RateLimitMiddleware)
     app.add_middleware(AccessLogMiddleware)
