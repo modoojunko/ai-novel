@@ -6,7 +6,7 @@
  *   exe = AI_Novel_Setup_v<版本>.exe（installer.iss 模板）
  *   dmg = AI_Novel_mac_v<版本>.dmg（workflow hdiutil 步骤）
  */
-export const LATEST_CLIENT_VERSION = '0.1'
+export const LATEST_CLIENT_VERSION = '0.11'
 
 const RELEASES_DOWNLOAD_BASE = 'https://github.com/modoojunko/ai-novel/releases/download'
 
