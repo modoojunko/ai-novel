@@ -12,7 +12,7 @@
   #define MyAppVersion "0.0.0"
 #endif
 #define MyAppPublisher "AI Novel"
-#define MyAppURL "https://github.com/mooodjunko/ai-novel"
+#define MyAppURL "https://github.com/modoojunko/ai-novel"
 #define MyAppExeName "AI Novel.exe"
 
 [Setup]

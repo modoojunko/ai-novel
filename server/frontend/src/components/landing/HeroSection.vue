@@ -46,7 +46,7 @@ const books = [
         </AppButton>
         <AppButton
           v-else
-          href="https://github.com/mooodjunko/ai-novel/releases/latest"
+          href="https://github.com/modoojunko/ai-novel/releases/latest"
           variant="primary"
           size="lg"
         >
