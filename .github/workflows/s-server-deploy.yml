@@ -64,12 +64,18 @@ jobs:
       # ── 前端：本地构建（注入后端 API 地址）→ 静态托管 app（独立域名 + 版本管理）──
       # TCB_BACKEND_DOMAIN 支持两种形态：裸域名（https://<统一域名>）或已带 /api
       # 尾巴——这里先归一化去掉尾部斜杠与 /api 再统一补一次，保证绝不出现 /api/api
+      # 备案号走 Secret 变量替换注入，真实号码不入仓库；构建后 probe:beian 校验产物
       - name: 构建前端
         working-directory: server/frontend
+        # export 让 build 与 probe 共用同一组注入值；probe 校验「配置号码必在产物」
         run: |
           npm ci
           BASE="$(printf '%s' "${{ vars.TCB_BACKEND_DOMAIN }}" | sed -E 's#/*$##; s#/api$##')"
-          VITE_API_BASE="${BASE}/api" npm run build
+          export VITE_API_BASE="${BASE}/api"
+          export VITE_BEIAN_ICP="${{ secrets.VITE_BEIAN_ICP }}"
+          export VITE_BEIAN_POLICE="${{ secrets.VITE_BEIAN_POLICE }}"
+          export VITE_BEIAN_POLICE_LINK="${{ secrets.VITE_BEIAN_POLICE_LINK }}"
+          npm run build && npm run probe:beian
 
       - name: 部署前端（novel-s-web）
         # 在根目录执行（与 login 同目录）；--cwd 指定项目目录
