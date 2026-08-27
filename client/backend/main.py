@@ -19,6 +19,7 @@ from archive.router import router as archive_router
 
 # License 本地验证
 from auth_local.router import router as auth_local_router
+from chapters.ai_draft import router as chapters_ai_draft_router
 from chapters.router import router as chapters_router
 from chapters.versions import router as chapters_versions_router
 from db import Base, async_session, engine
@@ -387,6 +388,7 @@ app.include_router(settings_status_router)  # 先注册：GET /settings/status �
 app.include_router(settings_router)
 app.include_router(settings_ai_router)
 app.include_router(chapters_router)
+app.include_router(chapters_ai_draft_router)
 app.include_router(prompt_router)
 app.include_router(write_router)
 app.include_router(archive_router)
