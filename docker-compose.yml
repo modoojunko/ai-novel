@@ -57,6 +57,8 @@ services:
     environment:
       DATA_ROOT: /app/data
       SERVER_API_BASE: "${SERVER_API_BASE:-http://server-backend:19000/api}"
+      # S端 兜底基址：主基址解析/超时失败时 call_server_api 自动切（留空=无兜底）
+      SERVER_API_FALLBACK: "${SERVER_API_FALLBACK:-}"
       # 宿主可访问的 S端 地址（前端打开 OAuth 授权页用；容器内网名宿主解析不了）
       PUBLIC_SERVER_API: "${PUBLIC_SERVER_API:-http://localhost:${SERVER_HOST_PORT:-19000}/api}"
     depends_on:

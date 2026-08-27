@@ -4,6 +4,7 @@
 import base64
 import hashlib
 import json
+import logging
 import os
 import platform
 import subprocess
@@ -11,6 +12,8 @@ import urllib.parse
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
+
+logger = logging.getLogger("auth_local.service")
 
 
 # 从 config.json 读取 S端 API 地址，避免环境变量传递问题
@@ -40,6 +43,20 @@ def _get_public_server_api() -> str:
         get_local_config().get("public_server_api", "")
         or os.environ.get("PUBLIC_SERVER_API")
         or _get_server_api()
+    )
+
+
+def _get_server_api_fallback() -> str:
+    """S端 兜底基址：自定义域名解析抖动时 call_server_api 自动切直连。
+
+    取值链：config.json.server_api_fallback → env SERVER_API_FALLBACK /
+    AI_NOVEL_SERVER_API_FALLBACK → 空（无兜底，行为同旧版单基址）。
+    """
+    return _normalize_server_api(
+        get_local_config().get("server_api_fallback", "")
+        or os.environ.get("SERVER_API_FALLBACK")
+        or os.environ.get("AI_NOVEL_SERVER_API_FALLBACK")
+        or ""
     )
 
 
@@ -203,23 +220,34 @@ async def call_server_api(
     params: dict | None = None,
     json_body: dict | None = None,
 ) -> dict:
-    url = f"{_get_server_api()}/{endpoint}"
-    try:
-        # 60s：云托管 MinNum=0 缩容后首次请求需冷启动（30-60s），10s 会误报超时
-        async with httpx.AsyncClient(timeout=60) as client:
-            if method == "GET":
-                resp = await client.get(url, params=params)
-            else:
-                resp = await client.post(url, json=json_body)
-            try:
-                return resp.json()
-            except ValueError:
-                # 云托管网关冷启动/重启期间可能返回空体或 HTML 错误页
-                return {"code": -1, "msg": f"S端响应异常（HTTP {resp.status_code}）"}
-    except httpx.TimeoutException:
-        return {"code": -1, "msg": "网络超时"}
-    except httpx.RequestError as e:
-        return {"code": -1, "msg": f"网络错误: {e!s}"}
+    # 主基址失败（自定义域名解析抖动/超时）自动切兜底基址，终端用户零感知
+    bases = list(
+        dict.fromkeys(
+            b for b in (_get_server_api(), _get_server_api_fallback()) if b
+        )
+    )
+    last_err_msg = "S端 不可达"
+    for base in bases:
+        url = f"{base}/{endpoint}"
+        try:
+            # 60s：云托管 MinNum=0 缩容后首次请求需冷启动（30-60s），10s 会误报超时
+            async with httpx.AsyncClient(timeout=60) as client:
+                if method == "GET":
+                    resp = await client.get(url, params=params)
+                else:
+                    resp = await client.post(url, json=json_body)
+                try:
+                    return resp.json()
+                except ValueError:
+                    # 云托管网关冷启动/重启期间可能返回空体或 HTML 错误页
+                    return {"code": -1, "msg": f"S端响应异常（HTTP {resp.status_code}）"}
+        except httpx.TimeoutException:
+            last_err_msg = "网络超时"
+            logger.warning("event=s_api_call_timeout base=%s endpoint=%s", base, endpoint)
+        except httpx.RequestError as e:
+            last_err_msg = f"网络错误: {e!s}"
+            logger.warning("event=s_api_call_error base=%s endpoint=%s error=%s", base, endpoint, e)
+    return {"code": -1, "msg": last_err_msg}
 
 
 async def browser_auth(silent: bool = False) -> dict:
