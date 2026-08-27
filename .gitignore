@@ -114,3 +114,6 @@ agent/
 # 本地运行时与跨会话交接文档（勿提交）
 .dev-runtime/
 handoff.md
+
+# 发布期注入产物（CI 生成）
+client/packaging/build/release.json

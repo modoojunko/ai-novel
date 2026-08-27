@@ -58,6 +58,28 @@ jobs:
           npm ci
           npm run build
 
+      # ── 发布期注入：把线上 S端 域名写成 release.json，随 datas 烘进安装包 ──
+      # 换域名只改仓库 Variables：CLIENT_SERVER_API_BASE / CLIENT_SERVER_API_FALLBACK；
+      # 未配置 Variable（含 fork PR 场景）回落到云托管直连——开箱可用、与营销域名解耦。
+      # 运行时优先级：用户 config.json / 环境变量 > 包内 release.json（见 pywebview_app.start_server）。
+      - name: Generate release.json (bake S端 endpoints)
+        working-directory: client/packaging/build
+        shell: bash
+        env:
+          RELEASE_SERVER_API_BASE: ${{ vars.CLIENT_SERVER_API_BASE || 'https://novel-s-server-297265-7-1468883265.sh.run.tcloudbase.com/api' }}
+          RELEASE_SERVER_API_FALLBACK: ${{ vars.CLIENT_SERVER_API_FALLBACK || 'https://novel-s-server-297265-7-1468883265.sh.run.tcloudbase.com/api' }}
+        run: |
+          python - <<'PY'
+          import json, os
+          cfg = {
+              "server_api_base": os.environ["RELEASE_SERVER_API_BASE"],
+              "server_api_fallback": os.environ["RELEASE_SERVER_API_FALLBACK"],
+          }
+          with open("release.json", "w", encoding="utf-8") as f:
+              json.dump(cfg, f, ensure_ascii=False, indent=2)
+          print(json.dumps(cfg, ensure_ascii=False))
+          PY
+
       - name: Install deps (backend + packaging)
         shell: bash
         run: |
@@ -70,6 +92,17 @@ jobs:
           cd client/packaging/build
           rm -rf dist build_py
           python -m PyInstaller build.spec --clean --noconfirm --workpath build_py
+
+      # 冒烟前置断言：release.json 必须真实烘进产物（两平台布局不同，find 探测不硬编码）
+      - name: Assert release.json baked into bundle
+        shell: bash
+        run: |
+          F="$(find "client/packaging/build/dist" -name release.json -print -quit)"
+          if [ -z "$F" ]; then
+            echo "::error::release.json 未打进安装包——检查 build.spec datas 条件与生成步骤"
+            exit 1
+          fi
+          python -c "import json,sys; d=json.load(open(sys.argv[1],encoding='utf-8')); assert str(d.get('server_api_base','')).startswith('https://'), d; print('baked:', sys.argv[1], '->', d['server_api_base'])" "$F"
 
       # 冒烟：跑真实产物（--smoke 无头模式，不起 GUI），轮询 /api/health + 断言前端被服务。
       # 不跑这步，缺失 datas/hiddenimport 的坏包照样绿（历史上漏过 prompts/env.js）。

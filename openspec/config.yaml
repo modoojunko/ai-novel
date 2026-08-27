@@ -1,32 +1,47 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+# 项目上下文：任何 explore/propose/apply 的 AI 都会先读到这一段。
+context: |
+  单用户桌面 AI 长篇小说应用「爱小说」。C端 client/frontend = React 19 + Vite + TS（HashRouter），
+  Tailwind 仅作布局工具类；视觉体系为 Open Design v2 自研 oklch tokens + 语义组件类（src/design/*.css），
+  lucide/emoji 图形一律禁止，图标唯一来源是 src/components/icons.tsx 注册表。
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  设计事实源三件套（改任何界面都要经过它们）：
+    - docs/design-c/DESIGN.md + scripts/design-vocab.mjs —— 机器可读词汇表（两处必须同步修改）
+    - docs/design-c/prototypes/*.html                    —— 像素 parity 基线（本地 gitignored）
+    - docs/design-c/ADJUSTMENTS.md                       —— 原型偏差登记簿
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+  设计方法论与统一组件候选集见 docs/ux/：
+    audit.html（逐页评估与 P0–P3 缺口）· design-language.html（状态语言总表 §5 / 组件词汇 §6 /
+    删除分级 §12 / 文案术语 §13）· components.html · uikit/（Pill·Status·Notice·EmptyState·Confirm 可搬运实现）。
+
+  硬性流程（任何用户可见改动）：
+    1. 先改原型 prototypes/<screen>.html，并在 ADJUSTMENTS.md 登记每处偏差的原因；
+    2. 再改实现 src/；
+    3. 门禁：npm run design:lint 通过 → npm run design:check 全绿（各场景像素差 <0.2%）
+       → npx tsc --noEmit → 相关 e2e 更新后通过。
+
+rules:
+  proposal:
+    - 凡含用户可见界面改动的 proposal 必须包含「## Design Impact」段：写出受影响的屏/弹层清单、
+      用到或新增的对象状态（对照 docs/ux design-language.html §5 状态语言总表）、是否需要原型先行、
+      以及由谁产出设计工件（实现侧自查 or 设计侧会话）。
+    - 用户可见文案遵循 design-language.html §13 口径：按钮词必须是动词、不出现内部术语（门控/就绪度/SSE 等）、
+      补救语句必须带一个可点击出口。
+    - "Capabilities 段：改动落在令牌档位 / 组件词汇 / 状态语言上时，声明 Modified: design-system。"
+  tasks:
+    - UI 变更的第一个任务固定为「原型先行」：列出要改的 prototype 文件与 ADJUSTMENTS.md 待登记项。
+    - 「回归」小节必须给出三条命令的实际输出结论：npm run design:lint / npm run design:check / npx tsc --noEmit。
+    - 不允许引入词汇表之外的裸 hex、emoji 图形、未登记字号档位；确有必要的，单列一条登记任务而不是顺手内联。
+
+operations:
+  apply:
+    guidance:
+      - 动手前先核对对应原型已经更新且 ADJUSTMENTS.md 有登记；proposal 里声明了设计侧产出但工件尚未落地的，
+        停下来向用户索取，不要凭空脑补视觉。
+      - 每个 UI 任务的完成证据 = design:check 输出摘要（各场景像素差 %）+ 对照截图路径，追加在该 checkbox 下。
+  archive:
+    guidance:
+      - 归档时把本次新增/改变的状态语义回填 docs/design-c/DESIGN.md 与 scripts/design-vocab.mjs（两处同步铁律）。
+      - 本次用到的组件若出自 docs/ux/uikit 候选集，在 uikit/README.md 映射表标注「已收编 + 收编位置」。
+      - 若 Capability 属 design-system，同步核对该 spec 与原型基线仍一致。
