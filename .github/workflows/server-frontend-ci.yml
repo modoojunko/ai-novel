@@ -31,3 +31,7 @@ jobs:
         run: npx vue-tsc --noEmit
       - name: Build
         run: npm run build
+      # PR CI 无 secrets：探针在此仅输出「未配置备案号」告警验证脚本可运行；
+      # 真正的产物断言（配置号码必在产物）由 s-server-deploy 部署线执行
+      - name: 备案产物探针
+        run: npm run probe:beian

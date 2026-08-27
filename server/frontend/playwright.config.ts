@@ -29,5 +29,7 @@ export default defineConfig({
     url: 'http://localhost:5175',
     reuseExistingServer: !process.env.CI,
     timeout: 30000,
+    // 备案条 e2e 的「有号世界」：固定测试号，不受本机 .env 状态影响
+    env: { ...process.env, VITE_BEIAN_ICP: process.env.VITE_BEIAN_ICP || '粤ICP备TEST0000001号' },
   },
 })

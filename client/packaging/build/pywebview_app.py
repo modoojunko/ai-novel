@@ -79,11 +79,33 @@ def start_server():
 
         # 设置环境变量 — 数据目录在安装目录下（便携）
         os.environ.setdefault("DATA_ROOT", str(data_root))
-        os.environ.setdefault("SERVER_API_BASE",
-            os.environ.get("AI_NOVEL_SERVER_API", "https://your-cloudbase-app.com/api"))
 
         # PyInstaller 打包后，设置前端 dist 与 reference 模板路径（按打包布局探测）
         res_root = get_resource_root()
+
+        # ── S端 地址解析链：显式环境变量 > 发布期 release.json（CI 构建期烘焙）> 占位 ──
+        # release.json 由打包工作流生成并随 datas 分发；本地开发没有它 → 行为与历史一致。
+        # setdefault 语义保证装机后手工改 config.json / 环境变量始终优先。
+        try:
+            from config import load_release_overrides
+            release = load_release_overrides(str(res_root))
+        except Exception:
+            release = {}
+
+        def _env_with_release(name: str, key: str, fallback: str):
+            if not os.environ.get(name) and release.get(key):
+                os.environ[name] = release[key]
+            if not os.environ.get(name):
+                os.environ[name] = fallback
+
+        _env_with_release("SERVER_API_BASE", "server_api_base",
+            os.environ.get("AI_NOVEL_SERVER_API", "https://your-cloudbase-app.com/api"))
+        # S端 兜底基址：自定义域名解析偶发抖动时，call_server_api 自动切直连云托管
+        _env_with_release("SERVER_API_FALLBACK", "server_api_fallback",
+            os.environ.get("AI_NOVEL_SERVER_API_FALLBACK", ""))
+        _env_with_release("PUBLIC_SERVER_API", "public_server_api",
+            os.environ.get("AI_NOVEL_PUBLIC_SERVER_API", ""))
+
         frontend_dist = res_root / "frontend"
         if frontend_dist.exists():
             os.environ.setdefault("FRONTEND_DIST", str(frontend_dist))

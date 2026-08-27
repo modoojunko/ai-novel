@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import AppButton from '@/components/ui/AppButton.vue'
+import SiteBeianBar from '@/components/site/SiteBeianBar.vue'
 </script>
 
 <template>
-  <div class="auth-wrap">
-    <div class="nf">
-      <div class="nf-code serif num" aria-hidden="true">404</div>
-      <h1>页面不存在</h1>
-      <p class="nf-sub">你访问的页面可能已移除或地址有误</p>
-      <AppButton to="/" variant="secondary">返回首页</AppButton>
+  <div class="page-col">
+    <div class="auth-wrap">
+      <div class="nf">
+        <div class="nf-code serif num" aria-hidden="true">404</div>
+        <h1>页面不存在</h1>
+        <p class="nf-sub">你访问的页面可能已移除或地址有误</p>
+        <AppButton to="/" variant="secondary">返回首页</AppButton>
+      </div>
     </div>
+    <SiteBeianBar />
   </div>
 </template>
 

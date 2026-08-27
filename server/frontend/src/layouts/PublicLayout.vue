@@ -3,12 +3,15 @@ import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import AppButton from '@/components/ui/AppButton.vue'
+import SiteBeianBar from '@/components/site/SiteBeianBar.vue'
 
 const route = useRoute()
 const session = useSessionStore()
 
 // auth 页：卡片不再带品牌行（导航已有 logo），导航也隐藏指向自身的按钮
 const isAuthPage = computed(() => route.name === 'login' || route.name === 'register')
+// landing 已有自带页脚（FooterSection 内嵌备案条），外层跳过防同屏双份
+const isLanding = computed(() => route.name === 'landing')
 
 onMounted(() => {
   // 从 sessionStore 预取用户信息（如果有 token 的话）
@@ -47,6 +50,8 @@ onMounted(() => {
     <main :class="{ 'auth-main': isAuthPage }">
       <router-view />
     </main>
+
+    <SiteBeianBar v-if="!isLanding" />
   </div>
 </template>
 

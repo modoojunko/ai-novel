@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import Ico from '@/components/ui/Ico.vue'
 import { P } from '@/components/ui/icons'
+import SiteBeianBar from '@/components/site/SiteBeianBar.vue'
 
 const router = useRouter()
 const session = useSessionStore()
@@ -52,6 +53,8 @@ onMounted(() => {
     <main class="dash-main">
       <router-view />
     </main>
+
+    <SiteBeianBar />
   </div>
 </template>
 

@@ -25,3 +25,27 @@ REFERENCE_DIR = os.environ.get(
 SERVER_API_BASE = os.environ.get(
     "SERVER_API_BASE", "https://your-cloudbase-app.com/api"
 )
+
+# ── 发布期注入（打包链路专用）─────────────────────────────────────────
+# CI 构建 exe/dmg 时把线上 S端 域名写成 release.json 放进资源目录并随包分发；
+# 本地开发没有这个文件 → 以下读取永远返回 {}，行为与历史完全一致。
+# 运行时优先级仍以 用户手工修改 > 环境变量 为先，见 pywebview_app.start_server。
+RELEASE_OVERRIDE_KEYS = (
+    "server_api_base",
+    "server_api_fallback",
+    "public_server_api",
+)
+
+
+def load_release_overrides(resource_dir: str) -> dict:
+    """读取资源目录下的 release.json，仅返回合法键的非空字符串值；文件缺失/损坏返回 {}。"""
+    import json
+
+    try:
+        with open(os.path.join(resource_dir, "release.json"), "r", encoding="utf-8") as f:
+            raw = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    return {k: str(raw[k]).strip() for k in RELEASE_OVERRIDE_KEYS if str(raw.get(k) or "").strip()}
