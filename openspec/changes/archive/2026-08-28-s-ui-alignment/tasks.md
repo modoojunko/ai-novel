@@ -37,5 +37,7 @@
 
 ## 4. 收尾与登记
 
-- [ ] 4.1 更新 `docs/ux/handoff.md` backlog：P0/P1 标注 S端侧已完成（保留 C端侧与 M2/M3 挂账）；`docs/ux/cross-end.html` §三漂移表给已收敛的 S端侧条目加完成标注（#1 徽标 S端侧、#2 提示条 S端侧、#4 骨架、#5 面板入段、#7 on-accent S端侧、#8 空态槽入段、M1）。验证：文档 diff 可读、无与现状矛盾的表述
-- [ ] 4.2 按 openspec 归档流程收尾（sync specs → validate → 归档 PR，勿 `git add openspec/` 整目录）。验证：archive 后 `openspec validate --all` 全绿
+- [x] 4.1 更新 `docs/ux/handoff.md` backlog：P0/P1 标注 S端侧已完成（保留 C端侧与 M2/M3 挂账）；`docs/ux/cross-end.html` §三漂移表给已收敛的 S端侧条目加完成标注（#1 徽标 S端侧、#2 提示条 S端侧、#4 骨架、#5 面板入段、#7 on-accent S端侧、#8 空态槽入段、M1）。验证：文档 diff 可读、无与现状矛盾的表述
+  - 证据：docs/ux/handoff.md（完成度表/悬而未决#2/backlog 进度块）与 cross-end.html（§三/§六 落地进度注）已登记，含缓收编三项与 C端 禁令缓启用偏差
+- [x] 4.2 按 openspec 归档流程收尾（sync specs → validate → 归档 PR，勿 `git add openspec/` 整目录）。验证：archive 后 `openspec validate --all` 全绿
+  - 证据：本任务与归档动作一体完成：openspec archive sync → validate 全绿 → 归档 PR
