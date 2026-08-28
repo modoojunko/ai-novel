@@ -3,8 +3,11 @@
    来源：docs/design-c/prototypes/list.html <style> 原样提取（tokens/基础/共享组件）。
    规则：oklch token 一字不改；本文件之后按屏追加 list.css / book.css / …。
    加载序：index.css（tailwind 布局 utilities）→ base.css → 按屏 css。
+   共享段：@cross-begin/@cross-end 之间与 S端 base.css 逐字同步，
+   由仓库根 scripts/design-cross.mjs 校验（npm run design:cross）。
    ═══════════════════════════════════════════════════════════════════ */
 
+/* @cross-begin tokens-and-shared —— 两端逐字同步段，改动必须两端同提（node scripts/design-cross.mjs 校验）；段内类可能先于本端调用点存在，删除须双端同议 */
 /* ─── tokens（与全站一致） ─────────────────────────────── */
 :root {
   --bg:      oklch(98% 0.004 240);
@@ -19,6 +22,7 @@
   --warn:  oklch(50% 0.13 75);   --warn-soft: color-mix(in oklch, var(--warn) 16%, transparent);
   --err:   oklch(50% 0.17 25);   --err-soft:  color-mix(in oklch, var(--err) 12%, transparent);
   --fg-soft:   color-mix(in oklch, var(--fg) 5%, transparent);
+  --on-accent: oklch(100% 0 0);
   --shadow-card: 0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent),
                  0 12px 32px -12px color-mix(in oklch, var(--fg) 14%, transparent);
   --font-display: 'Noto Serif SC', 'Songti SC', 'STSong', 'Iowan Old Style', Georgia, serif;
@@ -45,16 +49,16 @@ input, textarea, select { font: inherit; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 15px; border-radius: var(--radius); border: 1px solid transparent; font-size: 13.5px; font-weight: 500; letter-spacing: 0.01em; line-height: inherit; transition: background 0.15s ease, border-color 0.15s ease; }
 .btn:active { transform: translateY(1px); }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.btn-primary { background: var(--accent); color: var(--surface); }
+.btn-primary { background: var(--accent); color: var(--on-accent); }
 .btn-primary:hover { background: var(--accent-strong); }
 .btn-secondary { background: var(--surface); color: var(--fg); border-color: var(--border); }
 .btn-secondary:hover { border-color: var(--fg); }
 .btn-ghost { background: transparent; color: var(--muted); padding: 0 8px; }
 .btn-ghost:hover { color: var(--fg); background: var(--fg-soft); }
-.btn-danger { background: var(--err); color: var(--surface); }
+.btn-danger { background: var(--err); color: var(--on-accent); }
 .btn-danger:hover:not(:disabled) { background: color-mix(in oklch, var(--err) 88%, var(--fg)); }
 .btn-sm { height: 28px; padding: 0 12px; font-size: 12.5px; border-radius: 8px; gap: 5px; }
-/* 密集工具行小按钮（版本对比/树行内操作）：设计系统扩展档 */
+/* 密集工具行小按钮：设计系统扩展档 */
 .btn-xs { height: 24px; padding: 0 8px; font-size: 11.5px; border-radius: 7px; gap: 4px; }
 .btn svg { width: 15px; height: 15px; }
 .btn-sm svg { width: 13px; height: 13px; }
@@ -63,11 +67,10 @@ input, textarea, select { font: inherit; }
 .icon-btn:hover { color: var(--fg); background: var(--fg-soft); }
 .icon-btn svg { width: 15px; height: 15px; }
 
-/* 过渡期 index.css 的 html/body/#root{height:100%}（未迁移屏依赖）把壳变成
-   有界高度 flex 列，内容超高时默认 flex-shrink 会把固定 48px 头压扁 —— 显式禁缩 */
+/* 有界高度 flex 列布局下防止 48px 头被压缩 */
 .appbar { height: 48px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
 .logo { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-display); font-size: 16px; font-weight: 600; }
-.logo-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: var(--surface); display: grid; place-items: center; font-family: var(--font-display); font-size: 14px; }
+.logo-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-family: var(--font-display); font-size: 14px; }
 .appbar .nav { display: inline-flex; gap: 4px; margin-left: 14px; }
 .appbar .nav a { font-size: 13.5px; color: var(--muted); padding: 5px 10px; border-radius: 8px; }
 .appbar .nav a:hover { color: var(--fg); }
@@ -104,9 +107,10 @@ input, textarea, select { font: inherit; }
 
 .toast-wrap { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 80; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
 /* 行内芯片 toast；pointer-events:auto 让可交互 toast（撤销按钮）不被 .toast-wrap 的 none 穿透 */
-.toast { display: inline-flex; align-items: center; gap: 8px; background: var(--fg); color: var(--surface); padding: 9px 16px; border-radius: 10px; font-size: 13px; box-shadow: var(--shadow-card); animation: toast-in 0.22s ease; pointer-events: auto; }
+.toast { display: inline-flex; align-items: center; gap: 8px; background: var(--fg); color: var(--on-accent); padding: 9px 16px; border-radius: 10px; font-size: 13px; box-shadow: var(--shadow-card); animation: toast-in 0.22s ease; pointer-events: auto; }
 .toast svg { width: 14px; height: 14px; color: var(--ok); }
 .toast.err svg { color: var(--err); }
+.toast.warn svg { color: var(--warn); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 
 .pref-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
@@ -114,17 +118,65 @@ input, textarea, select { font: inherit; }
 .pref-row .pl { font-size: 13.5px; }
 .pref-row .pm { font-size: 12px; color: var(--muted); }
 
+.seg { display: inline-flex; align-items: center; background: var(--fg-soft); border-radius: 9px; padding: 2px; }
+.seg button { height: 24px; padding: 0 9px; border-radius: 7px; font-size: 12px; color: var(--muted); }
+.seg button:hover { color: var(--fg); }
+.seg button.on { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px color-mix(in oklch, var(--fg) 8%, transparent); font-weight: 500; }
+
+/* 徽标：pill 三角色（tag/status/count）× 语气（默认中性 + ok/warn/err/accent），取值同 uikit/Pill 候选实现 */
+.pill { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 11px; line-height: 1.6; font-weight: 500; background: var(--surface); color: var(--muted); white-space: nowrap; }
+.pill svg { width: 10px; height: 10px; flex: none; }
+.pill-tag { background: var(--surface); color: var(--muted); }
+.pill-status { padding: 2px 9px; }
+.pill-count { font-family: var(--font-mono); background: var(--fg-soft); }
+.pill-ok { background: var(--ok-soft); border-color: transparent; color: color-mix(in oklch, var(--ok) 88%, var(--fg)); }
+.pill-warn { background: var(--warn-soft); border-color: transparent; color: color-mix(in oklch, var(--warn) 85%, var(--fg)); }
+.pill-err { background: var(--err-soft); border-color: transparent; color: color-mix(in oklch, var(--err) 90%, var(--fg)); }
+.pill-accent { background: var(--accent-soft); border-color: transparent; color: var(--accent-strong); }
+
+/* 骨架屏原子（脉冲谷值 0.45 = C端 parity 值，全站唯一取值） */
+.sk { background: var(--fg-soft); border-radius: 9px; animation: sk-pulse 1.4s ease-in-out infinite; }
+@keyframes sk-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+
+/* 表单扩展：密码可见切换 + 错误态（两端同名可用） */
+.input-wrap { position: relative; }
+.input-wrap .pw-eye { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); width: 26px; height: 26px; display: grid; place-items: center; border-radius: 6px; color: var(--muted); }
+.input-wrap .pw-eye:hover { color: var(--fg); }
+.input-wrap .pw-eye svg { width: 15px; height: 15px; }
+.input-wrap.has-err .input { border-color: var(--err); }
+.input:disabled { opacity: 0.6; }
+.f-err { font-size: 12.5px; color: var(--err); margin: 0; }
+.f-hint { font-size: 12.5px; color: var(--muted); margin: 0; }
+.field.is-disabled { opacity: 0.55; }
+
+.pagefoot { flex-shrink: 0; border-top: 1px solid var(--border); padding: 20px 0; color: var(--muted); font-size: 12px; text-align: center; }
+
+/* 窄屏：收拢 appbar，主 CTA 换行成全宽，防止横向溢出 */
+@media (max-width: 480px) {
+  .appbar { padding: 0 12px; gap: 8px; }
+  .appbar .nav { margin-left: 0; }
+  .main { padding: 32px 16px 64px; }
+  .page-head { flex-direction: column; align-items: flex-start; gap: 16px; margin-bottom: 28px; }
+  .page-head .btn { align-self: stretch; }
+}
+
+/* 旋转指示（图标 spinner） */
+.spin { animation: rotate 0.8s linear infinite; }
+@keyframes rotate { to { transform: rotate(360deg); } }
+
+/* 文字链接 */
+.lnk { color: var(--accent); cursor: pointer; background: none; border: 0; padding: 0; font: inherit; }
+.lnk:hover { color: var(--accent-strong); text-decoration: underline; }
+/* @cross-end */
+
 /* 书工作台弹窗版式（book.html .wb 作用域的独立类形态）：供 .wb 之外
-   （appbar 设置弹窗等）复刻同版式；.wb 内与作用域规则同值叠加，无冲突 */
+   （appbar 设置弹窗等）复刻同版式；.wb 内与作用域规则同值叠加，无冲突。
+   【C端 本地段】以下为 C端 特有扩展，不入共享段 */
 .mcard.wb-style { width: min(440px, 92vw); max-height: 86vh; display: flex; flex-direction: column; }
 .mcard.wb-style .mcard-head { padding: 18px 22px 0; }
 .mcard.wb-style .mcard-body { padding: 14px 22px 20px; flex: 1; min-height: 0; overflow-y: auto; }
 .mcard.wb-style .mcard-foot { padding: 12px 22px 18px; }
 .mcard.wb-style .mcard-foot .note { font-size: 12px; color: var(--muted); margin-right: auto; }
-.seg { display: inline-flex; align-items: center; background: var(--fg-soft); border-radius: 9px; padding: 2px; }
-.seg button { height: 24px; padding: 0 9px; border-radius: 7px; font-size: 12px; color: var(--muted); }
-.seg button:hover { color: var(--fg); }
-.seg button.on { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px color-mix(in oklch, var(--fg) 8%, transparent); font-weight: 500; }
 
 /* 主线卡基调选择题：整行可点的单选项，选中描边高亮（再点一次取消） */
 .tone-opt { display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); cursor: pointer; text-align: left; font-size: 13px; color: var(--fg); }
@@ -153,28 +205,9 @@ input, textarea, select { font: inherit; }
 .hook-item:hover { background: var(--fg-soft); }
 .hook-item.sel { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
 
-.pagefoot { flex-shrink: 0; border-top: 1px solid var(--border); padding: 20px 0; color: var(--muted); font-size: 12px; text-align: center; }
-
-/* 窄屏：收拢 appbar，主 CTA 换行成全宽，防止横向溢出 */
-@media (max-width: 480px) {
-  .appbar { padding: 0 12px; gap: 8px; }
-  .appbar .nav { margin-left: 0; }
-  .main { padding: 32px 16px 64px; }
-  .page-head { flex-direction: column; align-items: flex-start; gap: 16px; margin-bottom: 28px; }
-  .page-head .btn { align-self: stretch; }
-}
-
-/* 旋转指示（图标 spinner） */
-.spin { animation: rotate 0.8s linear infinite; }
-@keyframes rotate { to { transform: rotate(360deg); } }
-
 /* 入场动画（原 index.css 迁来：onboarding 横幅/营销页区块） */
 .animate-fade-up { animation: fade-up 0.5s ease both; }
 @keyframes fade-up { from { opacity: 0; transform: translateY(12px); } }
-
-/* 文字链接（导入模板下载/重置结构/登录返回首页等） */
-.lnk { color: var(--accent); cursor: pointer; background: none; border: 0; padding: 0; font: inherit; }
-.lnk:hover { color: var(--accent-strong); text-decoration: underline; }
 
 /* 可悬浮面卡（角色身份卡等未收编屏残留的统一 hover 态） */
 .hov-card { border: 1px solid var(--border); background: var(--fg-soft); transition: background 0.15s ease, border-color 0.15s ease; }

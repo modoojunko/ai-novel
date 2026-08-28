@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
     "design:lint": "node scripts/design-lint.mjs",
+    "design:cross": "node ../../scripts/design-cross.mjs",
     "probe:beian": "node scripts/probe-beian.mjs"
   },
   "dependencies": {
