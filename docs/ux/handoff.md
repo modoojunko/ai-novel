@@ -18,7 +18,7 @@
 | 工作流 | ✅ OpenSpec 双端口径（config.yaml context/rules + design-system 六条 Requirement，validate 20 passed）；`/ux:design-brief <change-id>` 双 harness 命令 |
 | 实施 | ❌ **P0/P1 批次未动工**；M1–M3 校验脚本未建 ← 这就是你要推进的部分 |
 
-⚠️ 注意：`docs/` 整体被 `.gitignore` 排除，本目录所有成果**不进版本管理**，只存在于本地磁盘。相关风险见「七、悬而未决」第 1 条。
+✅ 版本管理：docs 设计标准自 **#216**（2026-08-28）起入库，`.gitignore` 收窄为 `docs/design-c/`。本目录改动会被 git 跟踪，**随手提交**；唯一仍在本地的是 design-c 运行资产（parity 原型与比对 PNG）。
 
 ## 二、事实源地图（做任何判断之前先查，禁止凭记忆）
 
@@ -93,9 +93,24 @@
 - M3 两端 vocab 禁令抽共享模块或最低限度 hash 弱校验。
 - uikit 候选正式收编 `src/components/ui/`（按 uikit/README 四步：原型→base.css 收编并删 book.css:97-100 原行→搬 tsx→迁调用点）。
 
+### 独立改进点 · 启动主页重构（2026-08-28 立项）
+
+设计稿 `docs/ux/home.html`（三态右下角可切：回访 / 首启 / 书架满额）。
+裁定：`/` 即书架 home；App 内 Landing 整体摘除，营销内容唯一住在 S端 官网/下载页。
+
+| # | 动作 | 落点 |
+| --- | --- | --- |
+| 1 | `/` 由 LandingPage 改 `<Navigate to="/novels" replace />`，删路由与 import | client `src/App.tsx` |
+| 2 | 删 `pathname === "/"` 时 return null 的分支 | client `src/components/Navbar.tsx` |
+| 3 | 升级入口改 S端 portal 直连（去掉 scroll-to-pricing 过渡跳转） | client `src/pages/NovelListPage.tsx:163` |
+| 4 | 书架页新增 `.resume` 继续创作条（`updated_at` 最大者置顶）＋ 首启三步引导空态 ＋ 满额「锁定可见」 | `NovelListPage.tsx` ＋ `base.css` 共享段（`.resume` 先 ADJUSTMENTS 登记，双端同批） |
+| 5 | 回归：design:lint ＋ design:check（书架既有基线不波动，新增态为非 parity 对象）＋ tsc ＋ 涉路由 e2e 更新 | 两端门禁 |
+
+验收补一句：免费额度墙必须「锁定可见 + 升级出口」，不允许回到隐藏入口的老路。
+
 ## 七、悬而未决（需要用户拍板，别自作主张）
 
-1. **`!docs/ux/` gitignore 例外**：不加则本目录全部结论永不入库；PM 无法通过 git 感知这批资产的存在与变更历史。
+1. ✅ **已解决（#216，2026-08-28）**：docs 设计标准已入库。遗留子项：`docs/design-c/` 原型与 ADJUSTMENTS 是否也入库——现保持本地，代价是 fresh clone 上 parity 门禁静默跳过、换机器需重建。
 2. **授权动 `src/`**：P0/P1 都是实现层改动；未授权前只能停在设计工件与登记层。
 3. **design-cross.mjs 落位**：config.yaml/rules 引用的是仓库根 `scripts/design-cross.mjs`；若挪到别处须同步改 config.yaml 两处引用。
 4. **webfont 决策**（audit P2 遗留）：Noto Serif SC 打包子集 or 诚实回退栈，影响打包体积与三端视觉终值。

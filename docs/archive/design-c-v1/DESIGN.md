@@ -1,5 +1,9 @@
 # C端 设计词汇表（DESIGN.md）
 
+> ⚠️ 本文件已整体归档（2026-08-27 起标准唯一住在 `docs/ux/design-language.html`）。
+> 它描述的是 daisyUI 双主题 + lucide 时代的 v1 体系，与现行 oklch 单主题 +
+> 图标注册表冲突，仅作考古用，任何现行判断不得引用本文件。
+
 机器可读版在 `client/frontend/scripts/design-vocab.mjs`（lint 白名单）；两处同步修改。
 
 ## 色彩语义

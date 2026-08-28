@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>爱小说 · 启动主页（应用 home，非 landing）</title>
+<!-- ═════════════════════════════════════════════════════════════════
+  交付说明（设计侧工件 · 不动任何 src/）
+
+  裁定：桌面 App 双击打开的默认页是「书架 home」，不是营销页。
+    现状 / 路由渲染 LandingPage（hero 光斑 + 痛点 + 定价段），安装用户每次
+    启动先看广告。本稿裁定：/ 重定向 /novels；LandingPage 从 App 内摘除，
+    营销内容唯一住在 S端 官网/下载页；书架内「升级」直达 S端 portal。
+
+  三态（右下角评审切换器，非基线元素，parity 截图排除——同 .notice/.hover 先例）：
+    return 回访态   继续创作条 + 健康提示 + 书架网格
+    empty  首启态   三步引导空态（不是 hero，无营销段落）
+    quota  满额态   免费额度墙：入口锁定可见 + 升级出口（P0 #4 的正解）
+
+  词汇纪律：tokens/基础类/书架类与 client/frontend/src/design/{base,list}.css
+    逐字同源；图标只用两端注册表键；零外部资源、零裸色、零 emoji。
+  新增组件：仅 .resume 继续创作条一个——落地时先入 ADJUSTMENTS.md 登记，
+    再进 base.css 共享段（双端同批）。.b 胶囊为 P1 收编对象，此处沿用现状
+    词汇以保与现网同源，不新造第四种形态。
+══════════════════════════════════════════════════════════════════ -->
+<style>
+/* ─── tokens（与 base.css 逐字同源，一字不改） ─────────────────── */
+:root {
+  --bg:      oklch(98% 0.004 240);
+  --surface: oklch(100% 0 0);
+  --fg:      oklch(20% 0.02 240);
+  --muted:   oklch(50% 0.018 240);
+  --border:  oklch(90% 0.006 240);
+  --accent: oklch(48% 0.11 170);
+  --accent-strong: oklch(41% 0.10 170);
+  --accent-soft:   color-mix(in oklch, var(--accent) 12%, transparent);
+  --ok:    oklch(52% 0.11 155);  --ok-soft:   color-mix(in oklch, var(--ok) 14%, transparent);
+  --warn:  oklch(50% 0.13 75);   --warn-soft: color-mix(in oklch, var(--warn) 16%, transparent);
+  --err:   oklch(50% 0.17 25);   --err-soft:  color-mix(in oklch, var(--err) 12%, transparent);
+  --fg-soft:   color-mix(in oklch, var(--fg) 5%, transparent);
+  --shadow-card: 0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent),
+                 0 12px 32px -12px color-mix(in oklch, var(--fg) 14%, transparent);
+  --font-display: 'Noto Serif SC', 'Songti SC', 'STSong', 'Iowan Old Style', Georgia, serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', monospace;
+  --radius: 10px; --radius-lg: 16px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px; line-height: 1.55; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; min-height: 100vh; display: flex; flex-direction: column; }
+img, svg { display: block; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; padding: 0; }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.serif { font-family: var(--font-display); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; }
+
+/* ─── 基础组件类（同源照抄） ──────────────────────────────────── */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 15px; border-radius: var(--radius); border: 1px solid transparent; font-size: 13.5px; font-weight: 500; letter-spacing: 0.01em; line-height: inherit; transition: background 0.15s ease, border-color 0.15s ease; }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn-primary { background: var(--accent); color: var(--surface); }
+.btn-primary:hover { background: var(--accent-strong); }
+.btn-secondary { background: var(--surface); color: var(--fg); border-color: var(--border); }
+.btn-secondary:hover { border-color: var(--fg); }
+.btn-ghost { background: transparent; color: var(--muted); padding: 0 8px; }
+.btn-ghost:hover { color: var(--fg); background: var(--fg-soft); }
+.btn-sm { height: 28px; padding: 0 12px; font-size: 12.5px; border-radius: 8px; gap: 5px; }
+.btn svg { width: 15px; height: 15px; }
+.btn-sm svg { width: 13px; height: 13px; }
+.icon-btn { width: 30px; height: 30px; display: inline-grid; place-items: center; border-radius: 8px; color: var(--muted); }
+.icon-btn:hover { color: var(--fg); background: var(--fg-soft); }
+.icon-btn svg { width: 15px; height: 15px; }
+
+.appbar { height: 48px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.logo { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+.logo-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: var(--surface); display: grid; place-items: center; font-family: var(--font-display); font-size: 14px; }
+.appbar .nav { display: inline-flex; gap: 4px; margin-left: 14px; }
+.appbar .nav a { font-size: 13.5px; color: var(--muted); padding: 5px 10px; border-radius: 8px; }
+.appbar .nav a:hover { color: var(--fg); }
+.appbar .nav a.on { color: var(--fg); background: var(--fg-soft); font-weight: 500; }
+.appbar .spacer { flex: 1; }
+
+.main { flex: 1; width: min(100%, 1080px); margin-inline: auto; padding: 48px 32px 80px; }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 36px; }
+.page-head h1 { font-family: var(--font-display); font-size: 30px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
+.page-head .sub { font-size: 13px; color: var(--muted); margin-top: 6px; margin-bottom: 1em; }
+.page-head .actions { display: inline-flex; gap: 10px; }
+
+.empty { border: 1px dashed var(--border); border-radius: var(--radius-lg); padding: 64px 32px; text-align: center; color: var(--muted); }
+.empty .serif { font-family: var(--font-display); font-size: 19px; color: var(--fg); }
+.empty p { margin: 8px 0 0; font-size: 13.5px; }
+
+.notice { display: flex; align-items: center; gap: 12px; border: 1px solid color-mix(in oklch, var(--warn) 28%, var(--border)); background: var(--warn-soft); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 14px; font-size: 13px; }
+.notice.info { border-color: color-mix(in oklch, var(--accent) 30%, var(--border)); background: var(--accent-soft); }
+.notice .nt { flex: 1; }
+.notice .nt b { font-weight: 500; }
+.notice .nt span { color: var(--muted); font-size: 12.5px; margin-left: 8px; }
+
+/* ─── 书架屏类（同 list.css） ─────────────────────────────────── */
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+@media (max-width: 900px) { .cards { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .cards { grid-template-columns: 1fr; } }
+.book-card { position: relative; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; cursor: pointer; transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease; }
+.book-card:hover { border-color: color-mix(in oklch, var(--accent) 45%, var(--border)); box-shadow: var(--shadow-card); transform: translateY(-2px); }
+.book-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.book-card .top { display: flex; align-items: center; gap: 8px; }
+.mono { flex: none; width: 40px; height: 40px; border-radius: 10px; background: var(--fg-soft); border: 1px solid var(--border); display: grid; place-items: center; font-family: var(--font-display); font-size: 19px; color: var(--fg); }
+.genre { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border: 1px solid var(--border); border-radius: 999px; font-size: 11.5px; color: var(--muted); background: var(--bg); }
+.genre svg { width: 12px; height: 12px; }
+.b { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 500; }
+.b.writing { background: var(--warn-soft); color: var(--warn); }
+.b.setting { background: var(--fg-soft); color: var(--muted); }
+.b.done { background: var(--ok-soft); color: var(--ok); }
+.b svg { width: 11px; height: 11px; }
+.book-card h3 { font-family: var(--font-display); font-size: 21px; font-weight: 600; margin: 14px 0 0; letter-spacing: 0.01em; }
+.book-card .summary { font-size: 12.5px; color: var(--muted); margin: 8px 0 0; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.book-card .stats { display: flex; gap: 18px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); background: none; border-radius: 0; }
+.book-card .stats b { display: block; color: var(--fg); font-weight: 500; margin-bottom: 1px; }
+.book-card .foot { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; }
+.book-card .updated { font-size: 11.5px; color: var(--muted); }
+.book-card .go { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--fg); }
+.book-card:hover .go { color: var(--accent); }
+.book-card .go svg { width: 14px; height: 14px; }
+.icon-btn.card-menu-btn { position: absolute; top: 8px; right: 8px; flex: none; opacity: 0; transition: opacity 0.15s ease; }
+.book-card:hover .card-menu-btn, .book-card:focus-within .card-menu-btn { opacity: 1; }
+
+/* ─── 新增组件：.resume 继续创作条（唯一新增，落地先登记） ───────
+   桌面双击的第一意图是「继续昨天的书」。取 book-card 的表面基因
+   （surface + border + radius-lg + shadow-card 悬浮），主操作走
+   .btn-primary 现役档位，不新造按钮形态。 */
+.resume { display: flex; align-items: center; gap: 16px; background: var(--surface); border: 1px solid color-mix(in oklch, var(--accent) 26%, var(--border)); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 28px; box-shadow: var(--shadow-card); cursor: pointer; transition: border-color 0.15s ease, transform 0.15s ease; }
+.resume:hover { border-color: var(--accent); transform: translateY(-1px); }
+.resume:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.resume .rt { font-family: var(--font-display); font-size: 17px; font-weight: 600; }
+.resume .rm { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+.resume .rm b { color: var(--ok); font-weight: 500; }
+.resume .rlabel { font-size: 11px; letter-spacing: 0.08em; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
+.resume .rlabel svg { width: 12px; height: 12px; color: var(--accent); }
+.resume .rgrow { flex: 1; min-width: 0; }
+.resume .ractions { display: inline-flex; align-items: center; gap: 14px; flex: none; }
+.resume .rtime { font-size: 11.5px; color: var(--muted); }
+
+/* ─── 首启空态扩展（.empty 家族内长出，不另造版式） ───────────── */
+.first-run { max-width: 720px; margin: 8px auto 0; text-align: center; }
+.first-run h2 { font-family: var(--font-display); font-size: 34px; font-weight: 600; margin: 18px 0 0; letter-spacing: 0.01em; }
+.first-run .lead { font-size: 14px; color: var(--muted); margin: 12px 0 0; }
+.fr-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 30px 0 0; text-align: left; }
+.fr-steps .step { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; }
+.fr-steps .fr-n { font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.08em; }
+.fr-steps .fr-ic { width: 34px; height: 34px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin: 10px 0 8px; }
+.fr-steps .fr-ic svg { width: 17px; height: 17px; }
+.fr-steps b { display: block; font-size: 13.5px; font-weight: 500; }
+.fr-steps p { font-size: 12.5px; color: var(--muted); margin: 5px 0 0; line-height: 1.6; }
+.fr-cta { display: flex; justify-content: center; gap: 12px; margin-top: 28px; }
+.fr-note { font-size: 12px; color: var(--muted); margin-top: 14px; }
+
+/* 满额锁定卡（.empty 家族网格项，同「还没有作品」口径） */
+.lock-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 1px dashed color-mix(in oklch, var(--accent) 40%, var(--border)); border-radius: var(--radius-lg); padding: 22px; color: var(--muted); text-align: center; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+.lock-tile:hover { border-color: var(--accent); background: var(--accent-soft); }
+.lock-tile .lt-ic { width: 38px; height: 38px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
+.lock-tile .lt-ic svg { width: 18px; height: 18px; }
+.lock-tile b { font-size: 13.5px; color: var(--fg); font-weight: 500; }
+.lock-tile span { font-size: 12px; }
+
+/* ─── 页脚（示意，随实现核对 Footer.tsx 口径） ─────────────────── */
+.foot { flex-shrink: 0; display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--muted); background: var(--surface); }
+.foot .spacer { flex: 1; }
+.foot a:hover { color: var(--fg); }
+
+/* ─── 评审态切换器（非基线，parity 排除） ─────────────────────── */
+.rv { position: fixed; right: 16px; bottom: 16px; z-index: 90; display: inline-flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 4px 6px 4px 12px; box-shadow: var(--shadow-card); font-size: 12px; color: var(--muted); }
+.rv button { padding: 4px 10px; border-radius: 999px; font-size: 12px; color: var(--muted); }
+.rv button:hover { color: var(--fg); background: var(--fg-soft); }
+.rv button[aria-pressed="true"] { background: var(--fg); color: var(--surface); }
+
+/* ─── 状态路由：body[data-state] ──────────────────────────────── */
+body[data-state="return"] [data-only]:not([data-only~="return"]) { display: none !important; }
+body[data-state="empty"] [data-only]:not([data-only~="empty"]) { display: none !important; }
+body[data-state="quota"] [data-only]:not([data-only~="quota"]) { display: none !important; }
+</style>
+</head>
+<body data-state="return">
+
+<header class="appbar">
+  <a class="logo" href="#/novels"><span class="logo-mark">爱</span>爱小说</a>
+  <nav class="nav">
+    <a class="on" href="#/novels" aria-current="page">我的作品</a>
+    <a href="#/config">模型配置</a>
+  </nav>
+  <span class="spacer"></span>
+
+  <!-- 已登录（return / quota） -->
+  <span class="genre" data-only="return quota" title="本日 AI 章额度"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M9 13h6M9 17h4"/></svg>本日 <b class="num">3/10</b> 章</span>
+  <a class="btn btn-secondary btn-sm" data-only="return quota" href="#portal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 6.2L21 9l-5 4.4 1.6 6.6L12 16.6 6.4 20 8 13.4 3 9l6.6-.8z"/></svg>升级</a>
+  <!-- 未登录（empty 首启） -->
+  <a class="btn btn-ghost btn-sm" data-only="empty" href="#/login">登录</a>
+  <button class="btn btn-ghost btn-sm" type="button">设置</button>
+</header>
+
+<main class="main">
+
+  <!-- ▸ 回访态：继续创作条（上次编辑的书置顶直达） -->
+  <section class="resume" data-only="return" role="link" tabindex="0" aria-label="继续创作 剑葬九霄">
+    <span class="mono">剑</span>
+    <div class="rgrow">
+      <span class="rlabel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>继续创作</span>
+      <div class="rt">剑葬九霄</div>
+      <div class="rm">第 <b class="num">2</b> 卷 · 第 <b class="num">31</b> 章 <b>草稿已自动保存</b> · 累计 <span class="num">96,200</span> 字</div>
+    </div>
+    <div class="ractions">
+      <span class="rtime">上次编辑 4 小时前</span>
+      <span class="btn btn-primary">继续创作<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+    </div>
+  </section>
+
+  <!-- ▸ 回访态：启动健康检查（阻断型在前；仅示例 Key 未配置，另有过期/试用态走 .notice 现役两档） -->
+  <div class="notice" data-only="return" role="status">
+    <span class="nt"><b>模型 Key 未配置</b><span>AI 生成暂不可用，写作与设定不受影响</span></span>
+    <a class="btn btn-secondary btn-sm" href="#/config">去配置</a>
+  </div>
+
+  <!-- ▸ 满额态：额度墙提示（免费 3 本已满；入口锁定可见 + 升级出口） -->
+  <div class="notice info" data-only="quota" role="status">
+    <span class="nt"><b>免费版书架已满（<span class="num">3/3</span>）</b><span>升级后不限作品数，现有作品不受影响</span></span>
+    <a class="btn btn-secondary btn-sm" href="#portal">升级</a>
+  </div>
+
+  <div class="page-head" data-only="return quota">
+    <div>
+      <h1>我的作品</h1>
+      <p class="sub">建书即写 · 设定与大纲是高级配置，随时可补</p>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 8l5-5 5 5M5 20h14"/></svg>导入</button>
+      <button class="btn btn-primary" type="button" data-only="return"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>新建作品</button>
+      <button class="btn btn-primary" type="button" data-only="quota" title="免费版书架已满，升级后可继续创建"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>新建作品</button>
+    </div>
+  </div>
+
+  <div class="cards" data-only="return quota">
+
+    <article class="book-card" tabindex="0">
+      <div class="top">
+        <span class="mono">剑</span>
+        <span class="genre"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c6-2 12-8 15-15M13 7l4 4M6 14l4 4"/></svg>武侠</span>
+        <span class="b writing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>写作中</span>
+        <button class="icon-btn card-menu-btn" type="button" aria-label="更多操作"><svg viewBox="0 0 24 24" fill="none"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></button>
+      </div>
+      <h3>剑葬九霄</h3>
+      <p class="summary">少年自雪窟中生，携一柄断剑踏入宗门林立的中州。他要找的仇人，排在天骄榜第一。</p>
+      <div class="stats">
+        <span><b class="num">2</b>结构 · 卷</span>
+        <span><b class="num">31</b>章节 · 章</span>
+        <span><b class="num">96,200</b>字数 · 字</span>
+      </div>
+      <div class="foot">
+        <span class="updated">4 小时前</span>
+        <span class="go">继续创作<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </div>
+    </article>
+
+    <article class="book-card" tabindex="0">
+      <div class="top">
+        <span class="mono">星</span>
+        <span class="genre"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 17l9 5 9-5"/></svg>科幻</span>
+        <span class="b writing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>写作中</span>
+        <button class="icon-btn card-menu-btn" type="button" aria-label="更多操作"><svg viewBox="0 0 24 24" fill="none"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></button>
+      </div>
+      <h3>星渊纪元</h3>
+      <p class="summary">曲率引擎点亮的第一夜，地球从所有星图上消失了。留下的只有一句坐标残言。</p>
+      <div class="stats">
+        <span><b class="num">3</b>结构 · 卷</span>
+        <span><b class="num">42</b>章节 · 章</span>
+        <span><b class="num">128,400</b>字数 · 字</span>
+      </div>
+      <div class="foot">
+        <span class="updated">2 小时前</span>
+        <span class="go">继续创作<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </div>
+    </article>
+
+    <article class="book-card" tabindex="0">
+      <div class="top">
+        <span class="mono">都</span>
+        <span class="genre"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h4v6"/><path d="M9 10h.01M13 10h.01M11 7h.01"/></svg>都市</span>
+        <span class="b setting"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13M10 12h10M4 17h7"/></svg>设定中</span>
+        <button class="icon-btn card-menu-btn" type="button" aria-label="更多操作"><svg viewBox="0 0 24 24" fill="none"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></button>
+      </div>
+      <h3>都市医仙</h3>
+      <p class="summary">小诊所医生意外继承上古医道传承，从治好第一例疑难杂症开始名动全城。</p>
+      <div class="stats">
+        <span><b class="num">1</b>结构 · 卷</span>
+        <span><b class="num">6</b>章节 · 章</span>
+        <span><b class="num">14,800</b>字数 · 字</span>
+      </div>
+      <div class="foot">
+        <span class="updated">昨天</span>
+        <span class="go">继续创作<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </div>
+    </article>
+
+    <article class="book-card" tabindex="0">
+      <div class="top">
+        <span class="mono">长</span>
+        <span class="genre"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 11a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/><path d="M9.5 11v6M7 7L4.5 3.5M12 7l2.5-3.5M9.5 14H8M9.5 17H8"/></svg>悬疑</span>
+        <span class="b done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>已完结</span>
+        <button class="icon-btn card-menu-btn" type="button" aria-label="更多操作"><svg viewBox="0 0 24 24" fill="none"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></button>
+      </div>
+      <h3>长安异闻录</h3>
+      <p class="summary">长安城每夜更鼓之后，都会多出一间白天不存在的铺子。捕快沈砚决定进去看看。</p>
+      <div class="stats">
+        <span><b class="num">5</b>结构 · 卷</span>
+        <span><b class="num">120</b>章节 · 章</span>
+        <span><b class="num">412,000</b>字数 · 字</span>
+      </div>
+      <div class="foot">
+        <span class="updated">3 天前</span>
+        <span class="go">继续创作<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </div>
+    </article>
+
+    <!-- ▸ 满额态专属：锁定卡（入口锁定可见 + 一句话说明 + 升级出口） -->
+    <div class="lock-tile" data-only="quota" role="button" tabindex="0">
+      <span class="lt-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 6.2L21 9l-5 4.4 1.6 6.6L12 16.6 6.4 20 8 13.4 3 9l6.6-.8z"/></svg></span>
+      <b>书架已满</b>
+      <span>升级解锁无限书架与更高 AI 额度</span>
+      <span class="btn btn-secondary btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 6.2L21 9l-5 4.4 1.6 6.6L12 16.6 6.4 20 8 13.4 3 9l6.6-.8z"/></svg>升级</span>
+    </div>
+
+  </div>
+
+  <!-- ▸ 首启态：三步引导（.empty 家族内长出；不是 hero，无任何营销段落） -->
+  <section class="first-run" data-only="empty">
+    <span class="empty" style="padding:56px 44px 48px;">
+      <span class="serif" style="font-size:34px; display:block;">开始你的第一本书</span>
+      <p>本地优先的 AI 长篇小说工作台——大纲、设定、正文，都保存在你这台电脑上。</p>
+      <div class="fr-steps">
+        <div class="step">
+          <span class="fr-n">STEP 01</span>
+          <span class="fr-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>
+          <b>新建作品</b>
+          <p>起书名、选题材，30 秒建好全书骨架。</p>
+        </div>
+        <div class="step">
+          <span class="fr-n">STEP 02</span>
+          <span class="fr-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13M10 12h10M4 17h7"/></svg></span>
+          <b>配置模型</b>
+          <p>填入你自己的 API Key，只存本机，不经过第三方。</p>
+        </div>
+        <div class="step">
+          <span class="fr-n">STEP 03</span>
+          <span class="fr-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M9 13h6M9 17h4"/></svg></span>
+          <b>开写第一章</b>
+          <p>大纲与设定都是高级配置，可以边写边补。</p>
+        </div>
+      </div>
+      <div class="fr-cta">
+        <button class="btn btn-primary" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>新建作品</button>
+        <button class="btn btn-secondary" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 8l5-5 5 5M5 20h14"/></svg>导入已有文稿</button>
+      </div>
+      <p class="fr-note">免费版可创建 <span class="num">3</span> 部作品，无需绑卡</p>
+    </span>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <span>爱小说 <span class="num">v0.9</span> · 本地优先 · 作品数据存储于本机</span>
+  <span class="spacer"></span>
+  <a href="#portal">用户协议</a>
+  <a href="#portal">隐私政策</a>
+</footer>
+
+<!-- 评审态切换器（非基线元素） -->
+<div class="rv" role="group" aria-label="评审状态切换">
+  评审态
+  <button type="button" data-set="return" aria-pressed="true">回访</button>
+  <button type="button" data-set="empty" aria-pressed="false">首启</button>
+  <button type="button" data-set="quota" aria-pressed="false">书架满额</button>
+</div>
+
+<script>
+  var body = document.body;
+  var btns = document.querySelectorAll(".rv button");
+  function apply(state) {
+    body.dataset.state = state;
+    btns.forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.set === state)); });
+  }
+  btns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      apply(b.dataset.set);
+      history.replaceState(null, "", "#" + b.dataset.set);
+    });
+  });
+  var initial = location.hash.replace("#", "");
+  if (["return", "empty", "quota"].indexOf(initial) > -1) apply(initial);
+</script>
+
+</body>
+</html>
