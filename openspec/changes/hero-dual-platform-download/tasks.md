@@ -20,8 +20,8 @@
 
 - [x] 3.1 S端 门禁：`npm run design:lint` + `npm run build`（含 vue-tsc）全绿。验证：两命令退出码 0
   - 证据：design:lint 48 文件存量 0（exit 0）；build built in 575ms（exit 0）
-- [ ] 3.2 本地 dev server 截图：未登录态 Hero（双按钮+版本副行）+ 登录态 Hero，归档 change 目录 `screenshots/`。验证：两张截图存在且与设计一致
-  - 部分：未登录态已归档（`screenshots/hero-dual-platform.png`）；登录态截图未产出（本地无 S端 后端、线上未注册测试号），以代码路径复核 + 4.2 线上验收替代——是否补拍待用户拍板
+- [x] 3.2 本地 dev server 截图：未登录态 Hero（双按钮+版本副行）+ 登录态 Hero，归档 change 目录 `screenshots/`。验证：两张截图存在且与设计一致
+  - 处置：未登录态已归档（`screenshots/hero-dual-platform.png`）；登录态截图经用户推进弹窗改版拍板关闭——同一 UI 区域由后续 change 重新设计并接棒截图对照，本项不再补拍
 
 ## 4. 合入与线上验收
 
