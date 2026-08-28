@@ -9,6 +9,7 @@ import AppCard from '@/components/ui/AppCard.vue'
 import AppModal from '@/components/ui/AppModal.vue'
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
 import ActivateCodeForm from '@/components/dashboard/ActivateCodeForm.vue'
+import DownloadModal from '@/components/download/DownloadModal.vue'
 import Ico from '@/components/ui/Ico.vue'
 import { P } from '@/components/ui/icons'
 
@@ -16,6 +17,7 @@ const session = useSessionStore()
 const deviceStore = useDeviceStore()
 
 const showActivateModal = ref(false)
+const showDownloadModal = ref(false)
 const { loadError, retry } = usePageLoad(() => Promise.all([
   session.fetchUserInfo(),
   deviceStore.fetchDevices(),
@@ -72,6 +74,19 @@ const { loadError, retry } = usePageLoad(() => Promise.all([
             </router-link>
           </div>
         </AppCard>
+
+        <!-- 下载 C端：登录后唯一能拿到安装包的入口，别收进二级页 -->
+        <AppCard hoverable>
+          <div class="quick-row">
+            <div>
+              <div class="qt serif">下载客户端</div>
+              <div class="qk">Windows · macOS · 送 7 天试用</div>
+            </div>
+            <button class="lnk" @click="showDownloadModal = true">
+              免费下载 <Ico :d="P.download" :size="12" />
+            </button>
+          </div>
+        </AppCard>
       </div>
     </template>
 
@@ -79,12 +94,15 @@ const { loadError, retry } = usePageLoad(() => Promise.all([
     <AppModal v-model:open="showActivateModal" title="激活 License">
       <ActivateCodeForm />
     </AppModal>
+
+    <!-- 下载弹窗（与落地页共享） -->
+    <DownloadModal v-model:open="showDownloadModal" />
   </div>
 </template>
 
 <style scoped>
 .page-col { display: flex; flex-direction: column; gap: 20px; }
-.quick-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.quick-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .quick-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .qv { font-size: 26px; font-weight: 600; color: var(--accent-strong); }
 .qv small { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 3px; }
@@ -92,5 +110,5 @@ const { loadError, retry } = usePageLoad(() => Promise.all([
 .qk { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
 .lnk { display: inline-flex; align-items: center; gap: 3px; font-size: 13px; }
 .err-box { text-align: center; padding: 48px 0; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 12px; }
-@media (max-width: 700px) { .quick-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 880px) { .quick-grid { grid-template-columns: minmax(0, 1fr); } }
 </style>

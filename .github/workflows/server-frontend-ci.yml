@@ -16,6 +16,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: server/frontend
@@ -35,3 +36,16 @@ jobs:
       # 真正的产物断言（配置号码必在产物）由 s-server-deploy 部署线执行
       - name: 备案产物探针
         run: npm run probe:beian
+      # e2e 全 mock（page.route 拦截 API），无需后端/数据库/secrets；
+      # 交互改版必须同步更新断言（#214 遗留存量红两周无人察觉的教训）
+      - name: 安装 Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: E2E
+        run: npx playwright test
+      - name: 上传失败报告
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: server/frontend/playwright-report/
+          retention-days: 3

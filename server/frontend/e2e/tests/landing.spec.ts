@@ -11,8 +11,16 @@ test.describe('Landing Page', () => {
   })
 
   test('显示下载按钮和查看套餐按钮', async ({ page }) => {
-    await expect(page.getByRole('link', { name: /下载 Windows/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: '免费下载' })).toBeVisible()
     await expect(page.getByRole('link', { name: '查看套餐' })).toBeVisible()
+  })
+
+  test('免费下载打开弹窗（双平台直链）', async ({ page }) => {
+    // #214 起下载走弹窗：打开后才渲染双平台安装包直链
+    await page.getByRole('button', { name: '免费下载' }).click()
+    await expect(page.locator('.mcard')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('link', { name: /下载 Windows/ })).toBeVisible()
+    await expect(page.getByRole('link', { name: /下载 macOS/ })).toBeVisible()
   })
 
   test('导航栏显示登录和注册链接（未登录）', async ({ page }) => {
@@ -29,6 +37,9 @@ test.describe('Landing Page', () => {
     await page.goto('/')
     await expect(page.locator('.mkt-nav a[href="/dashboard"]')).toBeVisible()
     await expect(page.locator('.mkt-nav a[href="/login"]')).not.toBeVisible()
+    // 已登录 Hero：进入控制台与免费下载并存，登录后仍有下载入口
+    await expect(page.getByRole('link', { name: '进入控制台' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '免费下载' })).toBeVisible()
   })
 
   test('功能区块存在六个工作流步骤', async ({ page }) => {
