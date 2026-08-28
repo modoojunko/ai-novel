@@ -51,18 +51,35 @@ test.describe('界面主题', () => {
     await page.goto('/dashboard/account')
     await page.getByRole('heading', { name: '账户设置' }).waitFor({ timeout: 15000 })
 
-    mockApi.failPreferences()
+    // 两次失败：第一次被 saveTheme 的自动重试吃掉，第二次失败后才弹通知
+    mockApi.failPreferences(2)
     await page.locator('.sw', { hasText: '竹青' }).click()
-    // 失败路径：视觉已切 + 错误通知带重试出口 + 未落库
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'bamboo')
     const retryLink = page.locator('.notice.err .lnk')
     await expect(retryLink).toBeVisible()
     expect(mockApi.currentUser!.theme).toBe('teal')
 
-    // 重试 → PUT 真正重发并成功，通知消失、落库生效
+    // 手动重试 → PUT 真正重发并成功，通知消失、落库生效
     await retryLink.click()
     await expect(page.locator('.notice.err')).toHaveCount(0)
     expect(mockApi.currentUser!.theme).toBe('bamboo')
+  })
+
+  test('冷启动网络失败自愈：自动重试一次成功，不打扰用户', async ({ page, mockApi }) => {
+    mockApi.registerUser()
+    await page.goto('/')
+    await page.evaluate((token) => localStorage.setItem('token', token), mockApi.token)
+    await page.goto('/dashboard/account')
+    await page.getByRole('heading', { name: '账户设置' }).waitFor({ timeout: 15000 })
+
+    // 一次无响应网络失败（= 冷启动 503 无 CORS 的浏览器侧形态）
+    mockApi.failPreferences(1, 'network')
+    await page.locator('.sw', { hasText: '胭脂' }).click()
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'rouge')
+
+    // 自动重试（300ms 延迟）后落库成功；全程无错误通知
+    await expect.poll(() => mockApi.currentUser!.theme).toBe('rouge')
+    await expect(page.locator('.notice.err')).toHaveCount(0)
   })
 
   test('登出回落默认主题', async ({ page, mockApi }) => {

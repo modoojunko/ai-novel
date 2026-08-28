@@ -13,6 +13,8 @@ export class MockApi {
   private userMeDead = false
   /** 让接下来 N 次 /user/preferences 失败（测「保存失败→重试→落库」路径） */
   private preferencesFailCount = 0
+  /** 失败形态：'500' = HTTP 500（有响应）；'network' = 连接拒绝（无响应，模拟冷启动 503 无 CORS） */
+  private preferencesFailMode: '500' | 'network' = '500'
   private routes: string[] = [
     '**/api/web/login',
     '**/api/web/register',
@@ -78,9 +80,10 @@ export class MockApi {
     this.userMeDead = true
   }
 
-  /** 让接下来 N 次 /user/preferences 返回 500（网络/服务端失败） */
-  failPreferences(times = 1): void {
+  /** 让接下来 N 次 /user/preferences 失败（times=0 关闭；mode 见字段注释） */
+  failPreferences(times = 1, mode: '500' | 'network' = '500'): void {
     this.preferencesFailCount = times
+    this.preferencesFailMode = mode
   }
 
   get token(): string {
@@ -163,6 +166,9 @@ export class MockApi {
     if (path === '/api/user/preferences' && method === 'PUT') {
       if (this.preferencesFailCount > 0) {
         this.preferencesFailCount--
+        if (this.preferencesFailMode === 'network') {
+          return route.abort('connectionrefused')
+        }
         return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 500, msg: 'mock preferences fail' }) })
       }
       const body = route.request().postDataJSON()

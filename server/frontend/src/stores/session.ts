@@ -42,15 +42,33 @@ export const useSessionStore = defineStore('session', () => {
     theme.value = isKnownThemeKey(key) ? key! : DEFAULT_THEME_KEY
   }
 
-  /** 选择器入口：立即生效 + PUT 持久化；失败时不回滚视觉（所见即当前态），由调用方提示重试。 */
+  /** 选择器入口：立即生效 + PUT 持久化；失败时不回滚视觉（所见即当前态），由调用方提示重试。
+   *  与 login/fetchUserInfo 同款的冷启动自愈：先过预热门闩；网络错误（无响应，
+   *  典型 = 云托管缩零后首个请求的 503 无 CORS 头）延迟重试一次——失败请求本身
+   *  已触发扩容，等一拍再发通常即成功。二次仍失败才交给调用方弹通知。 */
+  const SAVE_THEME_RETRY_MS = Number(import.meta.env.VITE_THEME_RETRY_MS) || 15_000
+
+  async function putThemeOnce(key: string): Promise<{ ok: boolean; msg?: string }> {
+    const res = await apiUserPreferences(key)
+    if (res.code === 0) return { ok: true }
+    return { ok: false, msg: res.msg || '保存失败' }
+  }
+
   async function saveTheme(key: string): Promise<{ ok: boolean; msg?: string }> {
     applyTheme(key)
     try {
-      const res = await apiUserPreferences(key)
-      if (res.code === 0) return { ok: true }
-      return { ok: false, msg: res.msg || '保存失败' }
+      await warmUpBackend()
+      return await putThemeOnce(key)
     } catch (e: any) {
-      return { ok: false, msg: e.message || '网络错误' }
+      // 有业务 code 的失败（拦截器挂在 Error.code 上）不重试；无 code = 传输/HTTP 层失败
+      const retryable = e?.code === undefined
+      if (!retryable) return { ok: false, msg: e.message || '网络错误' }
+      await new Promise((r) => setTimeout(r, SAVE_THEME_RETRY_MS))
+      try {
+        return await putThemeOnce(key)
+      } catch (e2: any) {
+        return { ok: false, msg: e2.message || '网络错误' }
+      }
     }
   }
 
