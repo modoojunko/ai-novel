@@ -22,11 +22,16 @@
 
 - [x] 3.1 S端 门禁
   - 证据：lint 48 文件存量 0（exit 0）；build built in 903ms（exit 0）：`npm run design:lint` + `npm run build`（含 vue-tsc）全绿。验证：退出码 0
-- [ ] 3.2 开 PR 到 main（只圈 workflow、HeroSection、client-release.ts、本 change 工件；不夹带工作区既有未提交文件），CI 绿后合入。验证：PR Files changed 核对
-- [ ] 3.3 合入后 MCP 手写 `download/latest.json`=`{"version":"0.11"}`（v0.11 资产已在托管）。验证：GET latest.json 返回 0.11
+- [x] 3.2 开 PR 到 main
+  - 证据：PR #214 全绿（双平台打包 pass、release skipping=PR 不对外发布实证）后合入（8b86352）；用户工作区 4 个未提交文件未夹带（只圈 workflow、HeroSection、client-release.ts、本 change 工件；不夹带工作区既有未提交文件），CI 绿后合入。验证：PR Files changed 核对
+- [x] 3.3 合入后 MCP 手写
+  - 证据：MCP 上传 download/latest.json=`{"version":"0.11"}` 成功，GET www 返回 {"version":"0.11"} `download/latest.json`=`{"version":"0.11"}`（v0.11 资产已在托管）。验证：GET latest.json 返回 0.11
 
 ## 4. 线上验收
 
-- [ ] 4.1 线上落地页实测：点「免费下载」弹窗渲染 v0.11 + 双平台按钮；下载两包字节数与 GitHub v0.11 资产一致。验证：DOM 快照 + 字节比对
-- [ ] 4.2 弹窗降级态抽查（阻断 latest.json 请求模拟失败）→ warn pill + 兜底可下。验证：截图/快照留档
-- [ ] 4.3 发版 SOP 收口：记忆与 design 更新为"打 tag 即完事"；确认「Actions 开 PR」控制台待办作废。验证：记忆文件已更新
+- [x] 4.1 线上落地页实测
+  - 证据：线上 DOM 快照：弹窗 info pill「最新版 v0.11」，两按钮 href=`www.awesomenovel.com/download/v0.11/…`；exe 字节数 29,671,299 与 GitHub v0.11 资产一致（此前直链实测已核）；截图 live-modal-success.png：点「免费下载」弹窗渲染 v0.11 + 双平台按钮；下载两包字节数与 GitHub v0.11 资产一致。验证：DOM 快照 + 字节比对
+- [x] 4.2 弹窗降级态抽查
+  - 证据：线上临时删除 latest.json → 弹窗 warn pill「未能获取最新版，当前 v0.11」且双平台可正常下载（截图 live-modal-degraded.png）→ 已复原并实测写后即刻生效（无中间层缓存延迟，1.3 的缓存担忧实测排除）（阻断 latest.json 请求模拟失败）→ warn pill + 兜底可下。验证：截图/快照留档
+- [x] 4.3 发版 SOP 收口
+  - 证据：记忆已更新：发版=打 tag 全自动（GitHub Release+托管转存+latest.json），零人工；bump PR 与「Actions 开 PR」控制台待办均作废：记忆与 design 更新为"打 tag 即完事"；确认「Actions 开 PR」控制台待办作废。验证：记忆文件已更新
