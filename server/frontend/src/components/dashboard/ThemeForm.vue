@@ -26,9 +26,16 @@ async function pick(key: string) {
   else pendingKey.value = ''
 }
 
+/** 重试不能走 pick：失败时 saveTheme 已把视觉态（session.theme）切到目标，
+ *  pick 的相等短路会让重试空转。直接重发 PUT，视觉态本就是它。 */
 async function retry() {
-  if (!pendingKey.value) return
-  await pick(pendingKey.value)
+  if (!pendingKey.value || isSaving.value) return
+  saveError.value = ''
+  isSaving.value = true
+  const res = await session.saveTheme(pendingKey.value)
+  isSaving.value = false
+  if (!res.ok) saveError.value = res.msg || '保存失败'
+  else pendingKey.value = ''
 }
 
 const savingLabel = computed(() => isSaving.value ? '保存中…' : '')

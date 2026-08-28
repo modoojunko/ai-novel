@@ -11,6 +11,8 @@ export class MockApi {
   private devices: TestDevice[] = []
   /** 会话失效模式：/user/me 返回 HTTP 200 + code 1（与真实后端「用户不存在/未登录」一致） */
   private userMeDead = false
+  /** 让接下来 N 次 /user/preferences 失败（测「保存失败→重试→落库」路径） */
+  private preferencesFailCount = 0
   private routes: string[] = [
     '**/api/web/login',
     '**/api/web/register',
@@ -36,6 +38,7 @@ export class MockApi {
     this.currentUser = null
     this.devices = []
     this.userMeDead = false
+    this.preferencesFailCount = 0
     // 兜底拦最先注册（Playwright 后注册者优先，兜底必须排最前）。
     // 用谓词而非 glob：'**/api/**' 会误吞 vite 模块 URL（/src/api/request.ts
     // 路径里也含 '/api/'，被答成 JSON 应用直接起不来，PR #217 调试实测）。
@@ -73,6 +76,11 @@ export class MockApi {
   setDeadSession(): void {
     this.currentUser = null
     this.userMeDead = true
+  }
+
+  /** 让接下来 N 次 /user/preferences 返回 500（网络/服务端失败） */
+  failPreferences(times = 1): void {
+    this.preferencesFailCount = times
   }
 
   get token(): string {
@@ -153,6 +161,10 @@ export class MockApi {
     }
 
     if (path === '/api/user/preferences' && method === 'PUT') {
+      if (this.preferencesFailCount > 0) {
+        this.preferencesFailCount--
+        return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 500, msg: 'mock preferences fail' }) })
+      }
       const body = route.request().postDataJSON()
       const known = ['teal', 'ink', 'bamboo', 'rouge', 'wisteria', 'celadon']
       if (!known.includes(body?.theme)) {

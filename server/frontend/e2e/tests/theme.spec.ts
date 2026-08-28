@@ -44,6 +44,27 @@ test.describe('界面主题', () => {
     await expect(mockApi.currentUser!.theme).toBe('teal')
   })
 
+  test('保存失败可重试并落库（重试不因视觉已切而空转）', async ({ page, mockApi }) => {
+    mockApi.registerUser()
+    await page.goto('/')
+    await page.evaluate((token) => localStorage.setItem('token', token), mockApi.token)
+    await page.goto('/dashboard/account')
+    await page.getByRole('heading', { name: '账户设置' }).waitFor({ timeout: 15000 })
+
+    mockApi.failPreferences()
+    await page.locator('.sw', { hasText: '竹青' }).click()
+    // 失败路径：视觉已切 + 错误通知带重试出口 + 未落库
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'bamboo')
+    const retryLink = page.locator('.notice.err .lnk')
+    await expect(retryLink).toBeVisible()
+    expect(mockApi.currentUser!.theme).toBe('teal')
+
+    // 重试 → PUT 真正重发并成功，通知消失、落库生效
+    await retryLink.click()
+    await expect(page.locator('.notice.err')).toHaveCount(0)
+    expect(mockApi.currentUser!.theme).toBe('bamboo')
+  })
+
   test('登出回落默认主题', async ({ page, mockApi }) => {
     mockApi.registerUser({ theme: 'ink' })
     await page.goto('/')
