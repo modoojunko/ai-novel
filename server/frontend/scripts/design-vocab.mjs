@@ -53,5 +53,12 @@ export const emojiRegex = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
 
 // daisyUI 已退役（PR #195）：语义色/组件类不允许回归（token 级全词匹配；
 // btn-ghost / btn-block 等设计系统同名类不受影响）。
+// 退役类名禁令（s-ui-alignment）：.b / .strip 已被 .pill / .notice 取代
+// （裁决 docs/ux/cross-end.html §3.1/§3.2），token 级全词匹配防回流；
+// 全词锚定：循环变量绑定等不带类名语境的片段不误伤（HeroSection 循环变量已改名 bk）。
+// C端 同一禁令暂缓：其存量 .b（NovelListPage:287 与 prototypes）尚未收编，
+// 由 C端 批次同批启用同一表达式（禁令表达式本身保持两端逐字相同的契约）。
+export const retiredClassRegex = /^(?:b|strip)$/;
+
 export const bannedDaisyRegex =
   /^(?:(?:text|bg|border)-(?:primary|secondary|accent|neutral|error|success|info|warning|base-100|base-200|base-300|base-content)|base-content\/\d+|modal-box|modal-action|modal-backdrop|modal-open|join-item|select-bordered|link-primary|link-secondary|link-hover|btn-square|btn-circle|btn-outline|step-primary|skeleton|loading-(?:spinner|dots|ring|ball|bars|infinity))$/;

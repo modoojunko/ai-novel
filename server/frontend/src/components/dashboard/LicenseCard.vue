@@ -24,8 +24,8 @@ const emit = defineEmits<{
     <div class="panel-h">
       <div class="title-row">
         <h3>{{ session.tierDisplay }}</h3>
-        <span v-if="session.isValid" class="b ok">有效期内</span>
-        <span v-else-if="session.tier !== 'none'" class="b err">已过期</span>
+        <span v-if="session.isValid" class="pill pill-status pill-ok">有效期内</span>
+        <span v-else-if="session.tier !== 'none'" class="pill pill-status pill-err">已过期</span>
       </div>
       <AppButton variant="primary" @click="$emit('activate')">
         激活新码

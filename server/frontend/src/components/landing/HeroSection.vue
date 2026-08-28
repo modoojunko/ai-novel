@@ -77,10 +77,10 @@ const downloadOpen = ref(false)
         <span class="hm-seg"><i class="on"></i><i></i><i></i></span>
       </div>
       <div class="hm-body">
-        <div v-for="b in books" :key="b.title" class="hm-book" :class="{ on: b.on }">
-          <div class="t">{{ b.title }}</div>
-          <div class="m num">{{ b.meta }}</div>
-          <div class="bar"><i :style="{ width: b.pct + '%' }"></i></div>
+        <div v-for="bk in books" :key="bk.title" class="hm-book" :class="{ on: bk.on }">
+          <div class="t">{{ bk.title }}</div>
+          <div class="m num">{{ bk.meta }}</div>
+          <div class="bar"><i :style="{ width: bk.pct + '%' }"></i></div>
         </div>
         <div class="hm-new">+ 新建书籍</div>
       </div>

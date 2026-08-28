@@ -20,13 +20,20 @@
 
 ## 3. PR2 · P1 语义收编批（S端调用点改名）
 
-- [ ] 3.1 S端 12 处 `.b` 调用按 design D4 映射表替换为 `.pill` 角色×语气：DeviceCard(2)/LicenseCard(2)/AuthPage(2)/RegisterPage(1)/AccountPage(1)/LicensePage(2)/DashboardLayout(1)/RoadmapSection(1)；三处裸 `.b`（DeviceCard:67/AccountPage:49/DashboardLayout:45）按内容定档并把终值回填 PR 描述。验证：`grep -rn 'class="b' server/frontend/src` 零命中；各页面徽标渲染与改前同语义（ok 绿/err 红不变）
-- [ ] 3.2 删除 S端 base.css 的 `.b` 基类定义（现 123-127 行一带）。验证：grep 无 `.b` 选择器残留；控制台页面无样式回退
-- [ ] 3.3 S端 6 文件 `.strip` → `.notice` 全量替换（语气修饰不变）：ActivateCodeForm/ChangePasswordForm/SecurityForm/LoginPage/RegisterPage/AuthPage。验证：`grep -rn strip server/frontend/src --include='*.vue'` 零命中；激活表单错误条、改密成功条渲染正常
-- [ ] 3.4 删除 `server/frontend/src/design/dashboard.css` 的 `.strip` 定义段（现 18-23 行）及自述「过渡期」头注释（第 4 行）的失效表述；布局性 margin 归属按 design D7 裁定。验证：dashboard.css 无 strip；四语气提示条渲染与改前一致
-- [ ] 3.5 两端 `scripts/design-vocab.mjs` 同批新增 `.b`/`.strip` 退役禁令（design D8 锚定写法，防误伤 HeroSection `b.on` 绑定；两端表达式逐字相同）。验证：双端 design:lint 绿；人为在 S端 临时加回 `class="b"` 能被 lint 拦截（验证后还原）
-- [ ] 3.6 截取 S端 改后对照图入 `evidence/after/`（与 1.1 同机位同状态）。验证：before/after 成对入 change 目录，PR 描述引用路径
-- [ ] 3.7 PR2 门禁回归：同 2.6 全套（双端 lint/cross、C端 check <0.2%、双端 tsc、S端 e2e）＋ 仓库根 `openspec validate --all`。验证：输出摘录贴本任务下方，validate 相比基线 20 passed 只增不破
+- [x] 3.1 S端 12 处 `.b` 调用按 design D4 映射表替换为 `.pill` 角色×语气：DeviceCard(2)/LicenseCard(2)/AuthPage(2)/RegisterPage(1)/AccountPage(1)/LicensePage(2)/DashboardLayout(1)/RoadmapSection(1)；三处裸 `.b`（DeviceCard:67/AccountPage:49/DashboardLayout:45）按内容定档并把终值回填 PR 描述。验证：`grep -rn 'class="b' server/frontend/src` 零命中；各页面徽标渲染与改前同语义（ok 绿/err 红不变）
+  - 证据：18 处编辑（12 徽标 + 3 组动态 cls 计算改发 pill-ok/pill-warn/中性空串）；grep `class="b` 零残留（余下命中为 btn/循环变量/brand 误报）；裸 `.b` 三处定档：DeviceCard:67→pill-status、AccountPage:49→pill-status、DashboardLayout:45→pill-status
+- [x] 3.2 删除 S端 base.css 的 `.b` 基类定义（现 123-127 行一带）。验证：grep 无 `.b` 选择器残留；控制台页面无样式回退
+  - 证据：base.css 本地段 .b 五行删除；S端 e2e 86/86 无样式回退
+- [x] 3.3 S端 6 文件 `.strip` → `.notice` 全量替换（语气修饰不变）：ActivateCodeForm/ChangePasswordForm/SecurityForm/LoginPage/RegisterPage/AuthPage。验证：`grep -rn strip server/frontend/src --include='*.vue'` 零命中；激活表单错误条、改密成功条渲染正常
+  - 证据：13 处 strip→notice（6 文件，语气修饰不变）；grep strip 零残留
+- [x] 3.4 删除 `server/frontend/src/design/dashboard.css` 的 `.strip` 定义段（现 18-23 行）及自述「过渡期」头注释（第 4 行）的失效表述；布局性 margin 归属按 design D7 裁定。验证：dashboard.css 无 strip；四语气提示条渲染与改前一致
+  - 证据：dashboard.css .strip 段更名 .notice（取值含 margin 原地保留，D7）；激活失败/改密成功等提示条 e2e 场景通过
+- [x] 3.5 两端 `scripts/design-vocab.mjs` 同批新增 `.b`/`.strip` 退役禁令（design D8 锚定写法，防误伤 HeroSection `b.on` 绑定；两端表达式逐字相同）。验证：双端 design:lint 绿；人为在 S端 临时加回 `class="b"` 能被 lint 拦截（验证后还原）
+  - 证据：两端 vocab 表达式同源写入 retiredClassRegex=/^(?:b|strip)$/；**偏差登记：C端 本轮暂缓启用**——C端 自持 .b 存量（NovelListPage:287 `b ${stage}` 与 3 个原型），现在启用会打红 C端 门禁，归 C端 批次同批启用；S端 启用后负向验证：回植 class="b" → exit 1（还原后 exit 0）；S端 HeroSection 循环变量 b→bk 消除撞名误报
+- [x] 3.6 截取 S端 改后对照图入 `evidence/after/`（与 1.1 同机位同状态）。验证：before/after 成对入 change 目录，PR 描述引用路径
+  - 证据：evidence/after/ 5 张与 before 同机位成对（pill 描边胶囊 + notice 四语气），PR 描述引用
+- [x] 3.7 PR2 门禁回归：同 2.6 全套（双端 lint/cross、C端 check <0.2%、双端 tsc、S端 e2e）＋ 仓库根 `openspec validate --all`。验证：输出摘录贴本任务下方，validate 相比基线 20 passed 只增不破
+  - 证据：design:cross 零差异；S端 design:lint（含退役禁令）exit 0；vue-tsc 绿；S端 e2e 86/86；C端 lint exit 0；C端 design:check 2 场景全绿；C端 tsc 绿；openspec validate --all 22 passed（基线 20 + 本 change 2）
 
 ## 4. 收尾与登记
 

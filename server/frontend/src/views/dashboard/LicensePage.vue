@@ -45,9 +45,9 @@ const { loadError, retry } = usePageLoad(() => session.fetchUserInfo())
         <!-- 预留：卡片列表 v-for 渲染
         <div v-for="code in codes" :key="code.code_id" class="panel compact flex flex-wrap gap-2 items-center">
           <span class="keyline">AC-ABCD-EFGH-…</span>
-          <span class="b muted">套餐</span>
+          <span class="pill pill-tag">套餐</span>
           <span class="text-xs">到期日</span>
-          <span class="b ok">已激活</span>
+          <span class="pill pill-status pill-ok">已激活</span>
           <span class="text-xs" style="color: var(--muted)">激活时间</span>
         </div>
         -->
