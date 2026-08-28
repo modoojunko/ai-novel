@@ -178,6 +178,9 @@
   <div class="note"><b>结论：</b>L1 层不是要建设的目标，而是要用脚本<b>锁住</b>的既成事实（见 §六 M1）。没有这个脚本，「已逐字相同」只是今天快照，明天就可能被一次顺手改动打破。</div>
 
   <h2>三、八处漂移的裁决</h2>
+  <p class="lead" style="background:var(--ok-soft,#e8f3ec);padding:8px 12px;border-radius:8px">
+    <strong>落地进度（2026-08-28，s-ui-alignment #218/#219）</strong>：S端侧已全部收敛——#1 徽标（.b→.pill，12 处）、#2 提示条（.strip→.notice，6 文件）、#4 骨架取值（0.45）、#7 --on-accent（4 处替换）均落地；#5 面板、#8 空态动作槽、#3 表单错误态、#2 的 .notice 基座入共享段三项「缓收编」：共享段取值会在 C端 新增本地未定义属性（color/gap/margin）引起 parity 漂移，待 C端 批次同批收编后入段，S端侧契约（.pill/.notice 词汇）已生效。M1 design:cross 基线已建立（零差异 + 负向验证）。C端侧账目不变。
+  </p>
   <p class="lead">每一条都标注了方向：<span class="dir s2c">S → C</span> 表示 S 端做得对、C 端补齐；<span class="dir c2s">C → S</span> 表示以 C 端为准或 C 端先行定义、S 端改名跟进；<span class="dir both">两端同步</span>表示同时新做。</p>
 
   <table class="pill-tbl">
@@ -287,6 +290,7 @@
   <p style="font-size:13px;color:var(--muted)">一句话：白名单里可以换的是「排版组合」，不可以换的是「基因」（令牌、语气词表、状态语言、危险色纪律）。</p>
 
   <h2>六、防再漂移机制（本方案的核心交付）</h2>
+  <p class="lead" style="background:var(--ok-soft,#e8f3ec);padding:8px 12px;border-radius:8px"><strong>M1 已落地（2026-08-28 #218）</strong>：两端 base.css 已打 @cross-begin/@cross-end 标记，<code>scripts/design-cross.mjs</code> 已建零差异基线并挂两端 <code>design:cross</code>（负向验证 exit 1）。注意：实际入段范围 = 令牌+基础类+pill 家族+sk+表单错误态+toast.warn；notice 基座/panel/empty-slot 三族按上文缓收编裁定暂在各自本地段。M2/M3 未动。</p>
 
   <h3>M1 · <code>design:cross</code>：把「必须逐字相同的段落」变成机器断言</h3>
   <p>在两端 <code>base.css</code> 中用标记注释显式圈出 L1+L2 共享区间，仓库根放一个比对脚本，任何一端单独改动都会立刻红：</p>
