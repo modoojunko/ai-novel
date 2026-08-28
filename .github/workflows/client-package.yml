@@ -22,7 +22,6 @@ concurrency:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   build:
@@ -246,30 +245,36 @@ jobs:
             macOS 首次打开若提示"无法验证开发者"：右键 App → 「打开」，再确认一次即可。
             Windows 若出现 SmartScreen 提示：点「更多信息」→「仍要运行」。
             发布后请到 Pull requests 合入自动开出的「落地页版本号」更新 PR，官网下载入口才会指向本版本。
-      # 发版同步：自动开「落地页版本号 bump」PR，人合入后走既有 push-main 部署管线更新官网。
-      # 漏合入不坏链——落地页继续指向上一版资产（历史资产永久保留），PR 本身即待办提醒。
-      - name: Open landing version bump PR
+      # ── 国内分发：转存安装包到静态托管 + 更新 latest.json ──
+      # www 根路径路由指向静态托管（/api 才是云托管），上传后 www/download/… 即可直接下载。
+      # 版本化路径只增不改，CDN 长缓存安全；latest.json 是落地页下载弹窗的版本事实源。
+      # 任一校验失败即流水线标红，不静默。
+      - name: Publish to static hosting (CN CDN)
         env:
-          GH_TOKEN: ${{ github.token }}
+          TCB_API_KEY: ${{ secrets.TCB_API_KEY }}
+          TCB_ENV_ID: ${{ vars.TCB_ENV_ID }}
         run: |
           VER="${GITHUB_REF_NAME#v}"
-          FILE="server/frontend/src/constants/client-release.ts"
-          BRANCH="chore/bump-landing-version-${GITHUB_REF_NAME}"
-          if [ ! -f "$FILE" ]; then
-            echo "::warning::$FILE 不存在，跳过 bump PR"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -B "$BRANCH" origin/main
-          sed -i "s|export const LATEST_CLIENT_VERSION = '.*'|export const LATEST_CLIENT_VERSION = '${VER}'|" "$FILE"
-          if git diff --quiet -- "$FILE"; then
-            echo "版本常量已是 ${VER}，无需 bump"
-            exit 0
-          fi
-          git add "$FILE"
-          git commit -m "chore(landing): 落地页客户端版本号更新为 ${GITHUB_REF_NAME}"
-          git push origin "$BRANCH"
-          gh pr create --base main --head "$BRANCH" \
-            --title "${GITHUB_REF_NAME} 已发布：落地页版本号待更新" \
-            --body "Release [${GITHUB_REF_NAME}](https://github.com/modoojunko/ai-novel/releases/tag/${GITHUB_REF_NAME}) 已发布。合入本 PR 后，落地页下载按钮与版本副行指向 ${GITHUB_REF_NAME} 资产（改动仅一行常量）。"
+          EXE="$(find artifacts -name 'AI_Novel_Setup_*.exe' -print -quit)"
+          DMG="$(find artifacts -name 'AI_Novel_mac_*.dmg' -print -quit)"
+          [ -n "$EXE" ] && [ -n "$DMG" ] || { echo "::error::artifacts 缺少安装包"; exit 1; }
+          npm install -g @cloudbase/cli
+          tcb login --cloudbase-api-key "$TCB_API_KEY" -e "$TCB_ENV_ID"
+          tcb hosting deploy "$EXE" "download/v$VER/$(basename "$EXE")" -e "$TCB_ENV_ID"
+          tcb hosting deploy "$DMG" "download/v$VER/$(basename "$DMG")" -e "$TCB_ENV_ID"
+          printf '{"version":"%s"}\n' "$VER" > latest.json
+          tcb hosting deploy ./latest.json "download/latest.json" -e "$TCB_ENV_ID"
+          # 校验：www 直链 HEAD 200 且 content-length 与本地一致；latest.json 内容断言
+          check() {
+            for i in 1 2 3 4 5 6; do
+              LEN="$(curl -sfIL "$1" | tr -d '\r' | awk 'tolower($1)=="content-length:"{print $2}' | tail -1)"
+              [ -n "$LEN" ] && [ "$LEN" = "$2" ] && return 0
+              sleep 5
+            done
+            echo "::error::校验失败：$1"; return 1
+          }
+          check "https://www.awesomenovel.com/download/v$VER/$(basename "$EXE")" "$(stat -c%s "$EXE")" || exit 1
+          check "https://www.awesomenovel.com/download/v$VER/$(basename "$DMG")" "$(stat -c%s "$DMG")" || exit 1
+          [ "$(curl -sf https://www.awesomenovel.com/download/latest.json)" = "{\"version\":\"$VER\"}" ] \
+            || { echo "::error::latest.json 内容不符"; exit 1; }
+          echo "CN CDN 发布完成：download/v$VER/ + latest.json"
