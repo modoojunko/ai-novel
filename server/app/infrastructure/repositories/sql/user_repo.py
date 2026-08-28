@@ -20,6 +20,7 @@ class SqlUserRepo:
             security_question=row.security_question or "",
             security_answer_hash=row.security_answer_hash or "",
             created_at=row.created_at,
+            theme=row.theme or "",
         )
 
     def get(self, username: str) -> User | None:
@@ -48,6 +49,11 @@ class SqlUserRepo:
     def update_security(self, username: str, question: str, answer_hash: str) -> None:
         self.db.query(UserORM).filter(UserORM.username == username).update(
             {"security_question": question, "security_answer_hash": answer_hash}
+        )
+
+    def update_theme(self, username: str, theme: str) -> None:
+        self.db.query(UserORM).filter(UserORM.username == username).update(
+            {"theme": theme}
         )
 
     def flush(self) -> None:

@@ -32,6 +32,14 @@
   --font-mono: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', monospace;
   --radius: 10px; --radius-lg: 16px;
 }
+
+/* 界面主题覆盖层（theme-preferences）：默认 teal = 基础令牌值（不设 data-theme）。
+   key 与 S端 白名单（app/domain/identity/theme.py）及 docs/ux 色相登记簿一致；两端逐字同步。 */
+:root[data-theme="ink"]      { --accent: oklch(37% 0.01 250);  --accent-strong: oklch(31% 0.01 250); }
+:root[data-theme="bamboo"]   { --accent: oklch(60% 0.076 152); --accent-strong: oklch(54% 0.076 152); }
+:root[data-theme="rouge"]    { --accent: oklch(58% 0.11 8);    --accent-strong: oklch(52% 0.11 8); }
+:root[data-theme="wisteria"] { --accent: oklch(58% 0.084 296); --accent-strong: oklch(52% 0.084 296); }
+:root[data-theme="celadon"]  { --accent: oklch(65% 0.066 184); --accent-strong: oklch(59% 0.066 184); }
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body {

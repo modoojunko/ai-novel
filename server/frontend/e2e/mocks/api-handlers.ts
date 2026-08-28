@@ -17,6 +17,7 @@ export class MockApi {
     '**/api/user/me',
     '**/api/user/password',
     '**/api/user/security',
+    '**/api/user/preferences',
     '**/api/license/activate',
     '**/api/device/my',
     '**/api/device/remove',
@@ -118,6 +119,7 @@ export class MockApi {
         token: this.currentUser.token,
         tier: this.currentUser.tier,
         expires_at: this.currentUser.expires_at,
+        theme: this.currentUser.theme,
       }))
     }
 
@@ -146,7 +148,18 @@ export class MockApi {
         tier: this.currentUser.tier,
         expires_at: this.currentUser.expires_at,
         is_valid: this.currentUser.is_valid,
+        theme: this.currentUser.theme,
       }))
+    }
+
+    if (path === '/api/user/preferences' && method === 'PUT') {
+      const body = route.request().postDataJSON()
+      const known = ['teal', 'ink', 'bamboo', 'rouge', 'wisteria', 'celadon']
+      if (!known.includes(body?.theme)) {
+        return route.fulfill({ status: 422, contentType: 'application/json', body: JSON.stringify({ code: 422, msg: `不支持的主题：${body?.theme}` }) })
+      }
+      this.currentUser!.theme = body.theme
+      return route.fulfill(json(0, { theme: body.theme }))
     }
 
     if (path === '/api/user/password' && method === 'PUT') {

@@ -1,6 +1,7 @@
 """查询用户当前 License 信息。"""
 from __future__ import annotations
 
+from app.application.identity.update_user_theme import stored_to_wire
 from app.domain.licensing import License
 from app.infrastructure.repositories.base import CodeRepo, UserRepo
 
@@ -18,5 +19,6 @@ def get_license_info(user_repo: UserRepo, code_repo: CodeRepo, username: str) ->
             "tier": license_.effective_tier,
             "expires_at": license_.max_expires_at.isoformat() if license_.max_expires_at else "",
             "is_valid": license_.is_valid(),
+            "theme": stored_to_wire(user.theme),
         },
     }

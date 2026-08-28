@@ -13,4 +13,5 @@ class UserORM(Base):
     security_question   = Column(Text, default="", server_default="")
     security_answer_hash= Column(String(256), default="", server_default="")
     status              = Column(String(32), default="active", server_default="active", index=True)
+    theme               = Column(String(32), default="", server_default="")
     created_at          = Column(DateTime, server_default=func.now())

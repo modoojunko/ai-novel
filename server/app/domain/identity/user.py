@@ -13,6 +13,7 @@ class User:
     security_question: str
     security_answer_hash: str
     created_at: datetime | None = None
+    theme: str = ""            # 界面主题 key（空 = 默认 teal，见 identity/theme.py）
 
     def is_active(self) -> bool:
         return self.status == "active"
