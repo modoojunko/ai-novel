@@ -1,0 +1,168 @@
+/* ============================================================================
+ * uikit.css — 统一组件词汇的「搬运清单」（全部 4 段都应最终搬进 base.css 后删除）
+ *
+ * 采用方式：
+ *   1) 把对应段落贴进 docs/design-c/prototypes/*.html 核对视觉（ADJUSTMENTS.md 登记）
+ *   2) 再并入 src/design/base.css；dot 段须同步删除 book.css:97-100 的 .ch 作用域版
+ *      （否则出现 .spin 那种同名双定义随加载顺序漂移的老问题）
+ *   3) npm run design:check 全绿才收工
+ *
+ * 本文件刻意不写任何字面色值 —— 全部取自 base.css 已有令牌。
+ * ==========================================================================*/
+
+/* ── 1. 胶囊家族（规范 §6.2）：13 种存量实现收敛为「角色 × 语气」 ───────────
+ * 收编时 border-radius: 999px 替换为 var(--radius-pill)（规范 §4.1 提议新增令牌）
+ */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  line-height: 1.6;
+  font-weight: 500;
+  background: var(--surface);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.pill svg {
+  width: 10px;
+  height: 10px;
+  flex: none;
+}
+
+/* 角色修饰：status = 状态徽标（软底为主）；count = 计数（等宽数字） */
+.pill-status {
+  padding: 2px 9px;
+}
+.pill-count {
+  font-family: var(--font-mono);
+  background: var(--fg-soft);
+}
+
+/* 语气修饰（默认 neutral = 描边灰；其余软底、边框透明） */
+.pill-ok {
+  background: var(--ok-soft);
+  border-color: transparent;
+  color: color-mix(in oklch, var(--ok) 88%, var(--fg));
+}
+.pill-warn {
+  background: var(--warn-soft);
+  border-color: transparent;
+  color: color-mix(in oklch, var(--warn) 85%, var(--fg));
+}
+.pill-err {
+  background: var(--err-soft);
+  border-color: transparent;
+  color: color-mix(in oklch, var(--err) 90%, var(--fg));
+}
+.pill-accent {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent-strong);
+}
+
+/* ── 2. 对象状态点（规范 §5.1 三态）：与 book.css 视觉值完全一致，仅去掉 .ch 前缀 ── */
+.dot-empty {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border);
+  flex: none;
+}
+.dot-warn {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+  flex: none;
+}
+.dot-ok {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+  flex: none;
+}
+
+/* 流式/AI 进行中指示点（规范 §5.2 + M-R2：只在点上表达进行，正文不动布局） */
+.dot-live {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: dot-breathe 1.4s ease-in-out infinite;
+  flex: none;
+}
+@keyframes dot-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dot-live {
+    animation: none;
+  }
+}
+
+/* ── 3. Notice 四语气补齐（现有 list.css 只有默认 warn + .info） ─────────── */
+.notice.ok {
+  border-color: color-mix(in oklch, var(--ok) 28%, var(--border));
+  background: var(--ok-soft);
+}
+.notice.err {
+  border-color: color-mix(in oklch, var(--err) 26%, var(--border));
+  background: var(--err-soft);
+}
+.notice > svg,
+.notice .nico {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+.notice.info .nico {
+  color: var(--accent-strong);
+}
+.notice.ok .nico {
+  color: var(--ok);
+}
+.notice.err .nico {
+  color: var(--err);
+}
+
+/* Notice 关闭钮（独立命名避免与工具行 .icon-btn 抢价） */
+.notice-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border: none;
+  background: none;
+  border-radius: 999px;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.55;
+}
+.notice-x:hover {
+  opacity: 1;
+}
+.notice-x svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* ── 4. EmptyState 动作行：空态解剖（规范 §6.4）补最后一块 ───────────────── */
+.empty-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 16px;
+}

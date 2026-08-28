@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>爱小说 · 正文工作台</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: "Noto Sans SC", "PingFang SC", sans-serif; }
+  .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+  .modal { display: none; }
+  .modal.open { display: flex; }
+</style>
+</head>
+<body class="bg-stone-100 text-stone-800">
+  <div class="h-screen flex flex-col">
+    <!-- 应用栏（产品级） -->
+    <div class="bg-white border-b px-4 h-11 flex items-center gap-3 shrink-0">
+      <a href="01-list.html" class="serif font-bold text-amber-700 text-lg leading-none">爱小说</a>
+      <div class="ml-auto flex items-center gap-1">
+        <a href="01-list.html" class="px-2.5 py-1.5 rounded-md text-sm text-stone-500 hover:bg-stone-100 hover:text-stone-800">我的作品</a>
+        <a href="#" class="px-2.5 py-1.5 rounded-md text-sm text-stone-500 hover:bg-stone-100 hover:text-stone-800">设置</a>
+      </div>
+    </div>
+    <!-- 小说栏（书名行 · 小说级操作） -->
+    <div class="bg-white border-b px-4 h-12 flex items-center gap-2 shrink-0">
+      <span class="serif font-semibold text-lg text-stone-800">剑起苍澜</span>
+      <span class="text-xs text-stone-400">长篇小说</span>
+      <span class="ml-auto text-xs text-stone-300">免费模式 · 无需设定，直接写</span>
+    </div>
+    <!-- 面包屑栏（纯层级定位） -->
+    <div class="bg-white border-b px-4 h-9 flex items-center gap-1.5 text-sm shrink-0">
+      <span id="bar-volume-title" class="text-stone-500 hover:text-stone-800">第一卷：星海初航</span>
+      <span class="text-stone-300">/</span>
+      <span id="bar-chapter-title" class="font-medium text-stone-700">第二章：跃迁</span>
+    </div>
+    <div class="flex flex-1 overflow-hidden">
+      <!-- 左侧：正文章节树 -->
+      <aside class="w-60 bg-white border-r p-2 text-sm overflow-y-auto">
+        <p class="text-[10px] text-stone-400 px-2 pt-1 pb-2 font-medium tracking-wider">正文章节（仅显示有正文的章节）</p>
+        <div class="space-y-0.5">
+          <div class="rounded px-2 py-1.5">
+            <div onclick="openVolumeDrawer()" class="flex items-center gap-1 group cursor-pointer hover:bg-stone-50 rounded px-1 py-0.5">
+              <span>▾</span> 第一卷：星海初航
+              <span class="ml-auto text-[10px] text-amber-700 opacity-0 group-hover:opacity-100">配置 →</span>
+            </div>
+            <div class="pl-4 mt-1 space-y-0.5">
+              <div id="wnode-0" onclick="event.stopPropagation();openChapterDrawer(0)" class="rounded px-2 py-1 flex items-center gap-1 text-stone-400 cursor-pointer group hover:bg-stone-50">
+                <span class="flex-1 truncate line-through decoration-stone-300">第一章：启程</span>
+                <span class="text-[10px]">2100字</span>
+                <span class="text-[10px] bg-stone-200 text-stone-500 px-1.5 py-0.5 rounded">📦 已归档</span>
+                <span class="text-[10px] text-amber-700 opacity-0 group-hover:opacity-100">配置 →</span>
+              </div>
+              <div id="wnode-1" onclick="event.stopPropagation();openChapterDrawer(1)" class="rounded px-2 py-1 flex items-center gap-1 bg-amber-100 cursor-pointer group hover:bg-amber-50">
+                <span class="flex-1 truncate">第二章：跃迁</span>
+                <span class="text-[10px] text-emerald-600">486字</span>
+                <span class="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded">未归档</span>
+                <span class="text-[10px] text-amber-700 opacity-0 group-hover:opacity-100">配置 →</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 编辑器 -->
+      <main class="flex-1 flex flex-col">
+        <!-- 正文工具条（排版） -->
+        <div class="bg-white border-b px-4 h-9 flex items-center gap-3 text-xs text-stone-500 shrink-0">
+          <span class="text-stone-400">字号</span>
+          <div class="flex items-center bg-stone-100 rounded-md p-0.5">
+            <span class="px-2 py-0.5 rounded cursor-pointer text-stone-400">小</span>
+            <span class="px-2 py-0.5 rounded bg-white shadow-sm text-stone-800">中</span>
+            <span class="px-2 py-0.5 rounded cursor-pointer text-stone-400">大</span>
+          </div>
+          <span class="text-stone-400 ml-2">行距</span>
+          <div class="flex items-center bg-stone-100 rounded-md p-0.5">
+            <span class="px-2 py-0.5 rounded cursor-pointer text-stone-400">紧凑</span>
+            <span class="px-2 py-0.5 rounded bg-white shadow-sm text-stone-800">舒适</span>
+            <span class="px-2 py-0.5 rounded cursor-pointer text-stone-400">宽松</span>
+          </div>
+          <button class="ml-auto px-2.5 py-1 rounded-md hover:bg-stone-100">⛶ 专注模式</button>
+          <button onclick="openModal('modal-versions')" class="px-2.5 py-1 rounded-md hover:bg-stone-100">版本历史</button>
+          <button onclick="archiveChapter()" class="px-2.5 py-1 rounded-md hover:bg-stone-100">归档本章</button>
+        </div>
+        <!-- 归档只读提示条 -->
+        <div id="readonly-banner" class="hidden bg-stone-100 border-b px-4 py-1.5 text-xs text-stone-500 flex items-center gap-2">
+          📦 已归档章节 · 只读查看（返回未归档章节后可继续编辑）
+        </div>
+        <div class="flex-1 overflow-y-auto bg-white">
+          <div id="prose-editor" contenteditable="true" class="max-w-3xl mx-auto px-8 py-10 serif text-[17px] leading-[2] text-stone-800 outline-none">
+            <h2 class="text-2xl font-bold mb-6 text-center">第二章：跃迁</h2>
+            <p>舰桥的灯光在跃迁启动的瞬间暗了下去，只剩下导航屏幕的幽蓝光芒。林澈握紧扶手，指节发白。</p>
+            <p class="mt-4">"跃迁坐标已锁定，全体人员注意，十秒后进入折跃。"船长的声音在广播里响起，带着一丝不易察觉的紧张。</p>
+            <p class="mt-4">十、九、八……当倒数归零的刹那，整艘星舰猛地一震，窗外的星光被拉成无数条光带，向身后飞速退去。</p>
+            <p class="mt-4">就在这时，警报声刺耳地响起。"检测到异常信号！信号源……就在舰内！"</p>
+          </div>
+        </div>
+        <div class="bg-white border-t px-4 py-1.5 flex items-center text-xs text-stone-400">
+          <span id="prose-count">本章 486 字</span>
+          <span id="prose-status" class="ml-auto text-emerald-600">已自动保存 ✓</span>
+        </div>
+      </main>
+
+      <!-- 右侧：功能栏 -->
+      <aside class="w-60 bg-white border-l p-3 text-sm overflow-y-auto space-y-5">
+        <!-- 本章进度 -->
+        <div>
+          <p class="text-[10px] text-stone-400 font-medium tracking-wider mb-2">本章进度</p>
+          <div class="bg-stone-50 rounded-lg p-3">
+            <p class="font-medium" id="side-chapter-title">第二章：跃迁</p>
+            <div class="mt-2 flex items-baseline gap-1">
+              <span class="text-lg font-semibold text-stone-800" id="side-progress-pct">22%</span>
+              <span class="text-xs text-stone-400">目标 2200 字</span>
+            </div>
+            <div class="mt-1.5 h-1.5 bg-stone-200 rounded-full overflow-hidden">
+              <div id="side-progress-bar" class="h-full bg-amber-500 rounded-full" style="width: 22%"></div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- 版本历史 -->
+  <div id="modal-versions" class="modal fixed inset-0 bg-black/40 items-center justify-center z-50">
+    <div class="bg-white rounded-2xl p-6 w-96 shadow-xl">
+      <div class="flex justify-between items-center mb-4"><h3 class="font-bold serif text-lg">版本历史 · 第二章</h3><button onclick="closeModal('modal-versions')" class="text-stone-400 text-xl">&times;</button></div>
+      <div class="space-y-2 text-sm">
+        <div class="flex items-center justify-between bg-stone-50 rounded-lg px-3 py-2"><span>v3 · 自动保存</span><span class="text-xs text-stone-400">10:32</span><button class="text-xs text-amber-700">恢复</button></div>
+        <div class="flex items-center justify-between bg-stone-50 rounded-lg px-3 py-2"><span>v2 · 手动保存</span><span class="text-xs text-stone-400">10:18</span><button class="text-xs text-amber-700">恢复</button></div>
+        <div class="flex items-center justify-between bg-stone-50 rounded-lg px-3 py-2"><span>v1 · 初始版本</span><span class="text-xs text-stone-400">09:55</span><button class="text-xs text-amber-700">恢复</button></div>
+      </div>
+      <button onclick="closeModal('modal-versions')" class="mt-5 w-full py-2 border border-stone-300 rounded-lg text-stone-500">关闭</button>
+    </div>
+  </div>
+
+  <!-- 卷配置抽屉 -->
+  <div id="drawer-volume" class="fixed inset-y-0 right-0 w-[400px] bg-white shadow-2xl z-40 transform translate-x-full transition-transform duration-300 flex flex-col">
+    <div class="border-b px-5 h-12 flex items-center justify-between shrink-0">
+      <h3 class="serif font-semibold text-lg">卷配置 · 第一卷：星海初航</h3>
+      <button onclick="closeDrawer('drawer-volume')" class="text-stone-400 hover:text-stone-600 text-xl">&times;</button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5 space-y-4 text-sm">
+      <div><label class="text-xs font-medium text-stone-500">卷名</label><input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" value="第一卷：星海初航"></div>
+      <div><label class="text-xs font-medium text-stone-500">卷摘要</label><textarea class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg h-24" placeholder="这一卷讲什么、从哪开始、到哪里结束…">主角登上殖民舰，驶向未知星系</textarea></div>
+      <p class="text-[11px] text-stone-400">免费模式：卷配置 = 卷名 + 卷摘要。结构模板/冲突设计等高级字段属于 PRO（AI 上下文）。</p>
+    </div>
+    <div class="border-t px-5 py-3 flex items-center gap-2 shrink-0">
+      <button onclick="closeDrawer('drawer-volume')" class="px-4 py-2 text-sm border border-stone-300 rounded-lg">取消</button>
+      <button onclick="closeDrawer('drawer-volume')" class="ml-auto px-5 py-2 text-sm bg-amber-600 text-white rounded-lg">保存卷配置</button>
+    </div>
+  </div>
+
+  <!-- 章配置抽屉 -->
+  <div id="drawer-chapter" class="fixed inset-y-0 right-0 w-[400px] bg-white shadow-2xl z-40 transform translate-x-full transition-transform duration-300 flex flex-col">
+    <div class="border-b px-5 h-12 flex items-center justify-between shrink-0">
+      <h3 class="serif font-semibold text-lg">章配置 · <span id="drawer-chapter-title">第二章：跃迁</span></h3>
+      <button onclick="closeDrawer('drawer-chapter')" class="text-stone-400 hover:text-stone-600 text-xl">&times;</button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5 space-y-3 text-sm">
+      <div><label class="text-xs font-medium text-stone-500">章名</label><input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" value="第二章：跃迁"></div>
+      <div><label class="text-xs font-medium text-stone-500">章摘要</label><textarea class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg h-28" placeholder="这一章写什么：发生什么事、主角做什么、章末留下什么…">跃迁中的异常信号：船员失联，主角第一次独自决策。</textarea></div>
+      <p class="text-[11px] text-stone-400">免费模式：章配置 = 章名 + 章摘要。方向输入/key_points/情绪设计等高级字段属于 PRO（AI 上下文）。</p>
+    </div>
+    <div class="border-t px-5 py-3 flex items-center gap-2 shrink-0">
+      <button onclick="closeDrawer('drawer-chapter')" class="ml-auto px-3 py-2 text-sm border border-stone-300 rounded-lg">保存</button>
+      <button onclick="goWrite()" class="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg">去写正文 →</button>
+    </div>
+  </div>
+
+<script>
+let proseSaveTimer = null;
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openDrawer(id) { document.getElementById(id).classList.remove('translate-x-full'); }
+function closeDrawer(id) { document.getElementById(id).classList.add('translate-x-full'); }
+function openVolumeDrawer() { closeDrawer('drawer-chapter'); openDrawer('drawer-volume'); }
+function openChapterDrawer(i) {
+  closeDrawer('drawer-volume');
+  const ch = chaptersData[i];
+  if (!ch) return;
+  currentChapter = i;
+  document.getElementById('drawer-chapter-title').textContent = ch.title;
+  openDrawer('drawer-chapter');
+}
+function goWrite() {
+  closeDrawer('drawer-chapter');
+  loadChapter(currentChapter);
+}
+
+
+const chaptersData = [
+  {
+    title: '第一章：启程',
+    volume: '第一卷：星海初航',
+    words: 2100,
+    archived: true,
+    html: '<h2 class="text-2xl font-bold mb-6 text-center">第一章：启程</h2>' +
+      '<p>殖民舰"晨曦号"缓缓驶离母港，舷窗外，故乡的灯光一点点缩小，最终汇入星河。</p>' +
+      '<p class="mt-4">林澈站在观景窗前，手里攥着母亲临行前塞给他的护身符——一枚断剑的碎片。碎片边缘温润，仿佛还带着母亲的体温。</p>' +
+      '<p class="mt-4">"新乘客请到舰桥报到。"广播里传来清冷的女声。他收起碎片，转身走向舰桥。</p>' +
+      '<p class="mt-4">舰桥的门在他面前滑开，一个疲惫的中年男人坐在船长椅上，目光却落在他手里的行李上，仿佛在确认什么。</p>',
+  },
+  {
+    title: '第二章：跃迁',
+    volume: '第一卷：星海初航',
+    words: 486,
+    archived: false,
+    html: '<h2 class="text-2xl font-bold mb-6 text-center">第二章：跃迁</h2>' +
+      '<p>舰桥的灯光在跃迁启动的瞬间暗了下去，只剩下导航屏幕的幽蓝光芒。林澈握紧扶手，指节发白。</p>' +
+      '<p class="mt-4">"跃迁坐标已锁定，全体人员注意，十秒后进入折跃。"船长的声音在广播里响起，带着一丝不易察觉的紧张。</p>' +
+      '<p class="mt-4">十、九、八……当倒数归零的刹那，整艘星舰猛地一震，窗外的星光被拉成无数条光带，向身后飞速退去。</p>' +
+      '<p class="mt-4">就在这时，警报声刺耳地响起。"检测到异常信号！信号源……就在舰内！"</p>',
+  },
+];
+let currentChapter = 1;
+
+function loadChapter(i) {
+  currentChapter = i;
+  const ch = chaptersData[i];
+  if (!ch) return;
+  const editor = document.getElementById('prose-editor');
+  editor.innerHTML = ch.html;
+  editor.contentEditable = ch.archived ? 'false' : 'true';
+  document.getElementById('bar-chapter-title').textContent = ch.title;
+  document.getElementById('bar-volume-title').textContent = ch.volume;
+  document.getElementById('prose-count').textContent = '本章 ' + ch.words + ' 字';
+  document.getElementById('side-chapter-title').textContent = ch.title;
+  const pct = Math.min(100, Math.round(ch.words / 2200 * 100));
+  document.getElementById('side-progress-pct').textContent = pct + '%';
+  document.getElementById('side-progress-bar').style.width = pct + '%';
+  const banner = document.getElementById('readonly-banner');
+  banner.classList.toggle('hidden', !ch.archived);
+  banner.classList.toggle('flex', ch.archived);
+  // 树高亮
+  document.querySelectorAll('[id^="wnode-"]').forEach(el => {
+    el.classList.remove('bg-amber-100');
+    el.classList.add('hover:bg-stone-100');
+  });
+  const node = document.getElementById('wnode-' + i);
+  if (node) { node.classList.remove('hover:bg-stone-100'); node.classList.add('bg-amber-100'); }
+}
+
+
+
+
+
+function archiveChapter() {
+  if (chaptersData[currentChapter].archived) { alert('该章已归档，正文为只读'); return; }
+  if (confirm('归档本章？归档后正文将锁定为只读状态。')) {
+    chaptersData[currentChapter].archived = true;
+    loadChapter(currentChapter);
+  }
+}
+
+function addVolume() {
+  const name = prompt('新卷名：', '第二卷：暗流涌动');
+  if (name) alert('已创建「' + name + '」（原型模拟）');
+}
+function editVolume() {
+  alert('编辑当前卷（原型模拟）');
+}
+function deleteVolume() {
+  if (confirm('删除当前卷？卷内章节将一并删除。')) alert('已删除（原型模拟）');
+}
+
+document.getElementById('prose-editor').addEventListener('input', () => {
+  const editor = document.getElementById('prose-editor');
+  const count = document.getElementById('prose-count');
+  const status = document.getElementById('prose-status');
+  count.textContent = '本章 ' + editor.textContent.replace(/\s/g, '').length + ' 字';
+  status.textContent = '编辑中…';
+  status.className = 'ml-auto text-amber-600';
+  clearTimeout(proseSaveTimer);
+  proseSaveTimer = setTimeout(() => {
+    status.textContent = '已自动保存 ✓';
+    status.className = 'ml-auto text-emerald-600';
+  }, 1500);
+});
+</script>
+</body>
+</html>

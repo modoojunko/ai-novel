@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>爱小说 · 我的作品</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: "Noto Sans SC", "PingFang SC", sans-serif; }
+  .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+</style>
+</head>
+<body class="bg-stone-100 text-stone-800 min-h-screen">
+  <div class="max-w-5xl mx-auto px-6 py-8">
+    <div class="flex items-center justify-between mb-8">
+      <h1 class="text-3xl font-bold serif">我的作品</h1>
+      <button onclick="showCreate()" class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">开始新小说</button>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div class="bg-white rounded-xl border p-5 shadow-sm">
+        <div class="flex justify-between items-start">
+          <div>
+            <h3 class="serif font-semibold text-lg">剑起苍澜</h3>
+            <p class="text-xs text-stone-500 mt-1">3 章 · 更新于2026/8/10</p>
+          </div>
+          <div class="flex items-center gap-1">
+            <span class="text-xs bg-emerald-50 text-emerald-600 px-2 py-1 rounded">写作中</span>
+            <button onclick="renameNovel()" title="重命名" class="text-stone-400 hover:text-amber-600 px-1">✎</button>
+            <button onclick="deleteNovel()" title="删除" class="text-stone-400 hover:text-red-500 px-1">🗑</button>
+          </div>
+        </div>
+        <a href="02-writing.html" class="mt-4 w-full py-2 bg-amber-600 text-white text-sm rounded-lg flex items-center justify-center gap-1">继续创作 →</a>
+      </div>
+      <button onclick="showCreate()" class="border-2 border-dashed border-stone-300 rounded-xl flex items-center justify-center min-h-[120px] text-stone-400 text-sm cursor-pointer hover:border-amber-400">+ 开始新小说</button>
+    </div>
+  </div>
+
+  <!-- 创建弹窗 -->
+  <div id="create-modal" class="fixed inset-0 bg-black/40 items-center justify-center z-50" style="display:none">
+    <div class="bg-white rounded-2xl p-6 w-96 shadow-xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-bold serif text-lg">开始一部新小说</h3>
+        <button onclick="closeCreate()" class="text-stone-400 hover:text-stone-600 text-xl">&times;</button>
+      </div>
+      <label class="text-xs font-medium text-stone-500">书名 *</label>
+      <input id="novel-name" autofocus placeholder="输入书名，例如：星海拾荒者" class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400">
+      <p class="text-xs text-stone-400 mt-2">免费用户可创建 1 本小说</p>
+      <a href="02-writing.html" class="mt-4 w-full py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-center block">创建并进入写作</a>
+    </div>
+  </div>
+
+<script>
+function showCreate() { document.getElementById('create-modal').style.display = 'flex'; }
+function closeCreate() { document.getElementById('create-modal').style.display = 'none'; }
+function renameNovel() {
+  const name = prompt('重命名小说：', '剑起苍澜');
+  if (name) document.querySelector('h3').textContent = name;
+}
+function deleteNovel() {
+  if (confirm('删除《剑起苍澜》？删除后不可恢复。')) {
+    document.querySelector('.grid > div').innerHTML = '<p class="text-center text-stone-400 py-6">已删除</p>';
+  }
+}
+</script>
+</body>
+</html>

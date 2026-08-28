@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>爱小说 · 创作流程高保真原型 v2</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: "Noto Sans SC", "PingFang SC", sans-serif; }
+  .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .proto-nav { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 200; }
+  .modal { display: none; }
+  .modal.open { display: flex; }
+  .nav-tab { padding: 6px 12px; border-radius: 6px; font-size: 14px; color: #a8a29e; cursor: pointer; }
+  .nav-tab.active { background: #d97706; color: #fff; }
+  .nav-tab.ready { color: #059669; }
+</style>
+</head>
+<body class="bg-stone-100 text-stone-800">
+
+<!-- ═══════════ 屏 1：作品列表 ═══════════ -->
+<section id="screen-list" class="screen active">
+  <div class="max-w-5xl mx-auto px-6 py-8">
+    <div class="flex items-center justify-between mb-8">
+      <h1 class="text-3xl font-bold serif">我的作品</h1>
+      <button onclick="show('screen-create')" class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">开始新小说</button>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div class="bg-white rounded-xl border p-5 shadow-sm">
+        <div class="flex justify-between items-start">
+          <div>
+            <h3 class="serif font-semibold text-lg">剑起苍澜</h3>
+            <p class="text-xs text-stone-500 mt-1">进行中：设定 · 3 章 · 更新于2026/8/10</p>
+          </div>
+          <div class="flex items-center gap-1">
+            <span class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">设定中</span>
+            <button onclick="renameNovel()" title="重命名" class="text-stone-400 hover:text-amber-600 px-1">✎</button>
+            <button onclick="deleteNovel()" title="删除" class="text-stone-400 hover:text-red-500 px-1">🗑</button>
+          </div>
+        </div>
+        <button onclick="enterWorkbench()" class="mt-4 w-full py-2 bg-amber-600 text-white text-sm rounded-lg">继续创作 →</button>
+      </div>
+      <div class="border-2 border-dashed border-stone-300 rounded-xl flex items-center justify-center min-h-[120px] text-stone-400 text-sm cursor-pointer hover:border-amber-400">+ 开始新小说</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 屏 2：创建弹窗 ═══════════ -->
+<section id="screen-create" class="screen">
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl p-6 w-96 shadow-xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-bold serif text-lg">开始一部新小说</h3>
+        <button onclick="show('screen-list')" class="text-stone-400 hover:text-stone-600 text-xl">&times;</button>
+      </div>
+      <label class="text-xs font-medium text-stone-500">书名 *</label>
+      <input id="novel-name" placeholder="输入书名，例如：星海拾荒者" class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400">
+      <label class="text-xs font-medium text-stone-500 mt-3 block">题材（可稍后设定）</label>
+      <input placeholder="先不选，进工作台再选" class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg bg-stone-50 text-stone-400">
+      <p class="text-xs text-stone-400 mt-2">免费用户可创建 1 本小说</p>
+      <button onclick="enterWorkbench()" class="mt-4 w-full py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700">创建并进入设定</button>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 屏 3：工作台 · 设定 ═══════════ -->
+<section id="screen-settings" class="screen">
+  <div class="h-screen flex flex-col bg-stone-100">
+    <!-- 顶部栏 -->
+    <div class="bg-white border-b px-4 py-2 flex items-center gap-3">
+      <span class="serif font-bold text-lg text-amber-700">爱小说</span>
+      <span class="text-sm font-medium">剑起苍澜</span>
+      <div class="ml-auto flex items-center gap-1">
+        <span class="nav-tab active">设定</span>
+        <span class="nav-tab" id="tab-outline" onclick="gotoOutline('volume')">大纲</span>
+        <span class="nav-tab" id="tab-writing" onclick="show('screen-writing')">正文</span>
+        <span class="nav-tab">归档</span>
+      </div>
+    </div>
+
+    <!-- 高级配置标注 -->
+    <div class="bg-white border-b px-4 py-1.5 flex items-center gap-3 text-xs text-stone-400">
+      <span>高级配置 · 设定（可选，不影响直接写作）</span>
+      <button onclick="show('screen-writing')" class="ml-auto text-amber-700 hover:underline">返回正文 →</button>
+    </div>
+    <!-- 进度条 + 完成入口 -->
+    <div class="bg-white border-b px-4 py-2 flex items-center gap-3">
+      <div class="w-40 h-1.5 bg-stone-200 rounded-full overflow-hidden">
+        <div id="progress-bar" class="h-full bg-amber-500 rounded-full" style="width: 43%"></div>
+      </div>
+      <span class="text-xs text-stone-500" id="progress-text">设定 3/7</span>
+      <span class="ml-auto text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded" id="progress-hint">完成设定即可进入卷纲</span>
+      <button id="btn-to-volume" onclick="gotoOutline('volume')" class="hidden ml-2 px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg">进入大纲 →</button>
+    </div>
+
+    <!-- 新书引导卡 -->
+    <div class="bg-gradient-to-r from-amber-50 to-white border-b border-amber-200 px-6 py-3 flex items-center gap-4">
+      <div class="flex-1">
+        <p class="font-semibold text-sm">你的第一本书从设定开始</p>
+        <p class="text-xs text-stone-500 mt-0.5">题材 → 简介 → 世界 → 风格 → 反AI味 → 伏笔 → 角色，逐项确认</p>
+      </div>
+      <button onclick="gotoOutline('volume')" class="px-3 py-1.5 text-sm text-stone-500 border rounded-lg">先写起来（旁路）</button>
+      <button class="px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg">继续设定</button>
+    </div>
+
+    <div class="flex flex-1 overflow-hidden">
+      <!-- 左侧：7 项设定树 -->
+      <aside class="w-56 bg-white border-r p-2 overflow-y-auto">
+        <p class="text-[10px] text-stone-400 px-2 pt-1 pb-2 font-medium tracking-wider">设定（按顺序）</p>
+        <div class="space-y-0.5 text-sm">
+          <div onclick="showSetting(0)" class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-50 cursor-pointer"><span class="text-stone-300">○</span> ① 题材类型 <span class="ml-auto text-[10px] text-stone-400">进行中</span></div>
+          <div onclick="showSetting(1)" class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-50 cursor-pointer"><span class="text-stone-300">○</span> ② 故事简介 <span class="ml-auto text-[10px] text-stone-400">未填</span></div>
+          <div onclick="showSetting(2)" class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-50 cursor-pointer"><span class="text-stone-300">○</span> ③ 世界设定 <span class="ml-auto text-[10px] text-stone-400">未填</span></div>
+          <div onclick="showSetting(3)" class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-50 cursor-pointer"><span class="text-stone-300">○</span> ④ 写作风格 <span class="ml-auto text-[10px] text-stone-400">未填</span></div>
+          <div onclick="showSetting(4)" class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-50 cursor-pointer"><span class="text-stone-300">○</span> ⑤ AI痕迹控制 <span class="ml-auto text-[10px] text-stone-400">未填</span></div>
+          <div onclick="showSetting(5)" class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-50 cursor-pointer"><span class="text-stone-300">○</span> ⑥ 伏笔管理 <span class="ml-auto text-[10px] text-stone-400 badge bg-stone-100 px-1.5 rounded">可后补</span></div>
+          <div onclick="showSetting(6)" class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-50 cursor-pointer"><span class="text-stone-300">○</span> ⑦ 角色管理 <span class="ml-auto text-[10px] text-stone-400 badge bg-stone-100 px-1.5 rounded">可后补</span></div>
+        </div>
+      </aside>
+
+      <!-- 右侧：7 个设定面板 -->
+      <main class="flex-1 p-6 overflow-y-auto">
+
+        <!-- ① 题材配置 -->
+        <div id="setting-0" class="panel active">
+          <div class="max-w-2xl mx-auto bg-white rounded-xl border p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="serif font-semibold text-xl">题材类型与配置</h2>
+              <span class="text-xs text-stone-400 badge bg-stone-100 px-2 py-1 rounded">高级项可后补</span>
+            </div>
+            <div class="space-y-4 text-sm">
+              <div>
+                <label class="text-xs font-medium text-stone-500">题材 *</label>
+                <div class="mt-1 flex flex-wrap gap-2">
+                  <span class="px-3 py-1.5 bg-amber-600 text-white rounded-lg">科幻</span>
+                  <span class="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 rounded-lg cursor-pointer">玄幻</span>
+                  <span class="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 rounded-lg cursor-pointer">都市</span>
+                  <span class="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 rounded-lg cursor-pointer">悬疑</span>
+                  <span class="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 rounded-lg cursor-pointer">历史</span>
+                </div>
+              </div>
+              <div>
+                <label class="text-xs font-medium text-stone-500">基调蓝图</label>
+                <textarea class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg h-16 focus:outline-none focus:ring-2 focus:ring-amber-400">冷峻、克制、宏大叙事，科技奇观与人性温度并存</textarea>
+              </div>
+              <div>
+                <label class="text-xs font-medium text-stone-500">禁忌清单</label>
+                <div class="mt-1 flex flex-wrap gap-2">
+                  <span class="text-xs bg-stone-100 px-2 py-1 rounded">无逻辑硬伤</span>
+                  <span class="text-xs bg-stone-100 px-2 py-1 rounded">避免圣母化主角</span>
+                  <span class="text-xs bg-stone-100 px-2 py-1 rounded">科技不解释玄学</span>
+                  <span class="text-xs bg-amber-50 border border-dashed border-amber-300 px-2 py-1 rounded text-amber-600">+ 添加</span>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="text-xs font-medium text-stone-500">爽点类型</label>
+                  <input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" value="技术突破、谜底揭晓">
+                </div>
+                <div>
+                  <label class="text-xs font-medium text-stone-500">节奏规则</label>
+                  <input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" value="三章一小高潮">
+                </div>
+              </div>
+              <div>
+                <label class="text-xs font-medium text-stone-500">故事弧线模板</label>
+                <div class="mt-1 text-stone-600 bg-stone-50 rounded-lg px-3 py-2">启航 → 异常 → 探索 → 危机 → 抉择</div>
+              </div>
+            </div>
+            <div class="mt-5 flex gap-2">
+              <button class="px-3 py-2 text-sm border border-stone-300 text-stone-500 rounded-lg">保存为自定义题材</button>
+              <button onclick="confirmSetting(0)" class="ml-auto px-4 py-2 bg-amber-600 text-white rounded-lg">确认完成</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ② 故事简介 -->
+        <div id="setting-1" class="panel">
+          <div class="max-w-2xl mx-auto bg-white rounded-xl border p-6">
+            <div class="flex items-center justify-between mb-4"><h2 class="serif font-semibold text-xl">故事简介</h2><span class="text-xs text-stone-400">必填</span></div>
+            <div class="space-y-4 text-sm">
+              <div><label class="text-xs font-medium text-stone-500">一句话梗概 *</label><input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="少年持断剑踏上复仇之路…"></div>
+              <div><label class="text-xs font-medium text-stone-500">详细简介 *</label><textarea class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg h-28" placeholder="三百字以内的故事介绍，读者第一眼看到的内容…"></textarea></div>
+              <div class="grid grid-cols-2 gap-4">
+                <div><label class="text-xs font-medium text-stone-500">核心卖点</label><input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="热血复仇 / 硬核科幻"></div>
+                <div><label class="text-xs font-medium text-stone-500">目标读者</label><input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="男频 / 18-30岁"></div>
+              </div>
+            </div>
+            <button onclick="confirmSetting(1)" class="mt-5 w-full py-2.5 bg-amber-600 text-white rounded-lg">确认完成</button>
+          </div>
+        </div>
+
+        <!-- ③ 世界设定 -->
+        <div id="setting-2" class="panel">
+          <div class="max-w-2xl mx-auto bg-white rounded-xl border p-6">
+            <div class="flex items-center justify-between mb-4"><h2 class="serif font-semibold text-xl">世界设定</h2><span class="text-xs text-stone-400">必填 · 地理 / 政治 / 规则</span></div>
+            <div class="space-y-4 text-sm">
+              <div>
+                <label class="text-xs font-medium text-stone-500">① 地理 *</label>
+                <div class="mt-1 space-y-2">
+                  <input class="w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="主要场景：主角第一章出现在哪？（城/村/门派/星球）">
+                  <input class="w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="场景关系：要去哪些地方？多远？怎么去？">
+                  <input class="w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="气候与季节特征">
+                  <input class="w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="地理限制：什么阻隔了不同区域">
+                </div>
+              </div>
+              <div>
+                <label class="text-xs font-medium text-stone-500">② 政治</label>
+                <textarea class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg h-14" placeholder="权力结构、各方势力、冲突来源…"></textarea>
+              </div>
+              <div>
+                <label class="text-xs font-medium text-stone-500">③ 规则</label>
+                <textarea class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg h-14" placeholder="世界运行规则：力量体系、社会法则、边界（架空，不直接用真实地名/朝代）"></textarea>
+              </div>
+            </div>
+            <button onclick="confirmSetting(2)" class="mt-5 w-full py-2.5 bg-amber-600 text-white rounded-lg">确认完成</button>
+          </div>
+        </div>
+
+        <!-- ④ 写作风格 -->
+        <div id="setting-3" class="panel">
+          <div class="max-w-2xl mx-auto bg-white rounded-xl border p-6">
+            <div class="flex items-center justify-between mb-4"><h2 class="serif font-semibold text-xl">写作风格</h2><span class="text-xs text-stone-400">必填</span></div>
+            <div class="space-y-4 text-sm">
+              <div class="grid grid-cols-2 gap-4">
+                <div><label class="text-xs font-medium text-stone-500">叙述视角</label><select class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg"><option>第三人称限知</option><option>第一人称</option><option>第三人称全知</option></select></div>
+                <div><label class="text-xs font-medium text-stone-500">语言风格</label><input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="简洁利落 / 华丽铺陈"></div>
+              </div>
+              <div><label class="text-xs font-medium text-stone-500">节奏偏好</label><input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="快节奏强冲突"></div>
+              <div><label class="text-xs font-medium text-stone-500">氛围基调</label><input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="冷峻克制"></div>
+            </div>
+            <button onclick="confirmSetting(3)" class="mt-5 w-full py-2.5 bg-amber-600 text-white rounded-lg">确认完成</button>
+          </div>
+        </div>
+
+        <!-- ⑤ AI痕迹控制 -->
+        <div id="setting-4" class="panel">
+          <div class="max-w-2xl mx-auto bg-white rounded-xl border p-6">
+            <div class="flex items-center justify-between mb-4"><h2 class="serif font-semibold text-xl">AI 痕迹控制</h2><span class="text-xs text-stone-400">可后补</span></div>
+            <div class="space-y-4 text-sm">
+              <div><label class="text-xs font-medium text-stone-500">禁用词 / 套路表达</label><textarea class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg h-20" placeholder="如：然而、值得注意的是、仿佛…"></textarea></div>
+              <div><label class="text-xs font-medium text-stone-500">句子模式约束</label><input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="避免排比句堆砌"></div>
+            </div>
+            <button onclick="confirmSetting(4)" class="mt-5 w-full py-2.5 bg-amber-600 text-white rounded-lg">确认完成</button>
+          </div>
+        </div>
+
+        <!-- ⑥ 伏笔管理 -->
+        <div id="setting-5" class="panel">
+          <div class="max-w-2xl mx-auto bg-white rounded-xl border p-6">
+            <div class="flex items-center justify-between mb-4"><h2 class="serif font-semibold text-xl">伏笔管理</h2><span class="text-xs text-stone-400 badge bg-stone-100 px-2 py-1 rounded">可后补</span></div>
+            <div class="space-y-3 text-sm">
+              <div class="flex gap-2 items-center text-xs text-stone-500"><span class="w-32">伏笔名称</span><span class="flex-1">埋设章节</span><span class="flex-1">回收章节</span><span class="w-16">状态</span></div>
+              <div id="hook-list"></div>
+              <div id="hook-add" class="hidden flex gap-2 items-center">
+                <input id="hook-name" placeholder="伏笔名称" class="w-32 px-2 py-1.5 border border-stone-300 rounded-lg text-xs">
+                <input id="hook-at" placeholder="埋设章节" class="flex-1 px-2 py-1.5 border border-stone-300 rounded-lg text-xs">
+                <button onclick="saveHook()" class="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg">保存</button>
+                <button onclick="cancelHook()" class="text-xs text-stone-400 px-2">取消</button>
+              </div>
+              <button onclick="toggleHookAdd()" class="text-xs text-amber-700 border border-dashed border-amber-300 w-full py-2 rounded-lg">+ 添加伏笔</button>
+            </div>
+            <button onclick="confirmSetting(5)" class="mt-5 w-full py-2.5 bg-amber-600 text-white rounded-lg">确认完成</button>
+          </div>
+        </div>
+
+        <!-- ⑦ 角色管理 -->
+        <div id="setting-6" class="panel">
+          <div class="max-w-2xl mx-auto bg-white rounded-xl border p-6">
+            <div class="flex items-center justify-between mb-4"><h2 class="serif font-semibold text-xl">角色管理</h2><span class="text-xs text-stone-400 badge bg-stone-100 px-2 py-1 rounded">可后补 · 认知6层</span></div>
+            <div class="space-y-3 text-sm">
+              <div id="character-list"></div>
+              <div class="bg-stone-50 rounded-lg p-3 space-y-1.5 text-xs text-stone-500">
+                <p class="font-medium text-stone-600">角色字段（点击 ✎ 展开编辑）</p>
+                <p>基本信息：姓名 / 定位 / 外貌</p>
+                <p>认知 6 层：世界观 → 目标 → 价值观 → 能力 → 习惯 → 行为模式</p>
+                <p>真缺点：会在 3-5 章导致错误决定（如冲动 / 多疑 / 自卑）</p>
+                <p>自驱动目的：拿走主角，配角仍有自己的欲望与恐惧</p>
+              </div>
+              <div id="character-add" class="hidden flex gap-2 items-center">
+                <input id="character-name" placeholder="角色名 · 定位" class="flex-1 px-2 py-1.5 border border-stone-300 rounded-lg text-xs">
+                <input id="character-desc" placeholder="性格 / 弧线" class="flex-1 px-2 py-1.5 border border-stone-300 rounded-lg text-xs">
+                <button onclick="saveCharacter()" class="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg">保存</button>
+                <button onclick="cancelCharacter()" class="text-xs text-stone-400 px-2">取消</button>
+              </div>
+              <button onclick="toggleCharacterAdd()" class="text-xs text-amber-700 border border-dashed border-amber-300 w-full py-2 rounded-lg">+ 添加角色</button>
+            </div>
+            <button onclick="confirmSetting(6)" class="mt-5 w-full py-2.5 bg-amber-600 text-white rounded-lg">确认完成</button>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 屏 4：大纲（卷纲 + 章纲 统一视图） ═══════════ -->
+<section id="screen-outline" class="screen">
+  <div class="h-screen flex flex-col bg-stone-100">
+    <div class="bg-white border-b px-4 py-2 flex items-center gap-3">
+      <span class="serif font-bold text-lg text-amber-700">爱小说</span>
+      <span class="text-sm font-medium">剑起苍澜</span>
+      <div class="ml-auto flex items-center gap-1">
+        <span class="nav-tab ready" onclick="show('screen-settings')">设定 ✓</span>
+        <span class="nav-tab active">大纲</span>
+        <span class="nav-tab" onclick="show('screen-writing')">正文</span>
+        <span class="nav-tab">归档</span>
+      </div>
+    </div>
+    <div class="bg-white border-b px-4 py-1.5 flex items-center gap-3 text-xs text-stone-400">
+      <span>高级配置 · 大纲（可选，不影响直接写作）</span>
+      <button onclick="show('screen-writing')" class="ml-auto text-amber-700 hover:underline">返回正文 →</button>
+    </div>
+    <div class="flex flex-1 overflow-hidden">
+      <aside class="w-60 bg-white border-r p-2 overflow-y-auto">
+        <div class="flex items-center justify-between px-2 pt-1 pb-2">
+          <p class="text-[10px] text-stone-400 font-medium tracking-wider">大纲结构</p>
+          <button onclick="openModal('modal-volume')" class="text-xs text-amber-700">+ 添加卷</button>
+        </div>
+        <div class="space-y-0.5 text-sm">
+          <div onclick="selectOutline('volume',0)" id="onode-volume-0" class="cursor-pointer rounded px-2 py-1.5 bg-amber-50">
+            <div class="flex items-center gap-1">
+              <span>▾</span> 第一卷：星海初航
+              <span class="ml-auto flex items-center gap-1">
+                <span class="text-[10px] text-emerald-600">✓已保存</span>
+                <button onclick="event.stopPropagation();openModal('modal-volume')" class="text-stone-400 hover:text-amber-600 text-xs">✎</button>
+                <button onclick="event.stopPropagation();deleteVolume()" class="text-stone-400 hover:text-red-500 text-xs">🗑</button>
+              </span>
+            </div>
+            <div id="ov-chapter-list" class="pl-4 mt-1 space-y-0.5">
+              <div onclick="event.stopPropagation();selectOutline('chapter',0)" id="onode-chapter-0" class="rounded px-2 py-1 hover:bg-stone-100 flex items-center gap-1">
+                <span class="flex-1 truncate">第一章：启程</span>
+                <span class="text-[10px] text-amber-600">待配章纲</span>
+                <button onclick="event.stopPropagation();editChapter(0)" class="text-stone-300 hover:text-amber-600 text-[10px] px-0.5">✎</button>
+                <button onclick="event.stopPropagation();delChapter(0)" class="text-stone-300 hover:text-red-500 text-[10px] px-0.5">🗑</button>
+              </div>
+              <div onclick="event.stopPropagation();selectOutline('chapter',1)" id="onode-chapter-1" class="rounded px-2 py-1 hover:bg-stone-100 flex items-center gap-1">
+                <span class="flex-1 truncate">第二章：跃迁</span>
+                <span class="text-[10px] text-emerald-600">已确认</span>
+                <button onclick="event.stopPropagation();editChapter(1)" class="text-stone-300 hover:text-amber-600 text-[10px] px-0.5">✎</button>
+                <button onclick="event.stopPropagation();delChapter(1)" class="text-stone-300 hover:text-red-500 text-[10px] px-0.5">🗑</button>
+              </div>
+              <div onclick="event.stopPropagation();selectOutline('chapter',2)" id="onode-chapter-2" class="rounded px-2 py-1 hover:bg-stone-100 flex items-center gap-1">
+                <span class="flex-1 truncate">第三章：异响</span>
+                <span class="text-[10px] text-stone-400">未填写</span>
+                <button onclick="event.stopPropagation();editChapter(2)" class="text-stone-300 hover:text-amber-600 text-[10px] px-0.5">✎</button>
+                <button onclick="event.stopPropagation();delChapter(2)" class="text-stone-300 hover:text-red-500 text-[10px] px-0.5">🗑</button>
+              </div>
+            </div>
+            <button onclick="event.stopPropagation();toggleChapterAdd()" class="ml-4 mt-1 text-[10px] text-amber-700 hover:underline">+ 添加章节</button>
+          </div>
+        </div>
+        <div id="chapter-add" style="display:none" class="mt-2">
+          <div class="flex gap-1">
+            <input id="chapter-name" placeholder="章节名" class="flex-1 px-2 py-1 border border-stone-300 rounded text-xs">
+            <button onclick="saveChapter()" class="text-xs bg-amber-600 text-white px-2 rounded">存</button>
+            <button onclick="cancelChapter()" class="text-xs text-stone-400 px-1">✕</button>
+          </div>
+        </div>
+      </aside>
+      <main class="flex-1 p-6 overflow-y-auto">
+
+        <!-- 卷纲面板 -->
+        <div id="ov-panel-volume" class="max-w-2xl mx-auto bg-white rounded-xl border p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="serif font-semibold text-xl">卷纲 · 第一卷：星海初航</h2>
+            <span class="text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded">已保存 ✓</span>
+          </div>
+          <div class="space-y-4 text-sm">
+            <div><label class="text-xs font-medium text-stone-500">卷摘要</label><textarea class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg h-16">主角登上殖民舰，驶向未知星系</textarea></div>
+            <div>
+              <label class="text-xs font-medium text-stone-500">结构模板（首卷必选）</label>
+              <div class="mt-1 flex flex-wrap gap-2">
+                <span class="px-2.5 py-1 bg-amber-600 text-white text-xs rounded-lg">三幕式</span>
+                <span class="px-2.5 py-1 bg-stone-100 text-xs rounded-lg cursor-pointer">起承転結</span>
+                <span class="px-2.5 py-1 bg-stone-100 text-xs rounded-lg cursor-pointer">悬疑递进</span>
+                <span class="px-2.5 py-1 bg-stone-100 text-xs rounded-lg cursor-pointer">人物弧线</span>
+              </div>
+              <p class="text-[11px] text-stone-400 mt-1">setup 3-4章 / confrontation 4-5章 / resolution 2-3章</p>
+            </div>
+            <div><label class="text-xs font-medium text-stone-500">核心冲突（一句话）</label><input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" value="殖民舰在跃迁中遭遇未知信号，主角必须在信任危机中找出舰内潜伏者"></div>
+            <div class="grid grid-cols-2 gap-4">
+              <div><label class="text-xs font-medium text-stone-500">情绪走向</label><input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" value="期待 → 紧张 → 不安 → 决断"></div>
+              <div><label class="text-xs font-medium text-stone-500">信息差</label><input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" value="读者知道信号源在舰内，角色不知道"></div>
+            </div>
+            <div><label class="text-xs font-medium text-stone-500">冲突阶梯（每章推进一级）</label><textarea class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg h-14" placeholder="CH1 异常初现 → CH2 船员失联 → CH3 内部猜疑…"></textarea></div>
+            <div><label class="text-xs font-medium text-stone-500">场景卡（地理/政治/规则落点）</label><textarea class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg h-14" placeholder="舰桥 / 休眠舱 / 货舱——每场景的地理感、权力关系、规则限制"></textarea></div>
+          </div>
+          <div class="mt-5 flex gap-2">
+            <button class="px-3 py-2 text-sm border border-stone-300 rounded-lg">保存卷纲</button>
+            <button onclick="selectOutline('chapter',0)" class="ml-auto px-4 py-2 bg-amber-600 text-white rounded-lg">去配章纲 →</button>
+          </div>
+        </div>
+
+        <!-- 章纲面板 -->
+        <div id="ov-panel-chapter" class="max-w-2xl mx-auto bg-white rounded-xl border p-6" style="display:none">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="serif font-semibold text-xl">章纲 · 第一章：启程</h2>
+            <span class="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">未确认</span>
+          </div>
+          <div class="space-y-3 text-sm">
+            <div class="border border-stone-200 rounded-lg p-3">
+              <p class="text-xs font-medium text-stone-500 mb-2">方向输入（来自上章 + 卷纲）</p>
+              <div class="space-y-2 text-xs text-stone-600">
+                <div class="flex gap-2"><span class="w-20 text-stone-400 shrink-0">卷纲定位</span><span>启航：主角登舰，与船长第一次对话</span></div>
+                <div class="flex gap-2"><span class="w-20 text-stone-400 shrink-0">读者缺口</span><span>上章钩子"舰内有异常"——读者在等主角察觉</span></div>
+                <div class="flex gap-2"><span class="w-20 text-stone-400 shrink-0">角色状态</span><span>林川：刚离开母星，警惕但好奇</span></div>
+                <div class="flex gap-2"><span class="w-20 text-stone-400 shrink-0">钩子盘点</span><span>pending：断剑异响；可推：船长隐瞒的航线</span></div>
+              </div>
+            </div>
+            <div>
+              <label class="text-xs font-medium text-stone-500">大纲关键点 key_points *（每段 2-3 句，感官/动作/判断三锚点）</label>
+              <textarea class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg h-20" placeholder="第1段：登舰闸口（感官：金属回音/冷光；动作：过检、行李扫描；判断：舰上规矩多）&#10;第2段：与船长对话（感官：茶苦；动作：船长不看主角；判断：船长在隐瞒什么）&#10;第3段：分配舱位（感官：舷窗星光；动作：安置行李；判断：隔壁舱有人没回来）"></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div><label class="text-xs font-medium text-stone-500">情绪设计 · 情感基调 *</label><input class="mt-1 w-full px-3 py-2 border border-rose-300 rounded-lg bg-rose-50" placeholder="未填写"></div>
+              <div><label class="text-xs font-medium text-stone-500">情绪设计 · 情绪钩子</label><input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="章末让读者等什么"></div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div><label class="text-xs font-medium text-stone-500">必要变化 *（本章改变了什么）</label><input class="mt-1 w-full px-3 py-2 border border-rose-300 rounded-lg bg-rose-50" placeholder="未填写"></div>
+              <div><label class="text-xs font-medium text-stone-500">目标字数</label><input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" value="2200 ± 300"></div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div><label class="text-xs font-medium text-stone-500">兑现钩子</label><input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="本章回收哪些旧钩子"></div>
+              <div><label class="text-xs font-medium text-stone-500">埋设新钩子</label><input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="本章埋什么新钩子"></div>
+            </div>
+            <div><label class="text-xs font-medium text-stone-500">段落拆分（可后补）</label><textarea class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg h-14" placeholder="第1段：登舰；第2段：与船长冲突…"></textarea></div>
+          </div>
+          <div class="mt-4 flex items-center gap-2">
+            <span class="text-xs text-red-500">缺：情感基调、必要变化</span>
+            <button onclick="clearOutline()" class="text-xs text-stone-400 hover:text-red-500">清空本章纲</button>
+            <button class="ml-auto px-3 py-1.5 text-sm border border-stone-300 rounded-lg">保存草稿</button>
+            <button class="px-4 py-1.5 text-sm bg-stone-300 text-white rounded-lg cursor-not-allowed">确认章纲</button>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- AI 生成正文面板（提示词仅在此出现） -->
+<div id="modal-generate" class="modal fixed inset-0 bg-black/40 items-center justify-center z-50">
+  <div class="bg-white rounded-2xl p-6 w-[680px] max-w-[90vw] shadow-xl">
+    <div class="flex justify-between items-center mb-3">
+      <h3 class="font-bold serif text-lg">AI 生成正文 · 第二章：跃迁</h3>
+      <button onclick="closeModal('modal-generate')" class="text-stone-400 text-xl">&times;</button>
+    </div>
+    <p class="text-xs text-stone-400 mb-3">提示词已由确认过的章纲自动组装，可修改后生成（付费能力）</p>
+    <div class="border rounded-lg overflow-hidden">
+      <div class="border-b px-3 py-2 flex items-center gap-2 text-xs text-stone-500 bg-stone-50">
+        <span class="font-medium text-stone-600">提示词（Markdown · 可编辑）</span>
+        <button onclick="rebuildPrompt()" class="ml-auto text-amber-700">↻ 从章纲重新组装</button>
+        <button onclick="copyPrompt()" class="text-amber-700">复制</button>
+      </div>
+      <textarea id="generate-prompt" class="w-full h-64 p-3 text-xs leading-relaxed font-mono focus:outline-none resize-none">## 任务
+主角登舰后与船长第一次对话，察觉船长在隐瞒什么。
+
+## 设定锚点（来自大纲）
+- 卷纲定位：启航——建立信任危机
+- 读者缺口：上章钩子"舰内有异常"，读者在等主角察觉
+- 角色状态：林川刚离开母星，警惕但好奇；船长疲惫、回避目光
+- 钩子：pending 断剑异响；可推 船长隐瞒的航线
+
+## 段落关键点（key_points）
+1. 感官：金属回音、冷光；动作：过检、行李扫描；判断：舰上规矩多
+2. 感官：茶苦；动作：船长不看主角；判断：船长在隐瞒什么
+
+## 写作要求
+- 情感基调：紧张、克制
+- 认知动词替换为外部动作（不写"他感到"）
+- 目标字数：2200 ± 300</textarea>
+    </div>
+    <div class="mt-4 flex items-center gap-3">
+      <span class="text-xs text-stone-400">免费用户不可用 · 升级套餐后解锁</span>
+      <button onclick="confirmGenerate()" class="ml-auto px-5 py-2 text-sm bg-amber-600 text-white rounded-lg">确认生成 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- 版本历史弹窗 -->
+<div id="modal-versions" class="modal fixed inset-0 bg-black/40 items-center justify-center z-50">
+  <div class="bg-white rounded-2xl p-6 w-96 shadow-xl">
+    <div class="flex justify-between items-center mb-4"><h3 class="font-bold serif text-lg">版本历史 · 第二章</h3><button onclick="closeModal('modal-versions')" class="text-stone-400 text-xl">&times;</button></div>
+    <div class="space-y-2 text-sm">
+      <div class="flex items-center justify-between bg-stone-50 rounded-lg px-3 py-2"><span>v3 · 自动保存</span><span class="text-xs text-stone-400">10:32</span><button class="text-xs text-amber-700">恢复</button></div>
+      <div class="flex items-center justify-between bg-stone-50 rounded-lg px-3 py-2"><span>v2 · 手动保存</span><span class="text-xs text-stone-400">10:18</span><button class="text-xs text-amber-700">恢复</button></div>
+      <div class="flex items-center justify-between bg-stone-50 rounded-lg px-3 py-2"><span>v1 · 导入初始版本</span><span class="text-xs text-stone-400">09:55</span><button class="text-xs text-amber-700">恢复</button></div>
+    </div>
+    <button onclick="closeModal('modal-versions')" class="mt-5 w-full py-2 border border-stone-300 rounded-lg text-stone-500">关闭</button>
+  </div>
+</div>
+
+<!-- ═══════════ 屏 6：正文 ═══════════ -->
+<section id="screen-writing" class="screen">
+  <div class="h-screen flex flex-col bg-stone-100">
+    <div class="bg-white border-b px-4 py-2 flex items-center gap-3">
+      <span class="serif font-bold text-lg text-amber-700">爱小说</span>
+      <span class="text-sm font-medium">剑起苍澜 · 第二章：跃迁</span>
+      <div class="ml-auto flex items-center gap-1">
+        <span class="nav-tab ready" onclick="show('screen-settings')">设定 ✓</span>
+        <span class="nav-tab ready" onclick="gotoOutline('volume')">大纲 ✓</span>
+        <span class="nav-tab active">正文（主）</span>
+        <span class="nav-tab">归档</span>
+      </div>
+    </div>
+    <div class="bg-white border-b px-4 py-1.5 flex items-center gap-2 text-xs text-stone-400">
+      <span>高级配置（可选，不影响写作）：</span>
+      <button onclick="show('screen-settings')" class="text-amber-700 hover:underline">设定</button>
+      <button onclick="gotoOutline('volume')" class="text-amber-700 hover:underline">大纲</button>
+    </div>
+    <div class="flex flex-1 overflow-hidden">
+      <aside class="w-60 bg-white border-r p-2 text-sm overflow-y-auto">
+        <p class="text-[10px] text-stone-400 px-2 pt-1 pb-2 font-medium tracking-wider">正文章节（仅显示有正文的章节）</p>
+        <div class="space-y-0.5">
+          <div class="cursor-pointer rounded px-2 py-1.5">
+            <div class="flex items-center gap-1">
+              <span>▾</span> 第一卷：星海初航
+            </div>
+            <div class="pl-4 mt-1 space-y-0.5">
+              <div onclick="selectWritingChapter(0, true)" id="wnode-chapter-0" class="rounded px-2 py-1 flex items-center gap-1 text-stone-400 cursor-pointer">
+                <span class="flex-1 truncate line-through decoration-stone-300">第一章：启程</span>
+                <span class="text-[10px]">2100字</span>
+                <span class="text-[10px] bg-stone-200 text-stone-500 px-1.5 py-0.5 rounded">📦 已归档</span>
+              </div>
+              <div onclick="selectWritingChapter(1, false)" id="wnode-chapter-1" class="rounded px-2 py-1 flex items-center gap-1 bg-amber-100 cursor-pointer">
+                <span class="flex-1 truncate">第二章：跃迁</span>
+                <span class="text-[10px] text-emerald-600">486字</span>
+                <span class="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded">未归档</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+      <main class="flex-1 flex flex-col overflow-y-auto">
+        <div id="writing-view" class="flex flex-col flex-1">
+        <div class="bg-white border-b px-4 py-2 flex items-center gap-4 text-xs text-stone-500">
+          <span>字号</span>
+          <span class="px-2 py-0.5 bg-stone-200 rounded cursor-pointer">小</span>
+          <span class="px-2 py-0.5 bg-amber-100 text-amber-800 rounded cursor-pointer">中</span>
+          <span class="px-2 py-0.5 hover:bg-stone-100 rounded cursor-pointer">大</span>
+          <span class="ml-4">行距</span>
+          <span class="px-2 py-0.5 bg-stone-200 rounded cursor-pointer">紧凑</span>
+          <span class="px-2 py-0.5 bg-amber-100 text-amber-800 rounded cursor-pointer">舒适</span>
+          <span class="px-2 py-0.5 hover:bg-stone-100 rounded cursor-pointer">宽松</span>
+          <button class="ml-auto px-2 py-1 bg-stone-100 rounded">⛶ 专注模式</button>
+          <button onclick="openModal('modal-versions')" class="px-2 py-1 bg-stone-100 rounded">版本历史</button>
+          <button onclick="archiveChapter()" class="px-2 py-1 bg-stone-100 rounded">归档本章</button>
+          <button id="btn-ai-generate" onclick="openGenerate()" class="px-2 py-1 rounded bg-amber-100 text-amber-800">✨ AI 生成正文（PRO）</button>
+        </div>
+        <div class="flex-1 overflow-y-auto bg-white">
+          <div id="prose-editor" contenteditable="true" class="max-w-3xl mx-auto px-8 py-10 serif text-[17px] leading-[2] text-stone-800 outline-none focus:ring-0">
+            <h2 class="text-2xl font-bold mb-6 text-center">第二章：跃迁</h2>
+            <p>舰桥的灯光在跃迁启动的瞬间暗了下去，只剩下导航屏幕的幽蓝光芒。林澈握紧扶手，指节发白。</p>
+            <p class="mt-4">"跃迁坐标已锁定，全体人员注意，十秒后进入折跃。"船长的声音在广播里响起，带着一丝不易察觉的紧张。</p>
+            <p class="mt-4">十、九、八……当倒数归零的刹那，整艘星舰猛地一震，窗外的星光被拉成无数条光带，向身后飞速退去。</p>
+            <p class="mt-4">就在这时，警报声刺耳地响起。"检测到异常信号！信号源……就在舰内！"</p>
+          </div>
+        </div>
+        <div class="bg-white border-t px-4 py-1.5 flex items-center text-xs text-stone-400">
+          <span id="prose-count">本章 486 字</span>
+          <span id="prose-status" class="ml-auto text-emerald-600">已自动保存 ✓</span>
+        </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</section>
+
+
+
+
+
+<!-- 原型导航 -->
+<div class="proto-nav bg-stone-900 text-white text-xs rounded-full px-4 py-2 flex gap-3 shadow-lg">
+  <button id="tier-toggle" onclick="toggleTier()" class="bg-amber-500 text-stone-900 font-bold px-2 rounded">免费</button>
+  <button onclick="show('screen-list')">① 列表</button>
+  <button onclick="show('screen-create')">② 创建</button>
+  <button onclick="show('screen-settings')">③ 设定</button>
+  <button onclick="gotoOutline('volume')">④ 大纲</button>
+  <button onclick="show('screen-writing')">⑤ 正文</button>
+</div>
+
+<script>
+let settingConfirmed = [true, true, true, false, false, false, false];
+let hooks = [
+  { name: '断剑异响', at: '第一章', back: '—', status: '未回收' },
+  { name: '船长失踪的弟弟', at: '第二章', back: '—', status: '未回收' },
+];
+let characters = [
+  { name: '林川 · 主角', desc: '坚毅隐忍' },
+  { name: '苍澜剑灵 · 导师', desc: '亦师亦友' },
+];
+let chapters = [
+  { title: '第一章：启程', status: '待配章纲' },
+  { title: '第二章：跃迁', status: '章纲已确认' },
+  { title: '第三章：异响', status: '待配章纲' },
+];
+let volumeEditMode = false;
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function enterWorkbench() { show('screen-writing'); }
+function showSetting(i) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('setting-' + i).classList.add('active');
+}
+function confirmSetting(i) {
+  settingConfirmed[i] = true;
+  const n = settingConfirmed.filter(Boolean).length;
+  document.getElementById('progress-bar').style.width = Math.round(n / 7 * 100) + '%';
+  document.getElementById('progress-text').textContent = '设定 ' + n + '/7';
+  if (n >= 7) {
+    document.getElementById('progress-hint').textContent = '设定已完成 ✓';
+    document.getElementById('btn-to-volume').classList.remove('hidden');
+    document.getElementById('tab-outline').classList.add('ready');
+  }
+  // 刷新左侧状态
+  const marks = ['① 题材类型','② 故事简介','③ 世界设定','④ 写作风格','⑤ AI痕迹控制','⑥ 伏笔管理','⑦ 角色管理'];
+  const tree = document.querySelector('#screen-settings aside div.space-y-0\\.5');
+  Array.from(tree.children).forEach((el, idx) => {
+    if (settingConfirmed[idx]) {
+      el.querySelector('span:first-child').textContent = '✓';
+      el.querySelector('span:first-child').className = 'text-emerald-600';
+      el.querySelector('span:last-child').textContent = '已确认';
+      el.querySelector('span:last-child').className = 'ml-auto text-[10px] text-emerald-600';
+    }
+  });
+}
+function gotoOutline(view) {
+  show('screen-outline');
+  selectOutline(view === 'chapter' ? 'chapter' : 'volume', 0);
+}
+function selectOutline(type, idx) {
+  const isVol = type === 'volume';
+  document.getElementById('ov-panel-volume').style.display = isVol ? 'block' : 'none';
+  document.getElementById('ov-panel-chapter').style.display = isVol ? 'none' : 'block';
+  // 树节点高亮
+  document.querySelectorAll('#screen-outline aside [id^="onode-"]').forEach(el => {
+    el.classList.remove('bg-amber-50');
+    el.classList.add('hover:bg-stone-100');
+  });
+  const node = document.getElementById('onode-' + type + '-' + idx);
+  if (node) {
+    node.classList.remove('hover:bg-stone-100');
+    node.classList.add('bg-amber-50');
+  }
+}
+function selectWritingChapter(i, archived) {
+  if (archived) {
+    alert('该章已归档，正文为只读状态（原型模拟）');
+    return;
+  }
+  document.querySelectorAll('#screen-writing aside [id^="wnode-"]').forEach(el => {
+    el.classList.remove('bg-amber-100');
+    el.classList.add('hover:bg-stone-100');
+  });
+  const node = document.getElementById('wnode-chapter-' + i);
+  if (node) {
+    node.classList.remove('hover:bg-stone-100');
+    node.classList.add('bg-amber-100');
+  }
+}
+let proseStreamTimer = null;
+let isPro = false;
+function toggleTier() {
+  isPro = !isPro;
+  const btn = document.getElementById('btn-ai-generate');
+  const toggle = document.getElementById('tier-toggle');
+  toggle.textContent = isPro ? 'PRO' : '免费';
+  if (isPro) {
+    btn.textContent = '✨ AI 生成正文（PRO）';
+    btn.classList.remove('opacity-50');
+  } else {
+    btn.textContent = '🔒 AI 生成正文（PRO）';
+    btn.classList.add('opacity-50');
+  }
+}
+function copyPrompt() {
+  const ta = document.getElementById('generate-prompt');
+  if (navigator.clipboard && ta) {
+    navigator.clipboard.writeText(ta.value).then(() => alert('提示词已复制'));
+  }
+}
+function openGenerate() {
+  if (!isPro) {
+    alert('AI 生成是 PRO 功能，升级套餐后可用（原型模拟）');
+    return;
+  }
+  document.getElementById('modal-generate').classList.add('open');
+}
+function rebuildPrompt() {
+  const lines = [
+    '## 任务',
+    '主角登舰后与船长第一次对话，察觉船长在隐瞒什么。',
+    '',
+    '## 设定锚点（来自大纲）',
+    '- 卷纲定位：启航——建立信任危机',
+    '- 读者缺口：上章钩子"舰内有异常"',
+    '- 角色状态：林川刚离开母星，警惕但好奇',
+    '- 钩子：pending 断剑异响',
+    '',
+    '## 写作要求',
+    '- 情感基调：紧张、克制',
+    '- 目标字数：2200 ± 300',
+  ];
+  document.getElementById('generate-prompt').value = lines.join('\n');
+  alert('已从章纲重新组装（原型模拟）');
+}
+function confirmGenerate() {
+  closeModal('modal-generate');
+  const container = document.querySelector('#writing-view .serif');
+  const paragraphs = container.querySelectorAll('p');
+  const status = document.getElementById('prose-status');
+  const count = document.getElementById('prose-count');
+  const fullText = '舰桥的灯光在跃迁启动的瞬间暗了下去，只剩下导航屏幕的幽蓝光芒。林澈握紧扶手，指节发白。' +
+    '“跃迁坐标已锁定，全体人员注意，十秒后进入折跃。”船长的声音在广播里响起，带着一丝不易察觉的紧张。' +
+    '十、九、八——当倒数归零的刹那，整艘星舰猛地一震，窗外的星光被拉成无数条光带，向身后飞速退去。' +
+    '就在这时，警报声刺耳地响起。“检测到异常信号！信号源……就在舰内！”' +
+    '林澈猛地起身，面前的屏幕上跳出一行红色警告。他转头看向船长，对方的目光却落在舷窗外，仿佛在回避什么。' +
+    '“信号源在哪个区域？”他问。' +
+    '船长沉默了两秒，才低声说：“休眠舱。”' +
+    '休眠舱里躺着两百名沉睡的殖民者。如果信号源在那里，意味着……有人已经醒了，或者从未睡过。' +
+    '林澈的手指悬在通讯键上，没有按下。他忽然想起出发前，母亲塞进他行李里的那枚护身符——断剑的碎片。' +
+    '此刻，碎片正隐隐发烫。';
+  paragraphs.forEach(p => p.textContent = '');
+  const target = paragraphs[0];
+  let i = 0;
+  status.textContent = 'AI 生成中…';
+  status.className = 'ml-auto text-amber-600';
+  count.textContent = '本章 0 字';
+  if (proseStreamTimer) clearInterval(proseStreamTimer);
+  proseStreamTimer = setInterval(() => {
+    i += 2;
+    target.textContent = fullText.slice(0, i);
+    count.textContent = '本章 ' + i + ' 字';
+    if (i >= fullText.length) {
+      clearInterval(proseStreamTimer);
+      proseStreamTimer = null;
+      status.textContent = '生成完成 · 已自动保存 ✓';
+      status.className = 'ml-auto text-emerald-600';
+    }
+  }, 25);
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── 作品 CRUD ──
+function renameNovel() {
+  const name = prompt('重命名小说：', '剑起苍澜');
+  if (name) {
+    const h = document.querySelector('#screen-list h3');
+    if (h) h.textContent = name;
+  }
+}
+function deleteNovel() {
+  if (confirm('删除《剑起苍澜》？删除后不可恢复（原型模拟）。')) {
+    document.querySelector('#screen-list .grid > div').style.opacity = '0.3';
+    document.querySelector('#screen-list .grid > div').innerHTML = '<p class="text-center text-stone-400 py-6">已删除（原型模拟）</p>';
+  }
+}
+
+// ── 伏笔 CRUD ──
+function renderHooks() {
+  const box = document.getElementById('hook-list');
+  box.innerHTML = hooks.map((h, i) => `
+    <div class="flex gap-2 items-center group">
+      <span class="w-32 px-2 py-1.5 bg-stone-50 rounded">${h.name}</span>
+      <span class="flex-1 px-2 py-1.5 bg-stone-50 rounded">${h.at}</span>
+      <span class="flex-1 px-2 py-1.5 bg-stone-50 rounded">${h.back}</span>
+      <span class="w-16 text-xs text-stone-400">${h.status}</span>
+      <button onclick="editHook(${i})" class="text-stone-400 hover:text-amber-600 px-1 text-xs">✎</button>
+      <button onclick="delHook(${i})" class="text-stone-400 hover:text-red-500 px-1 text-xs">🗑</button>
+    </div>`).join('');
+}
+function toggleHookAdd() {
+  document.getElementById('hook-add').classList.toggle('hidden');
+}
+function saveHook() {
+  const name = document.getElementById('hook-name').value.trim();
+  const at = document.getElementById('hook-at').value.trim();
+  if (!name) return;
+  hooks.push({ name, at: at || '—', back: '—', status: '未回收' });
+  document.getElementById('hook-name').value = '';
+  document.getElementById('hook-at').value = '';
+  document.getElementById('hook-add').classList.add('hidden');
+  renderHooks();
+}
+function cancelHook() {
+  document.getElementById('hook-name').value = '';
+  document.getElementById('hook-at').value = '';
+  document.getElementById('hook-add').classList.add('hidden');
+}
+function editHook(i) {
+  const name = prompt('修改伏笔名称：', hooks[i].name);
+  if (name) { hooks[i].name = name; renderHooks(); }
+}
+function delHook(i) {
+  if (confirm('删除伏笔「' + hooks[i].name + '」？')) { hooks.splice(i, 1); renderHooks(); }
+}
+
+// ── 角色 CRUD ──
+function renderCharacters() {
+  const box = document.getElementById('character-list');
+  box.innerHTML = characters.map((c, i) => `
+    <div class="flex gap-2 items-center">
+      <span class="flex-1 px-3 py-2 bg-stone-50 rounded">${c.name}</span>
+      <span class="flex-1 px-3 py-2 bg-stone-50 rounded text-stone-500 text-xs">${c.desc}</span>
+      <button onclick="editCharacter(${i})" class="text-stone-400 hover:text-amber-600 px-1 text-xs">✎</button>
+      <button onclick="delCharacter(${i})" class="text-stone-400 hover:text-red-500 px-1 text-xs">🗑</button>
+    </div>`).join('');
+}
+function toggleCharacterAdd() { document.getElementById('character-add').classList.toggle('hidden'); }
+function saveCharacter() {
+  const name = document.getElementById('character-name').value.trim();
+  const desc = document.getElementById('character-desc').value.trim();
+  if (!name) return;
+  characters.push({ name, desc: desc || '性格/弧线待填' });
+  document.getElementById('character-name').value = '';
+  document.getElementById('character-desc').value = '';
+  document.getElementById('character-add').classList.add('hidden');
+  renderCharacters();
+}
+function cancelCharacter() {
+  document.getElementById('character-name').value = '';
+  document.getElementById('character-desc').value = '';
+  document.getElementById('character-add').classList.add('hidden');
+}
+function editCharacter(i) {
+  const name = prompt('修改角色：', characters[i].name);
+  if (name) { characters[i].name = name; renderCharacters(); }
+}
+function delCharacter(i) {
+  if (confirm('删除角色「' + characters[i].name + '」？')) { characters.splice(i, 1); renderCharacters(); }
+}
+
+// ── 章节 CRUD（全部作用于左侧大纲树） ──
+function toggleChapterAdd() { document.getElementById('chapter-add').style.display = document.getElementById('chapter-add').style.display === 'none' ? 'flex' : 'none'; }
+function saveChapter() {
+  const title = document.getElementById('chapter-name').value.trim();
+  if (!title) return;
+  const idx = chapters.length;
+  chapters.push({ title, status: '待配章纲' });
+  const list = document.getElementById('ov-chapter-list');
+  const node = document.createElement('div');
+  node.id = 'onode-chapter-' + idx;
+  node.className = 'rounded px-2 py-1 hover:bg-stone-100 flex items-center gap-1';
+  node.onclick = (e) => { e.stopPropagation(); selectOutline('chapter', idx); };
+  node.innerHTML = `
+    <span class="flex-1 truncate">${title}</span>
+    <span class="text-[10px] text-stone-400">待配章纲</span>
+    <button onclick="event.stopPropagation();editChapter(${idx})" class="text-stone-300 hover:text-amber-600 text-[10px] px-0.5">✎</button>
+    <button onclick="event.stopPropagation();delChapter(${idx})" class="text-stone-300 hover:text-red-500 text-[10px] px-0.5">🗑</button>`;
+  list.appendChild(node);
+  document.getElementById('chapter-name').value = '';
+  document.getElementById('chapter-add').style.display = 'none';
+}
+function cancelChapter() {
+  document.getElementById('chapter-name').value = '';
+  document.getElementById('chapter-add').style.display = 'none';
+}
+function editChapter(i) {
+  const title = prompt('修改章节名：', chapters[i].title);
+  if (title) {
+    chapters[i].title = title;
+    const node = document.getElementById('onode-chapter-' + i);
+    if (node) node.querySelector('span').textContent = title;
+  }
+}
+function delChapter(i) {
+  if (confirm('删除章节「' + chapters[i].title + '」？')) {
+    chapters.splice(i, 1);
+    const node = document.getElementById('onode-chapter-' + i);
+    if (node) node.remove();
+  }
+}
+
+// ── 卷 CRUD ──
+function saveVolume() {
+  const name = document.getElementById('volume-name').value.trim();
+  const count = document.getElementById('volume-chapters').value;
+  if (!name) { alert('请填写卷名'); return; }
+  alert('已创建「' + name + '」（初始 ' + count + ' 章）（原型模拟）');
+  closeModal('modal-volume');
+  document.getElementById('volume-name').value = '';
+}
+function deleteVolume() {
+  if (confirm('删除第一卷？卷内章节将一并删除（原型模拟）。')) {
+    const panel = document.getElementById('ov-panel-volume');
+    if (panel) panel.style.opacity = '0.3';
+  }
+}
+
+// ── 章纲/正文操作 ──
+function clearOutline() {
+  if (confirm('清空本章纲内容？')) {
+    alert('已清空（原型模拟）');
+  }
+}
+function archiveChapter() {
+  if (confirm('归档本章？归档后正文将锁定为只读状态。')) {
+    alert('已归档（原型模拟）');
+  }
+}
+
+// 正文编辑：实时字数 + 防抖自动保存状态
+let proseSaveTimer = null;
+document.getElementById('prose-editor').addEventListener('input', () => {
+  const editor = document.getElementById('prose-editor');
+  const count = document.getElementById('prose-count');
+  const status = document.getElementById('prose-status');
+  const words = editor.textContent.replace(/\s/g, '').length;
+  count.textContent = '本章 ' + words + ' 字';
+  status.textContent = '编辑中…';
+  status.className = 'ml-auto text-amber-600';
+  clearTimeout(proseSaveTimer);
+  proseSaveTimer = setTimeout(() => {
+    status.textContent = '已自动保存 ✓';
+    status.className = 'ml-auto text-emerald-600';
+  }, 1500);
+});
+
+// 初始化渲染
+renderHooks();
+renderCharacters();
+</script>
+</body>
+</html>
