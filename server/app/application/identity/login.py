@@ -1,6 +1,7 @@
 """用户名密码登录（门户使用，非 OAuth 流程）。"""
 from __future__ import annotations
 
+from app.application.identity.update_user_theme import stored_to_wire
 from app.domain.licensing import License
 from app.infrastructure.repositories.base import CodeRepo, UserRepo
 from app.infrastructure.security.jwt import sign_jwt
@@ -8,7 +9,7 @@ from app.infrastructure.security.password import verify_password
 
 
 def login(user_repo: UserRepo, code_repo: CodeRepo, username: str, password: str) -> dict:
-    """登录验证用户名密码，返回 JWT + 套餐信息。"""
+    """登录验证用户名密码，返回 JWT + 套餐信息（theme 供前端登录即应用，免闪默认）。"""
     user = user_repo.get(username)
     if not user or not verify_password(password, user.password_hash):
         return {"code": 1, "msg": "用户名或密码错误"}
@@ -25,5 +26,6 @@ def login(user_repo: UserRepo, code_repo: CodeRepo, username: str, password: str
             "token": token,
             "tier": license_.effective_tier,
             "expires_at": license_.max_expires_at.isoformat() if license_.max_expires_at else "",
+            "theme": stored_to_wire(user.theme),
         },
     }

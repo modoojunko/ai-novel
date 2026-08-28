@@ -20,6 +20,7 @@ class PgHttpUserRepo:
             security_question=doc.get("security_question", "") or "",
             security_answer_hash=doc.get("security_answer_hash", "") or "",
             created_at=parse_dt(doc.get("created_at")),
+            theme=doc.get("theme", "") or "",
         )
 
     def get(self, username: str) -> User | None:
@@ -49,6 +50,9 @@ class PgHttpUserRepo:
             {"username": username},
             {"security_question": question, "security_answer_hash": answer_hash},
         )
+
+    def update_theme(self, username: str, theme: str) -> None:
+        self.client.update(_TABLE, {"username": username}, {"theme": theme})
 
     def flush(self) -> None:
         """无 FK 顺序问题，no-op。"""

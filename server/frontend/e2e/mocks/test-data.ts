@@ -11,6 +11,7 @@ export function createTestUser(overrides: Partial<TestUser> = {}): TestUser {
     tier: 'trial',
     expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
     is_valid: true,
+    theme: 'teal',
     security_question: '你的宠物名字是？',
     security_answer: 'Fluffy',
     ...overrides,
@@ -24,6 +25,7 @@ export interface TestUser {
   tier: string
   expires_at: string
   is_valid: boolean
+  theme: string
   security_question?: string
   security_answer?: string
 }

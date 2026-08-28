@@ -6,7 +6,7 @@ import type { ApiResponse } from './request'
 export function apiWebLogin(
   username: string,
   password: string,
-): Promise<ApiResponse<{ token: string; tier: string; expires_at: string }>> {
+): Promise<ApiResponse<{ token: string; tier: string; expires_at: string; theme: string }>> {
   return request.post('/web/login', { username, password }).then(r => r.data)
 }
 
@@ -24,8 +24,13 @@ export function apiUserMe(): Promise<ApiResponse<{
   tier: string
   expires_at: string
   is_valid: boolean
+  theme: string
 }>> {
   return request.get('/user/me').then(r => r.data)
+}
+
+export function apiUserPreferences(theme: string): Promise<ApiResponse<{ theme: string }>> {
+  return request.put('/user/preferences', { theme }).then(r => r.data)
 }
 
 export function apiChangePassword(old_password: string, new_password: string): Promise<ApiResponse> {

@@ -7,6 +7,7 @@ import AppCard from '@/components/ui/AppCard.vue'
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
 import ChangePasswordForm from '@/components/dashboard/ChangePasswordForm.vue'
 import SecurityForm from '@/components/dashboard/SecurityForm.vue'
+import ThemeForm from '@/components/dashboard/ThemeForm.vue'
 
 const session = useSessionStore()
 // none→中性、trial→warn、付费→ok（与 appbar 徽标同口径）
@@ -60,6 +61,9 @@ const { loadError, retry } = usePageLoad(async () => {
 
       <!-- 密保设置 -->
       <SecurityForm />
+
+      <!-- 界面主题 -->
+      <ThemeForm />
     </template>
   </div>
 </template>

@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { apiWebLogin, apiWebRegister, apiUserMe } from '@/api/web'
+import { apiWebLogin, apiWebRegister, apiUserMe, apiUserPreferences } from '@/api/web'
 import { warmUpBackend } from '@/api/request'
+import { DEFAULT_THEME_KEY, isKnownThemeKey } from '@/constants/themes'
 
 export const useSessionStore = defineStore('session', () => {
   // ── State ──
@@ -19,13 +20,41 @@ export const useSessionStore = defineStore('session', () => {
   const isValid = ref<boolean>(false)
   const isLoading = ref<boolean>(false)
   const userFetched = ref<boolean>(false)
+  const theme = ref<string>(DEFAULT_THEME_KEY)
 
   // ── Getters ──
   const isLoggedIn = computed(() => !!token.value)
   const hasLicense = computed(() => tier.value !== 'none' && isValid.value)
 
   // ── Actions ──
-  function applyAuthData(data: { token?: string; tier?: string; expires_at?: string }, usernameInput: string, defaultTier = 'none'): void {
+  /** 应用界面主题（DOM 层）：仅控制台入口调用（DashboardLayout 挂载 / 选择器操作），
+   *  landing/auth 永远默认渲染——fetchUserInfo 只存 ref 不碰 DOM。 */
+  function applyTheme(key: string | null | undefined): void {
+    const t = isKnownThemeKey(key) ? key! : DEFAULT_THEME_KEY
+    theme.value = t
+    const el = document.documentElement
+    if (t === DEFAULT_THEME_KEY) el.removeAttribute('data-theme')
+    else el.setAttribute('data-theme', t)
+  }
+
+  /** 仅记录主题到 store（me/login 响应），DOM 应用交给控制台入口。 */
+  function recordTheme(key: string | null | undefined): void {
+    theme.value = isKnownThemeKey(key) ? key! : DEFAULT_THEME_KEY
+  }
+
+  /** 选择器入口：立即生效 + PUT 持久化；失败时不回滚视觉（所见即当前态），由调用方提示重试。 */
+  async function saveTheme(key: string): Promise<{ ok: boolean; msg?: string }> {
+    applyTheme(key)
+    try {
+      const res = await apiUserPreferences(key)
+      if (res.code === 0) return { ok: true }
+      return { ok: false, msg: res.msg || '保存失败' }
+    } catch (e: any) {
+      return { ok: false, msg: e.message || '网络错误' }
+    }
+  }
+
+  function applyAuthData(data: { token?: string; tier?: string; expires_at?: string; theme?: string }, usernameInput: string, defaultTier = 'none'): void {
     token.value = data.token || ''
     tier.value = data.tier || defaultTier
     expiresAt.value = data.expires_at || ''
@@ -33,6 +62,7 @@ export const useSessionStore = defineStore('session', () => {
     localStorage.setItem('token', token.value)
     isValid.value = true
     userFetched.value = false
+    if (data.theme !== undefined) recordTheme(data.theme)
   }
 
   async function login(usernameInput: string, password: string): Promise<{ ok: boolean; msg?: string }> {
@@ -99,6 +129,7 @@ export const useSessionStore = defineStore('session', () => {
         tier.value = res.data.tier || 'none'
         expiresAt.value = res.data.expires_at || ''
         isValid.value = !!res.data.is_valid
+        if (res.data.theme !== undefined) recordTheme(res.data.theme)
       }
     } catch (e: any) {
       // code 1 = 会话失效（token 无效 / 用户已不存在，如本地库重建后残留旧 token）。
@@ -138,12 +169,13 @@ export const useSessionStore = defineStore('session', () => {
     expiresAt.value = ''
     isValid.value = false
     userFetched.value = false
+    applyTheme(DEFAULT_THEME_KEY)
     localStorage.removeItem('token')
   }
 
   return {
-    token, username, tier, tierDisplay, expiresAt, isValid, isLoading, userFetched,
+    token, username, tier, tierDisplay, expiresAt, isValid, isLoading, userFetched, theme,
     isLoggedIn, hasLicense,
-    login, register, fetchUserInfo, logout,
+    login, register, fetchUserInfo, logout, applyTheme, recordTheme, saveTheme,
   }
 })

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- 安装包图标母版：mark-seal 同构放大版（1024 网格，含 macOS 全屏安全边距 8%）
+       由 scripts 里 Playwright 截图 → make_icns.sh 生成 icon.icns / icon.ico -->
+  <rect fill="#3c4045" x="44" y="44" width="936" height="936" rx="256"/>
+  <rect fill="none" stroke="rgba(255,255,255,.4)" stroke-width="16" x="124" y="124" width="776" height="776" rx="200"/>
+  <text x="512" y="534" text-anchor="middle" dominant-baseline="central" style="font:600 490px 'Noto Serif SC','Songti SC','STSong',serif" fill="#fff">爱</text>
+</svg>

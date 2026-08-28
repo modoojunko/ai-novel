@@ -21,9 +21,11 @@ function handleLogout() {
   router.push('/')
 }
 
-onMounted(() => {
-  if (session.isLoggedIn && !session.userFetched) {
-    session.fetchUserInfo()
+onMounted(async () => {
+  if (session.isLoggedIn) {
+    // 等 me 完成再应用主题：会话恢复时已存主题不闪默认（fetchUserInfo 只存不碰 DOM）
+    if (!session.userFetched) await session.fetchUserInfo()
+    session.applyTheme(session.theme)
   }
 })
 </script>

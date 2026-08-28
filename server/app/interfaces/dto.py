@@ -40,6 +40,9 @@ class SecurityRequest(BaseModel):
     security_question: str
     security_answer: str
 
+class PreferencesRequest(BaseModel):
+    theme: str
+
 class ActivateLicenseRequest(BaseModel):
     code: str
 
