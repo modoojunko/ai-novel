@@ -65,4 +65,12 @@ test.describe('控制台首页', () => {
     await page.locator('a:has-text("前往设置")').click()
     await expect(page).toHaveURL(/\/dashboard\/account/)
   })
+
+  test('下载客户端入口打开下载弹窗', async ({ page }) => {
+    await expect(page.getByText('下载客户端')).toBeVisible()
+    await page.getByRole('button', { name: '免费下载' }).click()
+    await expect(page.locator('.mcard')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('link', { name: /下载 Windows/ })).toBeVisible()
+    await expect(page.getByRole('link', { name: /下载 macOS/ })).toBeVisible()
+  })
 })
