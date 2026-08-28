@@ -1,7 +1,7 @@
 // 设计词汇 lint（design:check 第 0 层）：
 //   严格模式（原型 + 已收编屏）出现档位外 opacity / 未登记任意值 / 原生色板 /
 //   裸 hex·rgb / emoji / daisyUI 语义类回归 → 退出码 1
-//   存量 src 只输出分布统计（冻结观察，供 DESIGN.md 定档），不阻断
+//   存量 src 只输出分布统计（冻结观察，供 docs/ux 标准定档），不阻断
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import path from "node:path";
 import {

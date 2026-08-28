@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>爱小说 · 高级配置 · 设定</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: "Noto Sans SC", "PingFang SC", sans-serif; }
+  .serif { font-family: "Noto Serif SC", "Songti SC", serif; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+</style>
+</head>
+<body class="bg-stone-100 text-stone-800">
+  <div class="h-screen flex flex-col">
+    <!-- 顶部 -->
+    <div class="bg-white border-b px-4 py-2 flex items-center gap-3">
+      <a href="01-list.html" class="serif font-bold text-lg text-amber-700">爱小说</a>
+      <span class="text-sm font-medium">剑起苍澜</span>
+      <a href="02-writing.html" class="ml-auto text-sm text-stone-400 hover:text-amber-700">返回正文 →</a>
+    </div>
+    <!-- 高级配置标注 + 进度 -->
+    <div class="bg-white border-b px-4 py-2 flex items-center gap-3 text-xs text-stone-400">
+      <span>高级配置 · 设定（可选，不影响直接写作）</span>
+      <div class="ml-auto flex items-center gap-3">
+        <div class="w-40 h-1.5 bg-stone-200 rounded-full overflow-hidden">
+          <div id="progress-bar" class="h-full bg-amber-500 rounded-full" style="width: 43%"></div>
+        </div>
+        <span id="progress-text" class="text-stone-500">设定 3/6</span>
+      </div>
+    </div>
+
+    <div class="flex flex-1 overflow-hidden">
+      <!-- 左侧：7 项设定树 -->
+      <aside class="w-56 bg-white border-r p-2 overflow-y-auto">
+        <p class="text-[10px] text-stone-400 px-2 pt-1 pb-2 font-medium tracking-wider">设定（按顺序）</p>
+        <div class="space-y-0.5 text-sm" id="setting-tree">
+          <div onclick="showSetting(0)" class="flex items-center gap-2 px-2 py-1.5 rounded bg-amber-50 cursor-pointer"><span class="text-amber-500">●</span> ① 题材类型 <span class="ml-auto text-[10px] text-amber-600">进行中</span></div>
+          <div onclick="showSetting(1)" class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-50 cursor-pointer"><span class="text-emerald-600">✓</span> ② 故事简介 <span class="ml-auto text-[10px] text-emerald-600">已确认</span></div>
+          <div onclick="showSetting(2)" class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-50 cursor-pointer"><span class="text-emerald-600">✓</span> ③ 世界设定 <span class="ml-auto text-[10px] text-emerald-600">已确认</span></div>
+          <div onclick="showSetting(3)" class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-50 cursor-pointer"><span class="text-stone-300">○</span> ④ 写作风格 <span class="ml-auto text-[10px] text-stone-400">未填</span></div>
+          <div onclick="showSetting(4)" class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-50 cursor-pointer"><span class="text-stone-300">○</span> ⑤ 伏笔管理 <span class="ml-auto text-[10px] text-stone-400 badge bg-stone-100 px-1.5 rounded">可后补</span></div>
+          <div onclick="showSetting(5)" class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-50 cursor-pointer"><span class="text-stone-300">○</span> ⑥ 角色管理 <span class="ml-auto text-[10px] text-stone-400 badge bg-stone-100 px-1.5 rounded">可后补</span></div>
+        </div>
+      </aside>
+
+      <!-- 右侧：设定面板 -->
+      <main class="flex-1 p-6 overflow-y-auto">
+        <!-- ① 题材配置 -->
+        <div id="setting-0" class="panel active">
+          <div class="max-w-2xl mx-auto bg-white rounded-xl border p-6">
+            <div class="flex items-center justify-between mb-4"><h2 class="serif font-semibold text-xl">题材类型与配置</h2><span class="text-xs text-stone-400 bg-stone-100 px-2 py-1 rounded">高级项可后补</span></div>
+            <div class="space-y-4 text-sm">
+              <div>
+                <label class="text-xs font-medium text-stone-500">题材 *</label>
+                <div class="mt-1 flex flex-wrap gap-2">
+                  <span class="px-3 py-1.5 bg-amber-600 text-white rounded-lg">科幻</span>
+                  <span class="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 rounded-lg cursor-pointer">玄幻</span>
+                  <span class="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 rounded-lg cursor-pointer">都市</span>
+                </div>
+              </div>
+              <div>
+                <label class="text-xs font-medium text-stone-500">题材说明</label>
+                <textarea class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg h-20" placeholder="用一两句话描述这个题材下你的故事气质（如：硬核科幻、人性与科技冲突）"></textarea>
+              </div>
+              <p class="text-[11px] text-stone-400">免费模式：题材 = 类型 + 一句话说明。基调蓝图/禁忌/爽点/弧线等 AI 配置字段属于 PRO。</p>
+            </div>
+            <button onclick="confirmSetting(0)" class="mt-5 w-full py-2.5 bg-amber-600 text-white rounded-lg">确认完成</button>
+          </div>
+        </div>
+
+        <!-- ② 故事简介 -->
+        <div id="setting-1" class="panel">
+          <div class="max-w-2xl mx-auto bg-white rounded-xl border p-6">
+            <div class="flex items-center justify-between mb-4"><h2 class="serif font-semibold text-xl">故事简介</h2><span class="text-xs text-stone-400">必填</span></div>
+            <div class="space-y-4 text-sm">
+              <div><label class="text-xs font-medium text-stone-500">一句话梗概 *</label><input class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg" value="少年持断剑踏上复仇之路"></div>
+              <div><label class="text-xs font-medium text-stone-500">详细简介 *</label><textarea class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg h-28" value=""></textarea></div>
+              <p class="text-[11px] text-stone-400">核心卖点 / 目标读者属于 PRO（AI 生成上下文），免费模式不显示。</p>
+            </div>
+            <button onclick="confirmSetting(1)" class="mt-5 w-full py-2.5 bg-amber-600 text-white rounded-lg">确认完成</button>
+          </div>
+        </div>
+
+        <!-- ③ 世界设定 -->
+        <div id="setting-2" class="panel">
+          <div class="max-w-2xl mx-auto bg-white rounded-xl border p-6">
+            <div class="flex items-center justify-between mb-4"><h2 class="serif font-semibold text-xl">世界设定</h2><span class="text-xs text-stone-400">必填 · 地理 / 政治 / 规则</span></div>
+            <div class="space-y-4 text-sm">
+              <div>
+                <label class="text-xs font-medium text-stone-500">① 地理 *</label>
+                <div class="mt-1 space-y-2">
+                  <input class="w-full px-3 py-2 border border-stone-300 rounded-lg" value="主角第一章出现在星舰舰桥">
+                  <input class="w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="场景关系：要去哪些地方？怎么去？">
+                  <input class="w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="气候与季节特征">
+                </div>
+              </div>
+              <div><label class="text-xs font-medium text-stone-500">② 政治</label><textarea class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg h-14" placeholder="权力结构、各方势力"></textarea></div>
+              <div><label class="text-xs font-medium text-stone-500">③ 规则</label><textarea class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg h-14" placeholder="世界运行规则（架空）"></textarea></div>
+            </div>
+            <button onclick="confirmSetting(2)" class="mt-5 w-full py-2.5 bg-amber-600 text-white rounded-lg">确认完成</button>
+          </div>
+        </div>
+
+        <!-- ④ 写作风格 -->
+        <div id="setting-3" class="panel">
+          <div class="max-w-2xl mx-auto bg-white rounded-xl border p-6">
+            <div class="flex items-center justify-between mb-4"><h2 class="serif font-semibold text-xl">写作风格</h2><span class="text-xs text-stone-400">必填</span></div>
+            <div class="space-y-4 text-sm">
+              <div><label class="text-xs font-medium text-stone-500">叙述视角 *</label><select class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg"><option>第三人称限知</option><option>第一人称</option><option>第三人称全知</option></select></div>
+              <p class="text-[11px] text-stone-400">语言风格 / 节奏偏好属于 PRO（AI 生成上下文），免费模式不显示。</p>
+            </div>
+            <button onclick="confirmSetting(3)" class="mt-5 w-full py-2.5 bg-amber-600 text-white rounded-lg">确认完成</button>
+          </div>
+        </div>
+
+        <!-- ⑤ 伏笔管理 -->
+        <div id="setting-4" class="panel">
+          <div class="max-w-2xl mx-auto bg-white rounded-xl border p-6">
+            <div class="flex items-center justify-between mb-4"><h2 class="serif font-semibold text-xl">伏笔管理</h2><span class="text-xs text-stone-400 bg-stone-100 px-2 py-1 rounded">可后补</span></div>
+            <div class="space-y-3 text-sm">
+              <div class="flex gap-2 items-center text-xs text-stone-500"><span class="w-32">伏笔名称</span><span class="flex-1">埋设章节</span><span class="flex-1">回收章节</span><span class="w-16">状态</span></div>
+              <div class="flex gap-2 items-center"><span class="w-32 px-2 py-1.5 bg-stone-50 rounded">断剑异响</span><span class="flex-1 px-2 py-1.5 bg-stone-50 rounded">第一章</span><span class="flex-1 px-2 py-1.5 bg-stone-50 rounded">—</span><span class="w-16 text-xs text-stone-400">未回收</span></div>
+              <button class="text-xs text-amber-700 border border-dashed border-amber-300 w-full py-2 rounded-lg">+ 添加伏笔</button>
+            </div>
+            <button onclick="confirmSetting(4)" class="mt-5 w-full py-2.5 bg-amber-600 text-white rounded-lg">确认完成</button>
+          </div>
+        </div>
+
+        <!-- ⑥ 角色管理 -->
+        <div id="setting-5" class="panel">
+          <div class="max-w-2xl mx-auto bg-white rounded-xl border p-6">
+            <div class="flex items-center justify-between mb-4"><h2 class="serif font-semibold text-xl">角色管理</h2><span class="text-xs text-stone-400 bg-stone-100 px-2 py-1 rounded">可后补 · 认知6层</span></div>
+            <div class="space-y-3 text-sm">
+              <div class="flex gap-2 items-center"><span class="flex-1 px-3 py-2 bg-stone-50 rounded">林川 · 主角 · 坚毅隐忍</span></div>
+              <div class="flex gap-2 items-center"><span class="flex-1 px-3 py-2 bg-stone-50 rounded">苍澜剑灵 · 导师 · 亦师亦友</span></div>
+              <button class="text-xs text-amber-700 border border-dashed border-amber-300 w-full py-2 rounded-lg">+ 添加角色</button>
+            </div>
+            <button onclick="confirmSetting(5)" class="mt-5 w-full py-2.5 bg-amber-600 text-white rounded-lg">确认完成</button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+<script>
+let settingConfirmed = [false, true, true, false, false, false];
+function showSetting(i) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('setting-' + i).classList.add('active');
+}
+function confirmSetting(i) {
+  settingConfirmed[i] = true;
+  const n = settingConfirmed.filter(Boolean).length;
+  document.getElementById('progress-bar').style.width = Math.round(n / 6 * 100) + '%';
+  document.getElementById('progress-text').textContent = '设定 ' + n + '/7';
+  const tree = document.getElementById('setting-tree');
+  Array.from(tree.children).forEach((el, idx) => {
+    if (settingConfirmed[idx]) {
+      el.querySelector('span:first-child').textContent = '✓';
+      el.querySelector('span:first-child').className = 'text-emerald-600';
+      el.querySelector('span:last-child').textContent = '已确认';
+      el.querySelector('span:last-child').className = 'ml-auto text-[10px] text-emerald-600';
+    }
+  });
+}
+</script>
+</body>
+</html>

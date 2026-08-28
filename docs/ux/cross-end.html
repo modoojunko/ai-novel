@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>爱小说 · 全端视觉一致性方案（C端 × S端）</title>
+<style>
+  :root{
+    --bg:      oklch(98% 0.004 240);
+    --surface: oklch(100% 0 0);
+    --fg:      oklch(20% 0.02 240);
+    --muted:   oklch(50% 0.018 240);
+    --border:  oklch(90% 0.006 240);
+    --accent:  oklch(48% 0.11 170);
+    --accent-strong: oklch(41% 0.10 170);
+    --accent-soft: color-mix(in oklch, var(--accent) 12%, transparent);
+    --ok:   oklch(52% 0.11 155); --ok-soft:   color-mix(in oklch, var(--ok) 14%, transparent);
+    --warn: oklch(50% 0.13 75);  --warn-soft: color-mix(in oklch, var(--warn) 16%, transparent);
+    --err:  oklch(50% 0.17 25);  --err-soft:  color-mix(in oklch, var(--err) 12%, transparent);
+    --fg-soft: color-mix(in oklch, var(--fg) 5%, transparent);
+    --on-accent: oklch(100% 0 0);
+    --shadow-card: 0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent),
+                   0 12px 32px -12px color-mix(in oklch, var(--fg) 14%, transparent);
+    --font-display:'Noto Serif SC','Songti SC','STSong',Georgia,serif;
+    --font-body:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',system-ui,sans-serif;
+    --font-mono: ui-monospace,'SF Mono',Menlo,'JetBrains Mono',monospace;
+    --radius:10px; --radius-lg:16px;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:14px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  .wrap{max-width:1120px;margin:0 auto;padding:48px 32px 96px}
+  h1{font-family:var(--font-display);font-size:32px;font-weight:600;margin:0}
+  .sub{color:var(--muted);font-size:13px;margin-top:8px}
+  h2{font-family:var(--font-display);font-size:23px;font-weight:600;margin:60px 0 6px;padding-top:24px;border-top:1px solid var(--border)}
+  h3{font-size:15.5px;font-weight:600;margin:30px 0 8px}
+  h4{font-size:13.5px;font-weight:600;margin:16px 0 6px}
+  p{margin:0 0 12px}
+  .lead{color:var(--muted);max-width:78ch}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin:10px 0 20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  th{text-align:left;font-weight:600;background:var(--fg-soft);padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}
+  td{padding:9px 11px;border-bottom:1px solid var(--border);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  code,.mono{font-family:var(--font-mono);font-size:.92em;background:var(--fg-soft);padding:1px 5px;border-radius:5px}
+  pre{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;overflow-x:auto;font-family:var(--font-mono);font-size:12px;line-height:1.7;color:var(--fg);margin:10px 0 18px}
+  ul,ol{margin:0 0 12px;padding-left:20px}li{margin-bottom:5px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);padding:22px 26px;margin:16px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:860px){.grid2{grid-template-columns:1fr}}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}
+  @media(max-width:760px){.grid3{grid-template-columns:1fr}}
+  .note{border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 8px 8px 0;padding:12px 16px;margin:14px 0;font-size:13px}
+  .note b{color:var(--accent-strong)}
+  .warnbox{border-left:3px solid var(--warn);background:var(--warn-soft);border-radius:0 8px 8px 0;padding:12px 16px;margin:14px 0;font-size:13px}
+
+  /* 层级图 */
+  .layers{display:flex;flex-direction:column;gap:8px;margin:16px 0}
+  .layer{display:grid;grid-template-columns:130px 1fr;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+  .layer > div{padding:12px 16px}
+  .layer .lname{font-family:var(--font-display);font-weight:600;font-size:14px;border-right:1px solid var(--border);display:flex;flex-direction:column;justify-content:center;gap:2px}
+  .layer .lname small{font-family:var(--font-body);font-weight:400;color:var(--muted);font-size:11.5px}
+  .layer.l1 > .lname{background:color-mix(in oklch,var(--accent) 10%,transparent);color:var(--accent-strong)}
+  .layer.l2 > .lname{background:color-mix(in oklch,var(--ok) 10%,transparent)}
+  .layer.l3 > .lname{background:var(--fg-soft)}
+
+  /* 对比舞台 */
+  .stage{border:1px solid var(--border);border-radius:var(--radius-lg);margin:14px 0;overflow:hidden;background:var(--surface)}
+  .stage-canvas{padding:22px 24px;display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;background-color:color-mix(in oklch,var(--fg) 2%,var(--surface))}
+  .stage-label{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;color:var(--muted)}
+  .cv{display:none;width:100%}
+  .cv.on{display:block}
+  .seg2{display:inline-flex;background:var(--fg-soft);border-radius:9px;padding:2px;margin:0 0 12px}
+  .seg2 button{height:26px;padding:0 12px;border-radius:7px;font-size:12.5px;color:var(--muted);cursor:pointer;border:0;background:none}
+  .seg2 button.on{background:var(--surface);color:var(--fg);font-weight:500;box-shadow:0 1px 2px color-mix(in oklch,var(--fg) 8%,transparent)}
+
+  /* 两端现状实物（照抄各自源码值） */
+  .b{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:500}
+  .b.ok{background:var(--ok-soft);color:var(--ok)} .b.err{background:var(--err-soft);color:var(--err)}
+  .b.warn{background:var(--warn-soft);color:var(--warn)} .b.muted{background:var(--fg-soft);color:var(--muted)}
+  .strip{display:inline-flex;gap:8px;align-items:flex-start;font-size:13px;border-radius:9px;padding:10px 12px}
+  .strip.info{background:var(--accent-soft);color:var(--accent-strong)} .strip.ok{background:var(--ok-soft);color:var(--ok)}
+  .strip.err{background:var(--err-soft);color:var(--err)} .strip.warn{background:var(--warn-soft);color:var(--warn)}
+  .sk{background:var(--fg-soft);border-radius:9px;height:12px;animation:sk-pulse 1.4s ease-in-out infinite;display:inline-block}
+  @keyframes sk-pulse{0%,100%{opacity:.55}50%{opacity:1}}
+  .csk-bar{height:12px;border-radius:6px;background:var(--fg-soft);animation:skeleton-pulse 1.4s ease-in-out infinite}
+  @keyframes skeleton-pulse{50%{opacity:.45}}
+  .panel-demo{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;flex:1;min-width:200px}
+  .panel-demo.hoverable{transition:border-color .15s ease,box-shadow .15s ease}
+  .panel-demo.hoverable:hover{border-color:color-mix(in oklch,var(--accent) 45%,var(--border));box-shadow:var(--shadow-card)}
+  .pill{display:inline-flex;align-items:center;gap:5px;border:1px solid transparent;border-radius:999px;padding:2px 9px;font-size:11px;line-height:1.6;font-weight:500;white-space:nowrap}
+  .pill-tag{background:var(--surface);border-color:var(--border);color:var(--muted)}
+  .pill-status{padding:2px 9px}
+  .pill-count{font-family:var(--font-mono);background:var(--fg-soft);color:var(--muted)}
+  .pill-ok{background:var(--ok-soft);color:color-mix(in oklch,var(--ok) 88%,var(--fg))}
+  .pill-warn{background:var(--warn-soft);color:color-mix(in oklch,var(--warn) 85%,var(--fg))}
+  .pill-err{background:var(--err-soft);color:color-mix(in oklch,var(--err) 90%,var(--fg))}
+  .pill-accent{background:var(--accent-soft);color:var(--accent-strong)}
+  .notice-demo{display:flex;gap:10px;align-items:center;width:100%;border-radius:var(--radius);padding:10px 14px;font-size:13px}
+  .notice-demo.info{border:1px solid color-mix(in oklch,var(--accent) 30%,var(--border));background:var(--accent-soft);color:var(--accent-strong)}
+  .notice-demo.ok{border:1px solid color-mix(in oklch,var(--ok) 28%,var(--border));background:var(--ok-soft);color:color-mix(in oklch,var(--ok) 88%,var(--fg))}
+  .notice-demo.warn{border:1px solid color-mix(in oklch,var(--warn) 28%,var(--border));background:var(--warn-soft);color:color-mix(in oklch,var(--warn) 85%,var(--fg))}
+  .notice-demo.err{border:1px solid color-mix(in oklch,var(--err) 24%,var(--border));background:var(--err-soft);color:color-mix(in oklch,var(--err) 90%,var(--fg))}
+  .input-demo{padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);font-size:13px;font-family:var(--font-body);min-width:210px}
+  .input-demo:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+  .has-err .input-demo{border-color:var(--err)}
+  .f-err{font-size:12.5px;color:var(--err);margin:6px 0 0}
+  .f-hint{font-size:12.5px;color:var(--muted);margin:6px 0 0}
+
+  .pill-tbl td:nth-child(2){white-space:nowrap}
+  .dir{font-family:var(--font-mono);font-size:11px;padding:1px 7px;border-radius:999px;white-space:nowrap}
+  .dir.c2s{background:var(--accent-soft);color:var(--accent-strong)}
+  .dir.s2c{background:color-mix(in oklch,var(--ok) 12%,transparent);color:color-mix(in oklch,var(--ok) 80%,var(--fg))}
+  .dir.both{background:var(--fg-soft);color:var(--muted)}
+  .yesv{color:var(--ok);font-weight:600} .nov{color:var(--err);font-weight:600} .partv{color:var(--warn);font-weight:600}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}
+  @media(max-width:800px){.stat-grid{grid-template-columns:repeat(2,1fr)}}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+  .stat b{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-top:2px}
+  .kv{font-family:var(--font-display);font-size:28px;line-height:1.2}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>全端视觉一致性方案 · C端 × S端</h1>
+  <div class="sub">范围：client/frontend（React 19）+ server/frontend（Vue 3）· 基于两端源码逐字比对 · 2026-08-27</div>
+
+  <h2>〇、结论速览</h2>
+  <p class="lead">你要的「全库一致、绝大多数组件相同、特殊场景除外」——<b>地基已经做到了</b>。S 端 <code>src/design/base.css</code> 头部注释写明「C端原样移植 · oklch token 一字不改」，逐字比对属实：令牌表、按钮六档、弹窗版式、表单基座、toast、appbar、统计瓦片全部同源。剩余工作量不是「从零统一」，而是两件事：</p>
+  <div class="grid2">
+    <div class="card" style="margin:0">
+      <h4 style="margin-top:0">① 收敛 8 处语义漂移</h4>
+      <p style="font-size:13px">同一对象在两端叫不同名字、语气档位不齐、或一端有一端无（徽标 / 提示条 / 表单错误态 / 骨架屏 / 面板卡 / toast 警告档 / on-accent 文字色 / 空态动作槽）。每处都给出了裁决方向与涉及文件清单。</p>
+    </div>
+    <div class="card" style="margin:0">
+      <h4 style="margin-top:0">② 建立<strong>防再漂移机制</strong>（最大风险点）</h4>
+      <p style="font-size:13px">目前「同源」靠人肉复制粘贴，没有任何自动校验——下一次任何一端改按钮圆角，另一端就会悄悄走样且无人发现。方案是给共享段打上标记注释并新增 <code>design:cross</code> 校验脚本，不一致即门禁失败。</p>
+    </div>
+  </div>
+  <div class="stat-grid">
+    <div class="stat"><span class="kv">100%</span><b>令牌段两端逐字一致</b></div>
+    <div class="stat"><span class="kv">约 80%</span><b>base.css 基础组件类已同源</b></div>
+    <div class="stat"><span class="kv">8</span><b>处语义漂移待收敛</b></div>
+    <div class="stat"><span class="kv">0</span><b>个自动防漂移检查</b></div>
+  </div>
+
+  <h2>一、三层契约模型：什么必须一样，什么允许不一样</h2>
+  <p class="lead">「除了特殊的场景，绝大多数组件都一致」要可执行，就必须先把「一致」拆成三档义务等级：</p>
+  <div class="layers">
+    <div class="layer l1">
+      <div class="lname">L1 契约层<small>必须逐字相同</small></div>
+      <div>令牌 <code>:root</code> 段（色彩/字体/圆角/阴影）· 基础组件类：<code>.btn</code> 六档与四变体、<code>.icon-btn</code>、<code>.field/.input/.hint</code>、<code>.scrim/.modal/.mcard</code> 五件套、<code>.toast-wrap/.toast</code>、<code>.appbar/.logo/.page-head/.main/.pagefoot</code>、<code>.seg</code>、<code>.pref-row</code>、<code>.empty</code> 基座、<code>.spin/.lnk/.num/.serif</code>。<br>
+      <span style="color:var(--muted);font-size:12.5px">判定依据：两端 base.css 这一段现在就已逐字相同（client <code>base.css:9-115</code> 与 server <code>base.css:11-120</code>），唯一差异是 S 端多出 daisyUI 过渡期的 <code>visibility/pointer-events</code> 守卫——属历史兼容残留，可在收尾时删除。</span></div>
+    </div>
+    <div class="layer l2">
+      <div class="lname">L2 语义层<small>同名同义 · 各端薄壳</small></div>
+      <div>徽标 <code>.pill</code>、提示条 <code>.notice</code> 四语气、表单错误态 <code>.f-err/.f-hint/.has-err</code>、骨架屏原子 <code>.sk</code>、面板卡 <code>.panel(+hoverable/hl/compact)</code>、空态动作槽。<b>类名和取值必须跨端一致；但 React/Vue 的组件壳不必对称</b>（见 §四）。</div>
+    </div>
+    <div class="layer l3">
+      <div class="lname">L3 业务层<small>允许分叉 · 只能重组不能造色</small></div>
+      <div>C端阅读工作台 <code>book.css</code>（结构树/密度）、设定视图三段式、基调选择器；S端落地营销页 <code>landing.css</code>（hero 字阶已登记例外）、控制台数据密表（<code>keyline</code> 掩码指纹）、认证页单列居中。<br>
+      <span style="color:var(--muted);font-size:12.5px">白名单纪律：可以改变「组合」与「密度」，但只能用 L1 已有令牌；新色相禁止，新字阶/圆角必须登记进词汇表。</span></div>
+    </div>
+  </div>
+
+  <h2>二、已经一致的部分（不用再动，列出是为了让门禁守住它）</h2>
+  <table>
+    <tr><th style="width:220px">对象</th><th>C端证据</th><th>S端证据</th><th style="width:70px">状态</th></tr>
+    <tr><td>oklch 令牌 <code>:root</code> 全表</td><td><code>src/design/base.css:9-27</code></td><td><code>src/design/base.css:11-29</code></td><td class="yesv">逐字同</td></tr>
+    <tr><td><code>.btn</code> 家族（primary/secondary/ghost/danger × md/sm/xs + icon-btn）</td><td><code>base.css:45-64</code></td><td><code>base.css:47-66</code></td><td class="yesv">逐字同</td></tr>
+    <tr><td>appbar / logo / page-head / main 版式</td><td><code>base.css:66-80</code></td><td><code>base.css:68-80</code></td><td class="yesv">逐字同</td></tr>
+    <tr><td>弹窗五件套 scrim/modal/mcard-head/body/foot</td><td><code>base.css:86-96</code></td><td><code>base.css:86-97</code>（多过渡期守卫）</td><td class="partv">基本同</td></tr>
+    <tr><td>field / input / hint 表单基座</td><td><code>base.css:97-103</code></td><td><code>base.css:98-103</code></td><td class="yesv">逐字同</td></tr>
+    <tr><td>toast-wrap / toast 深底胶囊</td><td><code>base.css:105-110</code></td><td><code>base.css:105-110</code></td><td class="partv">S 多 warn 档</td></tr>
+    <tr><td>seg 分段控制器 / pref-row / pagefoot / 窄屏断点</td><td><code>base.css:112-165</code></td><td><code>base.css:112-143</code></td><td class="yesv">逐字同</td></tr>
+    <tr><td>stat-tiles / stat / keyline 数据瓦片</td><td><code>design/model-config.css:24-28,54</code></td><td><code>design/dashboard.css:8-15</code></td><td class="yesv">逐字同</td></tr>
+    <tr><td>词汇 lint 哲学（禁裸 hex/daisyUI 回归/icon 注册表外图标）</td><td><code>scripts/design-vocab.mjs</code>（92 行）</td><td><code>scripts/design-lint.mjs + design-vocab.mjs</code>（57 行裁剪版）</td><td class="yesv">同一套规则</td></tr>
+  </table>
+  <div class="note"><b>结论：</b>L1 层不是要建设的目标，而是要用脚本<b>锁住</b>的既成事实（见 §六 M1）。没有这个脚本，「已逐字相同」只是今天快照，明天就可能被一次顺手改动打破。</div>
+
+  <h2>三、八处漂移的裁决</h2>
+  <p class="lead">每一条都标注了方向：<span class="dir s2c">S → C</span> 表示 S 端做得对、C 端补齐；<span class="dir c2s">C → S</span> 表示以 C 端为准或 C 端先行定义、S 端改名跟进；<span class="dir both">两端同步</span>表示同时新做。</p>
+
+  <table class="pill-tbl">
+    <tr><th style="width:40px">#</th><th style="width:150px">对象</th><th>C端现状</th><th>S端现状</th><th style="width:90px">裁决方向</th><th>统一后契约</th></tr>
+    <tr><td>1</td><td><b>徽标 / 状态胶囊</b></td><td>13 种自制胶囊散在各屏，无共享基类</td><td><code>.b.ok/.err/.warn/.muted</code> 单基类四语气（<code>base.css:123-127</code>，6 文件在用）</td><td><span class="dir both">两端同步</span></td><td><code>.pill</code> 三角色 × 五语气（§3.1）</td></tr>
+    <tr><td>2</td><td><b>提示条</b></td><td><code>.notice</code> 裸=warn 默认 + <code>.info</code>，仅两档（<code>list.css:50-54</code>）</td><td><code>.strip.info/.ok/.err/.warn</code> 四档（<code>dashboard.css:18-23</code>，6 文件在用）</td><td><span class="dir c2s">C → S</span></td><td><code>.notice</code> + 显式四语气 <code>info/ok/warn/err</code>（§3.2）</td></tr>
+    <tr><td>3</td><td><b>表单错误态</b></td><td class="nov">完全没有</td><td><code>.input-wrap/.has-err/.pw-eye/.f-err/.f-hint/.field.is-disabled</code> 完备（<code>base.css:159-168</code>）</td><td><span class="dir s2c">S → C</span></td><td>整块上移到两端 base.css 共享段</td></tr>
+    <tr><td>4</td><td><b>骨架屏</b></td><td><code>.card-skeleton .bar</code> 专用组合 + <code>skeleton-pulse 0.45</code>（<code>list.css:57-62</code>）</td><td><code>.sk</code> 通用原子 + <code>sk-pulse 0.55</code>（<code>base.css:180-182</code>）</td><td><span class="dir c2s">以 C 取值定音</span></td><td><code>.sk</code> 原子 + 动画同名同值 0.45（§3.3）</td></tr>
+    <tr><td>5</td><td><b>面板卡</b></td><td><code>.panel</code> 定义在 <code>model-config.css:20</code> 且自带 <code>margin-bottom:16px</code></td><td><code>.panel</code> 在 base.css 并带 <code>hoverable/hl/compact</code> 三修饰（<code>base.css:129-132,170-174</code>）</td><td><span class="dir both">两端同步</span></td><td><code>.panel</code> 上移 base.css 共享段，去 margin（间距归布局工具类），修饰类全站可用</td></tr>
+    <tr><td>6</td><td><b>toast 警告档</b></td><td class="nov">仅 ok / err</td><td><code>.toast.warn svg</code> 第三档（<code>base.css:109</code>）</td><td><span class="dir s2c">S → C</span></td><td>两端同为三档</td></tr>
+    <tr><td>7</td><td><b>accent 上的文字色</b></td><td><code>btn-primary/btn-danger/logo-mark/toast</code> 一律 <code>color: var(--surface)</code> 冒充</td><td>同样四处冒充</td><td><span class="dir both">两端同步</span></td><td>新增令牌 <code>--on-accent</code>，四处统一替换（§3.4）</td></tr>
+    <tr><td>8</td><td><b>空态动作槽</b></td><td><code>.empty*</code> 变体散在 <code>book.css</code>，动作区各屏手写</td><td><code>.empty svg{}</code> 图标规格 + <code>.empty .btn{margin-top:16px}</code> 动作槽内建（<code>base.css:176-178</code>）</td><td><span class="dir s2c">S → C</span></td><td>两条上移共享段；C端 <code>EmptyState.tsx</code> 候选组件直接消费</td></tr>
+  </table>
+
+  <h3>3.1 徽标：<code>.pill</code> 角色 × 语气（本方案的命名裁决）</h3>
+  <p>S 端的 <code>.b</code> 已经证明「单基类 × 语气修饰」可行，但有两个问题：一是单字母类名 grep 噪声极大、无法表达角色（<code>.b.muted</code> 其实把「标签」和「计数」混在一个语气里）；二是语气文字色直接用纯色，浅背景上对比度不足。两端统一采用三角色 × 五语气网格，角色由调用方按用途选，语气独立叠加：</p>
+  <pre>.pill                  /* 基座：999 圆角 · 11px · 内边距 2px 9px */
+.pill-tag              /* 标签（类型/来源/备注词）        默认中性描边 */
+.pill-status           /* 状态徽章（进度/健康度/在线态） */
+.pill-count            /* 计数徽章（等宽数字、tabular-nums） */
+
+.pill-ok / .pill-warn / .pill-err / .pill-accent
+/* 叠加语气：软底 + 同相深化文字色（不用纯色，保对比度） */</pre>
+  <table>
+    <tr><th style="width:190px">使用场景（全站 13 类归档去向）</th><th>角色</th><th>语气</th></tr>
+    <tr><td>卷·章 数量角标、字数小计</td><td><code>pill-count</code></td><td>—</td></tr>
+    <tr><td>对象进度徽章（未就绪/待确认/已完成）</td><td><code>pill-status</code></td><td><code>warn</code> / <code>accent</code> / <code>ok</code></td></tr>
+    <tr><td>生成失败 / 违规拦截提示</td><td><code>pill-status</code></td><td><code>err</code></td></tr>
+    <tr><td>题材标签、来源标签、视角/人称</td><td><code>pill-tag</code></td><td>— 或 <code>accent</code></td></tr>
+    <tr><td>PRO 门控徽章</td><td>独立既有类 <code>.pill-pro</code>（保持不变，等宽+星形图标）</td><td><code>accent</code> 系</td></tr>
+  </table>
+  <div class="stage">
+    <div class="stage-canvas">
+      <span class="stage-label">同一组业务状态 · 统一后实物：</span>
+      <span class="pill pill-status pill-warn">待生成</span>
+      <span class="pill pill-status pill-accent">生成中</span>
+      <span class="pill pill-status pill-ok">已完成</span>
+      <span class="pill pill-status pill-err">违规拦截</span>
+      <span class="pill pill-tag">玄幻</span>
+      <span class="pill pill-count">第 3 卷 · 42 章</span>
+      <span class="pill pill-count">128,900 字</span>
+    </div>
+  </div>
+  <p style="font-size:13px;color:var(--muted)">落地量：S 端 6 个文件把 <code>.b</code> 改名并挑角色（机械替换）；C 端 13 种自制胶囊按上表归档进三类，同时删除各自的私有样式行。此为既列 P1 项「胶囊收敛」的全端版本。</p>
+
+  <h3>3.2 提示条：统一名 <code>.notice</code>，显式四语气</h3>
+  <p>S 端 <code>.strip</code> 与 C 端 <code>.notice</code> 是同一个对象的两个名字。取名取 C 端（更直白且已有调用），档位取 S 端（更完备）：统一为 <code>.notice</code> + 显式修饰类 <code>info / ok / warn / err</code>。语气词表全站收敛为这一个四元组——不再出现「success/danger」这套与 <code>dot-ok/dot-warn/b.ok/toast.err</code> 冲突的第二套措辞。</p>
+  <div class="stage">
+    <div class="stage-canvas" style="flex-direction:column;align-items:stretch;gap:10px">
+      <div class="notice-demo info"><b>info</b>&nbsp;模型返回为空时将自动重试一次。</div>
+      <div class="notice-demo ok"><b>ok</b>&nbsp;激活码已绑定到当前设备。</div>
+      <div class="notice-demo warn"><b>warn</b>&nbsp;免费版每月 30 次生成额度已用去 24 次。</div>
+      <div class="notice-demo err"><b>err</b>&nbsp;授权校验失败，请检查网络后重试。</div>
+    </div>
+  </div>
+  <p style="font-size:13px">迁移映射：<code>.strip.ok → .notice.ok</code>、<code>.strip.err → .notice.err</code>、<code>.strip.info → .notice.info</code>（S 端 6 文件）；C 端保留裸 <code>.notice = warn</code> 作为已登记的向后兼容缺省（存量两处调用不动），新代码一律写显式修饰类。此前 uikit 候选集里的 <code>success/danger</code> 语气词已同步改齐为 <code>ok/err</code>（2026-08-27，候选源码 <code>Notice.tsx</code> 与 CSS 段落均已更名）。</p>
+
+  <h3>3.3 骨架屏：认 <code>.sk</code> 为原子，卡片骨架是它的组合</h3>
+  <p>动画取值不同的本质是「谁向谁看齐」。裁决规则：<b>当两端取值不同且都合规时，以受像素 parity 门禁约束的一端（C端）为准</b>——改 C 要过原型与 design:check，改 S 不需要，所以永远向 C 收敛成本最低。故脉冲谷值定为 0.45、关键帧统一叫 <code>sk-pulse</code>；C 端 <code>.card-skeleton .bar</code> 改挂 <code>.sk</code> 类并删除本地 <code>skeleton-pulse</code>，S 端值从 0.55 调至 0.45。</p>
+  <div class="stage">
+    <div class="stage-canvas" style="flex-direction:column;align-items:stretch;gap:14px">
+      <div>
+        <div class="stage-label">现状对比（视觉差异肉眼可辨：脉冲动能不同）</div>
+        <div style="display:flex;gap:24px;margin-top:8px;flex-wrap:wrap">
+          <div style="flex:1;min-width:160px"><div class="stage-label">S · .sk 0.55</div><div style="margin-top:6px"><span class="sk" style="width:70%"></span></div></div>
+          <div style="flex:1;min-width:160px"><div class="stage-label">C · bar 0.45</div><div style="margin-top:6px"><span class="csk-bar" style="width:70%;display:inline-block"></span></div></div>
+        </div>
+      </div>
+      <div>
+        <div class="stage-label">统一后：一个原子，两种组合</div>
+        <div style="display:flex;gap:16px;margin-top:8px;flex-wrap:wrap">
+          <span class="sk" style="width:52%"></span><span class="sk" style="width:22%"></span><span class="sk" style="width:86%"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>3.4 新令牌 <code>--on-accent</code>：止住「拿 surface 当反白」的暗病</h3>
+  <p>两端共有 8 处（<code>.btn-primary</code>、<code>.btn-danger</code>、<code>.logo-mark</code>、<code>.toast</code> 文字）写在 accent/深底上的文字都在用 <code>color: var(--surface)</code> 凑数——语义上那是「页面表面」不是「强调底上的文字」。一旦未来出现非白的强调底（如品牌深绿按钮 hover 态），这 8 处会一起错。这是一次性 5 分钟的修正：</p>
+  <pre>:root { … --on-accent: oklch(100% 0 0); }     /* 两端 :root 各加一行 */
+.btn-primary  { color: var(--on-accent); }     /* 替换 var(--surface) ×4 每端 */
+.btn-danger   { color: var(--on-accent); }
+.logo-mark    { color: var(--on-accent); }
+.toast        { color: var(--on-accent); }</pre>
+
+  <h2>四、跨框架分工：契约必须对称，壳层刻意不对称</h2>
+  <p class="lead">React 与 Vue 无法直接共用 TSX/Vue 组件代码——所以「组件一致」的正确含义是<b>类名契约一致</b>，壳是各端自己的实现细节。值得注意的是两端已经各自形成了薄壳传统，且风格取舍相反但都合理，不要强行拉平：</p>
+  <table>
+    <tr><th style="width:150px">能力</th><th>S端（Vue 壳）</th><th>C端（React 现状）</th><th>要不要拉平？</th></tr>
+    <tr><td>按钮</td><td><code>AppButton.vue</code>（variant/size/loading/block，16 文件在用）</td><td>直接用 <code>.btn</code> 类族（CSS 档位齐全）</td><td><b>不拉平</b>。C 端包壳只会让 IDE/grep/design-lint 同时失明；S 端已有壳则保留。只需约定 variant 词表相同：<code>primary/secondary/ghost/danger</code> + 尺寸 <code>lg/md/sm/xs</code></td></tr>
+    <tr><td>弹窗</td><td><code>AppModal.vue</code></td><td><code>design/Modal.tsx</code></td><td>保持各自壳，DOM 类名同走 <code>.scrim/.modal/.mcard*</code></td></tr>
+    <tr><td>Toast</td><td><code>stores/toast + useToast</code></td><td><code>lib/toast.tsx</code> 模单单例</td><td>保持各自，类名三档对齐（漂移 #6）</td></tr>
+    <tr><td>图标</td><td><code>ui/icons.ts + Ico.vue</code>（51 键）</td><td><code>icons.tsx</code> 导出 P（61 键）</td><td>31 个公共键的 path 必须<b>一字不差</b>（交给 §六 M2 断言）；其余为合理的端特性差异（C 端多厂商/题材图标）</td></tr>
+    <tr><td>空态</td><td><code>EmptyState.vue</code>（2 文件）</td><td>候选 <code>uikit/EmptyState.tsx</code></td><td>API 对齐：<code>icon/title/desc/primary/secondary</code>，共享 DOM 走 <code>.empty</code> + 动作槽</td></tr>
+    <tr><td>徽标 / 提示条 / 三态点</td><td>直用类名（无壳）</td><td>候选 <code>Pill.tsx / Notice.tsx / Status.tsx</code></td><td>S 端维持直用类名；C 端候选壳只是便捷封装，落地的类名与本方案 §3.1/3.2 完全一致</td></tr>
+  </table>
+  <div class="note"><b>推论：</b>判断「两端是否一致」的标准是——同一份 HTML 片段贴进任一端的页面，渲染结果逐像素相同（除字体回退）。这就是为什么防漂移守在 CSS 层而不是组件层。</div>
+
+  <h2>五、特殊场景白名单（你说的「除了特殊的场景」的具体化）</h2>
+  <table>
+    <tr><th style="width:210px">场景</th><th>允许的差异</th><th>仍然不可破的底线</th></tr>
+    <tr><td>C端阅读工作台（<code>book.css</code>）</td><td>双栏密度、结构树缩进、行内悬停操作、作用域专用版式（<code>.wb</code>/save-state/del-confirm）</td><td>只用现有令牌；状态仍用 dot/ save-state 语言；危险项一律 <code>--err</code></td></tr>
+    <tr><td>S端落地营销页（<code>landing.css</code>）</td><td>hero 字号 44px（已登记任意值例外）、区块级入场动画</td><td>色板同一套；按钮走 <code>.btn-lg</code> 现有档位，不得自造尺寸</td></tr>
+    <tr><td>S端控制台数据面</td><td>掩码指纹 <code>keyline</code>、三列瓦片密度、表格行动作 <code>.btn-xs</code></td><td>数字一律 <code>.num</code>/<code>keyline</code> 等宽；删除类操作遵守 N6 红=不可逆</td></tr>
+    <tr><td>认证流（登录/注册/找回）</td><td>单列窄幅居中、大号主按钮</td><td>错误反馈必须走统一 <code>.f-err</code>，不允许 alert 色彩体系回归</td></tr>
+  </table>
+  <p style="font-size:13px;color:var(--muted)">一句话：白名单里可以换的是「排版组合」，不可以换的是「基因」（令牌、语气词表、状态语言、危险色纪律）。</p>
+
+  <h2>六、防再漂移机制（本方案的核心交付）</h2>
+
+  <h3>M1 · <code>design:cross</code>：把「必须逐字相同的段落」变成机器断言</h3>
+  <p>在两端 <code>base.css</code> 中用标记注释显式圈出 L1+L2 共享区间，仓库根放一个比对脚本，任何一端单独改动都会立刻红：</p>
+  <pre>/* client/frontend/src/design/base.css 与 server/frontend/src/design/base.css */
+/* @cross-begin tokens-and-shared —— 本段与另一端逐字同步，改动必须两端同提 */
+  :root { … }
+  .btn … .icon-btn  .appbar…page-foot  .scrim/.modal/.mcard*
+  .field/.input/.hint  .toast*  .seg  .pref-row  .empty(+动作槽)
+  .panel(+hoverable/hl/compact)  .pill 家族  .notice(+四语气)
+  .sk(+sk-pulse)  .f-err/.f-hint/.input-wrap/.has-err  .spin/.lnk
+/* @cross-end */
+/* 之后是各端自有扩展：C 端 wb-style/tone-opt/stree/settings-v…
+                        S 端 panel 组合留存期别名、auth/landing 专属… */</pre>
+  <pre>// scripts/design-cross.mjs（repo 根，node 直跑）
+// 读两端 src/design/base.css，截取 @cross-begin/@cross-end 之间的文本，
+// 规范化空白后 strict 相等；不等 → 打印第一处分歧行号并以退出码 1 结束。
+export function crossSegments(css) { … }
+const [c, s] = await Promise.all([read(CLIENT_BASE), read(SERVER_BASE)]);
+if (norm(crossSegments(c)) !== norm(crossSegments(s))) { diff(); process.exit(1); }</pre>
+  <ul>
+    <li>两端 <code>package.json</code> 各加 <code>"design:cross": "node ../../scripts/design-cross.mjs"</code>；</li>
+    <li>先跑一次建立基线：按 §3 清单做完收编后应输出「cross 段 0 差异」；</li>
+    <li>C端 parity 门禁不受影响（原型 HTML 是自包含的，parity 比对的是渲染结果而非源码）。</li>
+  </ul>
+
+  <h3>M2 · 图标公共键断言</h3>
+  <p>并入同一脚本：抽取两端注册表的键集合，公共键逐一比对 <code>d</code> 属性字符串；发现同名不同形立即报错。31 个公共键从此不可能悄悄分叉。</p>
+
+  <h3>M3 · 词汇规则互通</h3>
+  <p>两端 vocab 的禁令表达式（hexRegex / rgbRegex / emojiRegex / bannedDaisyRegex / paletteRegex）抽成 <code>scripts/design-rules.shared.mjs</code> 供两端 <code>design-vocab.mjs</code> import——禁令本身也是一种需要防漂移的契约。短期至少要加「两组正则 hash 相同」的弱校验。</p>
+
+  <h3>M4 · OpenSpec 范围升格为「全端」</h3>
+  <ul>
+    <li><code>openspec/config.yaml</code> context 增加 S 端一段：栈（Vue 3 + Tailwind 4 仅布局）、设计事实源位置、以及「S 端用户可见改动同样走 Design Impact 与 design:lint」；</li>
+    <li><code>openspec/specs/design-system/spec.md</code> 第一条 Requirement 从「The C-end SHALL use one light theme」改为「The product (both frontends) SHALL share one token palette and a synchronized shared-class segment enforced by <code>design:cross</code>」，并新增一条 Requirement：跨端组件词汇对齐（徽标/提示条/表单错误态/骨架/面板必须在两端 base.css 存在同名片）；</li>
+    <li>效果：今后任何一个 S 端需求在 propose 时会自动被要求声明 Design Impact，apply 时被门禁兜住——与你已有的 C 端调度完全同构。<b>已落地（2026-08-27）：config.yaml 双端口径 + design-system 六条 Requirement，validate 20 passed。</b></li>
+  </ul>
+
+  <h2>七、落地顺序与验收</h2>
+  <table>
+    <tr><th style="width:80px">批次</th><th style="width:250px">内容</th><th>验收</th></tr>
+    <tr><td><b>P0 · 半天</b><br>机械令牌批</td><td><code>--on-accent</code> 令牌 ×8 处替换（#7）；<code>.toast.warn</code> 补进 C 端（#6）；<code>.panel</code> 上移两端 base 共享段、C 端去掉自带 margin（#5）；<code>.sk</code> 统一取值 0.45、C 端删 <code>skeleton-pulse</code>（#4）；空态两条规则上移（#8）；<b>同批写入 @cross 标记并提交 <code>design:cross</code> 脚本建立基线</b></td><td>两端 <code>npm run design:lint</code> 绿；<code>npm run design:cross</code> 绿；C 端 <code>design:check</code> 像素差 &lt;0.2%（若 warn 档/panel 引发基线波动，先更新原型并登记 ADJUSTMENTS.md 再动实现）</td></tr>
+    <tr><td><b>P1 · 1–2 天</b><br>语义收编批</td><td><code>.pill</code> 家族：S 端 6 文件 <code>.b→.pill</code> 改名，C 端 13 种胶囊归档三类（#1）；<code>.notice</code> 四语气：S 端 <code>strip→notice</code>，C 端补 <code>.ok/.err</code>（#2）；表单错误态 C 端启用 <code>.f-err/.f-hint/.has-err</code>（#3，先用于设定面板与模型配置两处最痛的点）</td><td>同上三条全绿 + <code>tsc --noEmit</code> / <code>vue-tsc --noEmit</code> 双端绿 + 相关 e2e 更新通过；S 端补两张对照截图入 PR 描述（S 无 parity 门禁，截图即记录）</td></tr>
+    <tr><td><b>P2 · 随迭代</b><br>机制完善批</td><td><b>M4 已落地</b>（config.yaml 全端口径 + design-system 六条 Requirement）；余项＝M2 图标断言、M3 共享规则模块；C 端 uikit 候选按既有四步流程收编（语气词表已改齐）</td><td><code>openspec validate --all</code> 通过；下一次任意端 UI change 的 proposal 自动含全端 Design Impact</td></tr>
+  </table>
+
+  <h2>八、迁移映射总表（可直接作为 tasks.md 的素材）</h2>
+  <table>
+    <tr><th style="width:170px">场景</th><th style="width:230px">改前</th><th>改后</th><th style="width:140px">落在哪端</th></tr>
+    <tr><td>状态/计数徽标</td><td>C：13 种自制胶囊私有样式<br>S：<code>.b.ok|.err|.warn|.muted</code></td><td><code>.pill</code>(role)(tone)</td><td>两端</td></tr>
+    <tr><td>表单内提示条</td><td>C：<code>.notice</code>+<code>.info</code><br>S：<code>.strip.*</code></td><td><code>.notice.info|.ok|.warn|.err</code>（裸类=warn 兼容存续，仅限存量）</td><td>两端</td></tr>
+    <tr><td>输入错误</td><td>C：无<br>S：<code>.has-err/.f-err</code></td><td>共享段同名类，两端可用</td><td>C 端补 UI，S 端零改动</td></tr>
+    <tr><td>加载占位</td><td>C：<code>.card-skeleton .bar</code><br>S：<code>.sk</code></td><td><code>.sk</code> 原子 + 组合，<code>sk-pulse</code> 0.45</td><td>两端取值归一</td></tr>
+    <tr><td>内容面板</td><td>C：局部 <code>.panel</code> 带 margin<br>S：<code>.panel</code>+三修饰</td><td>base 共享段 <code>.panel(+hoverable/hl/compact)</code>，间距外置</td><td>两端</td></tr>
+    <tr><td>主按钮/危险按钮/Logo/Toast 反白</td><td><code>var(--surface)</code> ×8</td><td><code>var(--on-accent)</code></td><td>两端</td></tr>
+    <tr><td>警告 toast</td><td>C 缺档</td><td><code>.toast.warn svg</code></td><td>C 端补</td></tr>
+    <tr><td>空态动作</td><td>C 散写<br>S 内建两条</td><td><code>.empty svg</code> 规格 + <code>.empty .btn</code> 动作槽上移共享段</td><td>C 端受益（EmptyState 候选直接消费）</td></tr>
+  </table>
+
+  <div class="warnbox">
+    <b>执行顺序铁律（继承既有流程，不受本方案影响）：</b>任何触碰 L1/L2 的改动，先改原型 <code>docs/design-c/prototypes/*.html</code> 并登记 <code>ADJUSTMENTS.md</code>，再动实现；涉及词汇表的两处同步照旧；全绿标准 = 两端 <code>design:lint</code> + <code>design:cross</code> + C 端 <code>design:check</code>(&lt;0.2%) + 双端 tsc。
+  </div>
+</div>
+<script>
+(function(){
+  // 供未来扩展示例切换；当前静态展示两端取值差异，无需交互
+})();
+</script>
+</body>
+</html>

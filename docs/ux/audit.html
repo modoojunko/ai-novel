@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>爱小说 C 端 · 页面使用路径与逐页设计评估</title>
+<style>
+  :root{
+    --bg:      oklch(98% 0.004 240);
+    --surface: oklch(100% 0 0);
+    --fg:      oklch(20% 0.02 240);
+    --muted:   oklch(50% 0.018 240);
+    --border:  oklch(90% 0.006 240);
+    --accent:  oklch(48% 0.11 170);
+    --accent-strong: oklch(41% 0.10 170);
+    --accent-soft: color-mix(in oklch, var(--accent) 12%, transparent);
+    --ok:   oklch(52% 0.11 155); --ok-soft:   color-mix(in oklch, var(--ok) 14%, transparent);
+    --warn: oklch(50% 0.13 75);  --warn-soft: color-mix(in oklch, var(--warn) 16%, transparent);
+    --err:  oklch(50% 0.17 25);  --err-soft:  color-mix(in oklch, var(--err) 12%, transparent);
+    --fg-soft: color-mix(in oklch, var(--fg) 5%, transparent);
+    --shadow-card: 0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent),
+                   0 12px 32px -12px color-mix(in oklch, var(--fg) 14%, transparent);
+    --font-display:'Noto Serif SC','Songti SC','STSong',Georgia,serif;
+    --font-body:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',system-ui,sans-serif;
+    --font-mono: ui-monospace,'SF Mono',Menlo,'JetBrains Mono',monospace;
+    --radius:10px; --radius-lg:16px;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:14px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  .wrap{max-width:1080px;margin:0 auto;padding:48px 32px 96px}
+  h1{font-family:var(--font-display);font-size:32px;font-weight:600;margin:0;letter-spacing:.01em}
+  .sub{color:var(--muted);font-size:13px;margin-top:8px}
+  h2{font-family:var(--font-display);font-size:23px;font-weight:600;margin:64px 0 6px;padding-top:24px;border-top:1px solid var(--border)}
+  h3{font-family:var(--font-body);font-size:15.5px;font-weight:600;margin:28px 0 8px}
+  h4{font-size:13.5px;font-weight:600;margin:20px 0 6px;color:var(--fg)}
+  p{margin:0 0 12px}
+  .lead{font-size:14.5px;color:var(--muted);max-width:70ch}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin:10px 0 18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  th{text-align:left;font-weight:600;background:var(--fg-soft);padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}
+  td{padding:9px 11px;border-bottom:1px solid var(--border);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  code,.mono{font-family:var(--font-mono);font-size:.92em;background:var(--fg-soft);padding:1px 5px;border-radius:5px}
+  ul,ol{margin:0 0 12px;padding-left:20px}
+  li{margin-bottom:5px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);padding:22px 26px;margin:16px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:800px){.grid2{grid-template-columns:1fr}}
+  .pill{display:inline-block;border-radius:999px;padding:1.5px 9px;font-size:11px;font-weight:500;border:1px solid var(--border);background:var(--surface);color:var(--muted);white-space:nowrap}
+  .p-ok{background:var(--ok-soft);border-color:transparent;color:color-mix(in oklch,var(--ok) 88%,black)}
+  .p-warn{background:var(--warn-soft);border-color:transparent;color:color-mix(in oklch,var(--warn) 85%,black)}
+  .p-err{background:var(--err-soft);border-color:transparent;color:color-mix(in oklch,var(--err) 90%,black)}
+  .p-accent{background:var(--accent-soft);border-color:transparent;color:var(--accent-strong)}
+  .note{border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 8px 8px 0;padding:12px 16px;margin:14px 0;font-size:13px}
+  .find{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--border)}
+  .find:last-child{border-bottom:0}
+  .sev{flex:0 0 auto;width:34px;text-align:center;border-radius:999px;font-size:11px;padding:2px 0;margin-top:1px}
+  .s-high{background:var(--err-soft);color:color-mix(in oklch,var(--err) 92%,black)}
+  .s-mid{background:var(--warn-soft);color:color-mix(in oklch,var(--warn) 88%,black)}
+  .s-low{background:var(--fg-soft);color:var(--muted)}
+  .toc{columns:2;column-gap:40px;font-size:13px}
+  @media(max-width:800px){.toc{columns:1}}
+  .toc a{display:block;color:var(--muted);text-decoration:none;padding:3px 0;break-inside:avoid}
+  .toc a:hover{color:var(--fg)}
+  .flow{font-family:var(--font-mono);font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;overflow-x:auto;line-height:2;white-space:pre;margin:12px 0}
+  .kv{font-family:var(--font-display);font-size:30px;line-height:1.2}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}
+  @media(max-width:700px){.stat-grid{grid-template-columns:repeat(2,1fr)}}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+  .stat b{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-top:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>爱小说 C 端 · 页面使用路径与逐页评估</h1>
+<p class="sub">基于 <span class="mono">client/frontend</span> 当前代码（2026-08-25 版本，Open Design v2 换装 #181~#187 之后）· 配套文档：《<a href="design-language.html">统一设计语言规范</a>》</p>
+
+<div class="note">
+本报告回答两个问题：① 用户在 C 端到底会走哪些路径；② 每个页面在自己的使用场景里做得怎么样。
+配套的《统一设计语言规范》给出改法。所有结论都可回溯到源码位置（已标注文件与行号）。
+</div>
+
+<div class="stat-grid">
+  <div class="stat"><div class="kv">5</div><b>路由屏 + 2 个重定向</b></div>
+  <div class="stat"><div class="kv">≈25</div><b>工作台内部状态</b></div>
+  <div class="stat"><div class="kv">24</div><b>弹层 / 对话框</b></div>
+  <div class="stat"><div class="kv">38</div><b>注册图标（自研体系）</b></div>
+</div>
+
+<div class="card">
+<h4 style="margin-top:0">目录</h4>
+<div class="toc">
+  <a href="#s1">一、路由与页面清单</a>
+  <a href="#s2">二、用户使用路径（主线 + 六条支线）</a>
+  <a href="#s3">三、弹层矩阵</a>
+  <a href="#s4">四、逐页评估</a>
+  <a href="#s41">　A. 落地页 / 登录页</a>
+  <a href="#s42">　B. 模型配置页</a>
+  <a href="#s43">　C. 书架（我的作品）</a>
+  <a href="#s44">　D. 书工作台壳层</a>
+  <a href="#s45">　E. 大纲树与卷纲面板</a>
+  <a href="#s46">　F. 章对象工作台（章纲 / 提示词 / 正文）</a>
+  <a href="#s47">　G. 右栏 AI 轨与进度卡</a>
+  <a href="#s48">　H. 设定视图（9 个面板）</a>
+  <a href="#s49">　I. 预览视图</a>
+  <a href="#s410">　J. 弹层群</a>
+  <a href="#s5">五、业务场景覆盖矩阵</a>
+  <a href="#s6">六、缺口清单与优先级路线</a>
+</div>
+</div>
+
+<!-- ══════════════════════ 一 ══════════════════════ -->
+<h2 id="s1">一、路由与页面清单</h2>
+<p class="lead">应用使用 HashRouter（<code>main.tsx:13-19</code>），所有地址实际是 <code>#/…</code>。真实屏只有 5 个，其余都是重定向或壳层状态。</p>
+
+<table>
+<tr><th style="width:110px">路径</th><th>承载组件</th><th>职责</th><th>守卫</th></tr>
+<tr><td class="mono">/</td><td>LandingPage</td><td>营销落地：卖点、定价、外部链接</td><td>公开</td></tr>
+<tr><td class="mono">/login</td><td>LoginPage</td><td>浏览器 OAuth 设备登录（桌面壳的登录出口）</td><td>公开，已有会话自动跳过</td></tr>
+<tr><td class="mono">/config</td><td>ApiKeyConfigPage</td><td>多供应商 API Key 管理 + Token 用量看板</td><td>useEffect 手动校验（非同步守卫）</td></tr>
+<tr><td class="mono">/novels</td><td>NovelListPage</td><td>书架：书卡、阶段徽标、额度与会员横幅</td><td>AuthGuard</td></tr>
+<tr><td class="mono">/novel/:id</td><td>NovelLayout → NovelWorkspace</td><td>书工作台：设定 / 写作 / 预览三视图</td><td>AuthGuard + LicenseProvider + ProjectShell</td></tr>
+<tr><td class="mono">/books</td><td colspan="3">→ 重定向 /novels（旧地址过渡）</td></tr>
+<tr><td class="mono">/project/:id</td><td colspan="3">→ 重定向 /novel/:id（旧地址过渡）</td></tr>
+</table>
+
+<p><strong>工作台内部结构</strong>（<code>NovelWorkspace.tsx</code>）：novelbar 44px（书名双击改名 · 类型 · 免费/PRO 徽）→ modnav 44px 三视图切换（设定 n/8 · 写作 n/n 章纲 · 预览）→ 视图主体。</p>
+<ul>
+<li><strong>写作</strong>：三栏常驻挂载（树 280px / 中栏自适应 / 右栏 236px），列内滚动，切视图不清脏状态；中栏按选中节点分三种形态——章对象工作台、卷纲面板、「开始创作」空态。</li>
+<li><strong>设定</strong>：两栏（左栏进度导航 8+1 项 / 右侧面板），另有右轨 AI 卡（主线向导 / 字段级 AI 帮填说明）。</li>
+<li><strong>预览</strong>：两栏只读（树 + 通读排版）。</li>
+</ul>
+
+<p class="note" style="border-left-color:var(--err);background:var(--err-soft)">
+<strong>结构性缺口：</strong>没有兜底路由。<code>App.tsx:26-38</code> 缺 <code>&lt;Route path="*"&gt;</code>——任何未知地址都会得到「Navbar + Footer + 空白内容区」，无解释、无出路。
+</p>
+
+<!-- ══════════════════════ 二 ══════════════════════ -->
+<h2 id="s2">二、用户使用路径</h2>
+
+<h3>2.1 主干旅程（新建一本书写完一章）</h3>
+<div class="flow">落地页 ──登录──▶ 浏览器授权 ──成功──▶ 书架(空)
+                                                    │ 新建作品（只填书名）
+                                                    ▼
+                              工作台(免费默认视图=写作, PRO 则见引导卡)
+                                 │ 写作视图空态：「在左侧树头点＋添加第一卷」
+                                 ├─ 设定视图 ──确认完成──▶ (PRO 引导卡推进)
+                                 ├─ 树 ＋ 添加卷 → 行内加章
+                                 ├─ 点章 → 默认落「章纲」页签（点章强制归位章纲）
+                                 │     ├ 填六必填 → 缺项 chip 就地定位
+                                 │     ├ 保存草稿（无缺项时自动升级为已确认）
+                                 │     └ 「去写正文」→ 切正文页签并聚焦
+                                 ├─ 正文：手写自动保存 / （PRO）AI 生成正文流式写入
+                                 └─ 归档本章 → 只读锁定 → 树/预览同步标记
+</div>
+
+<h3>2.2 六条支线</h3>
+<table>
+<tr><th style="width:130px">支线</th><th>路径</th><th>关键节点 / 分叉条件</th></tr>
+<tr><td><strong>S1 免费用户边界</strong></td><td>书架满额 → 入口消失</td><td>非会员且已有 1 本书时，头部「新建」「导入」按钮整体隐藏（<code>NovelListPage.tsx:155,218</code>）；AI 能力走「入口可见、使用拦截」：<code>.rail-locked</code> 变灰卡 + 后端 403 <code>member_required</code> 触发全局 MemberBlockPrompt。</td></tr>
+<tr><td><strong>S2 付费开通</strong></td><td>UpgradeModal → S 端门户外跳</td><td>入口三处：novelbar 升级按钮、Rail 锁定卡、BookPrefsModal 账号行；confirm 解析门户 URL 外开新标签，弹窗 <code>locked</code> 防中途关闭。</td></tr>
+<tr><td><strong>S3 导入既有稿子</strong></td><td>导入弹窗两步：上传 → 结构预览</td><td>.md/.txt/.docx ≤10MB；可返回修改 / 重置为原始结构 / 确认入库；导入后引导卡换成三条短链路（设定 → 提示词 → 写作）。</td></tr>
+<tr><td><strong>S4 模型接入</strong></td><td>/config 添加配置 → 书内绑定模型</td><td>八家供应商瓦片选择自动填 Base URL；卡片七态健康徽标；删除带影响盘点 + 8 秒撤销；书内在 ModelSettingForm 按 optgroup 选模型，变更可回滚（时间线「恢复」）。</td></tr>
+<tr><td><strong>S5 PRO 提示词闭环</strong></td><td>AiModal 两段式 → 流式 → 质检横幅</td><td>组装提示词 → AI 润色 → 过目编辑 → 生成；停止保留半成品；生成后出字数达标/未达标 + 七条叙事自查（非阻断、可关闭）；润色/扩写走双栏对比弹窗（Enter 接受）。</td></tr>
+<tr><td><strong>S6 长篇循环</strong></td><td>章 → 归档 → 下一章</td><td>归档只读后想再动正文 → 任一 AI 写入工具触发「解除只读并继续」解锁链（原动作自动续跑）；版本历史支持行/词 diff 与恢复；modnav 计数随确认进度实时变化。</td></tr>
+</table>
+
+<h3>2.3 阶段机与门控（init → settings → outline → prompt → write → archive）</h3>
+<p class="lead">六个阶段不是六张路由页，而是同一本书里的三层东西：书架上的阶段徽标（<code>PHASE_STAGE</code> 映射成 设定中/写作中/已归档）、PRO 才挂载的阶段催促卡、以及真实的页面内流转。对外口径已拍板为<strong>建书 → 设定 → 大纲 → 章纲 → 写作 → 归档</strong>，「提示词」是内部环节。</p>
+<table>
+<tr><th>流转</th><th>UI 触发</th><th>硬门槛</th></tr>
+<tr><td>建书 → 设定</td><td>引导卡「开始设定」（仅 PRO 挂载）/ 手动点 modnav 设定</td><td>—</td></tr>
+<tr><td>设定 → 大纲/写作</td><td>SettingsView 底部「确认完成」（校验题材+简介非空才放行）</td><td>软门（不拦手动切 tab）</td></tr>
+<tr><td>大纲 → 写作</td><td>OgPane「去写正文」</td><td>章纲六必填齐才能「确认章纲」（缺项按钮禁用 + chip 定位）</td></tr>
+<tr><td>写作 → 归档</td><td>工具栏「归档本章」</td><td>本章字数 &gt; 0 且未归档</td></tr>
+<tr><td>任何 → 离开表单</td><td>五处 dirty 守卫全部用原生 <code>window.confirm</code></td><td>见 §4-J 问题 F7</td></tr>
+</table>
+
+<!-- ══════════════════════ 三 ══════════════════════ -->
+<h2 id="s3">三、弹层矩阵</h2>
+<p class="lead">共 24 个浮层，全部跑在同一个 Modal 原语上（portal 到 body、焦点圈、Esc 关闭、locked 防误关）。这是整个系统一致性最好的部分。</p>
+
+<table>
+<tr><th style="width:150px">类别</th><th>弹窗</th><th>触发点</th></tr>
+<tr><td rowspan="4"><strong>创建 / 改名 / 导入</strong></td><td>CreateProjectModal</td><td>书架「新建作品」（免费满额时含限額警示）</td></tr>
+<tr><td>AddVolumeModal（卷名/摘要/初始章数 0–20）</td><td>大纲树头「＋添加卷」</td></tr>
+<tr><td>RenameModal（书名 ≤60，保存中 locked）</td><td>书架 ⋯ 菜单</td></tr>
+<tr><td>ImportUploadZone → ImportPreviewTree</td><td>书架「导入」</td></tr>
+<tr><td rowspan="3"><strong>销毁确认（分级）</strong></td><td>DeleteConfirmModal 章节版（内容盘点 chips）</td><td>树上垃圾桶</td></tr>
+<tr><td>DeleteConfirmModal 卷版（N 章 M 字）</td><td>树上垃圾桶</td></tr>
+<tr><td>DeleteConfirmModal 输入名称版（书 / 角色 / 自建题材）</td><td>各管理处</td></tr>
+<tr><td rowspan="4"><strong>AI 四形</strong></td><td>AiModal（组装→润色→编辑→生成）</td><td>工具栏 / Rail「AI 生成正文」</td></tr>
+<tr><td>AISuggestionModal（换一个 / 接受这个）</td><td>世界 / 文风 / 伏笔字段级「AI 帮我填」</td></tr>
+<tr><td>ContrastPreviewModal（拒绝 / 换一个 / 接受）</td><td>选段润色 / 场景扩写</td></tr>
+<tr><td>UnlockModal（解除只读并继续）</td><td>对归档章用任意 AI 写入工具</td></tr>
+<tr><td rowspan="4"><strong>生命周期</strong></td><td>ArchiveModal</td><td>工具栏「归档本章」</td></tr>
+<tr><td>HistoryModal（版本列表 ↔ 行/词 diff ↔ 恢复）</td><td>工具栏「版本历史」</td></tr>
+<tr><td>DeleteConfirmDialog + UndoToast（唯一软删除，8 秒）</td><td>/config 卡片删除</td></tr>
+<tr><td>GenrePickerModal ↔ GenreEditModal ↔ 删除确认（409 冲突列出引用书目）</td><td>题材设定</td></tr>
+<tr><td rowspan="4"><strong>账号 / 商业化</strong></td><td>PrefsModal（全局偏好 + 登录 + 去配置）</td><td>Navbar 设置（非书内）</td></tr>
+<tr><td>BookPrefsModal（字号/行距/归档摘要 + 账号行）</td><td>Navbar 设置（书内）</td></tr>
+<tr><td>UpgradeModal</td><td>novelbar / Rail 锁定卡 / BookPrefsModal</td></tr>
+<tr><td>MemberBlockPrompt（全局监听 member-block 事件）</td><td>App.tsx 全局挂载一次</td></tr>
+<tr><td><strong>其他</strong></td><td>ApiConfigForm（八供应商 + 测试连接）</td><td>/config</td></tr>
+</table>
+
+<!-- ══════════════════════ 四 ══════════════════════ -->
+<h2 id="s4">四、逐页评估</h2>
+<p class="lead">每一屏按「它的使用场景是什么 → 现在做成什么样 → 哪些地方和场景冲突」来评。严重度：<span class="pill p-err s-high">高</span> 会造成错误认知或功能断裂；<span class="pill p-warn s-mid">中</span> 增加理解成本或不一致；<span class="pill s-low">低</span> 打磨项。</p>
+
+<h3 id="s41">A. 落地页与登录页</h3>
+<div class="grid2">
+<div>
+<h4>场景定位</h4>
+<p>落地页面向两类人：怕复杂的新手小禾（10 秒建书写起来）、讨厌流程绑架的老赵。登录页是桌面壳唯一的身份入口，主流程只有一步「打开浏览器授权」。</p>
+<h4>评价</h4>
+<ul>
+<li>PRD 的四原则（永远知道下一步 / 状态可见 / 允许旁路 / 正文优先）与文案基调「人铸灵魂，AI 行笔墨」已经贯彻到落地页结构（痛点支柱 → 怎么用 → 功能 → 定价）。</li>
+<li>登录页把慢冷启动处理得体面：静默检查转圈、超 2 秒给「正在唤醒云端服务…约需 30–60 秒」、超时可重试、登出态用 sessionStorage 防自动登录回环。</li>
+<li><code>landing.css</code> 声明只用基础令牌派生，但实际出现了三色渐变标题等新表达（见问题 A2）。</li>
+</ul>
+</div>
+<div>
+<h4>问题清单</h4>
+<div class="find"><span class="sev s-mid">中</span><div><strong>A1 第三档按钮尺寸未入词汇表</strong> — landing.css 新增 .btn-lg（42px 高，圆角 11px），超出现有 sm/xs 阶梯，圆角也不落在既有 token 上。</div></div>
+<div class="find"><span class="sev s-low">低</span><div><strong>A2 渐变文字是孤例</strong> — <code>.mkt-grad-text</code> 用 accent-strong→accent→ok 三色混合，全站没有第二处同类表达；若保留应登记为营销皮专属令牌。</div></div>
+<div class="find"><span class="sev s-low">低</span><div><strong>A3 光斑装饰使用裸 arbitrary 尺寸</strong> — w-[900px]/h-[700px] 等已登记豁免，属可接受债务但建议收敛成一个 <code>--hero-blob</code> 类。</div></div>
+<div class="find"><span class="sev s-mid">中</span><div><strong>A4 冷启动文案承诺具体秒数</strong> — 「30–60 秒」写在界面上，一旦常态变快反而显得慢；建议改为描述性措辞 + 可重试。</div></div>
+</div>
+</div>
+
+<h3 id="s42">B. 模型配置页（/config）</h3>
+<div class="grid2">
+<div>
+<h4>场景定位</h4>
+<p>用户唯一要做的「技术活」。心智负担必须最低：加了几个 Key、哪个能用、花了多少，一眼读完。</p>
+<h4>评价</h4>
+<ul>
+<li>信息架构正确：.notice 常驻提醒 → 迁移横幅（一次性）→ 用量看板（三块统计 + 各配置条形 + 环形图）→ 配置卡网格。</li>
+<li>卡片七态健康徽标（连接正常 / 认证失败 / 连接超时 / 网络错误 / 频率限制 / 未知 / 未测试）且边框颜色随严重度联动——这是全站最完整的状态语言范本，应当被提炼为通用规范（已在配套规范 §5 收录）。</li>
+<li>唯一一处软删除 + 8 秒撤销（UndoToast）出现在这里，设计价值高但没被推广到删书/删题材。</li>
+<li>Ollama 免 Key 特例、编辑态「留空则保留当前密钥」等文案写得清楚。</li>
+</ul>
+</div>
+<div>
+<h4>问题清单</h4>
+<div class="find"><span class="sev s-high">高</span><div><strong>B1 .spin 在 book.css 中被覆盖</strong> — model-config.css 定义了 .spin（rotate 0.8s），book.css 又定义一次（rot 0.9s），按加载顺序后者全局生效。同名不同值，属于等待视觉随加载顺序漂移。</div></div>
+<div class="find"><span class="sev s-mid">中</span><div><strong>B2 .panel 一词两义</strong> — 此处是白色描边卡，book.css 里被整体清零变成裸 660px 栏。同名类靠作用域打架，词汇表应当拆名（详见规范 §6）。</div></div>
+<div class="find"><span class="sev s-mid">中</span><div><strong>B3 本屏节奏偏移未经令牌化</strong> — main 上边距 44 vs 48、page-head 下边距 28 vs 36、empty 56 vs 64、cards gap 16 vs 20，虽有注释声明是有意为之，但没有用变量登记，新屏无从参考基线。</div></div>
+<div class="find"><span class="sev s-mid">中</span><div><strong>B4 鉴权由 useEffect 兜底</strong> — 先渲染一帧再跳登录，与 AuthGuard 的同步 Navigate 不一致，会有闪现。</div></div>
+</div>
+</div>
+
+<h3 id="s43">C. 书架（我的作品）</h3>
+<div class="grid2">
+<div>
+<h4>场景定位</h4>
+<p>回访用户的枢纽屏：认出自己的书、接着写。同时承担会员状态告知（试用剩几天 / 过期 / 没 Key）。</p>
+<h4>评价</h4>
+<ul>
+<li>书卡三件套干净：书名 serif、阶段徽标（设定中/写作中/已归档）、meta（n 章 · 更新于），悬浮 ⋯ 菜单带 :focus-within 键盘可达。</li>
+<li>四类横幅条件互斥处理得当（过期覆盖试用），文案向用户语言翻译到位。</li>
+<li>空态给「导入 / 开始新小说」双按钮，符合「允许旁路」。</li>
+</ul>
+</div>
+<div>
+<h4>问题清单</h4>
+<div class="find"><span class="sev s-high">高</span><div><strong>C1 免费满额时入口直接消失</strong> — 非会员有了 1 本书后，头部「新建」「导入」按钮整体隐藏。用户不知道自己撞了额度墙，只知道「没法建新的」，也没有升级出口在原地。违反 v2 自己的原则「免费/PRO 仅差 AI 入口的显隐，不改变操作路径」。</div></div>
+<div class="find"><span class="sev s-mid">中</span><div><strong>C2 会员判定逻辑重复实现</strong> — 书架本地自算 <code>isMember</code>/<code>freeLimitReached</code>（:124-137,:155），而书内走 LicenseProvider；两条口径并存，未来套餐规则一改就要改两处。</div></div>
+<div class="find"><span class="sev s-low">低</span><div><strong>C3 多横幅同现无堆叠规则</strong> — 试用中 + 未配 Key 会上下叠两条 notice 条，没有间距/层级约定。</div></div>
+</div>
+</div>
+
+<h3 id="s44">D. 书工作台壳层（novelbar + modnav）</h3>
+<div class="grid2">
+<div>
+<h4>场景定位</h4>
+<p>写作中的顶栏，要求「存在但不打扰」：随时知道这本书是谁、是不是 PRO、整体进度到哪了。</p>
+<h4>评价</h4>
+<ul>
+<li>modnav 把完成度计数放进导航本身（设定 n/8 · 写作 n/n 章纲）是「状态可见」原则的最佳落地，成本低、收益大。</li>
+<li>novebar 的免费提示句「免费模式 · 写作功能完整，升级解锁 AI」一句话说清商业模式与用户无损的关系。</li>
+<li>右侧 side 文案随视图切换解释当前模块用途。</li>
+</ul>
+</div>
+<div>
+<h4>问题清单</h4>
+<div class="find"><span class="sev s-high">高</span><div><strong>D1 免费用户没有任何引导</strong> — OnboardingCard 与阶段催促都挂在 ProContainer 内，免费态整棵树返回 null（ProContainer.tsx:11）。结果是「新手第一印象决定留存」这个 P0 目标只对 PRO 生效；免费新用户进工作台只看到一棵空树和一个空态面板。</div></div>
+<div class="find"><span class="sev s-mid">中</span><div><strong>D2 双击改名不可发现</strong> — 仅靠 title 属性悬浮提示，鼠标用户几乎不会碰到；与书架上的 RenameModal 路径并存，行为不一致。</div></div>
+<div class="find"><span class="sev s-mid">中</span><div><strong>D3 离开设定视图用 window.confirm</strong> — 原生对话框无法主题化、无法图标化，且与全站自研 Modal 确认族（确认族无 X）的视觉语言割裂。</div></div>
+<div class="find"><span class="sev s-low">低</span><div><strong>D4 modnav 计数用了 /8 与「章纲」混排</strong> — 「写作 n/n 章纲」里数字语义（已确认/总数）需要读两遍才懂，建议徽标改为「章纲 已确认n/总n」。</div></div>
+</div>
+</div>
+
+<h3 id="s45">E. 大纲树与卷纲面板</h3>
+<div class="grid2">
+<div>
+<h4>场景定位</h4>
+<p>左树是全书的空间感来源（几卷几章写到哪）；卷纲面板是结构规划的重表单，服务于老赵这类愿意做规划的用户。</p>
+<h4>评价</h4>
+<ul>
+<li>树的交互完备且克制：展开箭头、笔形行内改名、行内加章（防重复提交）、三态圆点、已归档标签、分级删除确认（内容盘点 chips 用 live 字数防旧值漏报）。</li>
+<li>「确认全部已填章节」批量动作有诚实的失败反馈——被 400 拒绝的章节会被跳过并在 toast 里说清楚。</li>
+<li>卷纲面板字段分组明确（摘要 / 结构模板 / 弧线三联 / 信息差 / 阶段分配 / 冲突阶梯 / 章节规划 / 角色发声），保存后「去配章纲」直达下一个未确认章。</li>
+</ul>
+</div>
+<div>
+<h4>问题清单</h4>
+<div class="find"><span class="sev s-high">高</span><div><strong>E1 目标字数默认值两套口径</strong> — OgPane 本章目标字数「留空默认 2500」，Rail 进度卡无数据时回落 2000。同一个概念在同一本书的两个可见位置显示两个数，用户无法判断哪个是真的目标。</div></div>
+<div class="find"><span class="sev s-mid">中</span><div><strong>E2 三态圆点无图例</strong> — 未填空心 / 进行中实心琥珀 / 已确认实心绿，首次使用者只能猜；目前靠 hover 无补救。</div></div>
+<div class="find"><span class="sev s-mid">中</span><div><strong>E3 卷纲头固定挂「草稿」警示徽标</strong> — 产品模型里卷没有状态位，于是所有卷永远显示 warn 徽标，警示语义被日常化，真正需要警惕的状态反而失去对比度。</div></div>
+<div class="find"><span class="sev s-low">低</span><div><strong>E4 子表行的删除即时生效</strong> — 冲突阶梯 / 章节规划的行删除无确认也无撤销（对比 /config 有 UndoToast）。数据密度高的表格误触成本不低。</div></div>
+</div>
+</div>
+
+<h3 id="s46">F. 章对象工作台（章纲 / 提示词 / 正文）</h3>
+<div class="grid2">
+<div>
+<h4>场景定位</h4>
+<p>核心创作现场，单次停留可能 30 分钟以上。「正文优先」原则的主战场：排版舒服、状态安静、AI 不添乱。</p>
+<h4>评价</h4>
+<ul>
+<li>正文排版正确地用了宋体 17px/2.0/首行缩进 2em，加字号行距三档（per-book 持久化）与专注模式（Esc 退出），符合长时写作要求。</li>
+<li>保存状态四态聚合清晰（保存中 / 未保存 / 保存失败·可点击重试 / 已自动保存），是这个产品最成熟的微状态之一。</li>
+<li>章纲表单做了真正的渐进披露：七组折叠 + 必填契约前置（六项）+ 缺项 chip 点击滚动定位并闪烁聚焦 1400ms；「读者获得」缺失只是提醒不拦截，和「允许旁路」一致。</li>
+<li>流式生成的边界处理周到：生成期间锁编辑、停止保留半成品、AbortController 随卸载清理、质检横幅永远可关闭。</li>
+</ul>
+</div>
+<div>
+<h4>问题清单</h4>
+<div class="find"><span class="sev s-high">高</span><div><strong>F1 润色对比弹窗字体变量失效</strong> — ContrastPreviewModal.tsx:31 写了 <code>var(--font-serif)</code>，而地基里只有 <code>--font-display/--font-body/--font-mono</code>。这个「给作者看成稿质感」的阅读界面正悄悄退化成正文字体。</div></div>
+<div class="find"><span class="sev s-mid">中</span><div><strong>F2 点章强制回到章纲</strong> — 每次选中章节都重置为 og 页签。对「就是想回来改正文」的回访者是一次多余点击；建议记忆每章最后停留页签。</div></div>
+<div class="find"><span class="sev s-mid">中</span><div><strong>F3 提示词页签对免费用户完全隐藏</strong> — 「仅差 AI 入口显隐」的原则在这里变成了信息架构差异（tab 直接不存在）。作为锁定态可见会更自洽，也更利于转化说服（见规范 §11）。</div></div>
+<div class="find"><span class="sev s-mid">中</span><div><strong>F4 章纲自动保存静默失败</strong> — 校验不过就静默跳过、请求失败吞到下一次击键；正文有完整的四态，章纲却没有对称反馈。</div></div>
+<div class="find"><span class="sev s-low">低</span><div><strong>F5 停止按钮只在状态栏</strong> — 正文页签底部才有「停止」，专注模式下视觉重心在中部；工具栏区域也可以承接这个动作。</div></div>
+<div class="find"><span class="sev s-low">低</span><div><strong>F6 表单内嵌了 ArcWizard 的 ✓/✗ 字符</strong> — ArcWizard.tsx:113 使用 U+2713/U+2717，落在 lint 的禁用 emoji 区段内（该文件尚未收编严格范围）。</div></div>
+</div>
+</div>
+
+<h3 id="s47">G. 右栏 AI 轨与进度卡</h3>
+<div class="grid2">
+<div>
+<h4>场景定位</h4>
+<p>写作时的工具栏与仪表盘：本章目标完成了多少、字数多少、AI 工具在哪。</p>
+<h4>评价</h4>
+<ul>
+<li>进度卡的信息层级好：serif 大百分比 + 进度条 + 目标字数就地编辑（Enter 提交/Esc 取消）+ 语境提示句四种变体（已归档 / 空稿 / 达标 / 还差 N 字），达标句顺势给出「可以归档了」的下一步。</li>
+<li>mini stats 用等宽数字对齐（本书总字数 / 本章草稿 / 达成率）。</li>
+</ul>
+</div>
+<div>
+<h4>问题清单</h4>
+<div class="find"><span class="sev s-mid">中</span><div><strong>G1 两种模式共用一列导致常态噪音</strong> — 卷模式整列只有锁定卡 + 三张「规划中的能力」占位卡；章模式同样有三张占位卡。这些卡讲的是路线图，不是当前任务的工具，却占了固定 236px 宽的一整列。</div></div>
+<div class="find"><span class="sev s-low">低</span><div><strong>G2 占位卡的路线图口径需与 PRD 对齐</strong> — 现在 stub 是「卷纲生成 / 矛盾检查 / 提示词预览」，而 PRD to-be 的下一个迭代是 主线拆纲、AI 卷纲（两分支）、AI 章纲。占位与实际路线图不一致会让老用户觉得说了不做。</div></div>
+</div>
+</div>
+
+<h3 id="s48">H. 设定视图（9 个面板）</h3>
+<div class="grid2">
+<div>
+<h4>场景定位</h4>
+<p>AI 质量的燃料库，也是最容易吓退新手的重表单区。核心挑战：让「可深可浅」成立。</p>
+<h4>评价</h4>
+<ul>
+<li>框架层的设计决策都对：左栏进度导航（8 项 + AI 模型工具项不计入）、每项「已确认/未填」徽标 + 「可后补」标注、底部按钮在「确认完成」与「保存修改」之间切换语义。</li>
+<li>字段级「AI 帮我填」统一收敛到一个弹窗形（loading → 结果 → 换一个 / 接受这个），世界 / 文风 / 伏笔三处复用同一个 AISuggestionModal。</li>
+<li>主线四步向导（说想法 / 聊结局 / 倒推分卷 / 自查）有断点续做能力（next_step 持久化），第 2 步给了「没想好，先跳过」的旁路。</li>
+<li>角色管理 14 字段分层给了正确的引导文案（上层难改变 / 下层随情节自然变化）；伏笔状态切换会把记录物理移动到活跃/已收束/废弃分组。</li>
+<li>降级态有交代：题材定义被删后进入「定义缺失」，仍可编辑覆盖项并明说后果。</li>
+</ul>
+</div>
+<div>
+<h4>问题清单</h4>
+<div class="find"><span class="sev s-high">高</span><div><strong>H1 断链：href="/config" 少了 #/</strong> — ModelSettingForm.tsx:81 在 HashRouter 应用里写了 <code>&lt;a href="/config"&gt;</code>，点击会整页刷新跳出应用。同文件族里 PromptManagementPage.tsx:377 用的是正确的 "#/config"。</div></div>
+<div class="find"><span class="sev s-mid">中</span><div><strong>H2 五处 dirty 守卫全是原生 confirm 且文案略异</strong> — 面板切换 / 离开设定视图 / 卷切换 / 角色切换 / 伏笔切换五处各自实现，措辞相近但不统一，且都不是设计语言内的确认弹窗。</div></div>
+<div class="find"><span class="sev s-mid">中</span><div><strong>H3 ArcWizard 免费命中 403 后向导自身无反馈</strong> — 错误被吞掉，只靠全局 MemberBlockPrompt 弹窗； wizard 卡内没有锁态提示，用户可能反复点。</div></div>
+<div class="find"><span class="sev s-low">低</span><div><strong>H4 CharacterCreateModal 是死代码</strong> — 已被行内新建取代但文件还在（128 行），会误导后续维护与统计。</div></div>
+<div class="find"><span class="sev s-low">低</span><div><strong>H5 「类型禁忌」只读说明埋在卡内</strong> — 「禁忌由题材自动派生，不可编辑」这种规则性微文案值得上移到组头，减少逐字段阅读成本。</div></div>
+</div>
+</div>
+
+<h3 id="s49">I. 预览视图</h3>
+<div class="grid2">
+<div>
+<h4>场景定位</h4>
+<p>通读检查：像读者一样从头读一遍，找出节奏断点和前后矛盾。</p>
+<h4>评价</h4>
+<ul>
+<li>选区独立于写作视图是正确的防御性设计（防止通读时改动脏草稿），树可折叠、三态点沿用写作视图语言。</li>
+<li>已归档章在此<strong>可读</strong>是设计意图（与写作区的只读锁互补），空态文案都指回写作视图。</li>
+</ul>
+</div>
+<div>
+<h4>问题清单</h4>
+<div class="find"><span class="sev s-mid">中</span><div><strong>I1 只有阅读没有检索</strong> — 通读几十万字时缺搜索 / 跳转到某章输入框，长篇场景下回看成本高；这也是 PRD G3（连续性回路）里时间线 / 台账的前置界面依赖。</div></div>
+<div class="find"><span class="sev s-low">低</span><div><strong>I2 排版与正文编辑器是否共用一套字体档没有单独验证</strong> — 预览未走 per-book 字号偏好，与编辑器的观感可能有差异。</div></div>
+</div>
+</div>
+
+<h3 id="s410">J. 弹层群与横切</h3>
+<div class="grid2">
+<div>
+<h4>评价</h4>
+<ul>
+<li>Modal 原语质量高：portal 规避 transform 祖先劫持、Tab 焦点圈含 disabled 元素过滤、关闭后焦点还原、200ms 退场、locked/hideClose/afterTitle/footer 插槽齐全；30+ 调用点共用一份。</li>
+<li>确认族（删除 / 解除只读 / 归档）无 X、其余弹窗有 X 的口径已经在原型层定死，且有 ADJUSTMENTS.md 登记。</li>
+<li>删除分级完整：普通确认（树上行）/ 内容盘点 chips（章节 / 卷）/ 输入名称（书 / 角色 / 题材）/ 软删除 + 撤销（API 配置）。这套分级值得成为规范的一部分（已收录规范 §12）。</li>
+<li>错误恢复的三层（load error + 重试 / 行内字段错误 / toast）在各屏都有实例，但没有成文的标准组合。</li>
+</ul>
+</div>
+<div>
+<h4>问题清单</h4>
+<div class="find"><span class="sev s-mid">中</span><div><strong>J1 window.confirm 五处绕过了 Modal 体系</strong> — 原生框不可主题化、不能承载图标与盘点 chips，是当前视觉语言最大的破口。</div></div>
+<div class="find"><span class="sev s-mid">中</span><div><strong>J2 Modal 宽度档未进组件 API</strong> — CSS 里有 wide/tall（620/560px），组件只接受 number width，调用方各自写数字，宽档形同虚设。</div></div>
+<div class="find"><span class="sev s-low">低</span><div><strong>J3 Modal 的 afterTitle/headExtra 用内联 margin 排版</strong> — 应该收进组件类。</div></div>
+<div class="find"><span class="sev s-low">低</span><div><strong>J4 public/ 残留脚手架资产</strong> — next.svg / vercel.svg 等 5 个未使用文件。</div></div>
+<div class="find"><span class="sev s-low">低</span><div><strong>J5 破坏性动作配色两套</strong> — list.css 的卡片菜单危险项用 --warn，book.css 的 btn-danger-ghost 用 --err，语义混用会让"红色才是不可逆"这条直觉失灵。</div></div>
+</div>
+</div>
+
+<h3>K. 横切系统评估（色彩 / 字阶 / 几何 / 图标 / 门禁）</h3>
+<table>
+<tr><th style="width:120px">维度</th><th>现状</th><th>结论</th></tr>
+<tr><td>色彩</td><td>单一亮色主题；墨绿 accent + ok/warn/err 三状态色，全部 oklch + color-mix 派生 soft 档；soft 混合比不等距（12%/14%/16%/12%）但有意为之；z-index 单调有序（10/40/50/60/80）但未令牌化。</td><td>骨架健康。<strong>待办：把 z-index 与 soft 比例写进令牌注释；不需要暗色主题（已有决议），但 moon 图标仍在注册表内应清理。</strong></td></tr>
+<tr><td>字体</td><td>display 宋体栈 / body 苹方系栈 / mono 数字栈三分清楚；但<strong>没有任何 webfont 被真正加载</strong>——Noto Serif SC 等四个栈都是回退第一，parity 截图验证的是宋体回退而非意图字形。</td><td><strong>需拍板：</strong>要么打包子集化的 Noto Serif SC（宋体标题才名副其实），要么把栈写实为 Songti SC 打头并在 design-language.html 注明。</td></tr>
+<tr><td>字阶</td><td>全站 22 个字号字面量，10–14px 区间以 0.5px 步进；无命名档。</td><td><strong>最大债项。</strong>规范 §3 给出了合并映射表（22 → 8 档），迁移必须走「先改原型 → 再改实现 → parity 重跑」的既定流程。</td></tr>
+<tr><td>圆角</td><td>命名档只有 --radius 10 / --radius-lg 16；此外还有 6/7/8/9px 四个近似裸值各十来处，999px 胶囊圆角出现 25 次却没有任何 token。</td><td>补 --radius-sm 与 --radius-pill 两枚即可收敛（规范 §4）。</td></tr>
+<tr><td>徽标 / 胶囊</td><td>13 种实现（.b/.badge/.chip/.genre/.genre-tag/.arch-tag/.tag-plan/.ai-tag/.m-chip/.inv-chip/.gap-chip/.defer-tag/.pill-pro…），共同点是 999px 圆角 + 10–11.5px 字号，差异在内边距与语气色。</td><td><strong>第二债务项。</strong>规范 §6 定义统一的 .pill 家族（.pill-dot/.pill-status/.pill-tag/.pill-pro），迁移按屏走 parity。</td></tr>
+<tr><td>图标</td><td>自研注册表 38 个 path + 8 供应商图；lucide 与 emoji 明确禁止；尺寸一律由父容器类控制（.btn svg 15 / .icon-btn 15 / .btn-xs 12）。</td><td>方向正确。缺一条「新增图标先登记 path 再使用」的流程约束；ArcWizard 的 ✓/✗ 是存量违规点。</td></tr>
+<tr><td>无障碍</td><td>全局 :focus-visible 描边 + .btn 专属 offset；hover 出现的操作都配了 :focus-within；aria-label ×14 等；但输入框用的是 :focus（鼠标点击也画圈），流式生成 / 自动保存缺 aria-live。</td><td><strong>两处要修：输入态改 :focus-visible 口径；生成与保存状态补 polite live region（不打断朗读顺序）。</strong></td></tr>
+<tr><td>门禁通道</td><td>内联 style 约 234 处 / 48 个文件，基本都用 token 正确取值，但绕过了组件类与任何 lint 规则；design-lint 严格范围 29 个文件 ≈ 全站的 1/3。</td><td><strong>第三债务项。</strong>建议 lint 增加「内联样式属性命中既有组件类即告警」一层，逐步收编剩余屏。</td></tr>
+</table>
+
+<!-- ══════════════════════ 五 ══════════════════════ -->
+<h2 id="s5">五、业务场景覆盖矩阵</h2>
+<p class="lead">卖点文档承诺的能力 × 当前 UI 是否真的有一个家。<span class="pill p-ok">✓ 齐</span> 表示有完整界面与状态；<span class="pill p-warn">部分</span> 表示能做但有关键缺口；<span class="pill p-err">✗ 缺</span> 表示后端有能力或对外承诺了、前端没有入口。</p>
+
+<table>
+<tr><th style="width:180px">业务场景</th><th style="width:210px">承载位置</th><th style="width:80px">覆盖</th><th>备注 / 缺口</th></tr>
+<tr><td>10 秒建书</td><td>CreateProjectModal（只填书名）</td><td><span class="pill p-ok">✓ 齐</span></td><td>回车即建，创建后直落工作台</td></tr>
+<tr><td>导入既有稿子</td><td>ImportNovelModal 两步</td><td><span class="pill p-ok">✓ 齐</span></td><td>e2e 无专属 spec（回归保护弱）</td></tr>
+<tr><td>关网也能写（本地数据）</td><td>本地 SQLite + 手写路径</td><td><span class="pill p-warn">部分</span></td><td>离线/掉线态没有任何界面表达：保存失败只有在编辑中才见「保存失败·重试」</td></tr>
+<tr><td>多供应商自带 Key</td><td>/config 八供应商 + 书内 optgroup 绑定</td><td><span class="pill p-ok">✓ 齐</span></td><td>含测试连接七态健康徽标</td></tr>
+<tr><td>花费心中有数</td><td>/config 用量看板 + 书内 NovelUsagePanel</td><td><span class="pill p-ok">✓ 齐</span></td><td>只报历史用量，写作前估算（卖点点到但 UI 未做）</td></tr>
+<tr><td>设定可深可浅</td><td>SettingsView 进度 + 可后补标注</td><td><span class="pill p-ok">✓ 齐</span></td><td>免费用户无引导卡（§4-D1）</td></tr>
+<tr><td>主线拆纲 / 分卷规划</td><td>StoryArcForm + ArcWizard 四步</td><td><span class="pill p-ok">✓ 齐</span></td><td>PRD A 期还要接 AI 生成分卷（占位卡口径需同步）</td></tr>
+<tr><td>卷纲 / 章纲人工编辑</td><td>VolumePanel / OgPane</td><td><span class="pill p-ok">✓ 齐</span></td><td>高级字段密度高，靠折叠组撑住</td></tr>
+<tr><td>AI 卷纲 / 章纲起草</td><td>仅章纲有「AI 起草」</td><td><span class="pill p-warn">部分</span></td><td>卷纲 AI 生成未实现（PRD 已列为 A 期最高优先），Rail 占位卡已预告</td></tr>
+<tr><td>整章提示词可查看可改</td><td>PromptPane 三视图</td><td><span class="pill p-ok">✓ 齐</span></td><td>PRO 专属；免费隐藏而非锁定（§4-F3）</td></tr>
+<tr><td>流式生成 + 暂停取消</td><td>ProsePane + Rail</td><td><span class="pill p-ok">✓ 齐</span></td><td>停止入口单一（§4-F5）</td></tr>
+<tr><td>续写 / 润色 / 扩写</td><td>Rail AI 工具 + ContrastPreviewModal</td><td><span class="pill p-ok">✓ 齐</span></td><td>e2e 未覆盖对比弹窗三个分支</td></tr>
+<tr><td>写完当场质检</td><td>QC 横幅（字数 + 七条叙事自查）</td><td><span class="pill p-ok">✓ 齐</span></td><td>非阻断可关闭，位置合理</td></tr>
+<tr><td>去 AI 味（疲劳词 / 句式）</td><td>AntiAiSettingForm 7 类疲劳词 + 句式规则</td><td><span class="pill p-ok">✓ 齐</span></td><td>—</td></tr>
+<tr><td>越写越像你（文风）</td><td>StyleSettingForm 五组 + 例句 1–3 条</td><td><span class="pill p-ok">✓ 齐</span></td><td>文风量化蒸馏属 PRD C 期</td></tr>
+<tr><td>伏笔不丢 / 人设不崩</td><td>HooksSettingForm / CharacterManager</td><td><span class="pill p-warn">部分</span></td><td>人工台账可用；「每章归档自动回写角色状态与钩子」（PRD D5/B 期）无界面</td></tr>
+<tr><td>剧情推演（角色先演一遍）</td><td>—</td><td><span class="pill p-err">✗ 缺</span></td><td>后端有 story 推演引擎（回合制 seed/round/rewind），C 端前端完全没有入口；落地页也未提</td></tr>
+<tr><td>版本历史与找回</td><td>HistoryModal + VersionDiff</td><td><span class="pill p-ok">✓ 齐</span></td><td>行/词对比、相同版本态、超长折叠都有</td></tr>
+<tr><td>归档与反悔</td><td>ArchiveModal / UnlockModal / 恢复编辑</td><td><span class="pill p-ok">✓ 齐</span></td><td>解锁链会把原始 AI 动作续跑，细节到位</td></tr>
+<tr><td>通读全篇</td><td>PreviewView</td><td><span class="pill p-warn">部分</span></td><td>无搜索 / 跳章 / 字词定位（§4-I1）</td></tr>
+<tr><td>数据带走（导出备份）</td><td>—</td><td><span class="pill p-err">✗ 缺</span></td><td>后端导出已改 DB 打包（#163），前端无「导出/备份」按钮；「换个电脑拷走就能带走」目前要用户自己找 novel.db</td></tr>
+<tr><td>免费=人工写作全免</td><td>全流程人工路径</td><td><span class="pill p-ok">✓ 齐</span></td><td>除满额入口消失问题（§4-C1）</td></tr>
+<tr><td>试用 / 到期 / 降级</td><td>书架横幅 + BookPrefsModal 账号行</td><td><span class="pill p-ok">✓ 齐</span></td><td>到期后在书内仅剩徽标变化，无「恢复」入口</td></tr>
+<tr><td>设备换绑 / 账号安全</td><td>无</td><td><span class="pill p-err">✗ 缺</span></td><td>激活 toast 有（新设备已激活），但查设备/踢出设备无界面（S 端管，C 端无自查）</td></tr>
+<tr><td>健康检查（连续性体检）</td><td>—</td><td><span class="pill p-err">✗ 缺</span></td><td>PRD B 期规划项，尚无界面承载；建议复用 QC 横幅的语言体系</td></tr>
+<tr><td>写作记忆 / 前文记忆窗</td><td>—</td><td><span class="pill p-err">✗ 缺</span></td><td>卖点点名「记得前文的 AI」，UI 未呈现记忆范围/置信度</td></tr>
+</table>
+
+<!-- ══════════════════════ 六 ══════════════════════ -->
+<h2 id="s6">六、缺口清单与优先级路线</h2>
+
+<h3>P0 · 功能断裂（本周可修）</h3>
+<table>
+<tr><th style="width:60px">#</th><th>事项</th><th style="width:190px">涉及文件</th><th>为什么急</th></tr>
+<tr><td>1</td><td>修复 <code>var(--font-serif)</code> 未定义 → <code>var(--font-display)</code></td><td class="mono">ContrastPreviewModal.tsx:31</td><td>核心阅读弹窗字体静默退化</td></tr>
+<tr><td>2</td><td>修复 <code>href="/config"</code> → <code>"#/config"</code></td><td class="mono">ModelSettingForm.tsx:81</td><td>整页跳出应用</td></tr>
+<tr><td>3</td><td>免费用户也给引导卡（OnboardingCard 移出 ProContainer 或复制一份轻量版，去掉提示词步骤）</td><td class="mono">NovelWorkspace.tsx:279-286</td><td>「新用户知道下一步」当前只服务 PRO</td></tr>
+<tr><td>4</td><td>书架满额时不隐藏而是锁定新建/导入入口 + 说明一句 + 原地升级</td><td class="mono">NovelListPage.tsx:155,218</td><td>避免用户以为产品坏了</td></tr>
+<tr><td>5</td><td>统一目标字数口径（表单默认 2500 = Rail 回落值）</td><td class="mono">OgPane / Rail.tsx:113</td><td>同一概念两个数</td></tr>
+<tr><td>6</td><td>增加兜底路由（404 空态 → 回书架）</td><td class="mono">App.tsx</td><td>未知地址白屏无解释</td></tr>
+</table>
+
+<h3>P1 · 设计语言收口（一个迭代内）</h3>
+<ul>
+<li><strong>统一 destructive 语义</strong>：卡片菜单危险项从 --warn 改 --err；确立「红 = 不可逆 / 即时生效」一条规则。</li>
+<li><strong>dirty 守卫收编为 ConfirmGuard 组件</strong>：五个 window.confirm 换成设计语言内的确认弹窗（复用 Modal，确认族无 X），文案模板统一为「有未保存的修改 · 离开会丢失」。</li>
+<li><strong>13 种胶囊收敛为 .pill 家族</strong>（详规范 §6），先把 .inv-chip 与 .spin 这两处同名不同值修掉。</li>
+<li><strong>提示词页签改为锁定可见</strong>（免费可见 + 锁徽 + 点击弹 UpgradeModal），兑现「同一界面」承诺。</li>
+<li><strong>右栏「规划中的能力」改为可折叠一行</strong>，并且只列 PRD 真实路线图（AI 卷纲 / 章纲起草、连续性回写）。</li>
+<li><strong>卷纲「草稿」警示徽标撤掉</strong>，改为轻量副标题说明（卷纲本来就是草稿属性，无需永久警示）。</li>
+<li><strong>设定面板间 dirty 守卫与自动保存二选一</strong>：既然已有 3s 静默自动保存，面板切换不应再用破坏式警告；建议改成「离开前自动保存一次 + toast 已保存」。</li>
+<li><strong>输入态 focus 改 ：focus-visible</strong>、生成/保存状态补 aria-live。</li>
+</ul>
+
+<h3>P2 · 词汇表与令牌落地（配合 parity 流程）</h3>
+<ul>
+<li>字阶 22 → 8 档命名映射落地（先改原型再改实现，每屏跑 design:check）。</li>
+<li>radius 补 sm/pill；spacing 定 4pt 栅格并把 field 节奏统一为一枚 <code>--field-gap</code>。</li>
+<li>z-index 写成令牌 + 注释；scrim 颜色令牌化。</li>
+<li>webfont 决策：打包 Noto Serif SC 子集（推荐，~几百 KB woff2 随镜像走）或写实回退栈并记录。</li>
+<li>lint 增加「内联样式命中既有组件类」告警层；strictSrcGlobs 逐屏补齐 workbench/settings 剩余文件（ArcWizard 的 ✓/✗ 属此批）。</li>
+</ul>
+
+<h3>P3 · 缺失业务面的设计预留</h3>
+<ul>
+<li><strong>剧情推演入口</strong>：建议挂在书工作台右栏（模式即「沙盘」），语言体系复用 AI 四形中的流式/对话形。</li>
+<li><strong>导出 / 备份入口</strong>：BookPrefsModal 加一行「导出备份（.zip）」，文案对齐「数据只属于你」主张。</li>
+<li><strong>归档更新回路界面</strong>（B 期）：连续性快照确认弹窗，diff 语言复用 VersionDiff；非会员降级文案照 PRD §9。</li>
+<li><strong>预览视图搜索 / 跳章</strong>：为长篇通读补齐，也是健康检查结果跳转的目标容器。</li>
+<li><strong>离线/连接态</strong>：统一的「本地可用 · AI 不可用」提示（notice 条家族的第五种语气）。</li>
+</ul>
+
+<div class="note" style="margin-top:36px">
+下一步：配套的《<a href="design-language.html">统一设计语言规范</a>》把这上面的结论固化成可直接执行的规则 —— 令牌表、状态语言总表、组件词汇、布局骨架、AI 交互四形、门控视觉、删除分级、文案术语表，以及如何在不破坏 design:check 前提下逐步迁移。
+</div>
+
+</div>
+</body>
+</html>

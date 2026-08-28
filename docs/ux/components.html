@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>爱小说 C 端 · 统一组件库（现状盘点 + 补齐方案）</title>
+<style>
+  :root{
+    --bg:      oklch(98% 0.004 240);
+    --surface: oklch(100% 0 0);
+    --fg:      oklch(20% 0.02 240);
+    --muted:   oklch(50% 0.018 240);
+    --border:  oklch(90% 0.006 240);
+    --accent:  oklch(48% 0.11 170);
+    --accent-strong: oklch(41% 0.10 170);
+    --accent-soft: color-mix(in oklch, var(--accent) 12%, transparent);
+    --ok:   oklch(52% 0.11 155); --ok-soft:   color-mix(in oklch, var(--ok) 14%, transparent);
+    --warn: oklch(50% 0.13 75);  --warn-soft: color-mix(in oklch, var(--warn) 16%, transparent);
+    --err:  oklch(50% 0.17 25);  --err-soft:  color-mix(in oklch, var(--err) 12%, transparent);
+    --fg-soft: color-mix(in oklch, var(--fg) 5%, transparent);
+    --on-accent: oklch(100% 0 0);
+    --shadow-card: 0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent),
+                   0 12px 32px -12px color-mix(in oklch, var(--fg) 14%, transparent);
+    --shadow-pop: 0 18px 50px -12px color-mix(in oklch, var(--fg) 26%, transparent);
+    --font-display:'Noto Serif SC','Songti SC','STSong',Georgia,serif;
+    --font-body:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',system-ui,sans-serif;
+    --font-mono: ui-monospace,'SF Mono',Menlo,'JetBrains Mono',monospace;
+    --radius:10px; --radius-lg:16px;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:14px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  .wrap{max-width:1080px;margin:0 auto;padding:48px 32px 96px}
+  h1{font-family:var(--font-display);font-size:32px;font-weight:600;margin:0}
+  .sub{color:var(--muted);font-size:13px;margin-top:8px}
+  h2{font-family:var(--font-display);font-size:23px;font-weight:600;margin:60px 0 6px;padding-top:24px;border-top:1px solid var(--border)}
+  h3{font-size:15.5px;font-weight:600;margin:30px 0 8px}
+  h4{font-size:13.5px;font-weight:600;margin:16px 0 6px}
+  p{margin:0 0 12px}
+  .lead{color:var(--muted);max-width:74ch}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin:10px 0 20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  th{text-align:left;font-weight:600;background:var(--fg-soft);padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}
+  td{padding:9px 11px;border-bottom:1px solid var(--border);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  code,.mono{font-family:var(--font-mono);font-size:.92em;background:var(--fg-soft);padding:1px 5px;border-radius:5px}
+  ul,ol{margin:0 0 12px;padding-left:20px}li{margin-bottom:5px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);padding:22px 26px;margin:16px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:800px){.grid2{grid-template-columns:1fr}}
+  .note{border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 8px 8px 0;padding:12px 16px;margin:14px 0;font-size:13px}
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}
+  @media(max-width:700px){.stat-grid{grid-template-columns:1fr}}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+  .stat b{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-top:2px}
+  .kv{font-family:var(--font-display);font-size:30px;line-height:1.2}
+
+  /* ── demo 舞台 ── */
+  .stage{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin:14px 0;overflow:hidden}
+  .stage-canvas{padding:22px 24px;display:flex;flex-wrap:wrap;gap:12px 14px;align-items:center;
+                background-color: color-mix(in oklch, var(--fg) 2%, var(--surface))}
+  .stage-code{border-top:1px solid var(--border);background:var(--surface);padding:12px 16px;
+              font-family:var(--font-mono);font-size:12px;color:var(--muted);line-height:1.75;white-space:pre-wrap}
+
+  /* ── 按钮家族（照抄 base.css 口径）── */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 15px;
+       border-radius:var(--radius);border:1px solid transparent;font-family:var(--font-body);font-size:13px;
+       cursor:pointer;transition:all .12s ease;text-decoration:none}
+  .btn svg{width:15px;height:15px}
+  .btn-primary{background:var(--accent);color:var(--on-accent)}
+  .btn-primary:hover{background:var(--accent-strong)}
+  .btn-secondary{background:var(--surface);border-color:var(--border);color:var(--fg)}
+  .btn-secondary:hover{border-color:var(--muted)}
+  .btn-ghost{background:none;color:var(--muted)}
+  .btn-ghost:hover{background:var(--fg-soft);color:var(--fg)}
+  .btn-danger{background:var(--err);color:var(--on-accent)}
+  .btn-danger:hover{background:color-mix(in oklch,var(--err) 88%,black)}
+  .btn-sm{height:28px;padding:0 11px;font-size:12.5px}.btn-sm svg{width:13px;height:13px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn:active{transform:translateY(1px)}
+
+  /* ── 胶囊家族（uikit.css 第 1 段）── */
+  .pill{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:999px;
+        padding:1px 8px;font-size:11px;line-height:1.6;font-weight:500;background:var(--surface);
+        color:var(--muted);white-space:nowrap}
+  .pill svg{width:10px;height:10px;flex:none}
+  .pill-status{padding:2px 9px}
+  .pill-count{font-family:var(--font-mono);background:var(--fg-soft)}
+  .pill-ok{background:var(--ok-soft);border-color:transparent;color:color-mix(in oklch,var(--ok) 88%,black)}
+  .pill-warn{background:var(--warn-soft);border-color:transparent;color:color-mix(in oklch,var(--warn) 85%,black)}
+  .pill-err{background:var(--err-soft);border-color:transparent;color:color-mix(in oklch,var(--err) 90%,black)}
+  .pill-accent{background:var(--accent-soft);border-color:transparent;color:var(--accent-strong)}
+  .pill-pro{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;
+            background:var(--accent-soft);color:var(--accent);font-family:var(--font-mono);
+            font-size:11px;letter-spacing:.06em}
+  .pill-pro svg{width:11px;height:11px}
+
+  /* ── 状态点（uikit.css 第 2 段）── */
+  .dot-empty{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--border)}
+  .dot-warn,.dot-ok{display:inline-block;width:6px;height:6px;border-radius:50%}
+  .dot-warn{background:var(--warn)}.dot-ok{background:var(--ok)}
+  .dot-live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);
+            animation:breathe 1.4s ease-in-out infinite}
+  @keyframes breathe{0%,100%{opacity:1}50%{opacity:.35}}
+
+  /* ── 树行模拟 ── */
+  .tree-demo{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--border);
+             border-radius:var(--radius);padding:6px;font-size:13px}
+  .trow{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px}
+  .trow.vol{font-weight:600}
+  .trow .tw{margin-left:auto;color:var(--muted);font-size:11.5px;font-family:var(--font-mono)}
+
+  /* ── Notice（list.css 口径 + success/danger 补档）── */
+  .notice{display:flex;align-items:center;gap:12px;width:100%;border:1px solid color-mix(in oklch,var(--warn) 28%,var(--border));
+          background:var(--warn-soft);border-radius:var(--radius);padding:10px 14px;font-size:13px;margin:0}
+  .notice.info{border-color:color-mix(in oklch,var(--accent) 30%,var(--border));background:var(--accent-soft)}
+  .notice.success{border-color:color-mix(in oklch,var(--ok) 28%,var(--border));background:var(--ok-soft)}
+  .notice.danger{border-color:color-mix(in oklch,var(--err) 26%,var(--border));background:var(--err-soft)}
+  .notice svg{flex:none;width:15px;height:15px}
+  .notice.info svg{color:var(--accent-strong)}.notice.success svg{color:var(--ok)}
+  .notice svg{color:var(--warn)}.notice.danger svg{color:var(--err)}
+  .nt{flex:1}.nt b{font-weight:500}.nt span{color:var(--muted);font-size:12.5px;margin-left:8px}
+  .text-btn{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--accent);opacity:.8;cursor:pointer;border:none;background:none;padding:0}
+  .text-btn:hover{opacity:1}
+  .notice-x{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;flex:none;
+            border:none;background:none;border-radius:999px;color:inherit;cursor:pointer;opacity:.55}
+  .notice-x:hover{opacity:1}.notice-x svg{width:13px;height:13px}
+
+  /* ── 空态解剖 ── */
+  .empty{flex:1 1 100%;border:1.5px dashed var(--border);border-radius:var(--radius-lg);padding:34px 24px;text-align:center;color:var(--muted)}
+  .empty h3{font-family:var(--font-display);font-size:19px;font-weight:600;color:var(--fg);margin:8px 0 6px}
+  .empty p{font-size:13px;margin:0 auto;max-width:44ch}
+  .empty-actions{display:flex;gap:10px;justify-content:center;margin-top:16px}
+
+  /* ── 保存四态（book.css 口径）── */
+  .statusbar{width:100%;display:flex;justify-content:flex-end;gap:18px;align-items:center;
+             font-family:var(--font-mono);font-size:11.5px;color:var(--muted);
+             border-top:1px solid var(--border);padding:7px 14px;background:var(--surface)}
+  .save-state{display:inline-flex;align-items:center;gap:6px}
+  .save-state svg{width:13px;height:13px}
+  .save-state.saving{color:var(--accent)}.save-state.saved{color:var(--ok)}
+  .save-state.dirty{color:var(--warn)}.save-state.failed{color:var(--err)}
+
+  /* ── Toast（lib/toast.tsx 口径）── */
+  .toast-wrap{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:80;display:flex;flex-direction:column;gap:8px;align-items:center}
+  .toast-item{background:color-mix(in oklch,var(--fg) 92%,black);color:var(--on-accent);border-radius:999px;
+              padding:8px 18px;font-size:12.5px;box-shadow:var(--shadow-pop);animation:tin .2s ease-out}
+  .toast-item button{margin-left:10px;background:none;border:none;color:var(--on-accent);text-decoration:underline;cursor:pointer;font-size:12.5px}
+  @keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* ── ConfirmHost 弹窗（复刻 design/Modal 结构）── */
+  .scrim{position:fixed;inset:0;background:color-mix(in oklch,var(--fg) 40%,transparent);z-index:50;
+         opacity:0;pointer-events:none;transition:opacity .2s ease}
+  .scrim.show{opacity:1;pointer-events:auto}
+  .modal-layer{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;padding:24px}
+  .modal-layer.show{display:flex}
+  .mcard{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-pop);
+         width:min(400px,100%);padding:22px 24px;animation:m_in .2s ease-out}
+  @keyframes m_in{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+  .mcard h3{font-family:var(--font-display);font-size:17px;font-weight:600;margin:0 0 10px}
+  .mcard-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+  .inv-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+
+  /* ── UndoToast（api-config UndoToast 形态）── */
+  .undo{position:fixed;left:50%;bottom:72px;transform:translateX(-50%);z-index:81;display:none}
+  .undo.show{display:block}
+  .undo-inner{background:color-mix(in oklch,var(--fg) 92%,black);color:var(--on-accent);border-radius:12px;
+              padding:12px 18px;font-size:13px;box-shadow:var(--shadow-pop);min-width:300px}
+  .undo-bar{height:2px;background:color-mix(in oklch,var(--on-accent) 28%,transparent);border-radius:2px;margin-top:10px;overflow:hidden}
+  .undo-fill{height:100%;width:100%;background:var(--accent);animation:drain 8s linear forwards}
+  @keyframes drain{to{width:0}}
+  .undo-btn{float:right;background:none;border:none;color:var(--on-accent);cursor:pointer;font-size:12.5px;text-decoration:underline}
+
+  .badge-note{font-size:11.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>C 端统一组件库 · 现状盘点 + 补齐方案</h1>
+<p class="sub">回答「规范有了，有没有对应的现成统一组件」· 配套：《<a href="audit.html">逐页评估</a>》 · 《<a href="design-language.html">设计语言规范</a>》 · 可搬运源码在 <code>uikit/</code> 目录（README + 6 个文件）</p>
+
+<div class="note">
+<strong>结论一句话：有一半是现成的，另一半正在各自为政。</strong>
+React 层已经有 5 个高质量原语在全站复用（Modal / toast / 图标注册表 / 表单字段族 / UndoToast），CSS 层还有约 10 个类只有样式没有封装；
+真正缺失的是状态点、胶囊基类、四语气提示条、空态解剖和确认弹窗这六处——它们恰好是规范 §5/§6/§12 要落地的部分。
+本页给出每一处的「现在在哪 · 差什么 · 补上长什么样」。
+</div>
+
+<div class="stat-grid">
+  <div class="stat"><div class="kv">5</div><b>现成 React 原语，全站已复用</b></div>
+  <div class="stat"><div class="kv">≈10</div><b>有类无壳的 CSS 小件</b></div>
+  <div class="stat"><div class="kv">6</div><b>缺口，已给出可搬运实现</b></div>
+</div>
+
+<!-- ══════════ 一 ══════════ -->
+<h2 id="s1">一、已经现成的（不要重做）</h2>
+<p class="lead">这些是 v2 最值钱的资产。任何新的界面需求都先从这里挑，而不是新写。</p>
+
+<table>
+<tr><th style="width:170px">原语</th><th style="width:250px">位置</th><th>公开能力</th><th style="width:170px">使用广度</th></tr>
+<tr><td><strong>Modal</strong></td><td class="mono">components/design/Modal.tsx</td><td><code>{open,onClose,title,width,locked,hideClose,headExtra,afterTitle,footer}</code>；portal 到 body、焦点圈含 disabled 过滤、200ms 退场</td><td>全站 30+ 调用点，一致性最好</td></tr>
+<tr><td><strong>toast</strong></td><td class="mono">lib/toast.tsx</td><td><code>error/success/info(msg, {action})</code>；底部居中暗色胶囊、<code>Toaster</code> 全局挂载一次、aria-live</td><td>全部异步反馈出口</td></tr>
+<tr><td><strong>Ico + P</strong></td><td class="mono">components/icons.tsx</td><td>38 个登记 path + 供应商图 + genreIconPath；尺寸永远由父级类控制</td><td>唯一图标来源</td></tr>
+<tr><td><strong>表单字段族</strong></td><td class="mono">novel/settings/FormField.tsx</td><td><code>Field</code>(label/hint/AiFill)、<code>InputField</code>、<code>ListEditor</code>(上限 x/y)、<code>Cfg</code> 折叠组、<code>SettingSaveHandle</code></td><td>设定视图全量，但<strong>路径锁死在 settings/ 下</strong>，别的模块不敢引用</td></tr>
+<tr><td><strong>UndoToast</strong></td><td class="mono">api-config/UndoToast.tsx</td><td><code>{configName,onUndo,onExpire,duration=8000}</code>；过期淡出后移除</td><td>仅 /config 一处 —— 是全站唯一软删除范式</td></tr>
+</table>
+
+<table>
+<tr><th style="width:190px">CSS 级小件（有类无壳）</th><th style="width:220px">定义位置</th><th>备注</th></tr>
+<tr><td class="mono">.btn-primary/-secondary/-ghost/-danger (+sm/xs/lg)</td><td class="mono">base.css 54 起</td><td>档位齐全；<code>.btn-danger-ghost</code> 却住在 book.css:391，应上移</td></tr>
+<tr><td class="mono">.input 表单组</td><td class="mono">base.css</td><td>含 focus 圈与禁用态</td></tr>
+<tr><td class="mono">.empty / .empty-tree / .empty-search</td><td class="mono">base.css / book.css:116,364</td><td>三种空态容器已按用途分好</td></tr>
+<tr><td class="mono">.notice（默认 warn）+ .info</td><td class="mono">list.css:50-54</td><td><strong>只做了两档语气</strong>（缺口 3）</td></tr>
+<tr><td class="mono">.save-state .saving/.saved/.dirty/.failed</td><td class="mono">book.css:138-143</td><td>配色有了；聚合逻辑却只在 ChapterWorkspace 手写一遍</td></tr>
+<tr><td class="mono">.ch .dot-empty/.dot-warn/.dot-ok</td><td class="mono">book.css:97-100</td><td>语义正确但<strong>作用域被 .ch 锁死</strong>，别的列表想用就得抄</td></tr>
+<tr><td class="mono">.chip / .chip.on</td><td class="mono">book.css:320-322</td><td>可点击胶囊（筛选/跳转定位）——注意与静态徽标是两个家族</td></tr>
+<tr><td class="mono">.cnt · .text-btn · .icon-btn · .genre-tag · .free-hint · .pill-pro</td><td class="mono">book.css 各处</td><td>稳定的单用途小件</td></tr>
+</table>
+
+<!-- ══════════ 二 ══════════ -->
+<h2 id="s2">二、六个缺口，以及补上之后的样子</h2>
+<p class="lead">下面每块都是「上面是实物渲染，下面是搬运后的调用方式」。实现源码在 <code>uikit/</code> 目录，配套样式 4 段全部能搬进 base.css。</p>
+
+<h3 id="s21">缺口 1 · 胶囊家族：13 种实现收敛为三角色 × 五语气</h3>
+<p class="lead">现在书架徽标、modnav 计数、树统计、题材标签、AI 标、PRO 徽……互相之间零共享基类（连 <code>.pill</code> 这个类都没有 CSS 定义），字号在 10–12.5px、内边距在 1–5px 间漂移。收敛后只剩一个心智模型：</p>
+
+<div class="stage">
+  <div class="stage-canvas">
+    <span class="pill pill-status pill-ok">已确认</span>
+    <span class="pill pill-status pill-warn">草稿</span>
+    <span class="pill pill-status pill-err">缺 2 项</span>
+    <span class="pill pill-status">已归档</span>
+    <span style="width:100%;height:0"></span>
+    <span class="pill">东方玄幻</span>
+    <span class="pill pill-accent">AI</span>
+    <span class="pill">可后补</span>
+    <span class="pill pill-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>写作指令</span>
+    <span style="width:100%;height:0"></span>
+    <span class="pill pill-count">3/12 章纲</span>
+    <span class="pill pill-count">设定 5/8</span>
+    <span class="pill-pro"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 6.2L21 9l-5 4.4 1.6 6.6L12 16.6 6.4 20 8 13.4 3 9l6.6-.8z"/></svg>PRO</span>
+  </div>
+  <div class="stage-code">&lt;Pill role="status" tone="ok"&gt;已确认&lt;/Pill&gt;      // 书卡阶段徽标、健康徽标、自动组装
+&lt;Pill role="tag"&gt;东方玄幻&lt;/Pill&gt;                  // 题材、导入结构标签、「可后补」
+&lt;Pill role="tag" tone="accent"&gt;&lt;LockBadge/&gt;&lt;/Pill&gt;   // 锁定入口角标（§11 门控可见）
+&lt;Pill role="count"&gt;3/12 章纲&lt;/Pill&gt;               // modnav 计数、树头统计（等宽数字）
+边界：可点击的不算 Pill —— 那是 .chip 家族（筛选、缺项定位跳转）</div>
+</div>
+
+<table>
+<tr><th style="width:230px">存量实现（13 种）</th><th style="width:150px">归入角色</th><th>备注</th></tr>
+<tr><td class="mono">.b.ok/.b.err/.b.warn/.b.muted（书卡阶段徽）</td><td>Pill status</td><td>四语气直接换</td></tr>
+<tr><td class="mono">.badge 五变体 / .b.writing/.setting/.done</td><td>Pill status</td><td>同上，颜色语义以规范 §5 为准</td></tr>
+<tr><td class="mono">.genre-tag / .arch-tag / .defer-tag / .tag-plan</td><td>Pill tag</td><td>描边默认态</td></tr>
+<tr><td class="mono">.ai-tag</td><td>Pill tag tone=accent</td><td>AI 相关统一用 accent，不再新造色相</td></tr>
+<tr><td class="mono">modnav .cnt、树头统计</td><td>Pill count</td><td>继承等宽数字</td></tr>
+<tr><td class="mono">.pill-pro / .free-hint / .pro-pill / .mkt-pill</td><td>ProPill / free-hint</td><td>付费身份是一对（PRO 徽 ↔ 免费提示句）</td></tr>
+<tr><td class="mono">.gap-chip（章纲缺项）/ .inv-chip（删除盘点）</td><td><strong>不迁移</strong></td><td>它们是可点击按钮，属于 .chip 家族；盘点点位收进 Confirm 的 inventory</td></tr>
+</table>
+
+<h3 id="s22">缺口 2 · 对象状态点：把 book.css 的三态从树上放出来</h3>
+<p class="lead">类名不用改（OutlineTree 已经在用 <code>dot-empty/dot-warn/dot-ok</code>），只需要去掉 <code>.ch</code> 前缀变成全局类，预览视图、右栏、归档列表就能共用同一套语言。这是零成本的一致性收益。</p>
+
+<div class="stage">
+  <div class="stage-canvas">
+    <div class="tree-demo">
+      <div class="trow vol"><span class="chev">▾</span> 第一卷 北境少年<span class="tw">12 章 · 38,204 字</span></div>
+      <div class="trow" style="padding-left:26px"><span class="dot-ok"></span> 第一章 雪夜来客<span class="tw">2,486 字 · 已确认</span></div>
+      <div class="trow" style="padding-left:26px"><span class="dot-warn"></span> 第二章 渡口的老人<span class="tw">1,102 字 · 写作中</span></div>
+      <div class="trow" style="padding-left:26px"><span class="dot-empty"></span> 第三章 未填章纲<span class="tw">—</span></div>
+      <div class="trow" style="padding-left:26px"><span class="dot-live"></span> 第四章 AI 正在生成<span class="tw">流式写入中</span></div>
+    </div>
+  </div>
+  <div class="stage-code">&lt;StatusDot state="confirmed" title="章纲已确认" /&gt;   // title 必传：圆点没有图例，悬浮是唯一解释通道
+&lt;LiveDot /&gt;                                       // 流式进行中指示点，只点呼吸不动正文（规则 M-R2）</div>
+</div>
+
+<h3 id="s23">缺口 3 · 保存四态：把已经写好的一次抽出来</h3>
+<p class="lead"><code>.save-state</code> 配色早已在 book.css 里，聚合文案也已经在 ChapterWorkspace 里实现过一次。问题是它只活在正文编辑器里——其他屏要用就得抄一遍文案与判断逻辑。</p>
+
+<div class="stage">
+  <div class="stage-canvas" style="flex-direction:column;align-items:stretch;gap:0;padding:0">
+    <div style="padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border);font-size:13px;color:var(--muted)">编辑区（示范四种状态并排，实际同一时刻只出现一个）</div>
+    <div style="padding:0 16px;background:var(--surface)">
+      <div class="statusbar" style="border-top:none">
+        <span class="save-state saving num"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="animation:rot .8s linear infinite"><path d="M21 12a9 9 0 11-6.2-8.56"/></svg>保存中…</span>
+        <span class="save-state dirty num">未保存</span>
+        <button class="save-state failed num" style="background:none;border:none;cursor:pointer;padding:0;font-family:var(--font-mono);font-size:11.5px" onclick="notify('已重试保存')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16.5h.01"/></svg>保存失败 · 重试</button>
+        <span class="save-state saved num">已自动保存</span>
+      </div>
+    </div>
+  </div>
+  <div class="stage-code">&lt;SaveState state={phase} onRetry={retry} /&gt;
+// phase ∈ autosaving | unsaved | failed | saved
+// failed 且传了 onRetry 才渲染成可点击文字钮；其余是安静的小字（正文优先）
+// 样式零新增：.save-state 四个修饰类已在 book.css:138-143</div>
+</div>
+<style>@keyframes rot{to{transform:rotate(360deg)}}</style>
+
+<h3 id="s24">缺口 4 · 提示条补齐四语气</h3>
+<p class="lead">现在只有 warn 与 info 两档。「操作成功」只能靠 toast 一闪而过，「不可逆后果」被迫借用别家颜色——书架卡片菜单的危险项用 <code>--warn</code> 就是这么来的（评估 J5）。补两档，N6 这条纪律才成立。</p>
+
+<div class="stage">
+  <div class="stage-canvas" style="flex-direction:column;align-items:stretch;gap:10px">
+    <div class="notice info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span class="nt"><b>模型尚未绑定</b><span>AI 功能需要先在模型配置里添加 Key</span></span><button class="text-btn" onclick="notify('跳转模型配置')">去配置</button></div>
+    <div class="notice success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg><span class="nt"><b>设定已确认完成</b><span>后续可在各面板单独修改</span></span><button class="notice-x" aria-label="关闭提示" onclick="this.parentElement.remove()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="notice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16.5h.01"/></svg><span class="nt"><b>免费版最多保留 1 本书</b><span>当前已达上限</span></span><button class="text-btn" onclick="notify('打开升级窗口')">升级 PRO 无限创建</button></div>
+    <div class="notice danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16.5h.01"/></svg><span class="nt"><b>删除后将同时清除 3 章正文</b><span>此操作不可撤销</span></span></div>
+  </div>
+  <div class="stage-code">&lt;Notice tone="info" action={{ label:"去配置", onClick }}&gt;模型尚未绑定&lt;/Notice&gt;
+&lt;Notice tone="success" onClose={fn}&gt;设定已确认完成&lt;/Notice&gt;
+&lt;Notice tone="warn" desc="当前已达上限" action={upgrade}&gt;免费版最多保留 1 本书&lt;/Notice&gt;
+&lt;Notice tone="danger"&gt;删除后将同时清除 3 章正文&lt;/Notice&gt;   // 红色 = 不可逆或即时生效（N6）
+// 新增 CSS 只有两段：.notice.success / .notice.danger（list.css 已有的配方照搬）</div>
+</div>
+
+<h3 id="s25">缺口 5 · 空态解剖：出路必须成为类型约束</h3>
+<p class="lead">「禁止只有插画没有出路」写进规范容易，落实靠组件签名。<code>EmptyState</code> 把主动作做成可选属性——可以不传，但一旦界面上没有出口，就一定是你删掉的，不是漏写的。</p>
+
+<div class="stage">
+  <div class="stage-canvas" style="flex-direction:column;gap:12px">
+    <div class="empty">
+      <h3>还没有角色档案</h3>
+      <p>角色的性格与目标会作为上下文进入 AI 生成，也可以以后再补。</p>
+      <div class="empty-actions">
+        <button class="btn btn-secondary" onclick="notify('新建角色')">新建角色</button>
+        <button class="btn btn-ghost" onclick="notify('先去写正文')">先去写正文</button>
+      </div>
+    </div>
+    <div class="empty">
+      <h3>这一章加载失败</h3>
+      <p>本地网络中断导致章节内容没有取到，已写的内容不受影响。</p>
+      <div class="empty-actions">
+        <button class="btn btn-secondary" onclick="notify('重试加载')">重试</button>
+        <button class="btn btn-ghost" onclick="notify('检查连接')">检查模型连接</button>
+      </div>
+    </div>
+  </div>
+  <div class="stage-code">&lt;EmptyState icon={P.doc} title="还没有角色档案"
+            desc="角色的性格与目标会作为上下文进入 AI 生成，也可以以后再补"
+            primary={{ label:"新建角色", onClick }}
+            secondary={{ label:"先去写正文", onClick }} />
+// 容器沿用全局 .empty（虚线描边 + serif 标题）；新增 CSS 仅 .empty-actions 一段</div>
+</div>
+
+<h3 id="s26">缺口 6 · 确认弹窗：让 window.confirm 从主流程里消失</h3>
+<p class="lead">五处脏守卫仍用原生 <code>window.confirm</code>：不可主题化、不能放盘点信息、与自研弹窗并存在同一个动作流里，是视觉语言最大的破口。
+方案与 <code>toast</code> 同构：挂一次 <code>&lt;ConfirmHost/&gt;</code>，业务里一行 <code>await confirmAction(...)</code>，不需要为每个调用点维护 state。<strong>点下面的按钮试试。</strong></p>
+
+<div class="stage">
+  <div class="stage-canvas">
+    <button class="btn btn-danger" onclick="openConfirm('inv')">危险确认 · 带影响盘点</button>
+    <button class="btn btn-secondary" onclick="openConfirm('dirty')">普通确认 · 离开丢失提示</button>
+    <span class="badge-note">左例对应 L2 删除分级；右例替代现有 5 处脏守卫的原生弹窗</span>
+  </div>
+  <div class="stage-code">// 挂载一次（ClientShell 内，与 &lt;Toaster/&gt; 同层）
+&lt;ConfirmHost /&gt;
+
+// 业务代码：异步、可等待、无本地 state
+const ok = await confirmAction({
+  title: "删除这个模型配置？",
+  body: "删除后使用它的书将失去 AI 能力，需要重新选择模型。",
+  tone: "danger", confirmLabel: "删除",
+  inventory: ["3 本书正在使用", "本月已产生 12 万 Token 用量"],
+});
+if (!ok) return;
+
+// 口径沿 Modal：hideClose（确认族无 X）；Esc 与点遮罩 = 取消，方向安全</div>
+</div>
+
+<!-- ══════════ 三 ══════════ -->
+<h2 id="s3">三、反馈层：已有的两个件维持原样</h2>
+<div class="grid2">
+<div class="card">
+<h4>Toast（不要改）</h4>
+<p style="font-size:13px">瞬态反馈仍是 <code>toast.*</code>；成功提示靠文字不加图标，错误必须带原因前缀。这是语义分工：<strong>Toast 说结果，Notice 说处境，Confirm 要决定。</strong></p>
+<button class="btn btn-sm btn-secondary" onclick="notify()">试一条成功 toast</button>
+</div>
+<div class="card">
+<h4>UndoToast（建议泛化参数）</h4>
+<p style="font-size:13px">现在是 api-config 私有件。把 <code>configName</code> 泛化成 <code>name</code>、加 <code>label=&quot;删除&quot;</code>，就能推广到 L1 行级删除与 L4 软删除（规范 §12）。8 秒窗口不变。</p>
+<button class="btn btn-sm btn-secondary" onclick="showUndo()">模拟删除 → 8 秒撤销</button>
+</div>
+</div>
+
+<!-- ══════════ 四 ══════════ -->
+<h2 id="s4">四、明确不建议抽的</h2>
+<table>
+<tr><th style="width:210px">候选</th><th>为什么不抽</th></tr>
+<tr><td>Button 包装组件</td><td>CSS 档位齐全且类名即语义；包一层会让 IDE、grep 和 design-lint 同时失明</td></tr>
+<tr><td>Input / Textarea 封装</td><td>同上，且表单字段族已在 settings 里成型，重复造一套只会分叉</td></tr>
+<tr><td>Tabs / Segmented</td><td>modnav 页签、章内页签、段落行三处形态差异是真的，强行统一会逼出参数地狱</td></tr>
+<tr><td>Field 字段组件搬家到 ui/</td><td>先把 settings/FormField 的导出开放出去即可；等第一个非设定场景真实引用再谈移动</td></tr>
+</table>
+<p class="lead" style="font-size:13px">判定标准就是仓库自己的那条：「资深工程师会说这过度设计了吗？」以上四个都会。</p>
+
+<!-- ══════════ 五 ══════════ -->
+<h2 id="s5">五、采用顺序（走既有流程，别砸 parity）</h2>
+<table>
+<tr><th style="width:150px">步骤</th><th>动作</th><th style="width:220px">验收</th></tr>
+<tr><td>① 原型先行</td><td>把 <code>uikit.css</code> 四段贴进 docs/design-c/prototypes 对应原型核对视觉；ADJUSTMENTS.md 登记</td><td>原型肉眼 + parity 基线不回归</td></tr>
+<tr><td>② CSS 收编</td><td>并入 base.css；同步删除 book.css:97-100 的 <code>.ch .dot-*</code> 三行（防同名双定义漂移——<code>.spin</code> 的教训）</td><td class="mono">design:lint 通过</td></tr>
+<tr><td>③ 组件搬运</td><td>六个 tsx 复制到 <code>src/components/ui/</code>；<code>ConfirmHost</code> 挂 ClientShell</td><td class="mono">npx tsc --noEmit</td></tr>
+<tr><td>④ 调用点迁移</td><td>胶囊按映射表逐屏换；5 处 window.confirm 换 confirmAction；e2e 断言同步更新</td><td class="mono">design:check 全绿 + e2e</td></tr>
+</table>
+
+<div class="note" style="margin-top:28px">
+<strong>本页合规说明：</strong>所有颜色取自既有令牌派生（oklch + color-mix），图标全部来自已登记 path，无 emoji/字符图形，
+可直接作为下一张原型（如 <code>ui-kit.html</code>）入 <code>docs/design-c/prototypes/</code> 的底稿；
+配合 <code>design-vocab.mjs</code> 回填 <code>--radius-pill/--shadow-pop/z-*</code> 后即成机器可读词汇的一部分。
+</div>
+
+</div><!-- /wrap -->
+
+<!-- ── ConfirmHost 双例 ── -->
+<div class="scrim" id="scrim" onclick="closeConfirm()"></div>
+<div class="modal-layer" id="mlayer">
+  <div class="mcard" onclick="event.stopPropagation()">
+    <h3 id="ctitle">标题</h3>
+    <p id="cbody" style="color:var(--muted);margin:0;line-height:1.7;font-size:13.5px"></p>
+    <div class="inv-row" id="cinv" style="display:none"></div>
+    <div class="mcard-foot" id="cfoot"></div>
+  </div>
+</div>
+<div class="toast-wrap" id="toasts"></div>
+<div class="undo" id="undoBox">
+  <div class="undo-inner">已删除「主要配角 · 柳生」<button class="undo-btn" onclick="hideUndo(true)">撤销</button>
+    <div class="undo-bar"><div class="undo-fill"></div></div>
+  </div>
+</div>
+
+<script>
+function notify(msg){
+  const t=document.createElement('div');t.className='toast-item';t.textContent=msg||'操作成功';
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s'},2600);
+  setTimeout(()=>t.remove(),3000);
+}
+function closeConfirm(){
+  document.getElementById('mlayer').classList.remove('show');
+  document.getElementById('scrim').classList.remove('show');
+}
+function openConfirm(kind){
+  const t=document.getElementById('ctitle'), b=document.getElementById('cbody'),
+        inv=document.getElementById('cinv'), foot=document.getElementById('cfoot');
+  inv.innerHTML='';foot.innerHTML='';
+  if(kind==='inv'){
+    t.textContent='删除这个模型配置？';
+    b.textContent='删除后使用它的书将失去 AI 能力，需要重新选择模型。';
+    inv.style.display='flex';
+    ['3 本书正在使用','本月已产生 12 万 Token 用量'].forEach(x=>{
+      const s=document.createElement('span');s.className='pill';s.textContent=x;inv.appendChild(s);
+    });
+    mk(foot,'btn btn-ghost','取消');mk(foot,'btn btn-danger','删除');
+  }else{
+    t.textContent='有未保存的修改';
+    b.textContent='离开当前面板会丢失刚改动的内容，是否继续？';
+    inv.style.display='none';
+    mk(foot,'btn btn-ghost','留在此页');mk(foot,'btn btn-secondary','保存并离开');mk(foot,'btn btn-primary','放弃修改');
+  }
+  document.getElementById('mlayer').classList.add('show');
+  document.getElementById('scrim').classList.add('show');
+}
+function mk(parent,cls,label){
+  const btn=document.createElement('button');btn.className=cls;btn.textContent=label;
+  btn.onclick=()=>{closeConfirm();notify(label==='取消'||label==='留在此页'?'已取消':label+'成功')};
+  parent.appendChild(btn);
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeConfirm()});
+let undoTimer=null;
+function showUndo(){
+  const box=document.getElementById('undoBox'),fill=box.querySelector('.undo-fill');
+  box.classList.add('show');fill.style.animation='none';void fill.offsetWidth;fill.style.animation='';
+  clearTimeout(undoTimer);undoTimer=setTimeout(hideUndo,8000);
+}
+function hideUndo(did){
+  clearTimeout(undoTimer);document.getElementById('undoBox').classList.remove('show');
+  if(did)notify('已恢复该行');
+}
+</script>
+</body>
+</html>

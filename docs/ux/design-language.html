@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>爱小说 C 端 · 统一设计语言规范 v2.1</title>
+<style>
+  :root{
+    --bg:      oklch(98% 0.004 240);
+    --surface: oklch(100% 0 0);
+    --fg:      oklch(20% 0.02 240);
+    --muted:   oklch(50% 0.018 240);
+    --border:  oklch(90% 0.006 240);
+    --accent:  oklch(48% 0.11 170);
+    --accent-strong: oklch(41% 0.10 170);
+    --accent-soft: color-mix(in oklch, var(--accent) 12%, transparent);
+    --ok:   oklch(52% 0.11 155); --ok-soft:   color-mix(in oklch, var(--ok) 14%, transparent);
+    --warn: oklch(50% 0.13 75);  --warn-soft: color-mix(in oklch, var(--warn) 16%, transparent);
+    --err:  oklch(50% 0.17 25);  --err-soft:  color-mix(in oklch, var(--err) 12%, transparent);
+    --fg-soft: color-mix(in oklch, var(--fg) 5%, transparent);
+    --shadow-card: 0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent),
+                   0 12px 32px -12px color-mix(in oklch, var(--fg) 14%, transparent);
+    --font-display:'Noto Serif SC','Songti SC','STSong',Georgia,serif;
+    --font-body:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',system-ui,sans-serif;
+    --font-mono: ui-monospace,'SF Mono',Menlo,'JetBrains Mono',monospace;
+    --radius:10px; --radius-lg:16px;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:14px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:48px 32px 96px}
+  h1{font-family:var(--font-display);font-size:32px;font-weight:600;margin:0}
+  h2{font-family:var(--font-display);font-size:23px;font-weight:600;margin:64px 0 6px;padding-top:24px;border-top:1px solid var(--border)}
+  h3{font-size:15.5px;font-weight:600;margin:28px 0 8px}
+  h4{font-size:13.5px;font-weight:600;margin:18px 0 6px}
+  p{margin:0 0 12px}
+  .sub{color:var(--muted);font-size:13px;margin-top:8px}
+  .lead{font-size:14px;color:var(--muted);max-width:72ch}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin:10px 0 20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  th{text-align:left;font-weight:600;background:var(--fg-soft);padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}
+  td{padding:9px 11px;border-bottom:1px solid var(--border);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  code,.mono{font-family:var(--font-mono);font-size:.92em;background:var(--fg-soft);padding:1px 5px;border-radius:5px}
+  ul,ol{margin:0 0 12px;padding-left:20px}li{margin-bottom:5px}
+  .pill{display:inline-block;border-radius:999px;padding:1.5px 9px;font-size:11px;border:1px solid var(--border);background:var(--surface);color:var(--muted);white-space:nowrap;font-weight:500}
+  .p-ok{background:var(--ok-soft);border-color:transparent;color:color-mix(in oklch,var(--ok) 88%,black)}
+  .p-warn{background:var(--warn-soft);border-color:transparent;color:color-mix(in oklch,var(--warn) 85%,black)}
+  .p-err{background:var(--err-soft);border-color:transparent;color:color-mix(in oklch,var(--err) 90%,black)}
+  .p-accent{background:var(--accent-soft);border-color:transparent;color:var(--accent-strong)}
+  .note{border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 8px 8px 0;padding:12px 16px;margin:14px 0;font-size:13px}
+  .rule{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent-strong);border-radius:0 10px 10px 0;padding:11px 15px;margin:12px 0;font-size:13px}
+  .spec-box{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:3px 12px;font-size:11.5px;margin:0 6px 6px 0}
+  .swatch{width:26px;height:26px;border-radius:7px;flex:0 0 auto}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:800px){.grid2{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);padding:22px 26px;margin:16px 0}
+  .flow{font-family:var(--font-mono);font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;overflow-x:auto;line-height:1.95;white-space:pre;margin:10px 0 16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>爱小说 C 端 · 统一设计语言规范 v2.1</h1>
+<p class="sub">承接 Open Design v2（#181~#187 已落地的令牌 / 组件 / 门禁）· 配套《<a href="audit.html">页面使用路径与逐页评估</a>》 · 本文件是唯一权威标准（2026-08-27 起），机器强制层为两端 <code>scripts/design-vocab.mjs</code>，词汇改动须与本文件同批对齐</p>
+
+<div class="note">
+定位说明：这不是推倒重来。v2 已经把色彩、组件类、图标、门禁、原型 parity 都立起来了，本规范做三件事——
+<strong>① 把已经隐性一致的东西写成显性规则；② 把散落的写法收敛进既有档位；③ 为还没有界面的业务面（推演 / 归档回路 / 导出）预留语言。</strong>
+所有改动都要走既定的「先改原型 → 改实现 → design:check 全绿」流程。
+</div>
+
+<h2 id="p1">一、设计原则（两条继承 + 四条新增）</h2>
+<table>
+<tr><th style="width:150px">原则</th><th>判定标准（能用来吵赢的句子）</th><th style="width:210px">已落地证据</th></tr>
+<tr><td><strong>P1 永远知道下一步</strong> <span class="pill">继承</span></td><td>每一屏至少有一个明确的下一步入口；阶段完成即出现下一阶段入口。</td><td>modnav 计数；OgPane「去写正文」；VolumePanel「去配章纲」</td></tr>
+<tr><td><strong>P2 状态可见</strong> <span class="pill">继承</span></td><td>进度 / 保存 / 确认三种状态全局同一套语义，完成即变色。</td><td>三态圆点；保存四态；设定 n/8</td></tr>
+<tr><td><strong>P3 允许旁路</strong> <span class="pill">继承</span></td><td>设定未完成也可以先写；高级配置标注「可后补」。任何必填门槛都必须给一句「为什么缺这个不行」。</td><td>canDefer 标注；空书直达编辑器；主线三项可只填部分</td></tr>
+<tr><td><strong>P4 正文优先</strong> <span class="pill">继承</span></td><td>写作中屏信息密度从低到严控；宋体排版、专注模式、状态安静不打断心流。</td><td>17px/2.0/缩进 2em；专注模式 Esc</td></tr>
+<tr><td><strong>N5 同一对象同一套状态语言</strong> <span class="pill">新</span></td><td>一个业务对象（章 / 卷 / 设定项 / Key）在树、卡片、徽标、页签里的颜色语义必须完全同源。禁止为单屏发明新的状态色组合。</td><td>待落实 —— §5 总表是唯一来源</td></tr>
+<tr><td><strong>N6 红色只表示不可逆或即时生效</strong> <span class="pill">新</span></td><td>--err 只用于删除确认主按钮 / 破坏结果描述 / 校验阻断。营销式强调、警示但不危险的内容用 --warn 或 --accent。</td><td>待落实（当前 list 卡片菜单危险项误用 warn）</td></tr>
+<tr><td><strong>N7 AI 行为必须可预期、可拒绝、可改</strong> <span class="pill">新</span></td><td>每个 AI 入口都要回答四个问题：它会动哪里？停不停得下来？结果能不能不要？能不能手改成我要的？答不全就不许上线。</td><td>AiModal 两段式 + 停止 + 对比弹窗已有雏形</td></tr>
+<tr><td><strong>N8 中文阅读优先，术语说人话</strong> <span class="pill">新</span></td><td>界面文案遵循卖点文档的翻译律：内部术语不出现在用户可见层（§13 有对照表）。</td><td>页面名「模型配置」已是范本</td></tr>
+</table>
+
+<h2 id="p2">二、色彩令牌</h2>
+<p class="lead">单一亮色主题（双主题决议已废）。全部色值以 oklch 表达，柔和态一律 <code>color-mix(in oklch, …, transparent)</code> 派生，禁止写字面色。左列 token 名 = 变量名。</p>
+
+<table>
+<tr><th style="width:150px">Token</th><th style="width:120px">值</th><th>语义 / 使用场景</th></tr>
+<tr><td class="mono">--bg</td><td>oklch(98% .004 240)</td><td>页面底、列底（.col-tree/.col-ai）</td></tr>
+<tr><td class="mono">--surface</td><td>oklch(100% 0 0)</td><td>卡片 / 面板 / 弹窗 / appbar 底</td></tr>
+<tr><td class="mono">--fg</td><td>oklch(20% .02 240)</td><td>正文墨色、标题</td></tr>
+<tr><td class="mono">--muted</td><td>oklch(50% .018 240)</td><td>次级文字、辅助说明、未激活控件</td></tr>
+<tr><td class="mono">--border</td><td>oklch(90% .006 240)</td><td>描边 / 分隔线 / 输入框边</td></tr>
+<tr><td class="mono">--accent</td><td>oklch(48% .11 170)</td><td>墨绿主操作：主按钮、选中态、focus 圈、链接、流式指示点。<strong>同时承担「信息提示」语气，不再引入第四个蓝紫色相。</strong></td></tr>
+<tr><td class="mono">--accent-strong</td><td>oklch(41% .10 170)</td><td>hover 加深、渐变一端</td></tr>
+<tr><td class="mono">--accent-soft</td><td>mix 12%</td><td>选中行底、AI 相关底色 wash、PRO 相关轻底</td></tr>
+<tr><td class="mono">--ok / soft</td><td>52% .11 155 / mix 14%</td><td>已确认、连接正常、达标、校验通过</td></tr>
+<tr><td class="mono">--warn / soft</td><td>50% .13 75 / mix 16%</td><td>进行中、草稿、需注意但不危险</td></tr>
+<tr><td class="mono">--err / soft</td><td>50% .17 25 / mix 12%</td><td>仅限 N6 语义：破坏操作、不可逆后果、阻断缺项</td></tr>
+<tr><td class="mono">--fg-soft</td><td>mix 5%</td><td>平面 tinted 底（无需描边的次要区块）、hover wash</td></tr>
+<tr><td class="mono">--scrim <span class="pill p-accent">补</span></td><td>建议 color-mix(fg 45%)</td><td>遮罩统一取值（现在遮罩暗度分散在 Modal 与旧代码中）</td></tr>
+<tr><td class="mono">--accent-faint <span class="pill p-accent">补</span></td><td>mix 5–6%</td><td>极浅 wash：info 型 notice 条、整块区域高亮</td></tr>
+</table>
+
+<h4>灰度档（opacity 阶梯，沿用词汇表白名单）</h4>
+<ul>
+<li><code>text-*：</code>/30 占位提示 · /40 弱说明 · /60 常规辅助 · /80 次正文</li>
+<li><code>border-*：</code>/10 发丝线 · /20 弱分隔 · /30 常规边框 · /40 卡片边 · /60 强边</li>
+<li><code>bg-*：</code>/5 /10 /20 浅晕染 · /60 /70 /80 表面混合</li>
+<li><code>shadow-*：</code>/5 /10 /20</li>
+</ul>
+
+<h2 id="p3">三、字体与字阶</h2>
+
+<h3>3.1 三条字体栈（保持现状，决策一条）</h3>
+<table>
+<tr><th style="width:110px">用途</th><th>栈</th><th>规则</th></tr>
+<tr><td>Display 宋体<br /><code>--font-display</code></td><td>Noto Serif SC → Songti SC → STSong → Georgia</td><td>只用于：logo、page-head h1、弹窗标题、书名、大百分比数字（进度卡）、预览排版。<strong>不用于任何 UI 控件文字。</strong></td></tr>
+<tr><td>Body 苹方系<br /><code>--font-body</code></td><td>-apple-system → PingFang SC → Microsoft YaHei → system-ui</td><td>界面一切默认文字；基准 14px/1.55</td></tr>
+<tr><td>Mono 数字<br /><code>--font-mono</code></td><td>ui-monospace → SF Mono → Menlo</td><td>凡承载对齐意义的数字都用（<code>.num</code>）：字数、百分比、计数徽标 n/8、时间戳、token 数量</td></tr>
+</table>
+
+<div class="rule"><strong>待拍板 F1（webfont）：</strong>Noto Serif SC 从未被真实加载，parity 截图验证的是宋体回退字形。两个选项：<br />
+A. 打包子集化 woff2（常用汉字子集约几百 KB，随 Docker 镜像走，pywebview 本地加载无网络成本）—— 标题真正达到设计意图；<br />
+B. 接受系统宋体为最终观感，把栈改为 Songti SC 打头并在本文件注明「无 webfont」。<br />推荐 A：差异集中在 logo / 书名 / 大百分比 / 预览正文四处，是品牌质感的主要载体。</div>
+
+<h3>3.2 字阶（22 个字面量 → 8 档命名 + 正文排印档）</h3>
+<p class="lead">现有 0.5px 步进属于历史光学调优，直接替换会有 parity 波动，因此映射表按「谁最接近就用谁」给出，迁移时逐屏校准。</p>
+
+<table>
+<tr><th style="width:170px">Token（建议名）</th><th style="width:80px">值</th><th style="width:200px">使用位置</th><th>吸收的原字面量</th></tr>
+<tr><td class="mono">--text-display-xl</td><td>44px serif</td><td>落地页 hero 主标</td><td>46px</td></tr>
+<tr><td class="mono">--text-display</td><td>30px serif</td><td>page-head h1、进度卡大百分比</td><td>24 / 30px</td></tr>
+<tr><td class="mono">--text-title</td><td>20px serif</td><td>面板头、书卡书名、强章节题</td><td>19 / 21 / 22px</td></tr>
+<tr><td class="mono">--text-subtitle</td><td>16px</td><td>卡片头、组标题、加粗引导句</td><td>15 / 16px</td></tr>
+<tr><td class="mono">--text-base</td><td>14px</td><td>界面默认正文、输入内容</td><td>13.5 / 14 / 14.5px</td></tr>
+<tr><td class="mono">--text-body-sm</td><td>13px</td><td>描述、hint、按钮字、notice 文案</td><td>12.5 / 13px</td></tr>
+<tr><td class="mono">--text-meta</td><td>12px</td><td>meta 行、时间戳、副标签、大多数 pill</td><td>11.5 / 12px</td></tr>
+<tr><td class="mono">--text-micro</td><td>11px</td><td>角标、豁免标签、密度极高的表格头</td><td>10 / 10.5 / 11px</td></tr>
+</table>
+
+<h4>正文排印档（独立于 UI 字阶，永远不许挪用）</h4>
+<div class="spec-box">--prose-s 15px</div>
+<div class="spec-box">--prose-m 17px（默认）</div>
+<div class="spec-box">--prose-l 19px</div>
+<div class="spec-box">行距 1.8 / 2.0 / 2.2</div>
+<div class="spec-box">栏宽 max 680px</div>
+<div class="spec-box">首行缩进 2em</div>
+
+<h2 id="p4">四、几何：圆角 / 间距 / 阴影 / 层级</h2>
+
+<h3>4.1 圆角（4 档收敛）</h3>
+<table>
+<tr><th style="width:170px">Token</th><th style="width:60px">值</th><th>用于</th><th>吸收原值</th></tr>
+<tr><td class="mono">--radius-pill <span class="pill p-accent">补</span></td><td>999px</td><td>一切胶囊：状态徽标、tag、PRO 徽、seg 切换</td><td>999px ×25 处、50% 用于胶囊的场景</td></tr>
+<tr><td class="mono">--radius-sm <span class="pill p-accent">补</span></td><td>7px</td><td>小控件：icon-btn、行内 chip、mini stat、hover 高亮块</td><td>6 / 7 / 8 / 9px（取众数 7）</td></tr>
+<tr><td class="mono">--radius</td><td>10px</td><td>标准卡片、按钮、输入框、面板</td><td>现状默认</td></tr>
+<tr><td class="mono">--radius-lg</td><td>16px</td><td>一级容器：Modal、大面积 card、empty 容器</td><td>16px（book 屏残留 14px 待归位）</td></tr>
+</table>
+
+<h3>4.2 间距（4pt 栅格 + 一枚节奏变量）</h3>
+<ul>
+<li>栅格取 4 的倍数：<code>--s1 4 / --s2 8 / --s3 12 / --s4 16 / --s5 20 / --s6 24 / --s8 32 / --s10 40</code></li>
+<li><strong><code>--field-gap</code>（建议 16px）</strong>是唯一表单纵向节奏变量。现在 base 弹窗 14px / 书内 16px 的分叉以 16px 统一，把「有意为之」的注释换成「共用一个变量」，否则新屏永远在猜。</li>
+<li>两处模块级节奏（config 屏 main 顶部 44 vs 标准 48、cards gap 16 vs 20）若确要保留紧凑，登记为 <code>--main-pad-top-dense</code>/<code>--card-gap-dense</code> 并注明适用屏，而不是匿名写死。</li>
+</ul>
+
+<h3>4.3 阴影与层级</h3>
+<table>
+<tr><th style="width:180px">Token</th><th>定义 / 用途</th></tr>
+<tr><td class="mono">--shadow-card</td><td>静置卡片唯一阴影（现状保留）；悬浮抬升只允许出现在书架卡（translateY(-2px)）</td></tr>
+<tr><td class="mono">--shadow-pop <span class="pill p-accent">补</span></td><td>浮层专属：Modal、Toast、下拉菜单、悬浮 ⋯ 菜单。现在这些浮层各写一套阴影，建议收敛为一枚更深的投影</td></tr>
+</table>
+<table>
+<tr><th style="width:190px">Z-index Token（建议）</th><th>值</th><th>归属</th></tr>
+<tr><td class="mono">--z-menu</td><td>10</td><td>卡片 hover 菜单（list.css .card-menu）</td></tr>
+<tr><td class="mono">--z-appbar</td><td>40</td><td>粘性导航（mkt-nav）、工作台顶栏若将来吸顶</td></tr>
+<tr><td class="mono">--z-scrim</td><td>50</td><td>.scrim</td></tr>
+<tr><td class="mono">--z-modal</td><td>60</td><td>.modal / .mcard</td></tr>
+<tr><td class="mono">--z-toast</td><td>80</td><td>.toast-wrap（永远最高）</td></tr>
+</table>
+
+<h2 id="p5">五、状态语言总表（本规范的核心）</h2>
+<p class="lead">这张表是全站唯一的对象状态视觉来源。新功能出现新状态时，先在这里加一行，再写样式——不允许局部发明第四种绿或第二种黄。</p>
+
+<h3>5.1 进度三态 + 衍生态</h3>
+<table>
+<tr><th style="width:120px">语义</th><th>几何（树/列表圆点）</th><th>徽标形态（卡片/页签/面板）</th><th>文案基调</th></tr>
+<tr><td><strong>未填</strong></td><td><span class="dot" style="border:1.5px solid var(--border);background:transparent"></span>空心圆</td><td>ghost 徽标（透明底 + border）</td><td>中性：「未填」「未选择」，不说「错误」</td></tr>
+<tr><td><strong>进行中 / 草稿</strong></td><td><span class="dot" style="background:var(--warn)"></span>实心 warn</td><td>warn 软底徽标：「草稿」「进行中」「待配章纲 缺N项→见下」</td><td>有方向感的下一步话术</td></tr>
+<tr><td><strong>已确认</strong></td><td><span class="dot" style="background:var(--ok)"></span>实心 ok</td><td>ok 软底徽标：「已确认」「已生成」「连接正常」</td><td>短，不加感叹号</td></tr>
+<tr><td><strong>阻断缺项</strong></td><td>—（不用点表达阻断）</td><td>err 软底徽标 + 就地缺口 chips</td><td>点名缺什么：「缺：核心任务、段落规划」，chip 点击滚动定位并闪烁</td></tr>
+<tr><td><strong>已归档 / 只读</strong></td><td>muted 描边实心点 + 树上文本 tag</td><td>muted 描边胶囊「已归档」，编辑区上沿横幅 readonly-banner</td><td>动词指向出路：「可在版本历史中恢复后重新归档」</td></tr>
+<tr><td><strong>锁定（会员/能力）</strong></td><td>锁形图标 + 整体降透明（.rail-locked）</td><td>accent 锁徽 / PRO 星徽</td><td>说清解锁能得到什么，不说「无权限」</td></tr>
+<tr><td><strong>自动 vs 自定义</strong></td><td>—</td><td>「自动组装」ok 徽标 ↔ 「已自定义/已润色/已修改」warn 徽标</td><td>强调用户改过的东西是被记住的</td></tr>
+</table>
+
+<h3>5.2 过程态（时间性状态）</h3>
+<table>
+<tr><th style="width:140px">语义</th><th>视觉</th><th>文案约定</th></tr>
+<tr><td><strong>保存四态</strong>（全站复用）</td><td>右下常驻 mono 小字：转圈 / 静态 / 可点击红色 / 完成</td><td>保存中… · 未保存 · 保存失败 · 重试（可点击）· 已自动保存</td></tr>
+<tr><td><strong>流式生成中</strong></td><td>accent 呼吸点 + 编辑区锁定（contenteditable=false）+ 停止按钮</td><td>AI 正在生成… · 停止；结束后质检横幅非阻断</td></tr>
+<tr><td><strong>AI 思考（非流式）</strong></td><td>弹窗内骨架占位（min-h 固定防塌陷，已豁免登记）+ spinner</td><td>组装中… / 润色中… / AI 正在生成…</td></tr>
+<tr><td><strong>骨架屏</strong></td><td>.card-skeleton 家族，底色 fg-soft，无动画即可（避免长列表抖动）</td><td>不给文字</td></tr>
+<tr><td><strong>重试</strong></td><td>错误文案后跟 text-btn 重试，或行内 err 框 + 重试按钮</td><td>「加载失败，请重试」/ 具体原因一句话</td></tr>
+<tr><td><strong>撤销窗口</strong></td><td>Toast + 撤销链接，8 秒（唯一软删除范式，见 §12）</td><td>已删除「X」· 撤销</td></tr>
+<tr><td><strong>健康七态</strong>（Key 卡范本）</td><td>徽标 ok/err/warn/muted 四档 + 卡边框随严重度</td><td>连接正常 / 认证失败 / 连接超时 / 网络错误 / 频率限制 / 未知 / 未测试</td></tr>
+</table>
+
+<div class="rule"><strong>规则 S-R1：</strong>同一对象在不同视图中的状态表达必须由同一份数据驱动（例如章的三态由服务端 status 派生），UI 不允许只在某一视图里表现更乐观的状态。<br />
+<strong>规则 S-R2：</strong>「进行中」永远比「未填」更暖、「已确认」永远是绿色系——这条优先级高于屏幕内的美观判断。<br />
+<strong>规则 S-R3：</strong>警示性的常态化徽标禁止（反例：卷纲面板永久挂「草稿」warn 徽标会把警示日常化）。常态属性放到副标题里说。</div>
+
+<h2 id="p6">六、组件词汇</h2>
+
+<h3>6.1 按钮</h3>
+<table>
+<tr><th>变体</th><th>高度</th><th>用途</th><th>禁则</th></tr>
+<tr><td>.btn-primary（accent 实底）</td><td>34px</td><td>每屏唯一主推进动作（保存 / 确认 / 创建）</td><td>一屏 ≤1 个主按钮出现在同一层级；主按钮不做致命操作</td></tr>
+<tr><td>.btn-secondary（白底描边）</td><td>34px</td><td>并列次选</td><td>—</td></tr>
+<tr><td>.btn-ghost</td><td>34px</td><td>第三级动作、取消</td><td>不作孤行动作入口（弱到会被漏看）</td></tr>
+<tr><td>.btn-danger / .btn-danger-ghost</td><td>34px</td><td>N6 语义才可用；确认型破坏放在 ConfirmGuard 内</td><td>行列表格行内禁用 danger 实底（面积小误触重）</td></tr>
+<tr><td>.btn-lg</td><td>42px</td><td>仅营销皮 + empty 主 CTA</td><td>产品界面（写作现场）禁用</td></tr>
+<tr><td>.btn-sm / .btn-xs</td><td>28 / 24px</td><td>工具行 / 密集行内操作</td><td>xs 仅用于 ≥3 个同级操作挤在一行的场合</td></tr>
+</table>
+<p><strong>点击反馈：</strong><code>:active { translateY(1px) }</code>；disabled 统一 opacity .45 + not-allowed（目前只有 book.css 定义了这条，应上移到 base.css 归属一次）。</p>
+
+<h3>6.2 胶囊家族（13 种实现 → 4 种角色）</h3>
+<table>
+<tr><th style="width:170px">角色</th><th>吸收现有类</th><th>规格</th></tr>
+<tr><td><strong>.pill-status</strong> 状态</td><td>.b(.ok/.err/.warn/.muted)、.badge 五变体、.b.writing/.setting/.done</td><td>radius-pill · 12px mono-adjacent 数字可用 · padding 2px 9px · 四语气色</td></tr>
+<tr><td><strong>.pill-tag</strong> 标签</td><td>.chip/.genre/.genre-tag/.arch-tag/.tag-plan/.ai-tag/.defer-tag/.gap-chip/.inv-chip/.m-chip</td><td>radius-pill · muted 描边或 fg-soft 底 · padding 1px 8px · 可带 10px 图标</td></tr>
+<tr><td><strong>.pill-pro</strong> 会员</td><td>.pill-pro/.free-hint/.pro-pill/.mkt-pill</td><td>星形 accent 实底（付费身份唯一使用 accent 强度的胶囊）</td></tr>
+<tr><td><strong>.pill-dot</strong> 计数</td><td>modnav .cnt、树头统计</td><td>radius-pill · fg-soft 底 · <code>.num</code> 等宽数字</td></tr>
+</table>
+
+<h3>6.3 容器与卡</h3>
+<table>
+<tr><th>类型</th><th>定义</th><th>用于</th></tr>
+<tr><td><strong>BorderCard</strong> 白底描边 + shadow-card</td><td>可直接操作的实体对象（书卡 / 配置卡 / 提示词卡 / 版本行 / arc 卡 / rail 卡）</td><td>hover 才有反馈，静置安静</td></tr>
+<tr><td><strong>TintPanel</strong> fg-soft 平底无边</td><td>只读说明、统计块、notice 家族、readonly-banner、ai-feat 特性行</td><td>不可点击的「性质说明」</td></tr>
+<tr><td><strong>CfgGroup</strong> 折叠组</td><td>title + tag chip + chevron（FormField.Cfg 是参考实现）</td><td>一切表单高级区；折叠默认收起时必须在组头上露出已完成摘要</td></tr>
+<tr><td><strong>ListEditor</strong></td><td>编号行 + 行删 + 上移 + maxItems 到量隐藏添加钮</td><td>疲劳词 / 例句 / 句式偏好 / 分卷规划…（上限存在就必须显示 x/y）</td></tr>
+<tr><td><strong>SubTable</strong></td><td>卷纲四子表范式：组头含条数 · 行内增删 · 数字夹紧 · 保存整族提交</td><td>未来伏笔台账 / 时间线表直接继承这套行为（PRD B 期）</td></tr>
+<tr><td><strong>.panel 名义冲突处理</strong></td><td>b/master 样式留给 BorderCard 同义类 <code>.panel-card</code>；裸栏容器改名 <code>.col-panel-plain</code></td><td>消除同名两义的架构债（评估 B2）</td></tr>
+</table>
+
+<h3>6.4 反馈层</h3>
+<table>
+<tr><th>组件</th><th>规格</th></tr>
+<tr><td><strong>Toast</strong></td><td>底部右侧 · shadow-pop · 成功不加图标靠文字，错误前缀明示原因 · aria-live=polite</td></tr>
+<tr><td><strong>Notice 条</strong>（四语气）</td><td>info=accent-faint / success=ok-soft / warning=warn-soft / danger=err-soft；左侧图标 + 单行 + 右侧动作；多条堆叠间距 --s2；同屏同类 notice ≤2 条</td></tr>
+<tr><td><strong>Empty 空态解剖</strong></td><td>图标（注册表内）+ 一句话说明现状 + 一个主动作 btn-secondary + 一个旁路动作 ghost。禁止只有插画没有出路</td></tr>
+<tr><td><strong>Error 空态</strong></td><td>失败原因（人话一句）+ 重试；如果影响的是外部资源，另给检查指引链接（如去配置模型）</td></tr>
+<tr><td><strong>ConfirmGuard</strong> <span class="pill p-accent">新</span></td><td>替代 5 处 window.confirm 的标准确认弹窗：标题「有未保存的修改」/ 正文一句丢失说明 / 取消 = secondary，丢弃 = primary / 保存并离开 = 第三档（数据允许时就提供）。Modal locked，确认族无 X</td></tr>
+</table>
+
+<h2 id="p7">七、布局骨架</h2>
+<div class="grid2">
+<div>
+<h4>全局壳</h4>
+<div class="flow">appbar 48px ── surface 底 + 发丝分隔
+   ├ /            → 无 appbar（营销自绘）
+   ├ /novel/*     → 书版：logo · ←我的小说 · spacer · 设置(BookPrefs)
+   └ 其余         → 标准版：logo · 我的作品 · 模型配置 · spacer · 设置(Prefs)
+main 内容宽 min(100%,1080px)，padding 48/32/80
+Footer 在 / 与 /novel/* 隐藏</div>
+<h4>工作台</h4>
+<div class="flow">novelbar 44 · modnav 44 · 视图主体
+three-col: [tree 280] [middle 1fr] [rail 236]
+two-col:   [nav 280] [panel 1fr]
+≤1024 收 rail · ≤900 tree 230 → 210 · 专注模式只剩中栏
+中栏内部：toolbar 46 → tabs 40 → pane(flex:1) → statusbar 32</div>
+</div>
+<div>
+<h4>信息密度的三种处方</h4>
+<table>
+<tr><th style="width:130px">场景</th><th>处方</th></tr>
+<tr><td>沉浸写正文</td><td>侧栏全部退场；中栏 680px 内排印；状态只留一行 statusbar</td></tr>
+<tr><td>结构规划（卷/章纲/设定表单）</td><td>允许高密度：折叠组 + SubTable + 编号行；但每组头部必须有「已完成摘要」一句话，让收起状态也传达信息</td></tr>
+<tr><td>决策浏览（书架/config/预览）</td><td>网格卡或两栏，节奏宽松（48 上下留白），密度最低</td></tr>
+</table>
+<h4>响应式底线</h4>
+<ul>
+<li>桌面应用 pywebview 为主，≥900 体验完整；≤1024 右栏消失属正常</li>
+<li>≤640 时 two-col 改上下 240px 树 + 内容，保证窄窗口也能用</li>
+<li>禁横向滚动的表格都走行内省略 + tooltip 全文</li>
+</ul>
+</div>
+</div>
+
+<h2 id="p8">八、动效与反馈</h2>
+<table>
+<tr><th style="width:170px">Token（建议）</th><th style="width:80px">值</th><th>用途</th></tr>
+<tr><td class="mono">--ease-out</td><td>cubic-bezier(.22,1,.36,1)</td><td>进场、位移</td></tr>
+<tr><td class="mono">--dur-fast</td><td>120ms</td><td>hover、按压、颜色过渡（现 150ms 取 120 更跟手）</td></tr>
+<tr><td class="mono">--dur-med</td><td>200ms</td><td>Modal 进出场、Toast 出场、抽屉</td></tr>
+<tr><td class="mono">--dur-page</td><td>400ms</td><td>路由 page-enter（末帧 transform:none 是硬约束，防 fixed 劫持——已在 index.css 注释固化）</td></tr>
+<tr><td class="mono">--dur-pulse</td><td>1.4s infinite</td><td>流式呼吸点、AI 思考点</td></tr>
+<tr><td class="mono">--dur-flash</td><td>1400ms</td><td>缺项字段定位后的闪烁聚焦</td></tr>
+</table>
+<div class="rule"><strong>规则 M-R1：</strong><code>@media (prefers-reduced-motion: reduce)</code> 关闭 page-enter 抬升 / 呼吸点脉冲 / 悬浮位移，但保留不透明度过渡。（目前缺失，需要补。）<br />
+<strong>规则 M-R2：</strong>流式写入期间正文区禁止布局抖动：插入文本不做 DOM 动画，只在指示点上表达「正在进行」。<br />
+<strong>规则 M-R3：</strong>Modal 必须保持现有 portal + 末帧 transform:none 约定，任何新浮层照抄 Modal.tsx 的进场实现，避免再现 containing block 劫持。</div>
+
+<h2 id="p9">九、图标</h2>
+<ul>
+<li>唯一来源 <code>src/components/icons.tsx</code> 注册表（38 path + 8 供应商图 + genreIconPath）。新增图标先登记 path 再引用，禁止临时内联新 SVG 之外再复制一份。</li>
+<li>几何口径：viewBox 0 0 24 24 · stroke currentColor 1.8~2 · round cap/join · fill none（供应商徽标是例外，允许 fill）。</li>
+<li><strong>尺寸永远由父级类控制</strong>：.btn svg 15 / .btn-sm 13 / .btn-xs 12 / .icon-btn 15 / badge 10。图标自身不设宽高。</li>
+<li>禁止 emoji 与 dingbat 字符（U+2600-27BF 含 ✓✗ 都算违规，ArcWizard.tsx:113 属存量违规待清）。</li>
+<li>清理项：moon 图标（主题已废弃）应移出注册表；public/ 下 next.svg、vercel.svg 等 5 个脚手架残留删除。</li>
+</ul>
+
+<h2 id="p10">十、AI 交互四形（每个 AI 入口必须归入其中之一）</h2>
+
+<table>
+<tr><th style="width:150px">形态</th><th>结构</th><th>适用</th><th>已有的范例实现</th></tr>
+<tr><td><strong>A1 就地建议形</strong></td><td>字段行内小按钮「AI 帮我填」→ AISuggestionModal（loading 骨架 → 结果 → 换一个 / 接受这个 / 关闭）；字段已有内容则先展示现值再给强制重试</td><td>单个字段的起草</td><td>世界 / 文风 / 伏笔字段</td></tr>
+<tr><td><strong>A2 对比替换形</strong></td><td>双栏：原文 ↔ 生成稿；底部 拒绝 / 换一个 / 接受；结果就绪后 Enter=接受；说明一句「接受后将替换原文选区」</td><td>局部改写且有损</td><td>ContrastPreviewModal（润色 / 扩写）</td></tr>
+<tr><td><strong>A3 组装审阅形</strong></td><td>先生成可读中间物（提示词）→ AI 润色 → 用户过目编辑 → 才真正执行；被拒绝不会产生副作用</td><td>不可逆 / 大范围输出</td><td>AiModal 两段式生成正文</td></tr>
+<tr><td><strong>A4 流式伴随形</strong></td><td>编辑器锁定 → accent 呼吸点 → 停止可随时中断且保留半成品 → 结束给非阻断质检横幅并指向补救动作（如「续写」）</td><td>正文级连续产出</td><td>ProsePane startWriting</td></tr>
+</table>
+
+<h4>公共守则（对应原则 N7）</h4>
+<ul>
+<li><strong>来源声明：</strong>凡是内容会被 AI 读走的，入口处用一句话说明来源（「由设定 + 章纲组装，可先润色再编辑」）。</li>
+<li><strong>去向声明：</strong>会写回到哪要说清楚（「生成内容将追加到本章末尾」）。</li>
+<li><strong>覆盖警告：</strong>AI 结果将覆盖用户已有内容时，必须 confirm 一次（AiModal 起草覆盖当前表单的做法是标准）。</li>
+<li><strong>降级路径：</strong>没有前置条件时不阻断而降级——「本章尚未配置章纲，将仅依据设定生成。建议先去大纲补章纲（不强制）」这句就是这个模式的范本。</li>
+<li><strong>会员拦截统一出口：</strong>入口可见、点击触发后端 403、由全局 MemberBlockPrompt 统一弹升级窗；<strong>具体卡片自身只做视觉上的锁定态，不再各自弹窗</strong>（消灭重复劝导）。向导类（ArcWizard）需要在卡上先声明「会员功能 · 每步产出先落卡、随时可改、中途可续」，避免点击后才知情。</li>
+<li><strong>能力预告（路线图占位）规范：</strong>Rail 的「规划中的能力」折叠成一行，并在 PRD 范围更新时同步改名；占位不算宣传承诺。</li>
+</ul>
+
+<h2 id="p11">十一、免费 / PRO 门控的视觉规则</h2>
+<p class="lead">商业模式主张「免费 = 人工写作完整能力，PRO = 同一界面解锁 AI」。这是设计语言的一部分，不是运营话术。</p>
+
+<table>
+<tr><th style="width:160px">策略</th><th style="width:250px">什么时候用</th><th>视觉</th></tr>
+<tr><td><strong>可见 + 锁定</strong>（首选）</td><td>AI 能力入口、被额度挡住的操作、提示词这类 PRO 专有页签</td><td>降透明 / 锁徽 / PRO 星徽；点击要么给 UpgradeModal 要么由后端 403 触发 MemberBlockPrompt；锁定态必须附一句收益描述</td></tr>
+<tr><td><strong>完全隐藏</strong>（例外）</td><td>仅当该入口的存在本身会让免费用户误解功能边界时</td><td>隐藏必须在别处有一次补偿性告知（比如书架 notice）</td></tr>
+<tr><td><strong>能力等价</strong></td><td>人工路径的一切功能</td><td>零差异；包括归档 / 版本 / 偏好这些质量设施</td></tr>
+</table>
+
+<div class="note"><strong>按此规则的整改清单：</strong>① 书架满额时的「新建/导入」从隐藏改为锁定入口 + 说明「免费版最多 1 本书 · 升级无限创建」（评估 C1）；② 提示词页签对免费从隐藏改为锁定页签（评估 F3），保持 tab 架构稳定且兑现「同一界面」；③ 引导卡补齐免费用户版本（评估 D1），但去掉 PRO 步骤「提示词」的展示或把它画成锁定节点。</div>
+
+<h2 id="p12">十二、删除与破坏性操作分级</h2>
+<table>
+<tr><th style="width:110px">级别</th><th>条件</th><th>形式</th><th>实例</th></tr>
+<tr><td><strong>L1 行内即时</strong></td><td>草稿性质、可重建的小行（阶段分配行 / 冲突阶梯行 / 例句行）</td><td>直接删，无确认；建议补 UndoToast 化的软撤（复用 api-config 的 UndoToast）</td><td>SubTable / ListEditor 行删除</td></tr>
+<tr><td><strong>L2 盘点确认</strong></td><td>删除会影响关联内容的实体</td><td>ConfirmGuard + 内容盘点 chips（「章纲已确认」「正文 N 字」「自定义提示词」）</td><td>树上删章 / 删卷（卷版还要 N 章 M 字合计）</td></tr>
+<tr><td><strong>L3 名称输入确认</strong></td><td>不可逆且对象具有身份（书 / 角色 / 自建题材）</td><td>DeleteConfirmModal 输入名称匹配；后果说明写清楚；409 冲突要列出受影响的书</td><td>删书 / 删角色 / 删题材</td></tr>
+<tr><td><strong>L4 软删除 + 撤销</strong></td><td>技术上可恢复、且恢复价值高</td><td>立即生效的 toast + 8 秒撤销窗口</td><td>API 配置删除（现阶段唯一一处，应推广到 L1 行级删除）</td></tr>
+<tr><td><strong>归档 ≠ 删除</strong></td><td>—</td><td>归档是生命周期态不是销毁：入口叫「归档」，解除走 UnlockModal，且解除后自动续跑被打断的动作</td><td>章节归档链路</td></tr>
+</table>
+<div class="rule"><strong>规则 D-R1：</strong>破坏性文案必须写「丢了什么 + 是否可逆」，不能只写「确定吗？」。<br />
+<strong>规则 D-R2：</strong>同一次操作链条里只允许一道确认；归档 + AI 摘要额度这种叠加要合并为一个对话框（e2e 里 trial 双 confirm 的特例应当作为回归教训记录）。</div>
+
+<h2 id="p13">十三、文案与术语表</h2>
+<p class="lead">沿用卖点的翻译律：内部术语不出现在用户可见层。下表左侧是代码/内部语汇，右侧是界面用语。状态待拍板项标注出来，拍板后先进本文件对应小节，再两端同批入 vocab.mjs。</p>
+
+<table>
+<tr><th style="width:190px">内部概念</th><th style="width:190px">界面用语</th><th>备注</th></tr>
+<tr><td>six-phase init → archive</td><td>建书 → 设定 → 大纲 → 章纲 → 写作 → 归档</td><td>对外六步已拍板；「提示词」不在对外步骤里</td></tr>
+<tr><td>prompt / 提示词页签</td><td><span class="pill p-warn">待拍板</span> 「写作指令」或保留「提示词」仅 PRO</td><td>卖点文档明确「提示词是内部环节不呈现」；但 PRO 目标用户部分接受术语。倾向改名以贴合新手认知</td></tr>
+<tr><td>API Key / Base URL</td><td>页面叫「模型配置」；表单字段保留 API Key 技术名，旁边配一句人话解释</td><td>技术字段名改动会破坏供应商文档对照，保留</td></tr>
+<tr><td>Token / 计费</td><td>用量 / 花费</td><td>「Token 计数」标头建议改「AI 用量」</td></tr>
+<tr><td>gate / 门控 / readiness</td><td>「还差什么」「下一步」</td><td>不出现「门控」「就绪度」这类词</td></tr>
+<tr><td>SSE / 流式</td><td>「正在生成」（流式细节不提）</td><td>—</td></tr>
+<tr><td>member_required / license</td><td>「AI 是会员功能」/ 升级 PRO</td><td>不说「鉴权失败」之类机器腔</td></tr>
+<tr><td>归档 archive</td><td>「归档」+ 结果说明「正文只读，可在版本历史恢复」</td><td>—</td></tr>
+<tr><td>tier / 套餐</td><td>试用中 / PRO 版 / 免费版 / 套餐已过期</td><td>BookPrefsModal 账号行的措辞已是范本</td></tr>
+</table>
+
+<h4>书写规范</h4>
+<ul>
+<li>称呼一律「你」，不用「您」（全文已一致）；避免卡通语气词与感叹号。</li>
+<li>按钮词永远是动词（保存 / 确认 / 删除 / 去写正文），不放「好的」「知道了」以外的主谓句。</li>
+<li>补救语句必须包含一个可点击的出口（「还差 800 字，继续写。」而不是「字数不足」）。</li>
+<li>数字用等宽字体 + 千分位（2,486 字）；时间用相对时间（刚刚 / N 分钟前 / 昨天 HH:mm / 更早 M月D日）。</li>
+<li>每个上限都要在界面里可见：≤500、1–3 条、500–6000 字这类约束写在输入框 hint，不藏在报错里。</li>
+</ul>
+
+<h2 id="p14">十四、落地路径（怎么改而不砸 parity）</h2>
+
+<h3>第一步 · 把规范变成机器可读（半天）</h3>
+<ul>
+<li><code>design-vocab.mjs</code> 增加：z-index 注释段、字号档位白名单（禁止未登记 font-size 字面量）、<code>allowedArbitrary</code> 清理条目复核。</li>
+<li>两端 <code>scripts/design-vocab.mjs</code> 收录 §5 状态语言涉及的类名档位（若进入 lint 范围），与本文件同批修改。</li>
+</ul>
+
+<h3>第二步 · 修静态断裂（P0 清单，见审计报告 §6）</h3>
+<ul>
+<li>var(--font-serif)、href="/config"、.spin 双定义、.inv-chip 双定义、免费引导卡缺失、满额入口消失、目标字数双口径、404 兜底路由。这批不需要动原型，直接修 + 回归 e2e。</li>
+</ul>
+
+<h3>第三步 · 词汇收敛（一屏一批次，走 parity）</h3>
+<table>
+<tr><th style="width:180px">批次</th><th>内容</th><th>验证</th></tr>
+<tr><td>B1 胶囊家族</td><td>13 类 → .pill 四角色，先 list/book 原型同改再收编实现</td><td>design:check 双主题相关 case 逐像素通过</td></tr>
+<tr><td>B2 字阶命名化</td><td>8 档 token 替换 CSS 字面量（先原型后实现）</td><td>parity 全量 + tsc</td></tr>
+<tr><td>B3 几何 token</td><td>radius-sm/pill、--field-gap 16 统一、scrim/shadow-pop/z-index</td><td>parity + 手工核对浮层遮罩</td></tr>
+<tr><td>B4 destructive 语义</td><td>--warn 危险项迁 --err；ConfirmGuard 替换 window.confirm ×5</td><td>e2e settings-forms / modals-pr5 更新</td></tr>
+</table>
+
+<h3>第四步 · 新业务面接入（预留槽位）</h3>
+<ul>
+<li>剧情推演沙盘 → 书工作台右栏新模式（mode: sandbox），复用 A4 流式伴随形 + 对话形。</li>
+<li>归档更新回路（B 期）→ 连续性快照确认弹窗 = ConfirmGuard 的盘点 variants + VersionDiff 的 diff 语言；非会员降级文案照 PRD §9。</li>
+<li>导出备份 → BookPrefsModal 新增一行 + Toast 成功回执。</li>
+<li>预览搜索 / 跳章 → PreviewView 左树上方加 search-wrap（复用书架 search 语言）。</li>
+</ul>
+
+<div class="note" style="margin-top:32px">
+<strong>验收口径：</strong>以上任何一条落地，都需要同时满足三件事—— 原型文件先行更新（ADJUSTMENTS.md 登记）、<code>npm run design:check</code> 全绿（像素差 &lt;0.2%）、相关 e2e 更新后全量通过。这就是本项目「设计以文件为唯一事实源」的运行方式。
+</div>
+
+</div>
+</body>
+</html>

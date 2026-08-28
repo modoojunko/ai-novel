@@ -59,8 +59,9 @@ client/packaging/build/.dmg_stage/
 client/packaging/dist/
 client/frontend/dist/
 
-# Development docs — not tracked in git
-docs/
+# C端像素 parity 运行资产（原型 HTML + 基线 PNG，5MB+）保持本地：
+# e2e 对缺失自动跳过（见 client/frontend/e2e/design-parity*.spec.ts），入库会改变 CI 行为
+docs/design-c/
 
 # Docker compose bind-mount data (D 盘)
 .docker-data/
@@ -111,9 +112,9 @@ playwright-report/
 agent/
 .zcode/
 
-# 本地运行时与跨会话交接文档（勿提交）
+# 本地运行时与跨会话交接文档（勿提交；仅根目录这份，docs/ux/handoff.md 是设计治理线正式文档要入库）
 .dev-runtime/
-handoff.md
+/handoff.md
 
 # 发布期注入产物（CI 生成）
 client/packaging/build/release.json

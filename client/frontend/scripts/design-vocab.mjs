@@ -1,5 +1,5 @@
-// 设计词汇表（lint 白名单）——机器可读的单一事实源。
-// 人工版说明见 docs/design-c/DESIGN.md（本地资产）；两处需同步修改。
+// 设计词汇表（lint 白名单）——机器强制层；标准正文唯一在 docs/ux/design-language.html。
+// 档位/禁令改动由标准派生，两端（client/server scripts/design-vocab.mjs）同批修改。
 // 规则：原型与「已收编」屏的源码里出现的类，必须落在下列档位/登记簿内；
 // 出现未登记的任意值、档位外 opacity、裸 hex/rgb、emoji、daisyUI 语义类回归
 // → design:lint 失败。
