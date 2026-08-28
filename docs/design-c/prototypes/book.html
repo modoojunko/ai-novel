@@ -1,0 +1,2574 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>星海拾遗 · 书工作台 — 爱小说</title>
+<style>
+  /* ─── tokens（与全站一致） ─────────────────────────────── */
+  :root {
+    --bg:      oklch(98% 0.004 240);
+    --surface: oklch(100% 0 0);
+    --fg:      oklch(20% 0.02 240);
+    --muted:   oklch(50% 0.018 240);
+    --border:  oklch(90% 0.006 240);
+    --accent:  oklch(48% 0.11 170);
+    --accent-strong: oklch(41% 0.10 170);
+    --accent-soft:   color-mix(in oklch, var(--accent) 12%, transparent);
+    --ok:    oklch(52% 0.11 155);  --ok-soft:   color-mix(in oklch, var(--ok) 14%, transparent);
+    --warn:  oklch(50% 0.13 75);   --warn-soft: color-mix(in oklch, var(--warn) 16%, transparent);
+    --err:   oklch(50% 0.17 25);   --err-soft:  color-mix(in oklch, var(--err) 12%, transparent);
+    --fg-soft:   color-mix(in oklch, var(--fg) 5%, transparent);
+    --shadow-card: 0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent),
+                   0 12px 32px -12px color-mix(in oklch, var(--fg) 14%, transparent);
+    --font-display: 'Noto Serif SC', 'Songti SC', 'STSong', 'Iowan Old Style', Georgia, serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', monospace;
+    --radius: 10px; --radius-lg: 14px;
+    --col-left: 280px;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: var(--font-body); font-size: 14px; line-height: 1.55;
+    text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  img, svg { display: block; }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; padding: 0; }
+  input, textarea, select { font: inherit; }
+  .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .serif { font-family: var(--font-display); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; }
+
+  /* ─── 按钮 ─────────────────────────────────────────────── */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 15px; border-radius: var(--radius); border: 1px solid transparent; font-size: 13.5px; font-weight: 500; letter-spacing: 0.01em; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  .btn-primary { background: var(--accent); color: var(--surface); }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-strong); }
+  .btn-secondary { background: var(--surface); color: var(--fg); border-color: var(--border); }
+  .btn-secondary:hover:not(:disabled) { border-color: var(--fg); }
+  .btn-ghost { background: transparent; color: var(--muted); padding: 0 8px; }
+  .btn-ghost:hover:not(:disabled) { color: var(--fg); background: var(--fg-soft); }
+  .btn-danger-ghost { color: var(--err); }
+  .btn-danger-ghost:hover:not(:disabled) { background: var(--err-soft); color: var(--err); }
+  .btn-sm { height: 28px; padding: 0 11px; font-size: 12.5px; border-radius: 8px; gap: 5px; }
+  .btn svg { width: 15px; height: 15px; }
+  .btn-sm svg { width: 13px; height: 13px; }
+  .icon-btn { width: 30px; height: 30px; display: inline-grid; place-items: center; border-radius: 8px; color: var(--muted); flex: none; }
+  .icon-btn:hover { color: var(--fg); background: var(--fg-soft); }
+  .icon-btn svg { width: 15px; height: 15px; }
+
+  /* ─── 应用栏 ───────────────────────────────────────────── */
+  .appbar { height: 48px; flex: none; display: flex; align-items: center; padding: 0 16px; gap: 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .logo { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+  .logo-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: var(--surface); display: grid; place-items: center; font-family: var(--font-display); font-size: 14px; }
+  .appbar .sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
+  .appbar .back { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13.5px; padding: 5px 9px; border-radius: 8px; }
+  .appbar .back:hover { color: var(--fg); background: var(--fg-soft); }
+  .appbar .back svg { width: 14px; height: 14px; }
+  .appbar .spacer { flex: 1; }
+
+  /* ─── 小说栏 ───────────────────────────────────────────── */
+  .novelbar { height: 44px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 20px; background: var(--bg); border-bottom: 1px solid var(--border); }
+  .novel-title { font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+  .genre-tag { display: inline-flex; align-items: center; padding: 2px 9px; border: 1px solid var(--border); border-radius: 999px; font-size: 11.5px; color: var(--muted); background: var(--surface); }
+  .free-hint { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); padding: 3px 10px; border-radius: 999px; background: var(--fg-soft); }
+  .free-hint svg { width: 13px; height: 13px; }
+  .novelbar .spacer { flex: 1; }
+  .pill-pro { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; }
+  .pill-pro svg { width: 11px; height: 11px; }
+
+  /* ─── 书内模块导航：设定 / 大纲 ─────────────────────────── */
+  .modnav { flex: none; display: flex; align-items: center; gap: 4px; height: 44px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .mtab { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 14px; border-radius: 9px; font-size: 13.5px; color: var(--muted); }
+  .mtab:hover { color: var(--fg); background: var(--fg-soft); }
+  .mtab.on { color: var(--accent); background: var(--accent-soft); font-weight: 500; }
+  .mtab .cnt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.02em; }
+  .mtab.on .cnt { color: var(--accent); }
+  .modnav .spacer { flex: 1; }
+  .modnav .side { font-size: 12px; color: var(--muted); }
+
+  /* ─── 视图容器 ─────────────────────────────────────────── */
+  .view { flex: 1; min-height: 0; display: none; }
+  .view.on { display: block; }
+  .view.on.three-col { display: grid; grid-template-columns: var(--col-left) 1fr 236px; }
+  .view.on.two-col { display: grid; grid-template-columns: var(--col-left) 1fr; }
+  @media (max-width: 1024px) { :root { --col-left: 230px; } .view.on.three-col .col-progress, .view.on.three-col .col-ai { display: none; } }
+  @media (max-width: 900px) { :root { --col-left: 210px; } }
+  @media (max-width: 860px) {
+    .view.on.three-col { grid-template-columns: 1fr; grid-template-rows: 200px 1fr; }
+    .view.on.three-col .col-tree { border-right: 0; border-bottom: 1px solid var(--border); }
+    .view.on.three-col .col-ai { display: none; }
+  }
+  @media (max-width: 640px) { .view.on.two-col { grid-template-columns: 1fr; grid-template-rows: 240px 1fr; } .view.on.two-col .col-tree { border-right: 0; border-bottom: 1px solid var(--border); } }
+  .col-tree { min-height: 0; overflow-y: auto; border-right: 1px solid var(--border); background: var(--bg); padding-bottom: 24px; }
+  .col-editor { min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
+  /* 大纲视图中间列：卷选中显示卷纲面板，章选中显示章对象工作台（二者其一） */
+  .col-middle { min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
+  .col-middle > .col-panel, .col-middle > .col-editor { flex: 1; min-height: 0; }
+  .col-progress, .col-ai { min-height: 0; overflow-y: auto; border-left: 1px solid var(--border); padding: 16px; background: var(--bg); }
+  .preview-head { flex: none; display: flex; align-items: center; height: 46px; padding: 0 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .preview-head .pv-title { font-family: var(--font-display); font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ─── 大纲树（大纲 / 正文两视图共用样式） ─────────────────── */
+  .tree-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 8px 18px; }
+  .tree-head .t { font-size: 12px; letter-spacing: 0.08em; color: var(--muted); font-family: var(--font-mono); }
+  .tree-head .t b { color: var(--fg); font-weight: 500; }
+  .tree { padding: 0 8px; }
+  .vol { margin-bottom: 2px; }
+  .vol-head { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 8px 0 6px; border-radius: 8px; cursor: pointer; user-select: none; }
+  .vol-head:hover { background: var(--fg-soft); }
+  .vol-head .chev { width: 14px; height: 14px; color: var(--muted); flex: none; transition: transform 0.15s ease; }
+  .vol-head .chev.open { transform: rotate(90deg); }
+  .vol-head .vt { font-size: 13.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vol-head .acts { display: none; align-items: center; gap: 1px; margin-left: auto; }
+  .vol-head:hover .acts { display: inline-flex; }
+  .vol-head .acts .icon-btn { width: 24px; height: 24px; }
+  .vol-head .acts .icon-btn svg { width: 13px; height: 13px; }
+  .vol-head.sel { background: var(--accent-soft); }
+  .vol-head.sel .vt { color: var(--accent); font-weight: 500; }
+  .ch-list { margin-left: 14px; border-left: 1px solid var(--border); padding-left: 4px; }
+  .ch { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px 0 10px; border-radius: 8px; cursor: pointer; user-select: none; position: relative; }
+  .ch:hover { background: var(--fg-soft); }
+  .ch.sel { background: var(--accent-soft); }
+  .ch.sel .ct { color: var(--accent); font-weight: 500; }
+  .ch .ct { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ch .acts { display: none; align-items: center; gap: 1px; margin-left: auto; }
+  .ch:hover .acts { display: inline-flex; }
+  .ch .acts .icon-btn { width: 22px; height: 22px; }
+  .ch .acts .icon-btn svg { width: 12px; height: 12px; }
+  .ch .dot-empty { width: 5px; height: 5px; border-radius: 50%; background: var(--border); flex: none; }
+  .ch.sel .dot-empty { background: color-mix(in oklch, var(--accent) 45%, transparent); }
+  .ch .dot-warn { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); flex: none; }
+  .ch .dot-ok { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); flex: none; }
+  .arch-tag { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 999px; background: var(--fg-soft); color: var(--muted); font-size: 10.5px; flex: none; letter-spacing: 0.02em; }
+  .ch.sel .arch-tag { background: color-mix(in oklch, var(--accent) 10%, transparent); color: var(--accent); }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; flex: none; }
+  .badge.ok { background: var(--ok-soft); color: var(--ok); }
+  .badge.warn { background: var(--warn-soft); color: var(--warn); }
+  .badge.err { background: var(--err-soft); color: var(--err); }
+  .badge svg { width: 10px; height: 10px; }
+  .inline-add { display: flex; align-items: center; gap: 6px; margin: 4px 0 4px 4px; padding-left: 10px; }
+  .inline-add input { flex: 1; height: 28px; border: 1px solid var(--accent); border-radius: 8px; padding: 0 10px; font-size: 13px; background: var(--surface); }
+  .tree-foot { padding: 0 14px 4px; }
+  .tree-foot .batch { color: var(--muted); }
+  .tree-foot .batch:hover { color: var(--fg); }
+  .empty-tree { padding: 24px 18px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+
+  /* ─── 编辑器 ───────────────────────────────────────────── */
+  .editor-toolbar { flex: none; display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .editor-toolbar .ch-name { font-family: var(--font-display); font-size: 15px; font-weight: 600; margin-right: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .editor-toolbar .grow { flex: 1; }
+  .seg { display: inline-flex; align-items: center; background: var(--fg-soft); border-radius: 9px; padding: 2px; }
+  .seg button { height: 24px; padding: 0 9px; border-radius: 7px; font-size: 12px; color: var(--muted); }
+  .seg button:hover { color: var(--fg); }
+  .seg button.on { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px color-mix(in oklch, var(--fg) 8%, transparent); font-weight: 500; }
+  .tsep { width: 1px; height: 20px; background: var(--border); }
+  .readonly-banner { flex: none; display: flex; align-items: center; gap: 9px; padding: 8px 20px; background: var(--fg-soft); color: var(--muted); font-size: 12.5px; border-bottom: 1px solid var(--border); }
+  .readonly-banner svg { width: 14px; height: 14px; }
+  .readonly-banner b { color: var(--fg); font-weight: 500; }
+  .editor-wrap { flex: 1; min-height: 0; overflow-y: auto; padding: 36px clamp(24px, 6vw, 72px) 120px; }
+  .editor { max-width: 680px; margin-inline: auto; outline: none; font-family: var(--font-display); font-size: 17px; line-height: 2.0; color: var(--fg); }
+  .editor.fs-s { font-size: 15px; } .editor.fs-m { font-size: 17px; } .editor.fs-l { font-size: 19px; }
+  .editor.lh-tight { line-height: 1.8; } .editor.lh-comfy { line-height: 2.0; } .editor.lh-loose { line-height: 2.2; }
+  .editor p { margin: 0 0 0.9em; text-indent: 2em; }
+  .editor p.chapter-head { text-indent: 0; font-weight: 600; font-size: 1.15em; margin-bottom: 1.6em; }
+  .editor[contenteditable="false"] { opacity: 1; }
+  .editor[contenteditable="false"]::selection { background: var(--fg-soft); }
+  .editor:empty::before { content: attr(data-placeholder); color: var(--muted); }
+  .editor.generating { cursor: progress; }
+  .editor-status { flex: none; display: flex; align-items: center; gap: 14px; height: 32px; padding: 0 18px; border-top: 1px solid var(--border); background: var(--surface); font-size: 12px; color: var(--muted); }
+  .editor-status .right { margin-left: auto; display: inline-flex; align-items: center; gap: 14px; }
+  .save-state { display: inline-flex; align-items: center; gap: 6px; }
+  .save-state svg { width: 13px; height: 13px; }
+  .save-state.saving { color: var(--accent); }
+  .save-state.saved { color: var(--ok); }
+  .save-state.dirty { color: var(--warn); }
+  .ai-streaming { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); }
+  .ai-streaming .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+
+  /* ─── 章对象三件套：正文 / 章纲 / 提示词 ─────────────────── */
+  .ch-tabs { flex: none; display: flex; align-items: center; gap: 2px; height: 40px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .chtab { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 8px; font-size: 13px; color: var(--muted); transition: background 0.15s ease, color 0.15s ease; }
+  .chtab:hover { color: var(--fg); background: var(--fg-soft); }
+  .chtab.on { color: var(--accent); background: var(--accent-soft); font-weight: 500; }
+  .chtab .cnt { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+  .chtab .cnt.ok { color: var(--ok); }
+  .chtab .cnt.warn { color: var(--warn); }
+  .chtab .cnt.err { color: var(--err); }
+  .prose-ctrls { display: inline-flex; align-items: center; gap: 8px; }
+  .og-pane, .prompt-pane { flex: 1; min-height: 0; overflow-y: auto; padding: 26px clamp(20px, 4vw, 48px) 60px; background: var(--bg); }
+
+  /* ─── 本章进度卡 ───────────────────────────────────────── */
+  .progress-head { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 14px; }
+  .ai-locked { padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); margin-bottom: 14px; }
+  .ai-locked .lhead { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .ai-locked .lhead svg { width: 15px; height: 15px; color: var(--accent); flex: none; }
+  .ai-locked .lhead b { font-size: 13.5px; }
+  .ai-locked p { margin: 0 0 10px; font-size: 12.5px; color: var(--muted); line-height: 1.7; }
+  .ai-sec { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em; color: var(--muted); margin: 18px 0 10px; }
+  .ai-feat, .ai-tool { padding: 11px 0; border-bottom: 1px solid var(--border); }
+  .ai-feat:last-child, .ai-tool:last-child { border-bottom: 0; }
+  .ai-feat-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+  .ai-feat-head b { font-size: 13px; }
+  .ai-feat p, .ai-tool p { margin: 0 0 8px; font-size: 12px; color: var(--muted); line-height: 1.65; }
+  .tag-plan { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 999px; background: var(--fg-soft); color: var(--muted); font-size: 10px; letter-spacing: 0.04em; flex: none; }
+  #aiOutlinePlanned.locked, #aiWriteTools.locked, #aiWritePlanned.locked { pointer-events: none; }
+  #aiOutlinePlanned.locked .ai-feat, #aiWriteTools.locked .ai-tool, #aiWritePlanned.locked .ai-feat { opacity: 0.45; }
+  .col-ai .pct { font-size: 30px; margin-top: 2px; }
+  .col-ai .pbar { margin-top: 12px; }
+  .col-ai .arch-card { margin-top: 12px; }
+  .pct { font-family: var(--font-display); font-size: 46px; line-height: 1; font-weight: 600; letter-spacing: 0.01em; }
+  .pct .sub { font-size: 16px; color: var(--muted); margin-left: 4px; }
+  .pbar { height: 6px; border-radius: 999px; background: var(--fg-soft); overflow: hidden; margin-top: 16px; }
+  .pbar i { display: block; height: 100%; border-radius: 999px; background: var(--accent); transition: width 0.3s ease; }
+  .target-row { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; font-size: 12.5px; color: var(--muted); }
+  .target-row .edit { color: var(--muted); padding: 2px 6px; border-radius: 6px; }
+  .target-row .edit:hover { color: var(--fg); background: var(--fg-soft); }
+  .target-row input { width: 86px; height: 26px; border: 1px solid var(--border); border-radius: 7px; padding: 0 8px; font-size: 12.5px; text-align: right; }
+  .progress-note { margin-top: 16px; font-size: 12.5px; color: var(--muted); line-height: 1.7; }
+  .arch-card { display: flex; align-items: center; gap: 8px; margin-top: 16px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); font-size: 12.5px; color: var(--muted); }
+  .arch-card svg { width: 14px; height: 14px; flex: none; }
+  .mini-stat { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 14px; }
+  .mini-stat .row { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); padding: 3px 0; }
+  .mini-stat .row b { color: var(--fg); font-weight: 500; }
+
+  /* ─── 大纲视图：上下文面板 ─────────────────────────────── */
+  .col-panel { min-height: 0; overflow-y: auto; padding: 28px clamp(20px, 4vw, 48px) 60px; background: var(--bg); }
+  .panel { max-width: 660px; }
+  .panel-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .panel-head h2 { font-family: var(--font-display); font-size: 22px; font-weight: 600; margin: 0; }
+  .panel .desc { font-size: 13px; color: var(--muted); margin: 0 0 24px; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .field label { font-size: 12.5px; color: var(--muted); display: flex; align-items: baseline; gap: 7px; }
+  .field label .req { color: var(--err); }
+  .field label .opt { font-size: 11px; }
+  .input, .textarea, select.input { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--fg); font-size: 13.5px; }
+  .input:focus, .textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .textarea { min-height: 72px; resize: vertical; line-height: 1.7; }
+  .field.flash .input, .field.flash .textarea { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); animation: flash 1.2s ease; }
+  @keyframes flash { 0% { box-shadow: 0 0 0 3px var(--accent-soft); } 100% { box-shadow: 0 0 0 3px transparent; } }
+  details.cfg { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 14px; background: var(--surface); }
+  details.cfg > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 11px 14px; font-size: 13px; font-weight: 500; }
+  details.cfg > summary::-webkit-details-marker { display: none; }
+  details.cfg > summary .chev { margin-left: auto; transition: transform 0.15s ease; }
+  details.cfg[open] > summary .chev { transform: rotate(180deg); }
+  details.cfg > summary .tag { font-size: 10.5px; color: var(--muted); font-weight: 400; border: 1px dashed var(--border); border-radius: 999px; padding: 1px 7px; }
+  /* 章纲 · 段落规划行 + 主情绪选择（产品全字段扩展，见 ADJUSTMENTS.md PR 3） */
+  .mood-row { display: flex; gap: 8px; }
+  .mood-row select.input { flex: 0 0 150px; }
+  .mood-row input.input { flex: 1; }
+  .seg-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+  .seg-row .seg-i { width: 20px; text-align: center; color: var(--muted); font-size: 12px; flex-shrink: 0; padding-top: 9px; }
+  .seg-row textarea.input[data-seg="s"] { flex: 1; min-height: 58px; resize: vertical; line-height: 1.6; }
+  .seg-row .input[data-seg="w"] { width: 92px; flex: 0 0 auto; }
+  .seg-row .acts { display: flex; gap: 2px; opacity: 0; transition: opacity 0.12s ease; }
+  .seg-row:hover .acts, .seg-row:focus-within .acts { opacity: 1; }
+  .seg-row .acts .icon-btn { width: 24px; height: 24px; }
+  .seg-row .acts .icon-btn:disabled { opacity: 0.3; cursor: default; }
+  .seg-row .acts .icon-btn:disabled:hover { color: var(--muted); background: none; }
+  .seg-add-row { display: flex; align-items: center; }
+  .seg-total { margin-left: auto; font-size: 12px; color: var(--muted); }
+  .seg-total b { color: var(--fg); font-weight: 500; }
+  details.cfg .inner { padding: 4px 14px 14px; }
+  .tpl-row { display: flex; gap: 10px; }
+  .tpl-select { flex: 1; }
+  .stage-map { flex: 1; }
+  /* 卷纲 · 产品全字段（9 标量 + 四子表行内卡，见 ADJUSTMENTS.md PR 4） */
+  .field.chtarget { flex: 0 0 160px; }
+  .row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .sub-list { display: flex; flex-direction: column; gap: 8px; }
+  .sub-row { display: grid; gap: 8px; align-items: center; }
+  .sub-row .input { min-width: 0; }
+  .sub-row .input.num { text-align: center; }
+  .sub-row.stages { grid-template-columns: 7rem 1fr 4.75rem 30px; }
+  .sub-row.ladder { grid-template-columns: 4.25rem 6rem 8.5rem 30px; }
+  .sub-row.plans { grid-template-columns: 4.75rem 1fr 30px; }
+  .sub-row.voices { grid-template-columns: 1fr 30px; }
+  .sub-block { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
+  .sub-add { margin-top: 8px; }
+  .sub-empty { padding: 12px; border: 1px dashed var(--border); border-radius: 10px; font-size: 11.5px; color: var(--muted); text-align: center; }
+  /* 设定面板 · 产品全字段表单（见 ADJUSTMENTS.md PR 4） */
+  .fl-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .ai-fill { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--accent); opacity: .75; cursor: pointer; padding: 0; border: none; background: none; font-weight: 400; }
+  .ai-fill:hover { opacity: 1; }
+  .ai-fill svg { width: 12px; height: 12px; }
+  .field label .ai-fill { margin-left: auto; align-self: center; }
+  .cnt { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+  .li-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .li-row .li-i { width: 20px; text-align: right; color: var(--muted); font-size: 12px; flex: none; }
+  .li-row .input { flex: 1; }
+  .li-row .acts { display: flex; opacity: 0; transition: opacity 0.12s ease; }
+  .li-row:hover .acts, .li-row:focus-within .acts { opacity: 1; }
+  .text-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--accent); opacity: .8; cursor: pointer; border: none; background: none; padding: 0; }
+  .text-btn:hover { opacity: 1; }
+  .hook-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .hook-row .input.desc { flex: 1; min-width: 0; }
+  .hook-row .input.in-ch { width: 88px; flex: 0 0 auto; }
+  .hook-row .input.sel-type { width: 96px; flex: 0 0 auto; }
+  .hook-row .input.sel-pri { width: 64px; flex: 0 0 auto; }
+  .sub-row.tics { grid-template-columns: 1fr 64px 64px 30px; }
+  .input.mono { font-family: var(--font-mono); font-size: 12px; }
+  .arc-card { width: 100%; text-align: left; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 12px 14px; cursor: pointer; margin-bottom: 8px; }
+  .arc-card:hover { border-color: color-mix(in oklch, var(--accent) 40%, var(--border)); }
+  .arc-card.on { border-color: var(--accent); background: var(--accent-soft); }
+  .arc-card .ac-name { font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+  .arc-card.on .ac-name { color: var(--accent); }
+  .arc-card .ac-sel { font-size: 10.5px; padding: 1px 7px; border-radius: 999px; background: color-mix(in oklch, var(--accent) 15%, transparent); color: var(--accent); }
+  .arc-card .ac-desc { margin-top: 3px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .arc-card .ac-beats { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .arc-card .ac-beat { font-size: 10.5px; padding: 2px 8px; border-radius: 6px; background: var(--fg-soft); color: var(--muted); }
+  .hist-row { display: flex; gap: 10px; padding: 5px 0; font-size: 12.5px; align-items: baseline; }
+  .hist-row .ht { font-family: var(--font-mono); color: var(--muted); font-size: 11.5px; flex: none; }
+  .use-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px dashed var(--border); }
+  .use-row:last-child { border-bottom: none; }
+  .use-row .uv { font-family: var(--font-mono); font-size: 12.5px; }
+  .cur-genre { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; }
+  .panel-foot { display: flex; align-items: center; gap: 10px; padding-top: 14px; border-top: 1px solid var(--border); margin-top: 6px; flex-wrap: wrap; }
+  .panel-foot .gap-line { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--err); margin-right: auto; }
+  .panel-foot .gap-line svg { width: 13px; height: 13px; }
+  .gap-chip { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; background: var(--err-soft); color: var(--err); font-size: 11.5px; cursor: pointer; }
+  .gap-chip:hover { text-decoration: underline; }
+  .done-note { display: inline-flex; align-items: center; gap: 7px; color: var(--ok); font-size: 13px; font-weight: 500; }
+  .done-note svg { width: 15px; height: 15px; }
+  .prompt-preview { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px dashed color-mix(in oklch, var(--accent) 40%, var(--border)); border-radius: 9px; background: var(--bg); font-family: var(--font-mono); font-size: 12px; line-height: 1.7; resize: vertical; color: var(--fg); }
+
+  /* ─── 设定视图（左栏 + 右面板，与大纲同构） ─────────────── */
+  .settings-nav-wrap { padding: 0 8px; }
+  .settings-progress { display: flex; align-items: center; gap: 10px; padding: 2px 14px 12px; }
+  .settings-progress .pl { font-family: var(--font-mono); font-size: 12.5px; letter-spacing: 0.04em; white-space: nowrap; color: var(--muted); }
+  .settings-progress .pl b { color: var(--accent); font-weight: 500; font-size: 13px; }
+  .settings-progress .pl.done b { color: var(--ok); }
+  .settings-progress .pbar { flex: 1; }
+  .pbar.done i { background: var(--ok); }
+  .s-item { display: flex; align-items: center; gap: 9px; height: 36px; padding: 0 10px 0 14px; border-radius: 8px; cursor: pointer; }
+  .s-item:hover { background: var(--fg-soft); }
+  .s-item.on { background: var(--accent-soft); }
+  .s-item .nm { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .s-item.on .nm { color: var(--accent); font-weight: 500; }
+  .s-item .spacer { flex: 1; }
+  .defer-tag { font-size: 10px; color: var(--muted); border: 1px dashed var(--border); border-radius: 999px; padding: 1px 6px; flex: none; }
+  .badge.empty { background: var(--fg-soft); color: var(--muted); }
+  .badge.prog { background: var(--warn-soft); color: var(--warn); }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; font-size: 12.5px; color: var(--muted); background: var(--surface); cursor: pointer; }
+  .chip:hover { border-color: var(--fg); color: var(--fg); }
+  .chip.on { background: var(--accent-soft); border-color: color-mix(in oklch, var(--accent) 40%, transparent); color: var(--accent); font-weight: 500; }
+  .char-row { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 9px; background: var(--bg); cursor: pointer; }
+  .char-row:hover { border-color: color-mix(in oklch, var(--accent) 30%, var(--border)); }
+  .char-row.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .char-row.sel .cname { color: var(--accent); }
+  .char-row .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--fg-soft); display: grid; place-items: center; font-family: var(--font-display); font-size: 13px; flex: none; }
+  .char-row .cname { font-size: 13.5px; font-weight: 500; }
+  .char-row .cdesc { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .char-row .del { margin-left: auto; }
+  .add-row { display: flex; gap: 8px; }
+  .add-row input { flex: 1; }
+
+  /* 删除确认 · 内容盘点 */
+  .del-inventory { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .inv-title { width: 100%; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+  .inv-chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-strong); white-space: nowrap; }
+  .inv-chip.wordy { background: color-mix(in oklch, var(--fg) 6%, transparent); color: var(--muted); }
+
+  /* ─── 弹窗 ─────────────────────────────────────────────── */
+  .scrim { position: fixed; inset: 0; background: color-mix(in oklch, var(--fg) 28%, transparent); z-index: 40; opacity: 0; transition: opacity 0.2s ease; }
+  .scrim.show { opacity: 1; }
+  .modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; }
+  .modal .mcard { width: min(440px, 92vw); background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); transform: translateY(8px) scale(0.98); opacity: 0; transition: transform 0.18s ease, opacity 0.18s ease; max-height: 86vh; display: flex; flex-direction: column; }
+  .modal.show .mcard { transform: none; opacity: 1; }
+  .mcard-head { flex: none; display: flex; align-items: center; padding: 18px 22px 0; }
+  .mcard-head .mh { font-family: var(--font-display); font-size: 17px; font-weight: 600; }
+  .mcard-head .x { margin-left: auto; }
+  .mcard-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 22px 20px; }
+  .mcard-foot { flex: none; display: flex; justify-content: flex-end; gap: 8px; padding: 12px 22px 18px; }
+  .mcard-foot .note { font-size: 12px; color: var(--muted); margin-right: auto; }
+  .mcard.wide { width: min(620px, 94vw); }
+  .mcard.tall { width: min(560px, 94vw); }
+  .search-wrap { position: relative; }
+  .search-wrap svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--muted); pointer-events: none; }
+  .search { width: 100%; padding: 9px 12px 9px 36px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-size: 13.5px; }
+  .search:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .g-group { margin-top: 18px; }
+  .g-group .gt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 10px; }
+  .g-group .gt .recent { color: var(--accent); }
+  .g-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  @media (max-width: 560px) { .g-grid { grid-template-columns: 1fr; } }
+  .g-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-size: 13px; }
+  .g-item:hover { border-color: var(--fg); }
+  .g-item .gp { font-size: 11.5px; color: var(--muted); }
+  .g-item.on { background: var(--accent-soft); border-color: color-mix(in oklch, var(--accent) 40%, transparent); color: var(--accent); font-weight: 500; }
+  .g-item.on .gp { color: var(--accent); }
+  .empty-search { padding: 20px; text-align: center; color: var(--muted); font-size: 13px; }
+  .ver-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .ver-row:last-child { border-bottom: 0; }
+  .ver-row .vtime { font-family: var(--font-mono); font-size: 12px; color: var(--muted); width: 92px; flex: none; }
+  .ver-row .vinfo { flex: 1; min-width: 0; }
+  .ver-row .vinfo b { display: block; font-size: 13.5px; font-weight: 500; }
+  .ver-row .vinfo span { font-size: 12px; color: var(--muted); }
+  .ver-row .cur { font-size: 11px; color: var(--accent); font-family: var(--font-mono); }
+  .ai-prompt { width: 100%; min-height: 200px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); font-family: var(--font-mono); font-size: 12.5px; line-height: 1.7; resize: vertical; color: var(--fg); }
+  .ai-prompt:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .ai-tag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 11px; }
+  .ai-tag svg { width: 11px; height: 11px; }
+  .benefit-row { display: flex; gap: 12px; padding: 10px 0; align-items: flex-start; }
+  .benefit-row svg { width: 16px; height: 16px; color: var(--accent); flex: none; margin-top: 2px; }
+  .benefit-row b { display: block; font-size: 13.5px; font-weight: 500; }
+  .benefit-row p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+  .pref-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .pref-row:last-child { border-bottom: 0; }
+  .pref-row .pl { font-size: 13.5px; }
+  .pref-row .pm { font-size: 12px; color: var(--muted); }
+
+  /* ─── 专注模式 ─────────────────────────────────────────── */
+  body.focus .col-tree, body.focus .col-progress, body.focus .col-ai { display: none; }
+  body.focus .view.on.three-col { grid-template-columns: 1fr; }
+  body.focus .editor-wrap { padding-inline: 8vw; }
+
+  /* ─── toast ────────────────────────────────────────────── */
+  .toast-wrap { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 80; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+  .toast { display: inline-flex; align-items: center; gap: 8px; background: var(--fg); color: var(--surface); padding: 9px 16px; border-radius: 10px; font-size: 13px; box-shadow: var(--shadow-card); animation: toast-in 0.22s ease; }
+  .toast svg { width: 14px; height: 14px; color: var(--ok); }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+</style>
+</head>
+<body>
+
+<!-- ═══ 应用栏 ═══ -->
+<header class="appbar" data-od-id="appbar">
+  <a class="logo" href="index.html"><span class="logo-mark">爱</span>爱小说</a>
+  <span class="sep"></span>
+  <a class="back" href="list.html" data-od-id="back-to-list">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 6l-6 6 6 6"/></svg>我的小说
+  </a>
+  <span class="spacer"></span>
+  <button class="btn btn-ghost btn-sm" id="btnPrefs" data-od-id="btn-prefs">设置</button>
+</header>
+
+<!-- ═══ 小说栏 ═══ -->
+<div class="novelbar" data-od-id="novelbar">
+  <span class="novel-title serif">星海拾遗</span>
+  <span class="genre-tag">科幻</span>
+  <span id="freeHint" class="free-hint">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+    免费模式 · 写作功能完整，升级解锁 AI
+  </span>
+  <span class="spacer"></span>
+  <span id="proPill" class="pill-pro" hidden>
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 6.2L21 9l-5 4.4 1.6 6.6L12 16.6 6.4 20 8 13.4 3 9l6.6-.8z"/></svg>
+    PRO
+  </span>
+  <button id="btnUpgrade" class="btn btn-secondary btn-sm" data-od-id="btn-upgrade">升级 PRO</button>
+</div>
+
+<!-- ═══ 书内模块导航：设定 / 写作 / 预览 ═══ -->
+<nav class="modnav" data-od-id="modnav">
+  <button class="mtab" data-view="settings" data-od-id="tab-settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+    设定 <span class="cnt" id="modSettingsCnt">1/7</span>
+  </button>
+  <button class="mtab on" data-view="outline" data-od-id="tab-outline">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+    写作 <span class="cnt" id="modOutlineCnt">2 章纲</span>
+  </button>
+  <button class="mtab" data-view="preview" data-od-id="tab-preview">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/></svg>
+    预览
+  </button>
+  <span class="spacer"></span>
+  <span class="side" id="modSide">写作 · 卷有卷纲；点章即可配章纲、提示词并写正文</span>
+</nav>
+
+<!-- ═══════════ 视图 1：设定 ═══════════ -->
+<section class="view two-col" id="viewSettings" data-od-id="view-settings" hidden>
+  <aside class="col-tree" data-od-id="settings-nav">
+    <div class="tree-head">
+      <span class="t">设定 · <b id="stSettings">6</b> 项</span>
+    </div>
+    <div class="settings-progress" data-od-id="settings-progress">
+      <span class="pl num" id="progLabel">设定 <b>1</b>/7</span>
+      <div class="pbar" id="progBar"><i style="width:17%"></i></div>
+    </div>
+    <div class="settings-nav-wrap" id="navItems"></div>
+    <div class="tree-foot">
+      <span style="font-size:12px; color:var(--muted); line-height:1.7;" id="progNote">2 项进行中 · 3 项未填 · 均可后补</span>
+    </div>
+  </aside>
+  <main class="col-panel" data-od-id="settings-panel">
+    <div class="panel">
+      <div class="panel-head">
+        <h2 id="panelTitle">题材</h2>
+        <span class="badge empty" id="panelBadge">未填</span>
+      </div>
+      <p class="desc" id="panelDesc"></p>
+      <div id="panelBody"></div>
+      <div class="panel-foot">
+        <span class="note" id="panelNote" style="margin-right:auto;">高级项可后补，确认即计入进度</span>
+        <span class="done-note" id="panelDone" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 13l4 4L19 7"/></svg>
+          已确认
+        </span>
+        <button class="btn btn-primary" id="btnConfirm">确认完成</button>
+      </div>
+    </div>
+  </main>
+</section>
+
+<!-- ═══════════ 视图 2：大纲（卷 → 章；点章 = 章对象工作台：章纲 / 提示词 / 正文） ═══════════ -->
+<section class="view three-col" id="viewOutline" data-od-id="view-outline" hidden>
+  <aside class="col-tree" data-od-id="outline-tree">
+    <div class="tree-head">
+      <span class="t">大纲 · 卷 <b id="stVols">2</b> · 章 <b id="stChs">4</b></span>
+      <button class="icon-btn" id="btnAddVolume" title="添加卷" data-od-id="btn-add-volume">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
+    <div class="tree" id="treeOutline"></div>
+    <div class="tree-foot">
+      <button class="btn btn-ghost btn-sm batch" id="btnBatch" data-od-id="btn-batch-confirm">确认全部已填章节</button>
+    </div>
+  </aside>
+
+  <!-- 中间：卷选中 = 卷纲面板；章选中 = 章对象工作台（章纲 / 提示词 / 正文 三页签） -->
+  <main class="col-middle" data-od-id="outline-middle">
+    <div class="col-panel" id="volPanelWrap" hidden>
+      <div class="panel" id="panel"></div>
+    </div>
+
+    <div class="col-editor" id="chWorkspace">
+      <div class="editor-toolbar" data-od-id="editor-toolbar">
+        <span class="ch-name serif" id="chName">第一章 · 锚点</span>
+        <span class="arch-tag" id="chArchTag" hidden>已归档</span>
+        <span class="grow"></span>
+        <span class="prose-ctrls" id="proseCtrls">
+        <span class="seg" role="group" aria-label="字号" data-od-id="seg-fontsize">
+          <button data-v="fs-s">小</button><button class="on" data-v="fs-m">中</button><button data-v="fs-l">大</button>
+        </span>
+        <span class="seg" role="group" aria-label="行距" data-od-id="seg-lineheight">
+          <button data-v="lh-tight">紧凑</button><button class="on" data-v="lh-comfy">舒适</button><button data-v="lh-loose">宽松</button>
+        </span>
+        <span class="tsep"></span>
+        <button class="icon-btn" id="btnFocus" title="专注模式" data-od-id="btn-focus">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
+        </button>
+        <button class="btn btn-ghost btn-sm" id="btnHistory" data-od-id="btn-history">版本历史</button>
+        <button class="btn btn-secondary btn-sm" id="btnArchive" data-od-id="btn-archive">归档本章</button>
+        <button class="btn btn-primary btn-sm" id="btnAi" hidden data-od-id="btn-ai-generate">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 6.2L21 9l-5 4.4 1.6 6.6L12 16.6 6.4 20 8 13.4 3 9l6.6-.8z"/></svg>
+          AI 生成正文
+        </button>
+        </span>
+      </div>
+      <div class="ch-tabs" role="tablist" aria-label="章节对象">
+        <button class="chtab on" data-chtab="og" role="tab" aria-selected="true">章纲 <span class="cnt" id="tabOgCnt">已确认</span></button>
+        <button class="chtab" data-chtab="prompt" role="tab" aria-selected="false">提示词 <span class="cnt" id="tabPromptCnt">自动组装</span></button>
+        <button class="chtab" data-chtab="prose" role="tab" aria-selected="false">正文 <span class="cnt" id="tabProseCnt">793 字</span></button>
+      </div>
+      <div class="readonly-banner" id="readonlyBanner" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+        <span>本章已归档 · <b>只读</b>。如需修改，可在版本历史中恢复后重新归档。</span>
+      </div>
+      <div class="editor-wrap" id="editorWrap">
+        <div class="editor fs-m lh-comfy" id="editor" contenteditable="true" data-placeholder="从这一章开始写……"></div>
+      </div>
+      <div class="og-pane" id="ogPane" hidden></div>
+      <div class="prompt-pane" id="promptPane" hidden></div>
+      <div class="editor-status" id="editorStatus">
+        <span class="num" id="wordCount">0 字</span>
+        <span class="right">
+          <span class="save-state" id="saveState" data-od-id="save-state"><span class="num" id="saveText">已自动保存</span></span>
+          <span class="ai-streaming" id="aiStreaming" hidden><span class="pulse"></span>AI 正在生成…<button class="btn btn-ghost btn-sm" id="btnStopAi">停止</button></span>
+        </span>
+      </div>
+    </div>
+  </main>
+
+  <aside class="col-ai" data-od-id="outline-ai">
+    <!-- 卷选中：大纲 AI 辅助 -->
+    <div id="railVolume">
+      <p class="progress-head">AI 辅助 · 大纲</p>
+      <div class="ai-locked" id="aiOutlineLocked">
+        <div class="lhead">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 6.2L21 9l-5 4.4 1.6 6.6L12 16.6 6.4 20 8 13.4 3 9l6.6-.8z"/></svg>
+          <b>PRO 功能</b>
+        </div>
+        <p>大纲阶段的 AI 能力正在规划中。升级后由设定与已有卷纲辅助生成，免费版创作流程不受影响。</p>
+        <button class="btn btn-primary btn-sm" id="btnUpgrade2" data-od-id="btn-upgrade-2">升级 PRO</button>
+      </div>
+      <p class="ai-sec">规划中的能力</p>
+      <div id="aiOutlinePlanned">
+        <div class="ai-feat">
+          <div class="ai-feat-head"><b>卷纲生成</b><span class="tag-plan">规划中</span></div>
+          <p>基于设定与卷摘要，生成卷纲草稿，一键填入。</p>
+        </div>
+        <div class="ai-feat">
+          <div class="ai-feat-head"><b>矛盾检查</b><span class="tag-plan">规划中</span></div>
+          <p>扫描已确认章纲，标出人物状态与伏笔冲突。</p>
+        </div>
+        <div class="ai-feat">
+          <div class="ai-feat-head"><b>提示词预览</b><span class="tag-plan">规划中</span></div>
+          <p>当前章的生成提示词（由设定 + 章纲组装），与正文生成共用。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 章选中：本章 AI 辅助 + 本章进度 -->
+    <div id="railChapter" hidden>
+      <p class="progress-head">AI 辅助 · 本章</p>
+      <div class="ai-locked" id="aiWriteLocked">
+        <div class="lhead">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 6.2L21 9l-5 4.4 1.6 6.6L12 16.6 6.4 20 8 13.4 3 9l6.6-.8z"/></svg>
+          <b>PRO 功能</b>
+        </div>
+        <p>解锁后可由「设定 + 章纲」生成正文；续写、润色等能力规划中。免费版创作流程不受影响。</p>
+        <button class="btn btn-primary btn-sm" id="btnUpgrade3" data-od-id="btn-upgrade-3">升级 PRO</button>
+      </div>
+      <div id="aiWriteTools">
+        <div class="ai-tool">
+          <div class="ai-feat-head"><b>AI 生成正文</b><span class="ai-tag"><svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10"><path d="M12 2l2.4 6.2L21 9l-5 4.4 1.6 6.6L12 16.6 6.4 20 8 13.4 3 9l6.6-.8z"/></svg>PRO</span></div>
+          <p>提示词由设定 + 章纲组装，可编辑后流式写入正文末尾。</p>
+          <button class="btn btn-primary btn-sm" id="btnAi2" data-od-id="btn-ai-generate-2">生成正文</button>
+        </div>
+      </div>
+      <p class="ai-sec">规划中的能力</p>
+      <div id="aiWritePlanned">
+        <div class="ai-feat">
+          <div class="ai-feat-head"><b>续写建议</b><span class="tag-plan">规划中</span></div>
+          <p>在光标处给出下句 / 下一段的续写建议。</p>
+        </div>
+        <div class="ai-feat">
+          <div class="ai-feat-head"><b>段落润色</b><span class="tag-plan">规划中</span></div>
+          <p>选中段落，提供风格一致的润色版本。</p>
+        </div>
+        <div class="ai-feat">
+          <div class="ai-feat-head"><b>场景扩写</b><span class="tag-plan">规划中</span></div>
+          <p>把一句话场景扩展为完整段落，保持设定一致。</p>
+        </div>
+      </div>
+      <p class="ai-sec">本章进度</p>
+      <div class="pct" id="pctNum">20<span class="sub">%</span></div>
+      <div class="pbar"><i id="pbarFill" style="width:20%"></i></div>
+      <div class="target-row">
+        <span>目标字数</span>
+        <span><button class="edit num" id="targetText">4,000</button><input id="targetInput" class="num" hidden /></span>
+      </div>
+      <p class="progress-note" id="progressNote">再写 <b class="num" id="remainText">3,207</b> 字，完成本章目标。</p>
+      <div class="arch-card" id="archCard" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+        <span>本章已归档 · 只读查看</span>
+      </div>
+      <div class="mini-stat" id="miniStat">
+        <div class="row"><span>本书总字数</span><b class="num" id="bookWords">1,371</b></div>
+        <div class="row"><span>本章草稿</span><b class="num" id="chWords">793</b></div>
+        <div class="row"><span>目标达成</span><b class="num" id="goalPct">20%</b></div>
+      </div>
+    </div>
+  </aside>
+</section>
+
+<!-- ═══════════ 视图 3：预览（左树 + 只读正文，无右栏） ═══════════ -->
+<section class="view two-col" id="viewPreview" data-od-id="view-preview" hidden>
+  <aside class="col-tree" data-od-id="preview-tree">
+    <div class="tree-head">
+      <span class="t">预览 · 卷 <b id="pvVols">2</b> · 章 <b id="pvChs">4</b></span>
+    </div>
+    <div class="tree" id="treePreview"></div>
+    <div class="tree-foot">
+      <span style="font-size:12px; color:var(--muted); line-height:1.7;">只读预览 · 正文在此不可编辑</span>
+    </div>
+  </aside>
+  <main class="col-middle" data-od-id="preview-middle">
+    <div class="preview-head">
+      <span class="pv-title" id="pvChName">第一章 · 锚点</span>
+    </div>
+    <div class="editor-wrap">
+      <div class="editor fs-m lh-comfy" id="pvProse" contenteditable="false"></div>
+    </div>
+  </main>
+</section>
+
+<!-- ═══ 遮罩 + 弹窗 ═══ -->
+<div class="scrim" id="scrim" hidden></div>
+
+<!-- 添加卷 -->
+<div class="modal" id="modalAddVolume" hidden data-od-id="modal-add-volume">
+  <div class="mcard">
+    <div class="mcard-head"><span class="mh serif">添加卷</span><button class="icon-btn x" data-close="modalAddVolume"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="mcard-body">
+      <div class="field"><label>卷名</label><input class="input" id="avTitle" placeholder="如：第一卷 · 风起" /></div>
+      <div class="field"><label>卷摘要 <span class="opt">选填</span></label><textarea class="textarea" id="avSummary" placeholder="这一卷讲什么？一句话即可"></textarea></div>
+      <div class="field"><label>初始章数 <span class="opt">可在树中随时增删</span></label><input class="input num" id="avChapters" type="number" min="0" max="20" value="0" /></div>
+    </div>
+    <div class="mcard-foot"><button class="btn btn-secondary" data-close="modalAddVolume">取消</button><button class="btn btn-primary" id="avConfirm">创建卷</button></div>
+  </div>
+</div>
+
+<!-- 删除确认 -->
+<div class="modal" id="modalDelete" hidden data-od-id="modal-delete">
+  <div class="mcard">
+    <div class="mcard-head"><span class="mh serif">删除确认</span></div>
+    <div class="mcard-body">
+      <p style="margin:0; font-size:13.5px; line-height:1.7;" id="delText">确定删除？</p>
+      <div class="del-inventory" id="delInventory" hidden></div>
+      <p style="margin:8px 0 0; font-size:12.5px; color:var(--muted);">此操作不可恢复。</p>
+    </div>
+    <div class="mcard-foot"><button class="btn btn-secondary" data-close="modalDelete">取消</button><button class="btn btn-primary" id="delConfirm" style="background:var(--err);">确认删除</button></div>
+  </div>
+</div>
+
+<!-- 解除只读（归档章 · AI 继续编辑） -->
+<div class="modal" id="modalUnlock" hidden data-od-id="modal-unlock">
+  <div class="mcard">
+    <div class="mcard-head"><span class="mh serif">解除只读</span></div>
+    <div class="mcard-body">
+      <p style="margin:0; font-size:13.5px; line-height:1.7;">本章已<b>归档</b>，正文处于<b>只读</b>状态。</p>
+      <p style="margin:8px 0 0; font-size:12.5px; color:var(--muted);">AI 生成将解除只读并继续编辑，请确认是否继续。</p>
+    </div>
+    <div class="mcard-foot"><button class="btn btn-secondary" data-close="modalUnlock">取消</button><button class="btn btn-primary" id="unlockConfirm">解除只读并继续</button></div>
+  </div>
+</div>
+
+<!-- 归档本章 -->
+<div class="modal" id="modalArchive" hidden data-od-id="modal-archive">
+  <div class="mcard">
+    <div class="mcard-head"><span class="mh serif">归档本章</span></div>
+    <div class="mcard-body">
+      <p style="margin:0; font-size:13.5px; line-height:1.7;">归档后本章正文进入<b>只读</b>状态；大纲树与进度卡同步标记。</p>
+      <p style="margin:8px 0 0; font-size:12.5px; color:var(--muted);">仍可在版本历史中查看与恢复。</p>
+    </div>
+    <div class="mcard-foot"><button class="btn btn-secondary" data-close="modalArchive">取消</button><button class="btn btn-primary" id="archConfirm">归档本章</button></div>
+  </div>
+</div>
+
+<!-- 版本历史 -->
+<div class="modal" id="modalHistory" hidden data-od-id="modal-history">
+  <div class="mcard wide">
+    <div class="mcard-head"><span class="mh serif">版本历史 · <span id="histCh">第一章 · 锚点</span></span><button class="icon-btn x" data-close="modalHistory"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="mcard-body" id="histList"></div>
+    <div class="mcard-foot"><button class="btn btn-secondary" data-close="modalHistory">关闭</button></div>
+  </div>
+</div>
+
+<!-- 升级 PRO -->
+<div class="modal" id="modalUpgrade" hidden data-od-id="modal-upgrade">
+  <div class="mcard">
+    <div class="mcard-head"><span class="mh serif">升级 PRO · 解锁 AI 能力</span><button class="icon-btn x" data-close="modalUpgrade"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="mcard-body">
+      <p style="margin:0 0 8px; font-size:12.5px; color:var(--muted);">不改变现有操作路径，同一本书内解锁：</p>
+      <div class="benefit-row">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 6.2L21 9l-5 4.4 1.6 6.6L12 16.6 6.4 20 8 13.4 3 9l6.6-.8z"/></svg>
+        <div><b>AI 生成正文（流式输出）</b><p>工具栏「AI 生成正文」→ 提示词由设定与章纲自动组装、可编辑 → 流式写入正文。</p></div>
+      </div>
+      <div class="benefit-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        <div><b>设定作为 AI 上下文</b><p>6 项世界观设定（题材/简介/世界/风格/伏笔/角色）参与提示词组装。</p></div>
+      </div>
+      <div class="benefit-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 4v5c0 4.5-3 8-7 9-4-1-7-4.5-7-9V7l7-4z"/><path d="M9.5 12l2 2 3.5-4"/></svg>
+        <div><b>卷/章高级字段</b><p>结构模板、冲突阶梯、key_points、情绪设计——作为生成上下文与创作规范。</p></div>
+      </div>
+    </div>
+    <div class="mcard-foot"><button class="btn btn-secondary" data-close="modalUpgrade">暂不</button><button class="btn btn-primary" id="upgradeConfirm">确认升级</button></div>
+  </div>
+</div>
+
+<!-- AI 生成正文（章有提示词：由设定+章纲组装，可编辑） -->
+<div class="modal" id="modalAi" hidden data-od-id="modal-ai">
+  <div class="mcard tall">
+    <div class="mcard-head">
+      <span class="mh serif">AI 生成正文</span>
+      <span class="ai-tag" style="margin-left:8px;"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 6.2L21 9l-5 4.4 1.6 6.6L12 16.6 6.4 20 8 13.4 3 9l6.6-.8z"/></svg>PRO</span>
+      <button class="icon-btn x" data-close="modalAi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="mcard-body">
+      <div class="field">
+        <label>本章提示词 <span class="opt">由「设定 + 章纲」自动组装，可直接编辑</span></label>
+        <textarea class="ai-prompt" id="aiPrompt"></textarea>
+      </div>
+      <p style="margin:0; font-size:12.5px; color:var(--muted);" id="aiHint"></p>
+    </div>
+    <div class="mcard-foot"><button class="btn btn-secondary" data-close="modalAi">取消</button><button class="btn btn-primary" id="aiConfirm">生成正文</button></div>
+  </div>
+</div>
+
+<!-- 设置 -->
+<div class="modal" id="modalPrefs" hidden data-od-id="modal-prefs">
+  <div class="mcard">
+    <div class="mcard-head"><span class="mh serif">设置 · 写作偏好</span><button class="icon-btn x" data-close="modalPrefs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="mcard-body">
+      <div class="pref-row"><div><div class="pl">默认字号</div><div class="pm">新建章节的正文排版</div></div><span class="seg" data-od-id="seg-fontsize"><button data-v="fs-s">小</button><button class="on" data-v="fs-m">中</button><button data-v="fs-l">大</button></span></div>
+      <div class="pref-row"><div><div class="pl">默认行距</div><div class="pm">长时写作建议「舒适」</div></div><span class="seg" data-od-id="seg-lineheight"><button data-v="lh-tight">紧凑</button><button class="on" data-v="lh-comfy">舒适</button><button data-v="lh-loose">宽松</button></span></div>
+      <div class="pref-row"><div><div class="pl">归档时 AI 摘要</div><div class="pm">归档时用 AI 生成章节摘要；关闭后截取正文开头作摘要</div></div><span class="seg" data-od-id="seg-archsum"><button class="on" data-v="on">开</button><button data-v="off">关</button></span></div>
+      <div class="pref-row"><div><div class="pl">账号</div><div class="pm" id="prefTier">免费版 · 单机使用</div></div><button class="btn btn-secondary btn-sm" id="prefUpgrade">升级 PRO</button></div>
+    </div>
+    <div class="mcard-foot"><button class="btn btn-primary" data-close="modalPrefs">保存</button></div>
+  </div>
+</div>
+
+<!-- 题材选择器 -->
+<div class="modal" id="modalGenre" hidden data-od-id="modal-genre-picker">
+  <div class="mcard">
+    <div class="mcard-head"><span class="mh serif">选择题材</span><button class="text-btn" id="btnNewGenre" type="button" style="margin-left:auto;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg> 新建题材</button><button class="icon-btn x" data-close="modalGenre" style="margin-left:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="mcard-body">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input class="search" id="genreSearch" placeholder="搜索题材…" />
+      </div>
+      <div id="genreList"></div>
+      <div class="empty-search" id="genreEmpty" hidden>没有匹配的题材，可稍后在「其他」中自建。</div>
+    </div>
+    <div class="mcard-foot">
+      <span class="note">切换题材仅替换模板，已填内容保留</span>
+      <button class="btn btn-secondary" data-close="modalGenre">取消</button>
+      <button class="btn btn-primary" id="genreApply">应用题材</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* ═══════════ 数据：正文 ═══════════ */
+const PROSE_C1 = [
+  "第一章 · 锚点",
+  "信标亮起的那个夜晚，港区已经停电三十一年。",
+  "沉舟趴在观测舱的舷窗边，看着那片被尘埃镀成铁灰色的空港。风从破损的气闸灌进来，带着锈与冻土的气味。远处，废弃的货运栈桥像一具搁浅的骨架，横在环形山的阴影里。她的氧表读数正常，心跳也是——这是她在港区度过的第七年，早已过了会为寂静紧张的时候。",
+  "然后光来了。",
+  "那光没有方向，像是从整面星幕的缝隙里渗出来的。先是极细的一线，沿着舷窗的裂纹爬行，接着骤然铺开，把观测舱照得雪亮。信号是间歇的，间隔精准得像某种呼吸。沉舟在光里眯起眼，看见控制台上三十一年没亮过的通讯指示灯，正跟着那节奏一明一灭。",
+  "她走过去，把手指按在灯上。玻璃冰凉，震动却从指腹一路传到手腕——不是机器的震动，更像心跳。屏幕在第三轮信号结束时亮起来，只显示了一行字：",
+  "“这是一段回声。请沿信号寻找源头。”",
+  "没有坐标，没有署名，没有加密的痕迹。信号来源的方向，指向停泊区深处那艘她以为早就报废的旧船——星港档案里，它登记的名字是「拾荒者」。",
+  "沉舟在控制台前坐了很久。港区的广播还在重复第三十七遍疏散通知，风还在刮，光已经熄了，像从没出现过。她把手从灯上拿开，又放回去。窗外，星幕依旧沉默。",
+  "第七年的最后一天，她决定去做一件愚蠢的事：把「拾荒者」修好，然后开着它，去找一段回声的源头。",
+  "修理比想象中更漫长。船壳的锈蚀已经深入龙骨，引擎舱里积着半人高的冰晶，导航核心倒还完整，只是被一层灰绿色的菌毯包着。沉舟用三天清出驾驶位，用五天接通生命维持系统，又花了一个月，让船在真空中发出第一声属于自己的震动。",
+  "这期间信标没有再亮过。但她知道它还在，像一颗沉在冰层下的钉子——每过一段时间，通讯指示灯就会无端地闪一下，仿佛在提醒她什么。",
+  "出发那天，她把观测舱里所有能拆的零件都拆下来带走了，只留下那扇舷窗。窗上有一道细长的裂纹，是信标亮起来那晚留下的。她没有修它，像是有意留着一道证据，证明那晚的光确实来过。"
+];
+const PROSE_C2 = [
+  "第二章 · 跃迁",
+  "跃迁引擎点火的时候，沉舟没有回头。",
+  "「拾荒者」的船体发出低沉的轰鸣，像一头被叫醒的兽。驾驶屏上，锚点的信号正在衰减——那是她留在港区的一座小型信标，此刻正在把「拾荒者」的船影从星图上一点一点地抹去。",
+  "跃迁不是跨越距离，而是让距离失去意义。引擎把船推进一片不属于任何坐标的间隙，在那里，时间像被拧干的海绵，只有重力还在尽职地拉扯。沉舟握着操纵杆，看着窗外那片从未见过的灰白色虚空，第一次理解了旧船员说的那句话：跃迁的时候，不要数心跳。",
+  "出跃迁点的瞬间，星图重新亮起来。陌生的星域，陌生的尘埃带，陌生的导航网——只有那道信号还在，稳定、耐心，像是已经等了很久。",
+  "它来自一颗没有名字的冰卫星。",
+  "沉舟把船泊进卫星的阴影里，关掉引擎，在寂静中坐了很久。她知道，从这一刻起，回头已经不可能了——不是船做不到，而是她亲手拆掉了自己的锚点。",
+  "冰卫星的表面是一整块碎裂的透镜，光线在裂缝间折射，把灰白色的平原照得明暗不定。信标被埋在一道裂谷的底部，半截露出冰面，像一枚被遗忘的界碑。沉舟穿上作业服，沿着裂谷边缘滑下去，在她把手按上信标外壳的那一刻，通讯频道里响起一声极轻的杂音。",
+  "像呼吸。",
+  "那声音只持续了一瞬，随后一切重归寂静。但沉舟知道，这不是结束。信标的外壳上刻着一串坐标，指向更深的深空，坐标下方只有一行字，笔迹潦草，像是写的人在赶时间：",
+  "“如果你也听见了，请继续往前走。”"
+];
+
+/* ═══════════ 数据：书（卷 → 章；卷有卷纲，章有章纲 + 正文 + 提示词） ═══════════ */
+function newVol(id, title, summary) {
+  return { id, title, summary,
+    og: { template_name: '', arc_mode: '', primary_drive: '', direction_method: '', core_conflict: '', emotional_arc: '', info_gap_start: '', info_gap_end: '', chapter_target: '', stages: [], conflict_ladders: [], chapter_plans: [], character_voices: [] },
+    chapters: [] };
+}
+function newCh(id, title) {
+  return { id, title, summary: '', target: 2000, content: [], archived: false,
+    og: { status: 'pending', keys: '', chars: '', loc: '', time: '', pov: '', pguid: '',
+          task: '', rstate: '', rstrat: '', rdetail: '', changes: '', ban: '',
+          mres: '', mhold: '', padv: '', mood: '', prompt: '', segs: [] } };
+}
+function buildBook() {
+  const b = { title: '星海拾遗', genre: '科幻', volumes: [] };
+  const v1 = newVol('v1', '第一卷 · 星海初航', '废弃星港上，导航员沉舟捡到一枚不属于人类纪元的导航信标。');
+  v1.og = { template_name: '悬疑递进', arc_mode: '层层逼近', primary_drive: '信息差', direction_method: 'template',
+    core_conflict: '人类与回声源头的相遇：信任还是提防', emotional_arc: '从压抑到爆发，结尾留悬念',
+    info_gap_start: '信标与沉舟的身世有关（读者知道、角色不知）', info_gap_end: '回声的源头浮出：一个等待三百年的同类',
+    chapter_target: '4',
+    stages: [
+      { stage_name: '建立悬念', stage_function: '信标出现，节奏像呼吸；修船的决定成形', chapter_count: 3 },
+      { stage_name: '首次揭示', stage_function: '旧船与信标的关联浮出水面', chapter_count: 1 }
+    ],
+    conflict_ladders: [
+      { layer_no: 1, chapters_range: '第1-2章', obstacle: '港区资源枯竭，修船无门', turning_type: '信息转折', turning_point: '指示灯随信号明灭' },
+      { layer_no: 2, chapters_range: '第3-4章', obstacle: '跃迁不可逆，退路被拆除', turning_type: '状态转折', turning_point: '锚点信号衰减' }
+    ],
+    chapter_plans: [
+      { chapter_no: 1, title: '锚点', summary: '信标点亮，沉舟决定沿着信号追踪它的来处', emotional_anchor: '好奇与不安', info_gap: '信标与身世有关（读者知、角色不知）', arc_position: '开端' },
+      { chapter_no: 2, title: '跃迁', summary: '点火与代价：亲手拆掉自己的锚点', emotional_anchor: '壮阔后的失落', info_gap: '坐标尽头是什么（未知）', arc_position: '推进' }
+    ],
+    character_voices: [
+      { character_name: '沉舟', situation: '修好旧船驶离星港，退路已断', unfinished: '回声的源头仍未确认', interlude_thought: '七年寂静，换一次出发', next_action: '沿信号寻找源头' }
+    ] };
+  const c1 = newCh('c1', '第一章 · 锚点');
+  c1.summary = '信标点亮，沉舟决定沿着信号追踪它的来处。';
+  c1.content = PROSE_C1;
+  c1.og = { status: 'confirmed', keys: '信标亮起，节奏像呼吸\n通讯指示灯跟着信号明灭\n「拾荒者」旧船的关联', chars: '沉舟', loc: '废弃星港 · 观测舱', time: '第七年最后一天',
+    pov: '第三人称有限', pguid: '',
+    task: '建立「回声」悬念：让读者与沉舟一起看见信标，并想知道信号的源头。',
+    rstate: '被精准的信号节奏勾起好奇，尚不知信标与旧船的关联。', rstrat: '感官先行 + 克制揭示：只给现象，不给解释。', rdetail: '',
+    changes: '沉舟从旁观者变成行动者（决定修船出发）。', ban: '不揭示信标制造者身份',
+    mres: '舷窗裂纹的意象成立', mhold: '信标来源成谜', padv: '修船过程可部分推进',
+    mood: '压抑', segs: [{ s: '港区之夜：信标亮起', w: 1200 }, { s: '修船与出发决定', w: 800 }], prompt: '' };
+  const c2 = newCh('c2', '第二章 · 跃迁');
+  c2.summary = '旧船跃迁引擎点火，代价是留在身后的锚点。';
+  c2.content = PROSE_C2;
+  c2.archived = true;
+  c2.og = { status: 'confirmed', keys: '引擎点火与轰鸣\n锚点信号衰减\n冰卫星裂谷的信标', chars: '沉舟', loc: '跃迁间隙 → 冰卫星裂谷', time: '出发后第一周',
+    pov: '第三人称有限', pguid: '',
+    task: '离开与代价：跃迁不可逆，沉舟亲手拆掉了自己的锚点。',
+    rstate: '理解「跃迁 = 抹去来路」的分量，开始为沉舟担心。', rstrat: '先给壮阔，再给失落，用寂静收尾。', rdetail: '',
+    changes: '锚点被拆除，退路消失。', ban: '不解释回声的本质',
+    mres: '信标外壳坐标出现', mhold: '坐标尽头是什么', padv: '冰卫星环境描写可部分推进',
+    mood: '激昂', segs: [{ s: '点火与跃迁', w: 1000 }, { s: '冰卫星裂谷：接触信标', w: 1000 }], prompt: '' };
+  const c3 = newCh('c3', '第三章 · 回声');
+  c3.summary = '信号源反复应答，却始终差半拍。';
+  c3.og = { status: 'pending', keys: '', chars: '', loc: '', time: '', pov: '', pguid: '',
+    task: '揭示章：接触信标，发现坐标，应答始终差半拍。',
+    rstate: '', rstrat: '', rdetail: '', changes: '', ban: '',
+    mres: '', mhold: '', padv: '', mood: '', segs: [], prompt: '' };
+  v1.chapters = [c1, c2, c3];
+  const v2 = newVol('v2', '第二卷 · 星群之间', '（摘要待补充）');
+  const c4 = newCh('c4', '第四章 · 熄灭');
+  v2.chapters = [c4];
+  b.volumes = [v1, v2];
+  return b;
+}
+let BOOK = buildBook();
+
+const DEFAULT_PROMPT = [
+  "你是《星海拾遗》的创作协作者。请基于以下设定与章纲，生成【本章】的正文。",
+  "",
+  "【设定 · 题材】科幻 · 深空探索；基调：冷寂、克制、悬念递进；禁忌：不出现超光速通讯以外的硬伤。",
+  "【设定 · 风格】第三人称限知视角，跟随沉舟；语言简洁，感官细节优先。",
+  "",
+  "【章纲 · 方向输入】",
+  "- 卷纲定位：第一卷建立「回声」悬念，本章是离港后的第一段航程。",
+  "- 读者缺口：信标来自哪里？为什么它像在等人？",
+  "- 角色状态：沉舟第一次独自深入未知星域，恐惧与好奇并存。",
+  "- 钩子盘点：上一章埋在「舷窗裂纹」的意象，本章应有一次回响。",
+  "",
+  "【章纲 · key_points】",
+  "- 感官：引擎轰鸣、冰卫星上的光折射、通讯杂音",
+  "- 动作：点火 → 跃迁 → 泊入卫星阴影 → 接触信标",
+  "- 判断：拆掉锚点等于切断退路——代价由自己承担",
+  "",
+  "【章纲 · 情绪设计】情感基调：决绝与不安交织；情绪钩子：信标上的坐标指向更深处。",
+  "【章纲 · 目标】正文 2200±300 字，中文小说排版。"
+].join("\n");
+
+/* ═══════════ 数据：设定（若干项） ═══════════ */
+const GENRES = [
+  { group: '都市系', items: [{ name: '都市日常', p: '治愈 · 生活流' }, { name: '职场浮沉', p: '写字楼暗流' }, { name: '家庭日常', p: '日常中的裂痕' }] },
+  { group: '历史系', items: [{ name: '历史演义', p: '大时代小人物' }, { name: '新武侠', p: '江湖与道义' }] },
+  { group: '玄幻系', items: [{ name: '修真', p: '境界与因果' }, { name: '仙侠', p: '剑与山门' }, { name: '王朝争霸', p: '权谋与征伐' }] },
+  { group: '悬疑系', items: [{ name: '本格推理', p: '谜面即谜底' }, { name: '惊悚', p: '不可名状' }, { name: '犯罪心理', p: '动机解剖' }] },
+  { group: '科幻系', items: [{ name: '深空探索', p: '星海与孤独' }, { name: '近未来', p: '技术伦理' }, { name: '赛博朋克', p: '霓虹与义体' }] },
+  { group: '独立类型', items: [{ name: '无题材写作', p: '不套模板，自由生长' }] }
+];
+let ITEMS = {
+  genre:   { name: '题材',   status: 'done', canDefer: false, value: '深空探索' },
+  intro:   { name: '简介',   status: 'done', canDefer: false, value: '梗概已写' },
+  world:   { name: '世界',   status: 'empty', canDefer: true, value: '' },
+  style:   { name: '风格',   status: 'done', canDefer: false, value: '第三人称限知 · 克制冷静' },
+  antiAI:  { name: 'AI痕迹控制', status: 'empty', canDefer: true, value: '' },
+  foreshadow: { name: '伏笔', status: 'empty', canDefer: true, value: '' },
+  chars:   { name: '角色',   status: 'empty', canDefer: true, value: '' }
+};
+
+/* ═══════════ 状态 ═══════════ */
+let S = { pro: false, view: 'outline', selVol: 'v1', selCh: 'c1', fs: 'fs-m', lh: 'lh-comfy', chTab: 'og', expanded: {}, archiveAiSummary: true };
+const LS_KEY = 'ainovel.book.v2';
+try {
+  const saved = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+  if (saved) {
+    if (typeof saved.pro === 'boolean') S.pro = saved.pro;
+    if (saved.view === 'settings' || saved.view === 'outline') S.view = saved.view;
+    if (saved.fs) S.fs = saved.fs;
+    if (saved.lh) S.lh = saved.lh;
+    if (saved.chTab === 'prose' || saved.chTab === 'og' || saved.chTab === 'prompt') S.chTab = saved.chTab;
+    if (typeof saved.archiveAiSummary === 'boolean') S.archiveAiSummary = saved.archiveAiSummary;
+    if (saved.volumes) BOOK = saved.volumes;
+    if (saved.items) Object.assign(ITEMS, saved.items);
+  }
+} catch (e) {}
+
+const $ = id => document.getElementById(id);
+const REQUIRED = ['task', 'rstate', 'rstrat', 'changes', 'mood', 'segs'];
+const REQ_LABELS = { task: '核心任务', rstate: '读者当前状态', rstrat: '预期策略', changes: '必须完成的变化', mood: '主情绪', segs: '段落规划' };
+const MOODS = ['紧张', '悬疑', '温暖', '悲伤', '激昂', '轻松', '压抑', '浪漫', '惊悚'];
+let saveTimer = null, savePhase = 'idle', streamTimer = null, aiAbort = false;
+
+/* ═══════════ 工具 ═══════════ */
+function countWords(text) { return (text || '').replace(/\s/g, '').length; }
+function fmt(n) { return n.toLocaleString('zh-CN'); }
+function chContent(ch) { return (ch.content || []).join('\n'); }
+function setChContent(ch, paragraphs) { ch.content = Array.isArray(paragraphs) ? paragraphs : (paragraphs ? [paragraphs] : []); }
+function curVol() { return BOOK.volumes.find(v => v.id === S.selVol); }
+function curCh() { const v = curVol(); return v ? v.chapters.find(c => c.id === S.selCh) : null; }
+function findCh(id) { for (const v of BOOK.volumes) { const c = v.chapters.find(x => x.id === id); if (c) return c; } return null; }
+function volOfCh(id) { return BOOK.volumes.find(v => v.chapters.some(c => c.id === id)); }
+function isArchived(ch) { return !!ch.archived; }
+function chGaps(ch) { return REQUIRED.filter(k => k === 'segs' ? !(ch.og?.segs || []).length : !String(ch.og?.[k] || '').trim()); }
+function bookWords() { return BOOK.volumes.reduce((a, v) => a + v.chapters.reduce((b, c) => b + countWords(chContent(c)), 0), 0); }
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 13l4 4L19 7"/></svg><span></span>';
+  t.querySelector('span').textContent = msg;
+  $('toastWrap').appendChild(t);
+  setTimeout(() => { t.style.transition = 'opacity .3s'; t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2200);
+}
+function persist() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      pro: S.pro, view: S.view, fs: S.fs, lh: S.lh, chTab: S.chTab,
+      archiveAiSummary: S.archiveAiSummary,
+      volumes: BOOK.volumes, items: ITEMS
+    }));
+  } catch (e) {}
+}
+
+/* ═══════════ 视图切换：设定 / 写作 / 预览 ═══════════ */
+function switchView(view) {
+  S.view = view; persist();
+  document.querySelectorAll('.mtab').forEach(b => b.classList.toggle('on', b.dataset.view === view));
+  $('viewSettings').hidden = view !== 'settings';
+  $('viewSettings').classList.toggle('on', view === 'settings');
+  $('viewOutline').hidden = view !== 'outline';
+  $('viewOutline').classList.toggle('on', view === 'outline');
+  $('viewPreview').hidden = view !== 'preview';
+  $('viewPreview').classList.toggle('on', view === 'preview');
+  const side = $('modSide');
+  if (view === 'settings') side.textContent = '设定 · 若干项，确认即作为 AI 上下文（可选）';
+  else if (view === 'preview') side.textContent = '预览 · 只读正文，通读全篇';
+  else side.textContent = '写作 · 卷有卷纲；点章即可配章纲、提示词并写正文';
+  if (view === 'outline') renderMiddle();
+  if (view === 'preview') renderPreview();
+  updateModNav();
+}
+document.querySelectorAll('.mtab').forEach(b => b.addEventListener('click', () => switchView(b.dataset.view)));
+function updateModNav() {
+  const done = Object.values(ITEMS).filter(i => i.status === 'done').length;
+  $('modSettingsCnt').textContent = `${done}/7`;
+  let okCh = 0, chN = 0;
+  BOOK.volumes.forEach(v => { chN += v.chapters.length; okCh += v.chapters.filter(c => c.og?.status === 'confirmed').length; });
+  $('modOutlineCnt').textContent = `${okCh}/${chN} 章纲`;
+}
+
+/* ═══════════ 树渲染（单树：卷 → 章，行内带章纲状态与字数） ═══════════ */
+function renderTreeAll() { renderTree($('treeOutline')); }
+function renderTree(el) {
+  el.innerHTML = '';
+  let chTotal = 0;
+  BOOK.volumes.forEach(v => {
+    chTotal += v.chapters.length;
+    const volEl = document.createElement('div');
+    volEl.className = 'vol';
+    const expanded = S.expanded[v.id] !== false;
+    const head = document.createElement('div');
+    head.className = 'vol-head' + (sel.kind === 'volume' && sel.id === v.id ? ' sel' : '');
+    head.dataset.vol = v.id;
+    head.innerHTML = `
+      <svg class="chev ${expanded ? 'open' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+      <span class="vt">${escapeHtml(v.title)}</span>
+      <span class="acts">
+        <button class="icon-btn" data-act="add" title="添加章节"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button class="icon-btn" data-act="del" title="删除卷"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+      </span>`;
+    volEl.appendChild(head);
+
+    const list = document.createElement('div');
+    list.className = 'ch-list';
+    list.style.display = expanded ? '' : 'none';
+    v.chapters.forEach(c => {
+      const row = document.createElement('div');
+      row.className = 'ch' + (sel.kind === 'chapter' && sel.id === c.id ? ' sel' : '');
+      row.dataset.ch = c.id;
+      const dot = c.og?.status === 'confirmed'
+        ? '<span class="dot-ok"></span>'
+        : (chGaps(c).length ? '<span class="dot-warn"></span>' : '<span class="dot-empty"></span>');
+      row.innerHTML = `
+        ${dot}
+        <span class="ct">${escapeHtml(c.title)}</span>
+        ${c.archived ? '<span class="arch-tag">已归档</span>' : ''}
+        <span class="acts">
+          <button class="icon-btn" data-act="del" title="删除章节"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+        </span>`;
+      list.appendChild(row);
+    });
+    volEl.appendChild(list);
+    el.appendChild(volEl);
+  });
+  $('stVols').textContent = BOOK.volumes.length;
+  $('stChs').textContent = chTotal;
+}
+
+/* 树交互（点卷行 = 卷纲，点章行 = 章对象工作台，chev = 折叠） */
+$('treeOutline').addEventListener('click', e => {
+  const chRow = e.target.closest('.ch');
+  const volHead = e.target.closest('.vol-head');
+  const actBtn = e.target.closest('[data-act]');
+
+  if (actBtn && chRow) {
+    const ch = findCh(chRow.dataset.ch);
+    if (actBtn.dataset.act === 'del') askDelete('chapter', ch);
+    e.stopPropagation();
+    return;
+  }
+  if (actBtn && volHead) {
+    e.stopPropagation();
+    const v = BOOK.volumes.find(x => x.id === volHead.dataset.vol);
+    if (actBtn.dataset.act === 'add') startInlineAdd(volHead.closest('.vol'));
+    else if (actBtn.dataset.act === 'del') askDelete('volume', v);
+    return;
+  }
+  if (chRow) {
+    const ch = findCh(chRow.dataset.ch);
+    e.stopPropagation();
+    sel = { kind: 'chapter', id: ch.id };
+    S.selVol = volOfCh(ch.id).id; S.selCh = ch.id;
+    S.chTab = 'og'; /* 点章先落在「章纲」页签 */
+    persist();
+    renderTreeAll(); renderMiddle();
+    return;
+  }
+  if (volHead) {
+    const v = BOOK.volumes.find(x => x.id === volHead.dataset.vol);
+    const chev = volHead.querySelector('.chev');
+    const list = volHead.nextElementSibling;
+    if (e.target.closest('.chev')) {
+      const open = list.style.display === 'none';
+      list.style.display = open ? '' : 'none';
+      chev.classList.toggle('open', open);
+      S.expanded[v.id] = open;
+      persist();
+    } else if (!e.target.closest('.acts')) {
+      sel = { kind: 'volume', id: v.id };
+      renderTreeAll(); renderMiddle();
+    }
+    return;
+  }
+});
+
+/* 树：添加卷 / 行内加章 */
+$('btnAddVolume').addEventListener('click', () => openModal('modalAddVolume'));
+$('avConfirm').addEventListener('click', () => {
+  const title = $('avTitle').value.trim();
+  if (!title) { toast('请填写卷名'); $('avTitle').focus(); return; }
+  const n = Math.min(20, parseInt($('avChapters').value || '0', 10));
+  const chapters = [];
+  for (let i = 1; i <= n; i++) chapters.push(newCh('c' + Date.now() + 'x' + i, `第${['一','二','三','四','五','六','七','八','九','十'][i-1] || i}章 · 未命名`));
+  const v = newVol('v' + Date.now(), title, $('avSummary').value.trim());
+  v.chapters = chapters;
+  BOOK.volumes.push(v);
+  closeModal('modalAddVolume');
+  persist(); renderTreeAll(); updateModNav();
+  toast(`已创建《${title}》`);
+});
+function startInlineAdd(volEl) {
+  const list = volEl.querySelector('.ch-list');
+  list.style.display = '';
+  volEl.querySelector('.chev').classList.add('open');
+  const row = document.createElement('div');
+  row.className = 'inline-add';
+  row.innerHTML = '<input placeholder="章节名，如：第五章 · 启程" />';
+  list.appendChild(row);
+  const input = row.querySelector('input');
+  input.focus();
+  let done = false;
+  const commit = () => {
+    if (done) return; done = true;
+    const v = BOOK.volumes.find(x => x.id === volEl.querySelector('.vol-head').dataset.vol);
+    const title = input.value.trim() || `第${['一','二','三','四','五','六','七','八','九','十'][v.chapters.length] || v.chapters.length + 1}章 · 未命名`;
+    v.chapters.push(newCh('c' + Date.now(), title));
+    persist(); renderTreeAll(); updateModNav();
+    toast(`已添加《${title}》`);
+  };
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') commit(); else if (e.key === 'Escape') { done = true; renderTreeAll(); } });
+  input.addEventListener('blur', commit);
+}
+
+let delTarget = null;
+function askDelete(kind, node) {
+  delTarget = { kind, node };
+  const invEl = $('delInventory');
+  if (kind === 'chapter') {
+    const inv = [];
+    const w = countWords(chContent(node));
+    if (node.og?.status === 'confirmed') inv.push('章纲已确认');
+    else if (node.og && (node.og.task || node.og.keys || node.og.mood || (node.og.segs || []).length)) inv.push('章纲草稿');
+    if (node.og?.prompt) inv.push('自定义提示词');
+    if (w > 0) inv.push(`正文 ${fmt(w)} 字`);
+    if (inv.length) {
+      invEl.hidden = false;
+      invEl.innerHTML = '<span class="inv-title">本章包含</span>' + inv.map(x => `<span class="inv-chip">${x}</span>`).join('');
+    } else {
+      invEl.hidden = true;
+      invEl.innerHTML = '';
+    }
+    $('delText').innerHTML = `确定删除章节 <b>《${escapeHtml(node.title)}》</b>？`;
+  } else {
+    invEl.hidden = true;
+    invEl.innerHTML = '';
+    const totalW = node.chapters.reduce((a, c) => a + countWords(chContent(c)), 0);
+    $('delText').innerHTML = `确定删除卷 <b>《${escapeHtml(node.title)}》</b> 及其全部 ${node.chapters.length} 章（${fmt(totalW)} 字）？`;
+  }
+  openModal('modalDelete');
+}
+$('delConfirm').addEventListener('click', () => {
+  if (!delTarget) return;
+  const { kind, node } = delTarget;
+  closeModal('modalDelete');
+  if (kind === 'volume') {
+    BOOK.volumes = BOOK.volumes.filter(v => v !== node);
+    if ((sel.kind === 'volume' && sel.id === node.id) || S.selVol === node.id) {
+      const v0 = BOOK.volumes[0];
+      S.selVol = v0?.id || ''; S.selCh = v0?.chapters[0]?.id || '';
+    }
+  } else {
+    const v = volOfCh(node.id);
+    if (v) {
+      v.chapters = v.chapters.filter(c => c !== node);
+      if ((sel.kind === 'chapter' && sel.id === node.id) || S.selCh === node.id) {
+        const next = v.chapters[0] || BOOK.volumes[0]?.chapters[0];
+        S.selVol = next ? volOfCh(next.id).id : (BOOK.volumes[0]?.id || '');
+        S.selCh = next ? next.id : '';
+      }
+    }
+  }
+  sel = S.selCh ? { kind: 'chapter', id: S.selCh } : { kind: 'volume', id: S.selVol };
+  persist(); renderTreeAll(); renderMiddle(); updateModNav();
+  toast('已删除');
+});
+
+/* ═══════════ 大纲视图：中间与右栏随选中对象切换 ═══════════ */
+let sel = { kind: 'chapter', id: 'c1' };
+function renderMiddle() {
+  const ch = sel.kind === 'chapter' ? curCh() : null;
+  const showCh = !!ch;
+  $('chWorkspace').hidden = !showCh;
+  $('volPanelWrap').hidden = showCh;
+  $('railChapter').hidden = !showCh;
+  $('railVolume').hidden = showCh;
+  if (showCh) renderChapter();
+  else renderOutlinePanel();
+}
+/* ═══════════ 卷纲四子表（产品全字段：行内编辑实时写回，增删局部重渲） ═══════════ */
+const VOL_PLUS_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg>';
+const VOL_TRASH_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+const VOL_EMPTY_OG = () => ({ template_name: '', arc_mode: '', primary_drive: '', direction_method: '', core_conflict: '', emotional_arc: '', info_gap_start: '', info_gap_end: '', chapter_target: '', stages: [], conflict_ladders: [], chapter_plans: [], character_voices: [] });
+const VOL_SUB_EMPTY = '<p class="sub-empty">暂无内容，点下方添加</p>';
+function volStageRows(v) {
+  const rows = v.og.stages || [];
+  if (!rows.length) return VOL_SUB_EMPTY;
+  return rows.map((s, i) => `
+      <div class="sub-row stages" data-i="${i}">
+        <input class="input" data-k="stage_name" maxlength="50" placeholder="阶段名" value="${escapeHtml(s.stage_name || '')}" />
+        <input class="input" data-k="stage_function" maxlength="300" placeholder="该阶段的一句话功能" value="${escapeHtml(s.stage_function || '')}" />
+        <input class="input num" data-k="chapter_count" type="number" min="0" max="999" title="章数" value="${s.chapter_count ?? 0}" />
+        <button class="icon-btn" data-subact="del" title="删除本行">${VOL_TRASH_SVG}</button>
+      </div>`).join('');
+}
+function volLadderRows(v) {
+  const rows = v.og.conflict_ladders || [];
+  if (!rows.length) return VOL_SUB_EMPTY;
+  return rows.map((l, i) => `
+      <div class="sub-block" data-i="${i}">
+        <div class="sub-row ladder">
+          <input class="input num" data-k="layer_no" type="number" min="1" max="9" title="层号" value="${l.layer_no ?? 1}" />
+          <input class="input" data-k="chapters_range" maxlength="20" placeholder="章节区间" value="${escapeHtml(l.chapters_range || '')}" />
+          <select class="input" data-k="turning_type">
+            <option value="" ${!l.turning_type ? 'selected' : ''}>转折类型</option>
+            ${['信息转折', '关系转折', '状态转折', '事件转折'].map(o => `<option ${l.turning_type === o ? 'selected' : ''}>${o}</option>`).join('')}
+          </select>
+          <button class="icon-btn" data-subact="del" title="删除本层">${VOL_TRASH_SVG}</button>
+        </div>
+        <input class="input" data-k="obstacle" maxlength="300" placeholder="本层障碍" value="${escapeHtml(l.obstacle || '')}" />
+        <input class="input" data-k="turning_point" maxlength="300" placeholder="转折点（可选）" value="${escapeHtml(l.turning_point || '')}" />
+      </div>`).join('');
+}
+function volPlanRows(v) {
+  const rows = v.og.chapter_plans || [];
+  if (!rows.length) return VOL_SUB_EMPTY;
+  return rows.map((p, i) => `
+      <div class="sub-block" data-i="${i}">
+        <div class="sub-row plans">
+          <input class="input num" data-k="chapter_no" type="number" min="1" max="9999" title="章号" value="${p.chapter_no ?? 1}" />
+          <input class="input" data-k="title" maxlength="200" placeholder="章标题" value="${escapeHtml(p.title || '')}" />
+          <button class="icon-btn" data-subact="del" title="删除本行">${VOL_TRASH_SVG}</button>
+        </div>
+        <input class="input" data-k="summary" maxlength="300" placeholder="一句话概要" value="${escapeHtml(p.summary || '')}" />
+        <div class="row-3">
+          <input class="input" data-k="emotional_anchor" maxlength="150" placeholder="情绪锚点（本章预期情绪）" value="${escapeHtml(p.emotional_anchor || '')}" />
+          <input class="input" data-k="info_gap" maxlength="300" placeholder="信息差" value="${escapeHtml(p.info_gap || '')}" />
+          <input class="input" data-k="arc_position" maxlength="150" placeholder="弧线位置" value="${escapeHtml(p.arc_position || '')}" />
+        </div>
+      </div>`).join('');
+}
+function volVoiceRows(v) {
+  const rows = v.og.character_voices || [];
+  if (!rows.length) return VOL_SUB_EMPTY;
+  return rows.map((c, i) => `
+      <div class="sub-block" data-i="${i}">
+        <div class="sub-row voices">
+          <input class="input" data-k="character_name" maxlength="50" placeholder="角色名" value="${escapeHtml(c.character_name || '')}" />
+          <button class="icon-btn" data-subact="del" title="删除本角色">${VOL_TRASH_SVG}</button>
+        </div>
+        <input class="input" data-k="situation" maxlength="300" placeholder="卷末落位：卷结束时该角色的处境" value="${escapeHtml(c.situation || '')}" />
+        <input class="input" data-k="unfinished" maxlength="300" placeholder="未完成的事" value="${escapeHtml(c.unfinished || '')}" />
+        <input class="input" data-k="interlude_thought" maxlength="300" placeholder="卷间思考" value="${escapeHtml(c.interlude_thought || '')}" />
+        <input class="input" data-k="next_action" maxlength="300" placeholder="下一卷想做的事" value="${escapeHtml(c.next_action || '')}" />
+      </div>`).join('');
+}
+const VOL_ROWS_FN = { stages: volStageRows, conflict_ladders: volLadderRows, chapter_plans: volPlanRows, character_voices: volVoiceRows };
+const VOL_NUM_RULES = {
+  chapter_count: n => Math.max(0, Math.min(999, Math.floor(n) || 0)),
+  layer_no: n => Math.max(1, Math.min(9, Math.floor(n) || 1)),
+  chapter_no: n => Math.max(1, Math.floor(n) || 1),
+};
+const VOL_NEW_ROW = {
+  stages: () => ({ stage_name: '', stage_function: '', chapter_count: 0 }),
+  conflict_ladders: v => ({ layer_no: (v.og.conflict_ladders || []).length + 1, chapters_range: '', obstacle: '', turning_type: '', turning_point: '' }),
+  chapter_plans: v => ({ chapter_no: (v.og.chapter_plans || []).reduce((m, p) => Math.max(m, p.chapter_no || 0), 0) + 1, title: '', summary: '', emotional_anchor: '', info_gap: '', arc_position: '' }),
+  character_voices: () => ({ character_name: '', situation: '', unfinished: '', interlude_thought: '', next_action: '' }),
+};
+function bindVolSubs(scope, v) {
+  ['stages', 'conflict_ladders', 'chapter_plans', 'character_voices'].forEach(k => { v.og[k] = v.og[k] || []; });
+  scope.querySelectorAll('.sub-list').forEach(list => {
+    const key = list.dataset.list;
+    list.addEventListener('input', e => {
+      const row = e.target.closest('[data-i]');
+      if (!row || !e.target.dataset.k) return;
+      const k = e.target.dataset.k;
+      v.og[key][+row.dataset.i][k] = k in VOL_NUM_RULES ? VOL_NUM_RULES[k](e.target.valueAsNumber) : e.target.value;
+    });
+    list.addEventListener('click', e => {
+      const btn = e.target.closest('[data-subact="del"]');
+      if (!btn) return;
+      v.og[key].splice(+btn.closest('[data-i]').dataset.i, 1);
+      list.innerHTML = VOL_ROWS_FN[key](v);
+    });
+  });
+  scope.querySelectorAll('[data-subadd]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.subadd;
+      v.og[key].push(VOL_NEW_ROW[key](v));
+      scope.querySelector(`.sub-list[data-list="${key}"]`).innerHTML = VOL_ROWS_FN[key](v);
+    });
+  });
+}
+function renderOutlinePanel() {
+  const panel = $('panel');
+  if (sel.kind === 'volume') {
+    const v = BOOK.volumes.find(x => x.id === sel.id);
+    if (!v) {
+      panel.innerHTML = '<p style="color:var(--muted);">还没有卷与章节。点击左上「＋」添加第一卷。</p>';
+      return;
+    }
+    v.og = v.og || VOL_EMPTY_OG();
+    panel.innerHTML = `
+      <div class="panel-head">
+        <h2>${escapeHtml(v.title)}</h2>
+        <span class="badge warn">草稿</span>
+      </div>
+      <p class="desc">卷纲：卷摘要与结构决定整卷走向；保存后可作为 AI 生成的卷级上下文。</p>
+      <div class="field"><label>卷摘要 <span class="req">*</span></label><textarea class="textarea" id="f-summary" placeholder="一段话讲清本卷讲什么">${escapeHtml(v.summary || '')}</textarea></div>
+      <div class="tpl-row">
+        <div class="field tpl-select"><label>结构模板</label><select class="input" id="f-tpl">
+          <option value="" ${!v.og.template_name ? 'selected' : ''}>（未选择）</option>
+          ${['三幕式', '起承転結', '悬疑递进', '人物弧线'].map(o => `<option ${v.og.template_name === o ? 'selected' : ''}>${o}</option>`).join('')}
+        </select></div>
+        <div class="field chtarget"><label>章数目标 <span class="opt">1-9999，留空为不设</span></label><input class="input num" id="f-chtarget" type="number" min="1" max="9999" placeholder="如 20" value="${escapeHtml(String(v.og.chapter_target ?? ''))}" /></div>
+      </div>
+      <div class="field"><label>核心冲突 <span class="req">*</span> <span class="opt">≤150 字</span></label><input class="input" id="f-conflict" maxlength="150" placeholder="本卷贯穿的核心矛盾" value="${escapeHtml(v.og.core_conflict || '')}" /></div>
+      <div class="row-3">
+        <div class="field"><label>弧线模式</label><select class="input" id="f-arcmode">
+          <option value="" ${!v.og.arc_mode ? 'selected' : ''}>（未选择）</option>
+          ${['先压后爽', '层层逼近', '张力开合', '蓄势爆发', '螺旋递进'].map(o => `<option ${v.og.arc_mode === o ? 'selected' : ''}>${o}</option>`).join('')}
+        </select></div>
+        <div class="field"><label>主导驱动力</label><select class="input" id="f-drive">
+          <option value="" ${!v.og.primary_drive ? 'selected' : ''}>（未选择）</option>
+          ${['悬疑', '威胁', '目标', '关系', '信息差'].map(o => `<option ${v.og.primary_drive === o ? 'selected' : ''}>${o}</option>`).join('')}
+        </select></div>
+        <div class="field"><label>方向来源</label><select class="input" id="f-direction">
+          <option value="" ${!v.og.direction_method ? 'selected' : ''}>（未选择）</option>
+          <option value="template" ${v.og.direction_method === 'template' ? 'selected' : ''}>结构模板</option>
+          <option value="character_voice" ${v.og.direction_method === 'character_voice' ? 'selected' : ''}>角色发声</option>
+          <option value="manual" ${v.og.direction_method === 'manual' ? 'selected' : ''}>手动</option>
+        </select></div>
+      </div>
+      <div class="field"><label>情绪弧线 <span class="opt">≤150 字</span></label><input class="input" id="f-emoarc" maxlength="150" placeholder="读者情绪的起伏走向" value="${escapeHtml(v.og.emotional_arc || '')}" /></div>
+      <details class="cfg" open>
+        <summary>信息差 <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M6 9l6 6 6-6"/></svg></summary>
+        <div class="inner">
+          <div class="field"><label>开卷信息差 <span class="opt">≤300 字</span></label><input class="input" id="f-igstart" maxlength="300" placeholder="读者开卷时知道什么" value="${escapeHtml(v.og.info_gap_start || '')}" /></div>
+          <div class="field"><label>收卷信息差 <span class="opt">≤300 字</span></label><input class="input" id="f-igend" maxlength="300" placeholder="收卷时应揭示什么" value="${escapeHtml(v.og.info_gap_end || '')}" /></div>
+        </div>
+      </details>
+      <details class="cfg" open>
+        <summary>阶段分配 <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M6 9l6 6 6-6"/></svg></summary>
+        <div class="inner"><div class="sub-list" data-list="stages">${volStageRows(v)}</div>
+          <div class="sub-add"><button class="btn btn-secondary btn-sm" data-subadd="stages">${VOL_PLUS_SVG} 添加阶段</button></div>
+        </div>
+      </details>
+      <details class="cfg" open>
+        <summary>冲突阶梯 <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M6 9l6 6 6-6"/></svg></summary>
+        <div class="inner"><div class="sub-list" data-list="conflict_ladders">${volLadderRows(v)}</div>
+          <div class="sub-add"><button class="btn btn-secondary btn-sm" data-subadd="conflict_ladders">${VOL_PLUS_SVG} 添加层级</button></div>
+        </div>
+      </details>
+      <details class="cfg" open>
+        <summary>章节规划 <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M6 9l6 6 6-6"/></svg></summary>
+        <div class="inner"><div class="sub-list" data-list="chapter_plans">${volPlanRows(v)}</div>
+          <div class="sub-add"><button class="btn btn-secondary btn-sm" data-subadd="chapter_plans">${VOL_PLUS_SVG} 添加章规划</button></div>
+        </div>
+      </details>
+      <details class="cfg" open>
+        <summary>角色发声 <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M6 9l6 6 6-6"/></svg></summary>
+        <div class="inner"><div class="sub-list" data-list="character_voices">${volVoiceRows(v)}</div>
+          <div class="sub-add"><button class="btn btn-secondary btn-sm" data-subadd="character_voices">${VOL_PLUS_SVG} 添加角色</button></div>
+        </div>
+      </details>
+      <div class="panel-foot">
+        <span style="margin-right:auto;"></span>
+        <button class="btn btn-secondary" id="btnSaveVol">保存卷纲</button>
+        <button class="btn btn-primary" id="btnNextCh">去配章纲</button>
+      </div>`;
+    $('btnSaveVol').addEventListener('click', () => saveVolume(v));
+    $('btnNextCh').addEventListener('click', () => {
+      const firstPending = v.chapters.find(c => c.og?.status !== 'confirmed') || v.chapters[0];
+      if (!firstPending) { toast('本卷还没有章节，点卷行右侧「＋」添加'); return; }
+      sel = { kind: 'chapter', id: firstPending.id };
+      S.selVol = v.id; S.selCh = firstPending.id;
+      S.chTab = 'og';
+      persist();
+      renderTreeAll(); renderMiddle();
+    });
+    bindVolSubs(panel, v);
+  } else {
+    panel.innerHTML = BOOK.volumes.length
+      ? '<p style="color:var(--muted);">选中左侧章节：配置章纲、提示词并写正文；选中卷：编辑卷纲。</p>'
+      : '<p style="color:var(--muted);">还没有卷与章节。点击左上「＋」添加第一卷。</p>';
+  }
+}
+
+/* ═══════════ 预览视图：左树（只读导航） + 只读正文，无右栏 ═══════════ */
+function renderPreviewTree() {
+  const el = $('treePreview');
+  el.innerHTML = '';
+  let chTotal = 0;
+  BOOK.volumes.forEach(v => {
+    chTotal += v.chapters.length;
+    const volEl = document.createElement('div');
+    volEl.className = 'vol';
+    const expanded = S.expanded[v.id] !== false;
+    const head = document.createElement('div');
+    head.className = 'vol-head';
+    head.dataset.vol = v.id;
+    head.innerHTML = `
+      <svg class="chev ${expanded ? 'open' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+      <span class="vt">${escapeHtml(v.title)}</span>`;
+    volEl.appendChild(head);
+    const list = document.createElement('div');
+    list.className = 'ch-list';
+    list.style.display = expanded ? '' : 'none';
+    v.chapters.forEach(c => {
+      const row = document.createElement('div');
+      row.className = 'ch' + (sel.kind === 'chapter' && sel.id === c.id ? ' sel' : '');
+      row.dataset.ch = c.id;
+      const dot = c.og?.status === 'confirmed'
+        ? '<span class="dot-ok"></span>'
+        : (chGaps(c).length ? '<span class="dot-warn"></span>' : '<span class="dot-empty"></span>');
+      row.innerHTML = `
+        ${dot}
+        <span class="ct">${escapeHtml(c.title)}</span>
+        ${c.archived ? '<span class="arch-tag">已归档</span>' : ''}`;
+      list.appendChild(row);
+    });
+    volEl.appendChild(list);
+    el.appendChild(volEl);
+  });
+  $('pvVols').textContent = BOOK.volumes.length;
+  $('pvChs').textContent = chTotal;
+}
+function renderPreview() {
+  renderPreviewTree();
+  let ch = sel.kind === 'chapter' ? curCh() : null;
+  if (!ch) {
+    const vol = sel.kind === 'volume' ? BOOK.volumes.find(v => v.id === sel.id) : BOOK.volumes[0];
+    ch = (vol?.chapters[0]) || BOOK.volumes[0]?.chapters[0] || null;
+    if (ch) { sel = { kind: 'chapter', id: ch.id }; S.selVol = volOfCh(ch.id).id; S.selCh = ch.id; persist(); }
+  }
+  const prose = $('pvProse');
+  const name = $('pvChName');
+  if (!ch) {
+    name.textContent = '暂无正文';
+    prose.innerHTML = '<p style="text-indent:0; color:var(--muted);">还没有卷与章节。回到「写作」添加第一卷。</p>';
+    return;
+  }
+  name.textContent = ch.title;
+  const text = chContent(ch);
+  prose.innerHTML = text
+    ? ch.content.map(p => `<p>${escapeHtml(p)}</p>`).join('')
+    : '<p style="text-indent:0; color:var(--muted);">本章还没有正文，回到「写作」开始写。</p>';
+}
+$('treePreview').addEventListener('click', e => {
+  const chRow = e.target.closest('.ch');
+  const volHead = e.target.closest('.vol-head');
+  if (chRow) {
+    const ch = findCh(chRow.dataset.ch);
+    sel = { kind: 'chapter', id: ch.id };
+    S.selVol = volOfCh(ch.id).id; S.selCh = ch.id;
+    persist();
+    renderPreview();
+    return;
+  }
+  if (volHead) {
+    const v = BOOK.volumes.find(x => x.id === volHead.dataset.vol);
+    const chev = volHead.querySelector('.chev');
+    const list = volHead.nextElementSibling;
+    const open = list.style.display === 'none';
+    list.style.display = open ? '' : 'none';
+    chev.classList.toggle('open', open);
+    S.expanded[v.id] = open;
+    persist();
+  }
+});
+
+/* 章纲表单生成器（大纲面板与正文「章纲」页签共用；P 字段前缀，C 控件前缀）
+   字段集 = 产品现行全字段（数据模型不动），必填口径 = 后端 gate_chapter_ready 六项 */
+function chGapEntries(c) { return chGaps(c).map(k => ({ key: k, label: REQ_LABELS[k] })); }
+function segRowsHTML(c) {
+  const segs = c.og?.segs || [];
+  if (!segs.length) return '<p class="note" style="font-size:12.5px;color:var(--muted);margin:0 0 10px;">尚未规划段落 · 至少一段才能确认章纲</p>';
+  return segs.map((s, i) => `
+      <div class="seg-row" data-i="${i}">
+        <span class="num seg-i">${i + 1}</span>
+        <textarea class="input" data-seg="s" rows="2" placeholder="段落概要，如：港区之夜 · 信标亮起">${escapeHtml(s.s || '')}</textarea>
+        <input class="input num" data-seg="w" type="number" min="100" step="100" value="${s.w || 800}" />
+        <span class="acts">
+          <button class="icon-btn" data-segact="up" title="上移" ${i === 0 ? 'disabled' : ''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 15l6-6 6 6"/></svg></button>
+          <button class="icon-btn" data-segact="del" title="删除段落"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+        </span>
+      </div>`).join('');
+}
+function segTotalText(c) { return fmt((c.og?.segs || []).reduce((a, s) => a + (parseInt(s.w, 10) || 0), 0)); }
+function bindSegRows(scope, c) {
+  scope.querySelectorAll('[data-act="addseg"]').forEach(b => b.addEventListener('click', () => {
+    c.og = c.og || {};
+    c.og.segs = (c.og.segs || []).concat([{ s: '', w: 800 }]);
+    rerenderSegs(scope, c);
+  }));
+  scope.querySelectorAll('.seg-row').forEach(row => {
+    const i = +row.dataset.i;
+    row.querySelector('[data-seg="s"]').addEventListener('input', e => { c.og.segs[i].s = e.target.value; });
+    row.querySelector('[data-seg="w"]').addEventListener('input', () => { updateSegTotal(scope, c); });
+    row.querySelector('[data-segact="del"]').addEventListener('click', () => {
+      c.og.segs.splice(i, 1); rerenderSegs(scope, c); refreshChConfirm(c, 'wf-', 'wf-');
+    });
+    row.querySelector('[data-segact="up"]').addEventListener('click', () => {
+      if (i > 0) { const [x] = c.og.segs.splice(i, 1); c.og.segs.splice(i - 1, 0, x); rerenderSegs(scope, c); }
+    });
+  });
+}
+function rerenderSegs(scope, c) {
+  scope.querySelector('.seg-list').innerHTML = segRowsHTML(c);
+  updateSegTotal(scope, c);
+  bindSegRows(scope, c);
+}
+function updateSegTotal(scope, c) { scope.querySelector('.seg-total b').textContent = segTotalText(c); }
+function chapterFormHTML(c, P, C) {
+  const gaps = chGapEntries(c);
+  const st = c.og?.status;
+  const val = v => `value="${escapeHtml(v || '')}"`;
+  const chev = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M6 9l6 6 6-6"/></svg>';
+  const moodVal = c.og?.mood || '';
+  const moodCustom = moodVal && !MOODS.includes(moodVal) ? moodVal : '';
+  const moodSel = moodCustom ? '__custom' : moodVal;
+  return `
+      <details class="cfg" open>
+        <summary>章纲概要 ${chev}</summary>
+        <div class="inner">
+          <div class="field"><label>章纲概要</label><textarea class="textarea" id="${P}summary" placeholder="这一章写什么，一两句话说清">${escapeHtml(c.summary || '')}</textarea></div>
+          <div class="field"><label>关键事件 <span class="opt">一行一个</span></label><textarea class="textarea" id="${P}keys" placeholder="一个关键事件">${escapeHtml(c.og?.keys || '')}</textarea></div>
+          <div class="field"><label>出场角色 <span class="opt">一行一个角色名</span></label><textarea class="textarea" id="${P}chars" placeholder="角色名">${escapeHtml(c.og?.chars || '')}</textarea></div>
+          <div class="tpl-row">
+            <div class="field tpl-select"><label>地点</label><input class="input" id="${P}loc" ${val(c.og?.loc)} placeholder="本章主要场景地点" /></div>
+            <div class="field stage-map"><label>时间</label><input class="input" id="${P}time" ${val(c.og?.time)} placeholder="本章时间背景" /></div>
+          </div>
+          <div class="field"><label>叙事视角</label><input class="input" id="${P}pov" ${val(c.og?.pov)} placeholder="如：第三人称有限" /></div>
+          <div class="field"><label>视角指导</label><textarea class="textarea" id="${P}pguid" placeholder="视角切换注意事项">${escapeHtml(c.og?.pguid || '')}</textarea></div>
+        </div>
+      </details>
+      <details class="cfg" open>
+        <summary>核心任务 ${chev}</summary>
+        <div class="inner">
+          <div class="field"><label>核心任务 <span class="req" data-req="task">*</span></label><textarea class="textarea" id="${P}task" placeholder="这一章必须完成什么">${escapeHtml(c.og?.task || '')}</textarea></div>
+          <div class="field"><label>读者当前状态 <span class="req" data-req="rstate">*</span></label><textarea class="textarea" id="${P}rstate" placeholder="读者此时的情感状态">${escapeHtml(c.og?.rstate || '')}</textarea></div>
+          <div class="field"><label>预期策略 <span class="req" data-req="rstrat">*</span></label><textarea class="textarea" id="${P}rstrat" placeholder="希望读者如何感受">${escapeHtml(c.og?.rstrat || '')}</textarea></div>
+          <div class="field"><label>预期细节说明 <span class="opt">可后补</span></label><textarea class="textarea" id="${P}rdetail" placeholder="策略的展开方式与分寸">${escapeHtml(c.og?.rdetail || '')}</textarea></div>
+        </div>
+      </details>
+      <details class="cfg" open>
+        <summary>兑现与约束 ${chev}</summary>
+        <div class="inner">
+          <div class="field"><label>必须在本章回收 <span class="opt">一行一个</span></label><textarea class="textarea" id="${P}mres" placeholder="一个必须回收的伏笔">${escapeHtml(c.og?.mres || '')}</textarea></div>
+          <div class="field"><label>必须维持悬念 <span class="opt">一行一个</span></label><textarea class="textarea" id="${P}mhold" placeholder="一个必须维持的悬念">${escapeHtml(c.og?.mhold || '')}</textarea></div>
+          <div class="field"><label>可部分推进 <span class="opt">一行一个</span></label><textarea class="textarea" id="${P}padv" placeholder="一个可部分推进的线索">${escapeHtml(c.og?.padv || '')}</textarea></div>
+          <div class="field"><label>必须完成的变化 <span class="req" data-req="changes">*</span></label><textarea class="textarea" id="${P}changes" placeholder="一个必须发生的变化">${escapeHtml(c.og?.changes || '')}</textarea></div>
+          <div class="field"><label>禁止事项 <span class="opt">一行一个</span></label><textarea class="textarea" id="${P}ban" placeholder="一个禁止发生的事">${escapeHtml(c.og?.ban || '')}</textarea></div>
+        </div>
+      </details>
+      <details class="cfg" open>
+        <summary>情绪设计 ${chev}</summary>
+        <div class="inner">
+          <div class="field"><label>主情绪 <span class="req" data-req="mood">*</span></label>
+            <div class="mood-row">
+              <select class="input" id="${P}moodSel">
+                <option value="">请选择主情绪</option>
+                ${MOODS.map(m => `<option value="${m}" ${moodSel === m ? 'selected' : ''}>${m}</option>`).join('')}
+                <option value="__custom" ${moodSel === '__custom' ? 'selected' : ''}>自定义…</option>
+              </select>
+              <input class="input" id="${P}moodCustom" placeholder="输入自定义情绪（≤50 字）" value="${escapeHtml(moodCustom)}" ${moodSel === '__custom' ? '' : 'hidden'} />
+            </div>
+          </div>
+        </div>
+      </details>
+      <details class="cfg" open>
+        <summary>段落规划 <span class="req" data-req="segs">*</span> <span class="tag">每段 = 一次 AI 生成的单元</span>${chev}</summary>
+        <div class="inner">
+          <div class="seg-list" id="${P}segs">${segRowsHTML(c)}</div>
+          <div class="seg-add-row">
+            <button class="btn btn-secondary btn-sm" data-act="addseg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>添加段落</button>
+            <span class="seg-total">合计 <b class="num">${segTotalText(c)}</b> 字</span>
+          </div>
+        </div>
+      </details>
+      <div class="panel-foot">
+        <span class="gap-line" id="${C}gapLine" ${gaps.length ? '' : 'hidden'}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+          缺：${gaps.map(g => `<span class="gap-chip" data-field="${P}${g.key}">${g.label}</span>`).join(' ')}
+        </span>
+        <span class="done-note" id="${C}chDone" ${st !== 'confirmed' ? 'hidden' : ''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 13l4 4L19 7"/></svg>章纲已确认</span>
+        <span style="flex:1;"></span>
+        <button class="btn btn-secondary" id="${C}btnSaveDraft">保存草稿</button>
+        <button class="btn btn-primary" id="${C}btnConfirmCh" ${st === 'confirmed' || gaps.length ? 'disabled' : ''}>确认章纲</button>
+        <button class="btn btn-primary" id="${C}btnGoWrite" style="background:var(--accent-strong);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          去写正文
+        </button>
+      </div>`;
+}
+function bindGapChips(scope) {
+  scope.querySelectorAll('.gap-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const el = $(chip.dataset.field);
+      if (!el) return;
+      const fld = el.closest('.field') || el;
+      const panelEl = scope.closest('.col-panel') || scope;
+      if (panelEl.scrollTo) panelEl.scrollTo({ top: fld.offsetTop - 12, behavior: 'smooth' });
+      fld.classList.add('flash');
+      setTimeout(() => fld.classList.remove('flash'), 1400);
+      (el.focus ? el : fld.querySelector('input, textarea, select'))?.focus({ preventScroll: true });
+    });
+  });
+}
+function refreshChConfirm(c, P, C) {
+  P = P || 'f-'; C = C === undefined ? '' : C;
+  const btn = $(C + 'btnConfirmCh');
+  if (btn) btn.disabled = c.og?.status === 'confirmed' || chGaps(c).length > 0;
+  const line = $(C + 'gapLine');
+  if (line) {
+    const gaps = chGapEntries(c);
+    if (gaps.length) {
+      line.hidden = false;
+      line.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+        缺：${gaps.map(g => `<span class="gap-chip" data-field="${P}${g.key}">${g.label}</span>`).join(' ')}`;
+      bindGapChips(line.parentElement);
+    } else {
+      line.hidden = true;
+    }
+  }
+}
+
+function readVol(v) {
+  v.og = v.og || VOL_EMPTY_OG();
+  v.summary = $('f-summary').value.trim();
+  v.og.template_name = $('f-tpl').value;
+  const ct = $('f-chtarget').value.trim();
+  v.og.chapter_target = ct === '' ? null : Math.max(1, Math.min(9999, Math.floor(+ct) || 1));
+  v.og.core_conflict = $('f-conflict').value.trim();
+  v.og.arc_mode = $('f-arcmode').value;
+  v.og.primary_drive = $('f-drive').value;
+  v.og.direction_method = $('f-direction').value;
+  v.og.emotional_arc = $('f-emoarc').value.trim();
+  v.og.info_gap_start = $('f-igstart').value.trim();
+  v.og.info_gap_end = $('f-igend').value.trim();
+}
+function saveVolume(v) {
+  readVol(v);
+  persist(); renderTreeAll(); renderOutlinePanel(); updateModNav();
+  toast(`《${v.title}》卷纲已保存`);
+}
+function readCh(c, P) {
+  P = P || 'f-';
+  const Q = id => $(P + id)?.value.trim() || '';
+  c.og = c.og || {};
+  c.summary = Q('summary');
+  c.og.keys = Q('keys'); c.og.chars = Q('chars'); c.og.loc = Q('loc'); c.og.time = Q('time');
+  c.og.pov = Q('pov'); c.og.pguid = Q('pguid');
+  c.og.task = Q('task'); c.og.rstate = Q('rstate'); c.og.rstrat = Q('rstrat'); c.og.rdetail = Q('rdetail');
+  c.og.mres = Q('mres'); c.og.mhold = Q('mhold'); c.og.padv = Q('padv');
+  c.og.changes = Q('changes'); c.og.ban = Q('ban');
+  const sel = $(P + 'moodSel')?.value || '';
+  c.og.mood = sel === '__custom' ? Q('moodCustom') : sel;
+}
+function saveChapter(c, confirm, P, C) {
+  P = P || 'f-'; C = C === undefined ? '' : C;
+  readCh(c, P);
+  if (confirm) {
+    const gaps = chGaps(c);
+    if (gaps.length) { toast('还有必填字段未完成'); renderMiddle(); return; }
+    c.og.status = 'confirmed';
+    persist(); renderTreeAll(); renderMiddle(); updateModNav();
+    toast(`《${c.title}》章纲已确认`);
+  } else {
+    const gaps = chGaps(c);
+    c.og.status = gaps.length ? 'pending' : 'confirmed';
+    persist(); renderTreeAll(); renderMiddle(); updateModNav();
+    toast('草稿已保存');
+  }
+}
+$('btnBatch').addEventListener('click', () => {
+  let n = 0;
+  BOOK.volumes.forEach(v => v.chapters.forEach(c => {
+    if (c.og?.status !== 'confirmed' && chGaps(c).length === 0) { c.og.status = 'confirmed'; n++; }
+  }));
+  persist(); renderTreeAll(); renderMiddle(); updateModNav();
+  toast(n ? `已确认 ${n} 章章纲` : '没有可确认的章节（必填字段未完成的章节已跳过）');
+});
+
+/* ═══════════ 章对象三件套：章纲 / 提示词 / 正文 ═══════════ */
+function renderChForm() {
+  const ch = curCh();
+  if (!ch) { $('ogPane').innerHTML = ''; $('promptPane').innerHTML = ''; return; }
+  renderOgPane(ch);
+  renderPromptPane(ch);
+  updateChTabBadges(ch);
+  syncChTab();
+}
+function renderOgPane(ch) {
+  const pane = $('ogPane');
+  const gaps = chGapEntries(ch);
+  const st = ch.og?.status;
+  pane.innerHTML = `
+    <div class="panel">
+      <div class="panel-head">
+        <h2>章纲 · ${escapeHtml(ch.title)}</h2>
+        ${st === 'confirmed'
+          ? '<span class="badge ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 13l4 4L19 7"/></svg>章纲已确认</span>'
+          : (gaps.length ? '<span class="badge err"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="5" fill="currentColor" stroke="none"/></svg>待配章纲</span>' : '<span class="badge warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="5" fill="currentColor" stroke="none"/></svg>草稿</span>')}
+      </div>
+      <p class="desc">章纲：明确「这一章写什么」，确认后可作为 AI 生成正文的章级上下文。</p>
+      ${chapterFormHTML(ch, 'wf-', 'wf-')}
+    </div>`;
+  $('wf-btnSaveDraft').addEventListener('click', () => saveChapter(ch, false, 'wf-', 'wf-'));
+  $('wf-btnConfirmCh').addEventListener('click', () => saveChapter(ch, true, 'wf-', 'wf-'));
+  $('wf-btnGoWrite').addEventListener('click', () => {
+    readCh(ch, 'wf-');
+    S.chTab = 'prose'; persist(); syncChTab();
+    $('editor').focus();
+  });
+  bindGapChips(pane);
+  refreshChConfirm(ch, 'wf-', 'wf-');
+  bindSegRows(pane, ch);
+  const moodSel = pane.querySelector('#wf-moodSel');
+  moodSel?.addEventListener('change', () => {
+    pane.querySelector('#wf-moodCustom').hidden = moodSel.value !== '__custom';
+    if (moodSel.value !== '__custom') { readCh(ch, 'wf-'); refreshChConfirm(ch, 'wf-', 'wf-'); }
+  });
+  pane.querySelectorAll('input, textarea').forEach(f => {
+    f.addEventListener('input', () => { readCh(ch, 'wf-'); refreshChConfirm(ch, 'wf-', 'wf-'); });
+  });
+}
+function renderPromptPane(ch) {
+  if (!ch) return;
+  const pane = $('promptPane');
+  const custom = !!ch.og?.prompt;
+  pane.innerHTML = `
+    <div class="panel">
+      <div class="panel-head">
+        <h2>提示词 · ${escapeHtml(ch.title)}</h2>
+        ${custom
+          ? '<span class="badge warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="5" fill="currentColor" stroke="none"/></svg>已自定义</span>'
+          : '<span class="badge ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 13l4 4L19 7"/></svg>自动组装</span>'}
+      </div>
+      <p class="desc">AI 生成正文时使用的提示词，由「设定 + 章纲」自动组装。编辑后保存，本章将以自定义提示词为准。</p>
+      <div class="field"><textarea class="ai-prompt" id="wfPrompt">${escapeHtml(assemblePrompt(ch))}</textarea></div>
+      <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+        <span class="note" style="font-size:12px; color:var(--muted); margin-right:auto;">${custom ? '当前为自定义提示词 · 可恢复为自动组装' : '未自定义 · 章纲或设定变化后自动跟随'}</span>
+        <button class="btn btn-ghost btn-sm" id="wfPromptReset">恢复自动组装</button>
+        <button class="btn btn-primary" id="wfPromptSave">保存提示词</button>
+      </div>
+    </div>`;
+  $('wfPromptSave').addEventListener('click', () => {
+    ch.og = ch.og || {};
+    const v = $('wfPrompt').value.trim();
+    ch.og.prompt = v;
+    persist(); renderMiddle(); renderTreeAll();
+    toast(v ? '提示词已保存 · 本章将以自定义为准' : '已恢复自动组装');
+  });
+  $('wfPromptReset').addEventListener('click', () => {
+    ch.og = ch.og || {};
+    ch.og.prompt = '';
+    persist(); renderMiddle(); renderTreeAll();
+    toast('已恢复自动组装');
+  });
+}
+function updateChTabBadges(ch) {
+  const words = countWords(chContent(ch));
+  $('tabProseCnt').textContent = words ? `${fmt(words)} 字` : '空章';
+  const gaps = chGapEntries(ch);
+  const ogCnt = $('tabOgCnt');
+  if (ch.og?.status === 'confirmed') { ogCnt.textContent = '已确认'; ogCnt.className = 'cnt ok'; }
+  else if (gaps.length) { ogCnt.textContent = `缺 ${gaps.length} 项`; ogCnt.className = 'cnt err'; }
+  else { ogCnt.textContent = '草稿'; ogCnt.className = 'cnt warn'; }
+  const pCnt = $('tabPromptCnt');
+  if (ch.og?.prompt) { pCnt.textContent = '已自定义'; pCnt.className = 'cnt warn'; }
+  else { pCnt.textContent = '自动组装'; pCnt.className = 'cnt ok'; }
+}
+function syncChTab() {
+  const t = S.chTab;
+  document.querySelectorAll('.chtab').forEach(b => {
+    b.classList.toggle('on', b.dataset.chtab === t);
+    b.setAttribute('aria-selected', b.dataset.chtab === t ? 'true' : 'false');
+  });
+  $('editorWrap').hidden = t !== 'prose';
+  $('ogPane').hidden = t !== 'og';
+  $('promptPane').hidden = t !== 'prompt';
+  $('readonlyBanner').hidden = t !== 'prose' || !isArchived(curCh());
+  $('proseCtrls').hidden = t !== 'prose';
+  $('editorStatus').hidden = t !== 'prose';
+  if (t === 'prose') { const ch = curCh(); if (ch) updateStats(ch, countWords(chContent(ch))); }
+}
+document.querySelectorAll('.chtab').forEach(b => b.addEventListener('click', () => {
+  S.chTab = b.dataset.chtab; persist();
+  if (S.chTab === 'prompt' && !curCh()?.og?.prompt) renderPromptPane(curCh()); /* 自动组装模式跟随最新章纲 */
+  syncChTab();
+  updateChTabBadges(curCh());
+}));
+
+/* ═══════════ 章对象工作台（章纲 / 提示词 / 正文 三页签） ═══════════ */
+function renderChapter() {
+  const ch = curCh(); if (!ch) return;
+  const words = countWords(chContent(ch));
+  const archived = isArchived(ch);
+
+  $('chName').textContent = ch.title;
+  $('chArchTag').hidden = !archived;
+  $('readonlyBanner').hidden = !archived;
+  $('btnArchive').disabled = archived || words === 0;
+  $('btnArchive').title = archived ? '本章已归档' : (words === 0 ? '空章无需归档' : '');
+  $('editor').contentEditable = archived ? 'false' : 'true';
+  $('editor').innerHTML = ch.content.map(p => `<p>${escapeHtml(p)}</p>`).join('');
+  $('editor').dataset.placeholder = words ? '' : '从这一章开始写……';
+  updateStats(ch, words);
+  $('editorWrap').scrollTop = 0;
+  setSaveText('idle', false);
+  renderChForm();
+}
+function updateStats(ch, words) {
+  const target = ch.target || 4000;
+  const pct = Math.min(100, Math.round(words / target * 100));
+  $('wordCount').textContent = `${fmt(words)} 字`;
+  $('pctNum').innerHTML = `${pct}<span class="sub">%</span>`;
+  $('pbarFill').style.width = pct + '%';
+  $('targetText').textContent = fmt(target);
+  $('archCard').hidden = !isArchived(ch);
+  $('chWords').textContent = `${fmt(words)} 字`;
+  $('goalPct').textContent = pct + '%';
+  $('bookWords').textContent = fmt(bookWords());
+  const note = $('progressNote');
+  if (isArchived(ch)) note.innerHTML = '本章已归档 · 正文锁定。';
+  else if (words === 0) note.innerHTML = '写下第一段，开始本章。';
+  else if (pct >= 100) note.innerHTML = '已达成目标 · 可以归档本章了。';
+  else note.innerHTML = `再写 <b class="num" id="remainText">${fmt(Math.max(0, target - words))}</b> 字，完成本章目标。`;
+}
+function setSaveText(phase, withTick) {
+  const el = $('saveState');
+  const t = $('saveText');
+  el.className = 'save-state';
+  const now = new Date().toTimeString().slice(0, 5);
+  if (phase === 'dirty') { el.classList.add('dirty'); t.textContent = '未保存'; }
+  else if (phase === 'saving') { el.classList.add('saving'); t.textContent = '保存中…'; }
+  else {
+    if (withTick) el.classList.add('saved');
+    t.textContent = withTick ? `已自动保存 ${now}` : '已自动保存';
+  }
+}
+
+/* 编辑器输入 → 自动保存三态 */
+$('editor').addEventListener('input', () => {
+  if (isArchived(curCh())) return;
+  const words = countWords($('editor').textContent);
+  const ch = curCh();
+  ch.content = Array.from($('editor').querySelectorAll('p')).map(p => p.textContent);
+  updateStats(ch, words);
+  setSaveText('dirty');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    setSaveText('saving');
+    setTimeout(() => { setSaveText('saved', true); persist(); }, 420);
+  }, 1500);
+});
+
+/* 字号 / 行距 / 专注 */
+document.querySelectorAll('.seg[data-od-id="seg-fontsize"] button').forEach(b => {
+  b.addEventListener('click', () => {
+    const seg = b.closest('.seg');
+    seg.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    const v = b.dataset.v;
+    S.fs = v; persist();
+    if (b.closest('#modalPrefs')) syncPrefSegs();
+    else $('editor').className = 'editor ' + v + ' ' + (S.lh || 'lh-comfy');
+  });
+});
+document.querySelectorAll('.seg[data-od-id="seg-lineheight"] button').forEach(b => {
+  b.addEventListener('click', () => {
+    const seg = b.closest('.seg');
+    seg.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    S.lh = b.dataset.v; persist();
+    if (b.closest('#modalPrefs')) syncPrefSegs();
+    else $('editor').className = 'editor ' + (S.fs || 'fs-m') + ' ' + S.lh;
+  });
+});
+document.querySelectorAll('.seg[data-od-id="seg-archsum"] button').forEach(b => {
+  b.addEventListener('click', () => {
+    const seg = b.closest('.seg');
+    seg.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    S.archiveAiSummary = b.dataset.v === 'on';
+    persist();
+  });
+});
+$('btnFocus').addEventListener('click', () => {
+  document.body.classList.toggle('focus');
+  toast(document.body.classList.contains('focus') ? '专注模式 · 按 Esc 退出' : '已退出专注模式');
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.body.classList.contains('focus')) { document.body.classList.remove('focus'); toast('已退出专注模式'); }
+});
+
+/* 归档 */
+$('btnArchive').addEventListener('click', () => openModal('modalArchive'));
+$('archConfirm').addEventListener('click', () => {
+  const ch = curCh(); if (!ch) return;
+  closeModal('modalArchive');
+  ch.archived = true;
+  persist(); renderTreeAll(); renderMiddle(); updateModNav();
+  toast(`《${ch.title}》已归档 · 只读`);
+});
+
+/* 版本历史 */
+$('btnHistory').addEventListener('click', () => {
+  const ch = curCh(); if (!ch) return;
+  const n = ch.content.length;
+  $('histCh').textContent = ch.title;
+  const vers = [
+    { t: '今天 21:03', note: '当前版本', cur: true, cut: n },
+    { t: '昨天 18:20', note: '自动保存 · 修改第 4–6 段', cur: false, cut: Math.min(n, 9) },
+    { t: '3 天前 09:11', note: '初稿 · 建章时自动保存', cur: false, cut: Math.min(n, 6) }
+  ];
+  $('histList').innerHTML = vers.map((v, i) => `
+    <div class="ver-row">
+      <span class="vtime">${v.t}</span>
+      <div class="vinfo"><b>${v.cur ? '当前版本' : `版本 ${vers.length - i}`}${v.cur ? '' : ' · ' + fmt(countWords((ch.content || []).slice(0, v.cut).join('\n'))) + ' 字'}</b><span>${v.note}</span></div>
+      ${v.cur ? '<span class="cur">当前</span>' : `<button class="btn btn-secondary btn-sm" data-ver="${v.cut}">恢复</button>`}
+    </div>`).join('');
+  openModal('modalHistory');
+});
+$('histList').addEventListener('click', e => {
+  const btn = e.target.closest('[data-ver]');
+  if (!btn) return;
+  const ch = curCh();
+  setChContent(ch, ch.content.slice(0, parseInt(btn.dataset.ver, 10)));
+  closeModal('modalHistory');
+  persist(); renderTreeAll(); renderMiddle(); updateModNav();
+  toast('已恢复至该版本');
+});
+
+/* ═══════════ 升级 PRO ═══════════ */
+$('btnUpgrade').addEventListener('click', () => openModal('modalUpgrade'));
+$('btnUpgrade2').addEventListener('click', () => openModal('modalUpgrade'));
+$('btnUpgrade3').addEventListener('click', () => openModal('modalUpgrade'));
+$('prefUpgrade').addEventListener('click', () => { closeModal('modalPrefs'); openModal('modalUpgrade'); });
+$('upgradeConfirm').addEventListener('click', () => {
+  S.pro = true; persist();
+  closeModal('modalUpgrade');
+  applyPro();
+  toast('已升级 PRO · AI 能力已解锁');
+});
+function applyPro() {
+  $('btnAi').hidden = !S.pro;
+  $('proPill').hidden = !S.pro;
+  $('freeHint').hidden = S.pro;
+  $('btnUpgrade').hidden = S.pro;
+  $('prefTier').textContent = S.pro ? 'PRO 版 · AI 能力已解锁' : '免费版 · 单机使用';
+  $('aiOutlineLocked').hidden = S.pro;
+  $('aiOutlinePlanned').classList.toggle('locked', !S.pro);
+  $('aiWriteLocked').hidden = S.pro;
+  $('aiWriteTools').classList.toggle('locked', !S.pro);
+  $('aiWritePlanned').classList.toggle('locked', !S.pro);
+}
+
+/* ═══════════ AI 生成正文（章有提示词） ═══════════ */
+function assemblePrompt(ch) {
+  if (ch.og?.prompt) return ch.og.prompt;
+  return DEFAULT_PROMPT.replace('【本章】', `【${ch.title}】`);
+}
+function openAiModal(ch) {
+  $('aiPrompt').value = assemblePrompt(ch);
+  const hasOutline = !!(ch.summary || S.pro && ch.og?.task);
+  $('aiHint').textContent = hasOutline
+    ? '提示词已由设定与章纲组装 · 可直接编辑。生成内容将追加到本章末尾。'
+    : '本章尚未配置章纲，将仅依据设定生成。建议先去「大纲」补章纲（不强制）。';
+  openModal('modalAi');
+}
+$('btnAi2').addEventListener('click', () => $('btnAi').click());
+$('btnAi').addEventListener('click', () => {
+  const ch = curCh();
+  if (isArchived(ch)) { openModal('modalUnlock'); return; }
+  openAiModal(ch);
+});
+$('unlockConfirm').addEventListener('click', () => {
+  const ch = curCh();
+  if (ch) ch.archived = false;
+  closeModal('modalUnlock');
+  persist(); renderTreeAll(); renderMiddle(); updateModNav();
+  openAiModal(ch);
+});
+$('aiConfirm').addEventListener('click', () => {
+  const ch = curCh();
+  if (ch) ch.og = ch.og || {};
+  closeModal('modalAi');
+  streamGenerate();
+});
+function streamGenerate() {
+  const ch = curCh(); if (!ch) return;
+  const editor = $('editor');
+  if (isArchived(ch)) { toast('已归档章节不可生成'); return; }
+  aiAbort = false;
+  $('aiStreaming').hidden = false;
+  editor.classList.add('generating');
+  editor.contentEditable = 'false';
+  const blocks = [
+    "信标再次亮起时，沉舟正在核对航线。这一次光没有停在她眼前，而是从导航屏上流过，像一条细长的河流，指向同一个坐标——冰卫星，裂谷，界碑。",
+    "她本该害怕。但奇怪的是，当「拾荒者」的船头转向那颗灰色的冰卫星时，她心里只剩下一件事：希望那道信号，真的是在等她。",
+    "这是她拆掉锚点之后的第一个念头。她没有告诉任何人——港区早就空了，广播里的疏散通知播了三十一年，最后一个收听的人也在去年冬天离开了。沉舟把频道调到静音，听着引擎低沉的轰鸣，忽然觉得，这大概是七年来，她第一次不觉得寂静难熬。"
+  ];
+  let bi = 0, pi = 0;
+  const total = blocks.reduce((a, b) => a + b.length, 0);
+  let written = 0;
+  streamTimer = setInterval(() => {
+    if (aiAbort) { finishStream(); return; }
+    if (bi >= blocks.length) { finishStream(); return; }
+    const block = blocks[bi];
+    const chunk = block.slice(pi, pi + 8);
+    pi += 8;
+    const lastP = editor.querySelector('p:last-child');
+    if (!lastP || lastP.dataset.generated !== '1') {
+      const p = document.createElement('p');
+      p.dataset.generated = '1';
+      p.textContent = chunk;
+      editor.appendChild(p);
+    } else {
+      lastP.textContent += chunk;
+    }
+    written += chunk.length;
+    if (written >= total) finishStream();
+    else if (pi >= block.length) { pi = 0; bi++; }
+  }, 30);
+  function finishStream() {
+    clearInterval(streamTimer);
+    $('aiStreaming').hidden = true;
+    editor.classList.remove('generating');
+    editor.contentEditable = 'true';
+    const ch2 = curCh();
+    if (ch2) {
+      ch2.content = Array.from(editor.querySelectorAll('p')).map(p => p.textContent);
+      const words = countWords(editor.textContent);
+      updateStats(ch2, words);
+      setSaveText('saved', true);
+      persist();
+    }
+    toast('AI 生成完成 · 已保存');
+  }
+}
+$('btnStopAi').addEventListener('click', () => { aiAbort = true; });
+
+/* 进度卡目标编辑 */
+$('targetText').addEventListener('click', () => {
+  const ch = curCh();
+  $('targetText').hidden = true;
+  const input = $('targetInput');
+  input.value = ch.target || 4000;
+  input.hidden = false;
+  input.focus();
+  input.select();
+});
+$('targetInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') commitTarget();
+  else if (e.key === 'Escape') { $('targetInput').hidden = true; $('targetText').hidden = false; }
+});
+$('targetInput').addEventListener('blur', commitTarget);
+function commitTarget() {
+  const input = $('targetInput');
+  const v = parseInt(input.value, 10);
+  input.hidden = true;
+  $('targetText').hidden = false;
+  if (v > 0 && curCh()) { curCh().target = v; persist(); renderChapter(); toast('目标字数已更新'); }
+}
+
+/* ═══════════ 设定视图 ═══════════ */
+const BADGE = { empty: { cls: 'empty', label: '未填', icon: '<circle cx="12" cy="12" r="5"/>' }, prog: { cls: 'prog', label: '进行中', icon: '<circle cx="12" cy="12" r="5" fill="currentColor" stroke="none"/>' }, done: { cls: 'done', label: '已确认', icon: '<path d="M5 13l4 4L19 7"/>' } };
+const DESCS = {
+  genre: '题材决定后续表单模板与 AI 生成的口味，是设定的第一步。',
+  intro: '让读者（和 AI）知道这是一个怎样的故事。',
+  world: '地理、政治与规则——故事发生的世界如何运转。',
+  style: '用谁的视角讲，用什么语气讲。',
+  antiAI: '控制生成正文的 AI 痕迹，让文字更像人写的。',
+  foreshadow: '先埋下的，后面要还。',
+  chars: '核心角色是谁，他们想要什么。'
+};
+let cur = 'genre';
+let picked = '深空探索';
+
+/* ═══════ 设定面板：演示种子（产品契约形状）+ 渲染助手 ═══════
+   空面板（世界/AI痕迹/伏笔/角色）字段全部留空——与左栏「未填」徽标一致 */
+const SPARK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>';
+const CHEV_SVG = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M6 9l6 6 6-6"/></svg>';
+const SET_GENRE = {
+  name: '深空探索', category: '科幻系',
+  desc: '以航程与未知为核心的科幻：技术精确、情绪克制。',
+  taboos: ['超光速通讯', '无代价跃迁', '万能翻译器'],
+  injectOn: true,
+  promptInjection: '写作时保持冷寂克制的科幻质地：技术细节精确但不炫技；情绪让位于氛围；避免热血化表达。',
+  fulfillment: ['发现真相的瞬间', '沉默中的微小决断', '绝境中的精确操作'],
+  chapterTypes: ['场景章（一段航程/一处星域）', '揭示章', '抉择章'],
+  pacing: ['每章至少一个变化', '每三章一次小揭示'],
+  fatigue: ['突然', '瞬间', '仿佛'],
+  arcs: [
+    { id: 'arc-signal', name: '追寻弧线', desc: '收到信号，就一定要走到信号的尽头。', beats: ['收到信号', '出发', '找到源头', '代价与选择'] },
+    { id: 'arc-mirror', name: '镜像弧线', desc: '以为在找别人，其实在找自己。', beats: ['接到信号', '镜像事件', '自我揭示', '和解'] }
+  ],
+  arcSel: 'arc-signal'
+};
+const INTRO_SYN = '废弃星港上，导航员沉舟捡到一枚不属于人类纪元的导航信标。她修好旧船，沿着信号穿越陌生星域，最终发现那段回声的源头，是一个等待了三百年的同类。';
+const SET_STYLE = {
+  role: '第三人称限知，贴着沉舟的感官走；叙述态度克制、不下判语。',
+  principles: ['每章「突然」不超过 3 次', '情绪只通过动作与物件外化', '每章至少一处感官细节落点'],
+  mistakes: ['过度使用「他皱了皱眉」类表情描写', '用总结腔收束场景', '对话后滥加语气说明词'],
+  techniques: ['情绪通过动作表现——紧张＝抠指甲', '环境描写服务于情绪，不超过两句', '关键道具反复出现，形成物件锚点'],
+  narratorRole: '第三人称有限视角叙述者',
+  defaultTone: '克制冷静、情绪靠细节外化',
+  atmosphere: ['冷寂', '克制', '悬念感'],
+  pov: ['第三人称有限视角'],
+  toneTechniques: ['动作外化情绪', '物件锚点复现']
+};
+const SET_HOOKS = { active: [], resolved: [], abandoned: [] };
+const FATIGUE_CATS = [
+  ['summary_narrative', '总结叙事', '本章讲述了、接下来、与此同时'],
+  ['abstract_emotion', '抽象情绪', '他感到、他觉得、他意识到'],
+  ['academic_tone', '学术腔调', '综上所述、总而言之、显而易见'],
+  ['cliche_action', '套路动作', '深吸一口气、咬了咬牙、眼中闪过一丝'],
+  ['cliche_environment', '套路环境', '阳光透过树叶、微风拂过、夜幕降临'],
+  ['logical_connectors', '逻辑连接', '由此可见、正因如此、不仅如此'],
+  ['narrative_filler', '叙述填充', '似乎、仿佛、宛如']
+];
+const SET_ANTI = { fatigue: {}, tics: [] };
+const SET_CHARS = { names: [], sel: null };
+const CHAR_BLANK = { name: '', role: 'supporting', appearance: '', background: '', speech: '', world_view: '', self_image: '', values: '', abilities: '', skills: '', environment: '', possessions: '', relationships: '', experiences: '' };
+const HOOK_TYPES = ['谜团', '威胁', '承诺', '线索', '关系', '力量', '情感', '选择', '欲望'];
+const SET_MODEL = {
+  current: 'Ark · glm-5（密钥 sk-···7f2a）',
+  options: ['Ark · glm-5', 'Ark · glm-5-air', 'OpenAI · gpt-5-mini'],
+  hist: [{ t: '08-12 14:02', x: '切换到 Ark · glm-5' }, { t: '08-05 09:31', x: '首次绑定 API Key' }],
+  usage: [{ k: '今日 tokens', v: '12,480' }, { k: '本月 tokens', v: '386,200' }, { k: '本月生成次数', v: '64' }]
+};
+const aiFill = () => `<span class="ai-fill">${SPARK_SVG} AI 帮我填</span>`;
+function cfgGroup(title, inner, open, tag) {
+  return `
+      <details class="cfg"${open ? ' open' : ''}>
+        <summary>${title}${tag ? ` <span class="tag">${tag}</span>` : ''}${CHEV_SVG}</summary>
+        <div class="inner">${inner}</div>
+      </details>`;
+}
+function fTA(label, hint, val, ai, ph) {
+  return `<div class="field"><label>${label}${hint ? ` <span class="opt">${hint}</span>` : ''}${ai ? aiFill() : ''}</label><textarea class="textarea" placeholder="${ph || ''}">${escapeHtml(val || '')}</textarea></div>`;
+}
+function liRows(items, ph) {
+  const arr = items && items.length ? items : [''];
+  const rows = arr.map((v, i) => `
+      <div class="li-row"><span class="li-i">${i + 1}.</span><input class="input" placeholder="${ph}" value="${escapeHtml(v || '')}" /><span class="acts"><button class="icon-btn" title="删除本行" type="button">${VOL_TRASH_SVG}</button></span></div>`).join('');
+  return rows + `
+      <button class="text-btn" type="button">${VOL_PLUS_SVG} 添加一项</button>`;
+}
+function liField(label, items, ph, ai) {
+  return `<div class="field"><label>${label}${ai ? aiFill() : ''}</label>${liRows(items, ph)}</div>`;
+}
+function hookRows(list, simple) {
+  // 空态仍渲染「添加伏笔」（否则空项目永远无法添加第一条，v2 修订）
+  const emptyNote = list.length ? '' : '<p class="sub-empty">暂无</p>';
+  return emptyNote + list.map(h => `
+      <div class="hook-row">
+        <button class="icon-btn" title="AI 帮我填" type="button">${SPARK_SVG}</button>
+        <input class="input desc" placeholder="伏笔描述" value="${escapeHtml(h.description || '')}" />
+        ${simple ? '' : `
+        <input class="input in-ch" placeholder="引入" value="${escapeHtml(h.introduced_in || '')}" />
+        <select class="input sel-type">${HOOK_TYPES.map(t => `<option ${h.type === t ? 'selected' : ''}>${t}</option>`).join('')}</select>
+        <select class="input sel-pri"><option value="1" ${h.priority === '1' ? 'selected' : ''}>高</option><option value="2" ${(!h.priority || h.priority === '2') ? 'selected' : ''}>中</option><option value="3" ${h.priority === '3' ? 'selected' : ''}>低</option></select>`}
+        <button class="icon-btn" title="删除" type="button">${VOL_TRASH_SVG}</button>
+      </div>`).join('') + `
+      <button class="text-btn" type="button">${VOL_PLUS_SVG} 添加伏笔</button>`;
+}
+function ticCards(tics) {
+  if (!tics.length) return '<p class="sub-empty">暂无句式规则 · 点下方添加</p>';
+  return tics.map(t => `
+      <div class="sub-block">
+        <div class="sub-row tics">
+          <input class="input" placeholder="句式名，如：不是而是句式" value="${escapeHtml(t.name || '')}" />
+          <select class="input"><option value="high" ${t.severity === 'high' ? 'selected' : ''}>高</option><option value="medium" ${(!t.severity || t.severity === 'medium') ? 'selected' : ''}>中</option><option value="low" ${t.severity === 'low' ? 'selected' : ''}>低</option></select>
+          <input class="input num" type="number" min="1" value="${t.threshold || 3}" title="单章出现次数阈值" />
+          <button class="icon-btn" title="删除本条" type="button">${VOL_TRASH_SVG}</button>
+        </div>
+        <input class="input mono" placeholder="正则 pattern，如：不是[^，。]{1,20}(而是|是)" value="${escapeHtml(t.pattern || '')}" />
+        <input class="input" placeholder="修复说明（可选）：命中后如何改写" value="${escapeHtml(t.description || '')}" />
+      </div>`).join('') + `
+      <button class="text-btn" type="button">${VOL_PLUS_SVG} 添加句式规则</button>`;
+}
+function arcCards(arcs, sel) {
+  return arcs.map(a => `
+      <button class="arc-card${a.id === sel ? ' on' : ''}" type="button">
+        <span class="ac-name">${escapeHtml(a.name)}${a.id === sel ? '<span class="ac-sel">已选</span>' : ''}</span>
+        <p class="ac-desc">${escapeHtml(a.desc)}</p>
+        <div class="ac-beats">${a.beats.map(b => `<span class="ac-beat">${escapeHtml(b)}</span>`).join('')}</div>
+      </button>`).join('');
+}
+function charFormHTML(c) {
+  return cfgGroup('基本信息', `
+      <div class="tpl-row">
+        <div class="field tpl-select"><label>角色名</label><input class="input" value="${escapeHtml(c.name)}" placeholder="角色名" /></div>
+        <div class="field stage-map"><label>故事角色</label><select class="input"><option value="protagonist" ${c.role === 'protagonist' ? 'selected' : ''}>主角</option><option value="antagonist" ${c.role === 'antagonist' ? 'selected' : ''}>反派</option><option value="supporting" ${(!c.role || c.role === 'supporting') ? 'selected' : ''}>配角</option></select></div>
+      </div>
+      ${fTA('外貌', '', c.appearance)}
+      ${fTA('背景', '', c.background)}
+      ${fTA('语言特征', '', c.speech)}`, true)
+    + cfgGroup('认知模型', `
+      <p class="opt" style="margin:0 0 12px;">上层难改变（世界观/自我/价值观），下层随情节自然变化（能力/技能/环境）</p>
+      ${fTA('世界观', '角色对世界运作方式的信念', c.world_view)}
+      ${fTA('自我定位', '角色如何看待自己（可能与现实不同）', c.self_image)}
+      ${fTA('价值观', '行为边界：什么绝不做，什么会打破原则', c.values)}
+      ${fTA('能力', '具体能力，有上限。如：十步内可感知杀意', c.abilities)}
+      ${fTA('技能', '习得技能及来源。如：码头帮派学的搏击', c.skills)}
+      ${fTA('环境', '成长背景 + 当前处境', c.environment)}`, false)
+    + cfgGroup('扩展信息', `
+      ${fTA('持有物', '', c.possessions)}
+      ${fTA('关系', '', c.relationships)}
+      ${fTA('经历', '', c.experiences)}`, false);
+}
+function modelBody() {
+  return `
+    <div class="field">
+      <label>当前状态</label>
+      <div class="cur-genre"><span class="badge done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 13l4 4L19 7"/></svg>可用</span><span class="opt">${escapeHtml(SET_MODEL.current)}</span></div>
+    </div>
+    <div class="field">
+      <label>选择模型</label>
+      <select class="input">${SET_MODEL.options.map((o, i) => `<option ${i === 0 ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}</select>
+    </div>
+    ${cfgGroup('变更历史', SET_MODEL.hist.map(h => `<div class="hist-row"><span class="ht">${h.t}</span><span>${escapeHtml(h.x)}</span></div>`).join(''), true)}
+    ${cfgGroup('用量统计', SET_MODEL.usage.map(u => `<div class="use-row"><span>${u.k}</span><span class="uv">${u.v}</span></div>`).join(''), true)}`;
+}
+
+function renderProgress() {
+  const done = Object.values(ITEMS).filter(i => i.status === 'done').length;
+  const prog = Object.values(ITEMS).filter(i => i.status === 'prog').length;
+  $('stSettings').textContent = Object.keys(ITEMS).length;
+  $('progLabel').innerHTML = `设定 <b>${done}</b>/7`;
+  $('progLabel').classList.toggle('done', done === 7);
+  $('progBar').classList.toggle('done', done === 7);
+  $('progBar').querySelector('i').style.width = (done / 7 * 100) + '%';
+  const notes = [];
+  if (done === 7) notes.push('七项全部确认');
+  if (prog) notes.push(`${prog} 项进行中`);
+  const empty = 7 - done - prog;
+  if (empty) notes.push(`${empty} 项未填 · 均可后补`);
+  $('progNote').textContent = notes.join(' · ') || '设定完成';
+}
+function renderNav() {
+  $('navItems').innerHTML = '';
+  Object.entries(ITEMS).forEach(([k, it]) => {
+    const el = document.createElement('div');
+    el.className = 's-item' + (k === cur ? ' on' : '');
+    el.dataset.k = k;
+    const b = BADGE[it.status];
+    el.innerHTML = `
+      <span class="nm">${it.name}</span>
+      ${it.canDefer && it.status !== 'done' ? '<span class="defer-tag">可后补</span>' : ''}
+      <span class="spacer"></span>
+      <span class="badge ${b.cls}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">${b.icon}</svg>${b.label}</span>`;
+    el.addEventListener('click', () => { cur = k; renderNav(); renderPanel(); });
+    $('navItems').appendChild(el);
+  });
+  const tool = document.createElement('div');
+  tool.className = 's-item' + (cur === 'aiModel' ? ' on' : '');
+  tool.dataset.k = 'aiModel';
+  tool.innerHTML = `
+      <span class="nm">AI 模型</span><span class="defer-tag">工具</span><span class="spacer"></span>
+      <span class="badge done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 13l4 4L19 7"/></svg>已确认</span>`;
+  tool.addEventListener('click', () => { cur = 'aiModel'; renderNav(); renderPanel(); });
+  $('navItems').appendChild(tool);
+}
+function renderPanel() {
+  if (cur === 'aiModel') {
+    $('panelTitle').textContent = 'AI 模型';
+    $('panelBadge').className = 'badge done';
+    $('panelBadge').innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 13l4 4L19 7"/></svg>已确认';
+    $('panelDesc').textContent = '本书写作所用的模型、变更历史与用量。';
+    $('panelDone').hidden = true;
+    $('btnConfirm').hidden = true;
+    $('panelBody').innerHTML = modelBody();
+    $('panelNote').textContent = '工具项 · 恒可用，不参与设定进度';
+    return;
+  }
+  const it = ITEMS[cur];
+  const b = BADGE[it.status];
+  $('panelTitle').textContent = it.name;
+  $('panelBadge').className = 'badge ' + b.cls;
+  $('panelBadge').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">${b.icon}</svg>${b.label}`;
+  $('panelDesc').textContent = DESCS[cur];
+  $('panelDone').hidden = it.status !== 'done';
+  $('btnConfirm').hidden = it.status === 'done';
+  $('panelBody').innerHTML = BODIES[cur](it);
+  if (cur === 'chars') renderChars();
+  if (it.status === 'done') $('panelNote').textContent = '已确认 · 可随时回来修改并重新确认';
+  else $('panelNote').textContent = it.canDefer ? '高级项可后补 · 确认即计入进度' : '确认后计入设定进度';
+}
+/* 七面板字段集 = 产品现行全字段（TabBar 页签 → details.cfg 折叠组，v2 同构），见 ADJUSTMENTS.md PR 4 */
+const BODIES = {
+  genre: () => `
+    <div class="field">
+      <label>当前题材</label>
+      <div class="cur-genre"><span>${escapeHtml(SET_GENRE.name)}</span><span class="tag">${SET_GENRE.category}</span><span class="tag">已设定</span>
+        <button class="btn btn-secondary btn-sm" id="btnPickGenre" style="margin-left:auto;" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h13M10 12h10M4 17h7"/></svg>
+          选择 / 切换题材
+        </button>
+      </div>
+      <span class="opt" style="font-size:12px;color:var(--muted);">${escapeHtml(SET_GENRE.desc)} 切换题材将替换题材相关的参数模板，已填内容保留。</span>
+    </div>
+    ${cfgGroup('类型禁忌', `
+      <div class="chips">${SET_GENRE.taboos.map(t => `<span class="chip">${escapeHtml(t)}</span>`).join('')}</div>
+      <p class="opt" style="margin:8px 0 0;font-size:11.5px;">禁忌由题材自动派生，不可编辑；如需调整请在风格设定中自定义规则。</p>`, false)}
+    ${cfgGroup('提示词注入段', `
+      <div class="fl-row"><span style="font-size:13px;">AI 行为引导注入</span>
+        <div class="seg" data-od-id="seg-genre-inject"><button class="on" data-v="on" type="button">启用</button><button data-v="off" type="button">停用</button></div>
+      </div>
+      <div class="prompt-preview" style="margin-top:10px;">${escapeHtml(SET_GENRE.promptInjection)}</div>
+      <p class="opt" style="margin:8px 0 0;font-size:11.5px;">注入段会自动嵌入发送给 AI 的系统提示词，影响写作风格与行为。</p>`, false)}
+    ${cfgGroup('题材配置', `
+      ${liField('满足类型（爽点）', SET_GENRE.fulfillment, '例如：发现真相的瞬间')}
+      ${liField('章节类型', SET_GENRE.chapterTypes, '例如：场景章')}
+      ${liField('节奏规则', SET_GENRE.pacing, '例如：每章至少 1 次情感刻画')}
+      ${liField('疲劳词', SET_GENRE.fatigue, '例如：突然')}`, true)}
+    ${cfgGroup('故事弧模板', `
+      <p class="opt" style="margin:0 0 10px;font-size:11.5px;">选中的模板会影响 AI 对章节结构的规划。</p>
+      ${arcCards(SET_GENRE.arcs, SET_GENRE.arcSel)}`, false)}`,
+  intro: () => `
+    <div class="field">
+      <label>故事简介 <span class="opt">≤500 字</span><span class="cnt" style="margin-left:auto;">${INTRO_SYN.length}/500</span></label>
+      <textarea class="textarea" id="f-syn" rows="4" maxlength="500" placeholder="用几句话讲讲这个故事是关于什么的（主角、世界、核心冲突）">${escapeHtml(INTRO_SYN)}</textarea>
+    </div>
+    <p class="opt" style="font-size:12px;color:var(--muted);margin:-6px 0 16px;">简介会作为后续设定和写作的依据。</p>`,
+  world: () =>
+    cfgGroup('地理', `
+      ${fTA('主要场景', '关键地点、空间关系、距离', '', true, '星港 → 冰卫星 → 更深的深空')}
+      ${fTA('气候', '气候特征、季节、极端天气', '', true)}
+      ${fTA('地理限制', '山脉、水域、边界', '', true)}`, true)
+    + cfgGroup('政治', `
+      ${fTA('统治形式', '谁统治？', '', true)}
+      ${fTA('主要势力', '至少 2-3 个势力', '', true)}
+      ${fTA('社会分层', '阶级结构', '', true)}
+      ${fTA('不服从的代价', '违抗的后果', '', true)}`, false, '可后补')
+    + cfgGroup('规则', `
+      ${fTA('世界级规则', '力量体系', '', true)}
+      ${fTA('社会级规则', '法律、禁忌', '', true)}
+      ${fTA('个人级规则', '血咒、功法限制', '', true)}`, false, '可后补'),
+  style: () =>
+    cfgGroup('叙事身份', fTA('叙事身份', '一句话描述叙事距离（近/全知）+ 叙事态度（中立/讽刺/共情）', SET_STYLE.role, true), true)
+    + cfgGroup('核心原则', liField('', SET_STYLE.principles, '例如：每章「突然」不超过 3 次', true), false)
+    + cfgGroup('常见错误', liField('', SET_STYLE.mistakes, '例如：过度使用「他皱了皱眉」类表情描写', true), false)
+    + cfgGroup('描写技法', liField('', SET_STYLE.techniques, '例如：情绪通过动作表现 — 紧张=抠指甲', true), false)
+    + cfgGroup('叙事基调', `
+      ${fTA('叙事者角色', '如：第三人称有限视角叙述者；留空则不注入叙事者定位', SET_STYLE.narratorRole)}
+      ${fTA('默认基调', '整部作品的整体语气/口吻，如：克制冷静、情绪靠细节外化', SET_STYLE.defaultTone)}
+      ${liField('氛围关键词', SET_STYLE.atmosphere, '氛围关键词，如：压抑')}
+      ${liField('叙事视角', SET_STYLE.pov, '叙事视角，如：第三人称有限视角')}
+      ${liField('描写技法偏好', SET_STYLE.toneTechniques, '描写技法偏好，如：动作外化情绪')}`, false, '可后补'),
+  antiAI: () =>
+    cfgGroup('疲劳词', FATIGUE_CATS.map(([key, label, hint]) => `
+      <div class="field">
+        <label>${label} <span class="opt">${hint}</span></label>
+        ${liRows(SET_ANTI.fatigue[key], '添加该分类下的疲劳词，如：' + hint.split('、')[0])}
+      </div>`).join(''), true)
+    + cfgGroup('句式偏好', ticCards(SET_ANTI.tics), false, '可后补'),
+  foreshadow: () =>
+    cfgGroup('活跃伏笔', hookRows(SET_HOOKS.active, false), true)
+    + cfgGroup('已收束', hookRows(SET_HOOKS.resolved, false), false)
+    + cfgGroup('废弃', hookRows(SET_HOOKS.abandoned, true), false, '可后补'),
+  chars: () => `
+    <div class="field">
+      <label>角色 <span class="opt">${SET_CHARS.names.length} 个</span></label>
+      ${SET_CHARS.names.length ? '<div id="charList"></div>' : '<p class="sub-empty">暂无角色 · 点下方新建</p>'}
+      <button class="text-btn" id="btnAddChar" type="button">${VOL_PLUS_SVG} 新建角色</button>
+    </div>
+    ${SET_CHARS.sel ? charFormHTML(CHAR_BLANK) : ''}`
+};
+function renderChars() {
+  const list = $('charList'); if (!list) return;
+  list.innerHTML = SET_CHARS.names.map((n, i) => `
+    <div class="char-row${SET_CHARS.sel === n.name ? ' sel' : ''}" data-i="${i}">
+      <span class="avatar serif">${escapeHtml(n.name[0])}</span>
+      <div><div class="cname">${escapeHtml(n.name)}</div><div class="cdesc">${n.role === 'protagonist' ? '主角' : n.role === 'antagonist' ? '反派' : '配角'}</div></div>
+      <button class="icon-btn del" data-i="${i}" title="移除" type="button">${VOL_TRASH_SVG}</button>
+    </div>`).join('');
+  list.querySelectorAll('.char-row').forEach(row => row.addEventListener('click', e => {
+    if (e.target.closest('.del')) return;
+    SET_CHARS.sel = SET_CHARS.names[+row.dataset.i].name;
+    renderPanel();
+  }));
+  list.querySelectorAll('.del').forEach(b => b.addEventListener('click', () => {
+    const i = +b.dataset.i;
+    if (SET_CHARS.sel === SET_CHARS.names[i].name) SET_CHARS.sel = null;
+    SET_CHARS.names.splice(i, 1);
+    renderPanel();
+  }));
+}
+$('btnConfirm').addEventListener('click', () => {
+  const it = ITEMS[cur];
+  if (cur === 'genre' && !it.value) { toast('请先选择题材'); openModal('modalGenre'); return; }
+  if (cur === 'intro') {
+    const v = document.querySelector('#panelBody textarea')?.value.trim();
+    if (!v) { toast('请先写一段梗概'); document.querySelector('#panelBody textarea')?.focus(); return; }
+  }
+  it.status = 'done';
+  persist(); renderProgress(); renderNav(); renderPanel(); updateModNav();
+  toast(`「${it.name}」已确认`);
+});
+document.addEventListener('click', e => {
+  if (e.target.id === 'btnPickGenre') openModal('modalGenre');
+  const injBtn = e.target.closest('.seg[data-od-id="seg-genre-inject"] button');
+  if (injBtn) {
+    injBtn.closest('.seg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b === injBtn));
+    const preview = document.querySelector('#panelBody .prompt-preview');
+    if (preview) preview.style.opacity = injBtn.dataset.v === 'on' ? '' : '0.45';
+  }
+  const arcBtn = e.target.closest('#panelBody .arc-card');
+  if (arcBtn) {
+    document.querySelectorAll('#panelBody .arc-card').forEach(c => {
+      c.classList.remove('on');
+      const sel = c.querySelector('.ac-sel'); if (sel) sel.remove();
+    });
+    arcBtn.classList.add('on');
+    arcBtn.querySelector('.ac-name').insertAdjacentHTML('beforeend', '<span class="ac-sel">已选</span>');
+  }
+  if (e.target.id === 'btnAddChar') {
+    SET_CHARS.names.push({ name: `新角色${SET_CHARS.names.length + 1}`, role: 'supporting' });
+    SET_CHARS.sel = SET_CHARS.names[SET_CHARS.names.length - 1].name;
+    renderPanel();
+  }
+});
+
+/* 题材选择器 */
+function renderGenres(filter) {
+  $('genreList').innerHTML = '';
+  let shown = 0;
+  GENRES.forEach(g => {
+    const items = g.items.filter(i => !filter || i.name.includes(filter) || i.p.includes(filter));
+    if (!items.length) return;
+    shown += items.length;
+    const sec = document.createElement('div');
+    sec.className = 'g-group';
+    sec.innerHTML = `<div class="gt">${g.group}</div><div class="g-grid"></div>`;
+    const grid = sec.querySelector('.g-grid');
+    items.forEach(it => {
+      const el = document.createElement('div');
+      el.className = 'g-item' + (it.name === picked ? ' on' : '');
+      el.innerHTML = `<span>${escapeHtml(it.name)}</span><span class="gp">${escapeHtml(it.p)}</span>`;
+      el.addEventListener('click', () => {
+        grid.parentElement.querySelectorAll('.g-item').forEach(x => x.classList.remove('on'));
+        el.classList.add('on');
+        picked = it.name;
+      });
+      grid.appendChild(el);
+    });
+    $('genreList').appendChild(sec);
+  });
+  $('genreEmpty').hidden = shown > 0;
+}
+$('genreSearch').addEventListener('input', e => renderGenres(e.target.value.trim()));
+$('genreApply').addEventListener('click', () => {
+  ITEMS.genre.value = picked;
+  if (ITEMS.genre.status === 'empty') ITEMS.genre.status = 'prog';
+  closeModal('modalGenre');
+  persist(); renderProgress(); renderNav(); renderPanel(); updateModNav();
+  toast(`已应用题材「${picked}」· 模板已带入，已填内容保留`);
+});
+
+/* ═══════════ 设置弹窗 ═══════════ */
+$('btnPrefs').addEventListener('click', () => { openModal('modalPrefs'); syncPrefSegs(); });
+function syncPrefSegs() {
+  document.querySelectorAll('#modalPrefs .seg').forEach(seg => {
+    const id = seg.dataset.odId;
+    let cur;
+    if (id === 'seg-fontsize') cur = S.fs;
+    else if (id === 'seg-lineheight') cur = S.lh;
+    else if (id === 'seg-archsum') cur = S.archiveAiSummary ? 'on' : 'off';
+    else return;
+    seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === cur));
+  });
+}
+
+/* ═══════════ 弹窗通用 ═══════════ */
+function openModal(id) {
+  const m = $(id);
+  $('scrim').hidden = false;
+  m.hidden = false;
+  requestAnimationFrame(() => { $('scrim').classList.add('show'); m.classList.add('show'); });
+}
+function closeModal(id) {
+  const m = $(id);
+  m.classList.remove('show');
+  $('scrim').classList.remove('show');
+  setTimeout(() => { m.hidden = true; $('scrim').hidden = true; }, 200);
+}
+document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(b.dataset.close)));
+document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); }));
+$('scrim').addEventListener('click', () => { document.querySelectorAll('.modal').forEach(m => { if (!m.hidden) closeModal(m.id); }); });
+
+/* ═══════════ 初始化 ═══════════ */
+renderTreeAll();
+renderMiddle();
+$('editor').className = 'editor ' + S.fs + ' ' + S.lh;
+document.querySelectorAll('.seg[data-od-id="seg-fontsize"] button, .seg[data-od-id="seg-lineheight"] button').forEach(b => b.classList.toggle('on', b.dataset.v === S.fs || b.dataset.v === S.lh));
+renderProgress();
+renderNav();
+renderPanel();
+renderGenres('');
+applyPro();
+switchView(S.view);
+</script>
+</body>
+</html>

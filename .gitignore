@@ -59,9 +59,12 @@ client/packaging/build/.dmg_stage/
 client/packaging/dist/
 client/frontend/dist/
 
-# C端像素 parity 运行资产（原型 HTML + 基线 PNG，5MB+）保持本地：
-# e2e 对缺失自动跳过（见 client/frontend/e2e/design-parity*.spec.ts），入库会改变 CI 行为
-docs/design-c/
+# C端 parity 运行资产分层管理（2026-08-28 起）：
+#   prototypes/（视觉真值 + ADJUSTMENTS 登记簿，~300KB）入库——fresh clone 也能跑 design:check；
+#   baselines/（proto/app/diff 比对 PNG，5MB+，跑一次 design:check 即可再生）保持本地。
+# e2e 无 DESIGN_PARITY=1 时照旧跳过，CI 行为不变（见 client/frontend/e2e/design-parity*.spec.ts）。
+docs/design-c/baselines/
+docs/design-c/prototypes/assets/
 
 # Docker compose bind-mount data (D 盘)
 .docker-data/

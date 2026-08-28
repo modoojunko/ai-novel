@@ -110,7 +110,7 @@
 
 ## 七、悬而未决（需要用户拍板，别自作主张）
 
-1. ✅ **已解决（#216，2026-08-28）**：docs 设计标准已入库。遗留子项：`docs/design-c/` 原型与 ADJUSTMENTS 是否也入库——现保持本地，代价是 fresh clone 上 parity 门禁静默跳过、换机器需重建。
+1. ✅ **已解决（#216 + 同日 follow-up）**：docs 已全量入库——ux/archive/prd 等标准层由 #216 收入；design-c 分层管理：`prototypes/`（视觉真值 + ADJUSTMENTS）入库、`baselines/` 比对 PNG 保持本地（可再生）。fresh clone 现在可直接跑 `design:check`。
 2. **授权动 `src/`**：P0/P1 都是实现层改动；未授权前只能停在设计工件与登记层。
 3. **design-cross.mjs 落位**：config.yaml/rules 引用的是仓库根 `scripts/design-cross.mjs`；若挪到别处须同步改 config.yaml 两处引用。
 4. **webfont 决策**（audit P2 遗留）：Noto Serif SC 打包子集 or 诚实回退栈，影响打包体积与三端视觉终值。

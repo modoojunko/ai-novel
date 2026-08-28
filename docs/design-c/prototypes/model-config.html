@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>模型配置 · 爱小说</title>
+<style>
+  /* ─── tokens（与全站一致） ─────────────────────────────── */
+  :root {
+    --bg:      oklch(98% 0.004 240);
+    --surface: oklch(100% 0 0);
+    --fg:      oklch(20% 0.02 240);
+    --muted:   oklch(50% 0.018 240);
+    --border:  oklch(90% 0.006 240);
+    --accent:  oklch(48% 0.11 170);
+    --accent-strong: oklch(41% 0.10 170);
+    --accent-soft:   color-mix(in oklch, var(--accent) 12%, transparent);
+    --ok:    oklch(52% 0.11 155);  --ok-soft:   color-mix(in oklch, var(--ok) 14%, transparent);
+    --warn:  oklch(50% 0.13 75);   --warn-soft: color-mix(in oklch, var(--warn) 16%, transparent);
+    --err:   oklch(50% 0.17 25);   --err-soft:  color-mix(in oklch, var(--err) 12%, transparent);
+    --fg-soft:   color-mix(in oklch, var(--fg) 5%, transparent);
+    --shadow-card: 0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent),
+                   0 12px 32px -12px color-mix(in oklch, var(--fg) 14%, transparent);
+    --font-display: 'Noto Serif SC', 'Songti SC', 'STSong', 'Iowan Old Style', Georgia, serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', monospace;
+    --radius: 10px; --radius-lg: 16px;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: var(--font-body); font-size: 14px; line-height: 1.55;
+    text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased;
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+  svg { display: block; }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; padding: 0; }
+  input, select { font: inherit; }
+  .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .serif { font-family: var(--font-display); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 15px; border-radius: var(--radius); border: 1px solid transparent; font-size: 13.5px; font-weight: 500; letter-spacing: 0.01em; transition: background 0.15s ease, border-color 0.15s ease; }
+  .btn:active { transform: translateY(1px); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn:disabled { opacity: 0.55; cursor: default; transform: none; }
+  .btn-primary { background: var(--accent); color: var(--surface); }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-strong); }
+  .btn-secondary { background: var(--surface); color: var(--fg); border-color: var(--border); }
+  .btn-secondary:hover:not(:disabled) { border-color: var(--fg); }
+  .btn-ghost { background: transparent; color: var(--muted); padding: 0 8px; }
+  .btn-ghost:hover:not(:disabled) { color: var(--fg); background: var(--fg-soft); }
+  .btn-danger { background: var(--err); color: var(--surface); }
+  .btn-danger:hover:not(:disabled) { background: color-mix(in oklch, var(--err) 88%, var(--fg)); }
+  .btn-sm { height: 28px; padding: 0 12px; font-size: 12.5px; border-radius: 8px; gap: 5px; }
+  .btn svg { width: 15px; height: 15px; }
+  .btn-sm svg { width: 13px; height: 13px; }
+  .icon-btn { width: 30px; height: 30px; display: inline-grid; place-items: center; border-radius: 8px; color: var(--muted); }
+  .icon-btn:hover { color: var(--fg); background: var(--fg-soft); }
+  .icon-btn svg { width: 15px; height: 15px; }
+  .spin { animation: rot 0.9s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+
+  .appbar { height: 48px; display: flex; align-items: center; padding: 0 20px; gap: 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .logo { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+  .logo-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: var(--surface); display: grid; place-items: center; font-family: var(--font-display); font-size: 14px; }
+  .appbar .nav { display: inline-flex; gap: 4px; margin-left: 14px; }
+  .appbar .nav a { font-size: 13.5px; color: var(--muted); padding: 5px 10px; border-radius: 8px; }
+  .appbar .nav a:hover { color: var(--fg); }
+  .appbar .nav a.on { color: var(--fg); background: var(--fg-soft); font-weight: 500; }
+  .appbar .spacer { flex: 1; }
+
+  .main { flex: 1; width: min(100%, 1080px); margin-inline: auto; padding: 44px 32px 80px; }
+  .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+  .page-head h1 { font-family: var(--font-display); font-size: 30px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
+  .page-head .sub { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+  .notice { display: flex; gap: 11px; align-items: flex-start; padding: 13px 15px; background: var(--accent-soft); border: 1px solid color-mix(in oklch, var(--accent) 22%, var(--border)); border-radius: var(--radius); font-size: 13px; line-height: 1.65; margin-bottom: 22px; }
+  .notice svg { flex: none; width: 16px; height: 16px; color: var(--accent-strong); margin-top: 1px; }
+  .notice b { font-weight: 500; color: var(--fg); }
+
+  /* 用量统计 */
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; margin-bottom: 16px; }
+  .panel-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+  .panel-h h2 { font-family: var(--font-display); font-size: 16px; font-weight: 600; margin: 0; }
+  .panel-h .note { font-size: 11.5px; color: var(--muted); }
+  .stat-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .stat { background: var(--fg-soft); border-radius: var(--radius); padding: 14px 16px; }
+  .stat .k { font-size: 12px; color: var(--muted); }
+  .stat .v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 24px; font-weight: 600; margin-top: 3px; letter-spacing: -0.01em; }
+  .stat .v small { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 3px; }
+  .usage-rows { display: flex; flex-direction: column; gap: 10px; }
+  .usage-row { display: grid; grid-template-columns: 132px minmax(0, 1fr) 84px; align-items: center; gap: 12px; font-size: 12.5px; }
+  .usage-row .nm { color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .usage-row .bar { height: 6px; border-radius: 999px; background: var(--fg-soft); overflow: hidden; }
+  .usage-row .bar i { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+  .usage-row .tok { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted); text-align: right; }
+
+  /* 配置卡片 */
+  .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 900px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stat-tiles { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 600px) { .cards { grid-template-columns: minmax(0, 1fr); } }
+  .cfg-card { display: flex; flex-direction: column; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; gap: 12px; transition: box-shadow 0.15s ease, border-color 0.15s ease; }
+  .cfg-card:hover { box-shadow: var(--shadow-card); }
+  .cfg-card.b-err { border-color: color-mix(in oklch, var(--err) 45%, var(--border)); }
+  .cfg-card.b-warn { border-color: color-mix(in oklch, var(--warn) 55%, var(--border)); }
+  .cfg-card.b-muted { border-color: color-mix(in oklch, var(--muted) 35%, var(--border)); }
+  .cfg-top { display: flex; align-items: center; gap: 11px; }
+  .pv-icon { flex: none; width: 38px; height: 38px; border-radius: 10px; background: var(--fg-soft); border: 1px solid var(--border); display: grid; place-items: center; color: var(--fg); }
+  .pv-icon svg { width: 20px; height: 20px; }
+  .cfg-top .id { flex: 1; min-width: 0; }
+  .cfg-top .nm { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cfg-top .url { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
+  .b { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+  .b svg { width: 11px; height: 11px; }
+  .b.ok { background: var(--ok-soft); color: var(--ok); }
+  .b.err { background: var(--err-soft); color: var(--err); }
+  .b.warn { background: var(--warn-soft); color: var(--warn); }
+  .b.muted { background: var(--fg-soft); color: var(--muted); }
+  .keyline { font-size: 11.5px; color: var(--muted); font-family: var(--font-mono); overflow-wrap: anywhere; }
+  .models { display: flex; flex-wrap: wrap; gap: 6px; min-height: 0; }
+  .m-chip { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: var(--fg-soft); color: var(--muted); font-family: var(--font-mono); }
+  .m-chip.more { background: transparent; border: 1px dashed var(--border); }
+  .cfg-foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 4px; }
+  .cfg-foot .res { font-size: 12px; }
+  .cfg-foot .res.ok { color: var(--ok); }
+  .cfg-foot .res.bad { color: var(--err); }
+  .cfg-acts { display: flex; gap: 2px; }
+
+  .empty { border: 1px dashed var(--border); border-radius: var(--radius-lg); padding: 56px 32px; text-align: center; color: var(--muted); }
+  .empty .serif { font-family: var(--font-display); font-size: 19px; color: var(--fg); }
+  .empty p { margin: 8px 0 0; font-size: 13.5px; }
+
+  /* 弹窗 */
+  .scrim { position: fixed; inset: 0; background: color-mix(in oklch, var(--fg) 28%, transparent); z-index: 40; opacity: 0; transition: opacity 0.2s ease; }
+  .scrim.show { opacity: 1; }
+  .modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; }
+  .modal .mcard { width: min(460px, 92vw); max-height: calc(100vh - 48px); overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); transform: translateY(8px) scale(0.98); opacity: 0; transition: transform 0.18s ease, opacity 0.18s ease; }
+  .modal.show .mcard { transform: none; opacity: 1; }
+  .mcard-head { display: flex; align-items: center; padding: 20px 24px 0; }
+  .mcard-head .mh { font-family: var(--font-display); font-size: 17px; font-weight: 600; }
+  .mcard-head .x { margin-left: auto; }
+  .mcard-body { padding: 14px 24px 6px; }
+  .mcard-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 24px 20px; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .field label { font-size: 12.5px; color: var(--muted); }
+  .field .req { color: var(--err); }
+  .input { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--fg); font-size: 14px; }
+  .input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .input:disabled { background: var(--fg-soft); color: var(--muted); }
+  .input.mono { font-family: var(--font-mono); font-size: 13px; }
+  .field .alt { font-size: 11.5px; color: var(--muted); font-family: var(--font-mono); }
+  .vgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .vbtn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: 62px; padding: 8px 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--muted); transition: border-color 0.14s ease, background 0.14s ease, color 0.14s ease; }
+  .vbtn svg { width: 22px; height: 22px; flex: none; }
+  .vbtn span { font-size: 11px; line-height: 1; white-space: nowrap; }
+  .vbtn:hover { border-color: var(--fg); color: var(--fg); }
+  .vbtn.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-strong); }
+  .vfix { display: flex; align-items: center; gap: 9px; padding: 9px 12px; background: var(--fg-soft); border-radius: 9px; font-size: 13px; }
+  .vfix svg { width: 18px; height: 18px; }
+  .tresult { font-size: 13px; padding: 9px 12px; border-radius: 9px; margin-top: 4px; }
+  .tresult.ok { background: var(--ok-soft); color: var(--ok); }
+  .tresult.bad { background: var(--err-soft); color: var(--err); }
+  .ferr { font-size: 13px; padding: 9px 12px; border-radius: 9px; background: var(--err-soft); color: var(--err); margin-bottom: 4px; }
+
+  /* 删除确认 */
+  .del-inventory { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .inv-title { width: 100%; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+  .inv-chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: var(--err-soft); color: var(--err); white-space: nowrap; }
+
+  .toast-wrap { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 80; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+  .toast { display: inline-flex; align-items: center; gap: 8px; background: var(--fg); color: var(--surface); padding: 9px 16px; border-radius: 10px; font-size: 13px; box-shadow: var(--shadow-card); animation: toast-in 0.22s ease; pointer-events: auto; }
+  .toast svg { width: 14px; height: 14px; color: var(--ok); }
+  .toast .undo { color: var(--accent-soft); border: 0; background: none; font: inherit; font-weight: 500; cursor: pointer; margin-left: 4px; padding: 0; }
+  .toast .undo:hover { text-decoration: underline; }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+
+  .pagefoot { border-top: 1px solid var(--border); padding: 20px 0; color: var(--muted); font-size: 12px; text-align: center; }
+
+  @media (max-width: 480px) {
+    .appbar { padding: 0 12px; gap: 8px; }
+    .appbar .nav { margin-left: 0; }
+    .main { padding: 32px 16px 64px; }
+    .page-head { flex-direction: column; align-items: flex-start; gap: 14px; margin-bottom: 24px; }
+    .page-head .btn { align-self: stretch; }
+    .vgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+</style>
+</head>
+<body>
+
+<header class="appbar" data-od-id="appbar">
+  <a class="logo" href="index.html"><span class="logo-mark">爱</span>爱小说</a>
+  <nav class="nav">
+    <a href="list.html">我的作品</a>
+    <a class="on" href="model-config.html" aria-current="page">模型配置</a>
+  </nav>
+  <span class="spacer"></span>
+  <button class="btn btn-ghost btn-sm" id="btnPrefs">设置</button>
+</header>
+
+<main class="main" data-od-id="model-config">
+  <div class="page-head">
+    <div>
+      <h1>模型配置</h1>
+      <p class="sub">管理你的 AI 服务 API Key，为不同小说选择不同模型</p>
+    </div>
+    <button class="btn btn-primary" id="btnAdd" data-od-id="btn-add-key">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      添加 API Key
+    </button>
+  </div>
+
+  <div class="notice" data-od-id="notice">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+    <span>不配置也能先开始<b>手动创作</b>，随时可以回来添加。本地模型（如 Ollama）<b>不需要</b> API Key；云端模型请选择对应供应商并填入 Base URL 与 Key。</span>
+  </div>
+
+  <div class="panel" data-od-id="usage">
+    <div class="panel-h">
+      <h2>用量统计</h2>
+      <span class="note" id="usageNote">Token 计数 · 最近更新：刚刚</span>
+    </div>
+    <div class="stat-tiles">
+      <div class="stat"><div class="k">累计</div><div class="v" id="statAll">—</div></div>
+      <div class="stat"><div class="k">本月</div><div class="v" id="statMonth">—</div></div>
+      <div class="stat"><div class="k">今日</div><div class="v" id="statToday">—</div></div>
+    </div>
+    <div class="usage-rows" id="usageRows"></div>
+  </div>
+
+  <div class="cards" id="cards"></div>
+</main>
+
+<!-- ═══ 添加 / 编辑配置 ═══ -->
+<div class="scrim" id="scrim" hidden></div>
+<div class="modal" id="modalConfig" hidden data-od-id="modal-config" role="dialog" aria-modal="true" aria-labelledby="cfgTitle">
+  <div class="mcard">
+    <div class="mcard-head">
+      <span class="mh serif" id="cfgTitle">添加 API Key</span>
+      <button class="icon-btn x" data-close="modalConfig" aria-label="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="mcard-body">
+      <div class="ferr" id="cfgError" hidden></div>
+      <div class="field">
+        <label for="cfName">配置名称 <span class="req">*</span></label>
+        <input class="input" id="cfName" placeholder="例如：主线 · OpenAI" maxlength="30" />
+      </div>
+      <div class="field">
+        <label>供应商</label>
+        <div class="vgrid" id="cfVendors"></div>
+        <div class="vfix" id="cfVendorFix" hidden></div>
+      </div>
+      <div class="field">
+        <label for="cfBase">Base URL <span class="req">*</span></label>
+        <input class="input mono" id="cfBase" placeholder="https://api.openai.com" />
+      </div>
+      <div class="field">
+        <label for="cfKey">API Key</label>
+        <input class="input mono" id="cfKey" type="password" placeholder="sk-..." autocomplete="off" />
+        <span class="alt" id="cfKeyAlt" hidden></span>
+      </div>
+      <div class="tresult" id="cfTest" hidden></div>
+    </div>
+    <div class="mcard-foot">
+      <button class="btn btn-secondary" id="cfTestBtn" type="button">测试连接</button>
+      <button class="btn btn-secondary" data-close="modalConfig">取消</button>
+      <button class="btn btn-primary" id="cfSave">保存并测试连接</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 删除确认 ═══ -->
+<div class="modal" id="modalDelete" hidden data-od-id="modal-delete" role="dialog" aria-modal="true" aria-labelledby="delTitle">
+  <div class="mcard">
+    <div class="mcard-head"><span class="mh serif" id="delTitle">删除配置</span></div>
+    <div class="mcard-body">
+      <p style="margin:0; font-size:13.5px; line-height:1.7;" id="delText">确定删除？</p>
+      <div class="del-inventory" id="delInventory" hidden></div>
+      <p style="margin:8px 0 0; font-size:12.5px; color:var(--muted);">删除后引用它的书将回退到「未配置」状态，此操作可撤销。</p>
+    </div>
+    <div class="mcard-foot">
+      <button class="btn btn-secondary" data-close="modalDelete">取消</button>
+      <button class="btn btn-danger" id="delConfirm">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap" role="status" aria-live="polite"></div>
+<footer class="pagefoot" data-od-id="footer">© 2026 爱小说</footer>
+
+<script>
+/* ═══════════ 常量 ═══════════ */
+const VENDORS = [
+  { id: 'openai', label: 'OpenAI', base: 'https://api.openai.com', icon: 'M12 4.5l2.1 5.4 5.4 2.1-5.4 2.1-2.1 5.4-2.1-5.4-5.4-2.1 5.4-2.1z' },
+  { id: 'anthropic', label: 'Anthropic', base: 'https://api.anthropic.com', icon: 'M12 5v14M5 12h14M7.5 7.5l9 9M16.5 7.5l-9 9' },
+  { id: 'deepseek', label: 'DeepSeek', base: 'https://api.deepseek.com', icon: 'M11 5a6 6 0 100 12 6 6 0 000-12zM18.5 18.5l-3.4-3.4' },
+  { id: 'glm', label: 'GLM', base: 'https://open.bigmodel.cn/api/paas/v4', icon: 'M5 20V10M12 20V5M19 20v-6' },
+  { id: 'kimi', label: 'Kimi', base: 'https://api.moonshot.cn/v1', icon: 'M20 15a8 8 0 01-10.8-5.2A8 8 0 1020 15z' },
+  { id: 'qwen', label: 'Qwen', base: 'https://dashscope.aliyuncs.com/compatible-mode/v1', icon: 'M12 5a7 7 0 110 14 7 7 0 010-14zM12 9a3 3 0 110 6 3 3 0 010-6z' },
+  { id: 'ollama', label: 'Ollama', base: 'http://localhost:11434', icon: 'M6 6h12v12H6zM10 6V4M14 6V4M10 20v-2M14 20v-2' },
+  { id: 'openai-compat', label: 'OpenAI 兼容', base: '', icon: 'M9 15l6-6M11 7l1.6-1.6a3 3 0 014.2 4.2L15 11M13 17l-1.6 1.6a3 3 0 01-4.2-4.2L9 13' },
+];
+const STATUS = {
+  ok:            { label: '连接正常', cls: 'ok' },
+  auth_error:    { label: '认证失败', cls: 'err' },
+  timeout:       { label: '连接超时', cls: 'warn' },
+  network_error: { label: '网络错误', cls: 'warn' },
+  rate_limited:  { label: '频率限制', cls: 'muted' },
+  unknown:       { label: '未知', cls: 'muted' },
+  untested:      { label: '未测试', cls: 'muted' },
+};
+const CARD_BORDER = { ok: '', untested: '', auth_error: 'b-err', timeout: 'b-warn', network_error: 'b-warn', rate_limited: 'b-muted', unknown: 'b-muted' };
+
+const SEED_CONFIGS = [
+  { id: 'c1', name: '主线 · OpenAI', vendor: 'openai', base_url: 'https://api.openai.com', api_key_masked: 'sk-••••••••••A3f9', status: 'ok', models: ['gpt-4o', 'gpt-4o-mini', 'o3-mini'], affected: 1, tested: '2 小时前' },
+  { id: 'c2', name: '备用 · Anthropic', vendor: 'anthropic', base_url: 'https://api.anthropic.com', api_key_masked: 'sk-ant-••••••••9q2L', status: 'auth_error', models: ['claude-sonnet-5'], affected: 1, tested: '昨天' },
+  { id: 'c3', name: '深度求索', vendor: 'deepseek', base_url: 'https://api.deepseek.com', api_key_masked: 'sk-••••••••••x1Kp', status: 'untested', models: [], affected: 0, tested: null },
+  { id: 'c4', name: '本地 · Ollama', vendor: 'ollama', base_url: 'http://localhost:11434', api_key_masked: '', status: 'ok', models: ['qwen2.5:14b', 'llama3.1:8b'], affected: 1, tested: '1 小时前' },
+  { id: 'c5', name: '通义 · Qwen', vendor: 'qwen', base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', api_key_masked: 'sk-••••••••••7D3m', status: 'rate_limited', models: ['qwen-max', 'qwen-plus'], affected: 0, tested: '昨天' },
+  { id: 'c6', name: '自建 · OpenAI 兼容', vendor: 'openai-compat', base_url: 'https://llm.example.com/v1', api_key_masked: 'sk-••••••••••B2n8', status: 'network_error', models: [], affected: 0, tested: '3 天前' },
+];
+const SEED_USAGE = {
+  all: 128450, month: 42310, today: 1280,
+  by_config: [
+    { name: '主线 · OpenAI', tokens: 62000 },
+    { name: '本地 · Ollama', tokens: 38400 },
+    { name: '通义 · Qwen', tokens: 28050 },
+  ]
+};
+
+/* ═══════════ 状态 ═══════════ */
+const LS_KEY = 'ainovel.apiconfigs';
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString('zh-CN');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+let configs = [];
+try {
+  const saved = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+  configs = Array.isArray(saved) ? saved : SEED_CONFIGS.map(c => ({ ...c }));
+  if (!Array.isArray(saved)) localStorage.setItem(LS_KEY, JSON.stringify(configs));
+} catch (e) { configs = SEED_CONFIGS.map(c => ({ ...c })); }
+
+function persist() { try { localStorage.setItem(LS_KEY, JSON.stringify(configs)); } catch (e) {} }
+const vendorOf = id => VENDORS.find(v => v.id === id);
+function iconSvg(id, size = 22) {
+  const v = vendorOf(id) || VENDORS[VENDORS.length - 1];
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${v.icon}</svg>`;
+}
+function statusBadge(s) {
+  const st = STATUS[s] || STATUS.untested;
+  return `<span class="b ${st.cls}">${st.label}</span>`;
+}
+function maskKey(k) {
+  if (!k) return '';
+  return k.length <= 6 ? '•'.repeat(k.length) : k.slice(0, 3) + '•'.repeat(6) + k.slice(-4);
+}
+
+/* ═══════════ 渲染 ═══════════ */
+function renderUsage() {
+  $('statAll').textContent = fmt(SEED_USAGE.all);
+  $('statMonth').textContent = fmt(SEED_USAGE.month);
+  $('statToday').textContent = fmt(SEED_USAGE.today);
+  const max = Math.max(...SEED_USAGE.by_config.map(x => x.tokens), 1);
+  $('usageRows').innerHTML = SEED_USAGE.by_config.map(x => `
+    <div class="usage-row">
+      <span class="nm">${esc(x.name)}</span>
+      <span class="bar"><i style="width:${Math.round(x.tokens / max * 100)}%"></i></span>
+      <span class="tok">${fmt(x.tokens)}</span>
+    </div>`).join('');
+}
+
+function renderCards() {
+  const el = $('cards');
+  el.innerHTML = '';
+  if (!configs.length) {
+    el.innerHTML = `<div class="empty"><div class="serif">还没有模型配置</div><p>添加你的第一个 API Key 来开始使用 AI 写作。</p><p style="margin-top:14px"><a class="btn btn-secondary btn-sm" href="list.html">先开始手动创作</a></p></div>`;
+    return;
+  }
+  configs.forEach(c => {
+    const v = vendorOf(c.vendor);
+    const border = CARD_BORDER[c.status] || '';
+    const models = (c.models || []).slice(0, 5).map(m => `<span class="m-chip">${esc(m)}</span>`).join('');
+    const more = (c.models || []).length > 5 ? `<span class="m-chip more">+${c.models.length - 5}</span>` : '';
+    const card = document.createElement('div');
+    card.className = `cfg-card ${border}`.trim();
+    card.dataset.odId = `cfg-${c.id}`;
+    card.innerHTML = `
+      <div class="cfg-top">
+        <span class="pv-icon">${iconSvg(c.vendor)}</span>
+        <div class="id">
+          <div class="nm">${esc(c.name)}</div>
+          <div class="url">${esc(c.base_url || '（本地）')}</div>
+        </div>
+        ${statusBadge(c.status)}
+      </div>
+      <div class="keyline">${c.api_key_masked ? esc(c.api_key_masked) : '（无需 API Key）'}</div>
+      <div class="models">${models}${more}</div>
+      <div class="cfg-foot">
+        <span class="res" id="res-${c.id}"></span>
+        <div class="cfg-acts">
+          <button class="btn btn-ghost btn-sm" data-act="test">测试连接</button>
+          <button class="btn btn-ghost btn-sm" data-act="edit">编辑</button>
+          <button class="btn btn-ghost btn-sm" data-act="del" style="color:var(--err)">删除</button>
+        </div>
+      </div>`;
+    el.appendChild(card);
+  });
+}
+
+/* ═══════════ 表单（添加 / 编辑） ═══════════ */
+let editTarget = null;
+let selVendor = '';
+
+function renderVendors() {
+  const wrap = $('cfVendors');
+  wrap.innerHTML = VENDORS.map(v => `
+    <button class="vbtn" data-v="${v.id}" type="button" aria-pressed="${selVendor === v.id}">
+      ${iconSvg(v.id)}<span>${v.label}</span>
+    </button>`).join('');
+  syncVendorUI();
+}
+function syncVendorUI() {
+  document.querySelectorAll('#cfVendors .vbtn').forEach(b => b.classList.toggle('on', b.dataset.v === selVendor));
+  const key = $('cfKey');
+  const alt = $('cfKeyAlt');
+  if (selVendor === 'ollama') {
+    key.disabled = true; key.placeholder = 'Ollama 不需要 API Key'; key.value = '';
+    alt.hidden = true;
+  } else {
+    key.disabled = false;
+    key.placeholder = editTarget ? '留空则保留当前密钥' : 'sk-...';
+    if (editTarget) {
+      alt.hidden = false;
+      alt.textContent = editTarget.api_key_masked ? `当前密钥：${editTarget.api_key_masked}` : '';
+    } else alt.hidden = true;
+  }
+}
+
+function openForm(edit) {
+  editTarget = edit || null;
+  selVendor = edit ? edit.vendor : '';
+  $('cfgTitle').textContent = edit ? '编辑配置' : '添加 API Key';
+  $('cfName').value = edit ? edit.name : '';
+  $('cfBase').value = edit ? edit.base_url : '';
+  $('cfKey').value = '';
+  $('cfgError').hidden = true;
+  $('cfTest').hidden = true;
+  $('cfSave').textContent = edit ? '保存' : '保存并测试连接';
+  const vfix = $('cfVendorFix');
+  const grid = $('cfVendors');
+  if (edit) {
+    grid.hidden = true;
+    vfix.hidden = false;
+    vfix.innerHTML = `${iconSvg(edit.vendor)}<span>${vendorOf(edit.vendor).label}</span>`;
+  } else {
+    grid.hidden = false;
+    vfix.hidden = true;
+    renderVendors();
+  }
+  syncVendorUI();
+  openModal('modalConfig');
+  setTimeout(() => $('cfName').focus(), 60);
+}
+
+document.querySelector('#cfVendors').addEventListener('click', e => {
+  const b = e.target.closest('.vbtn');
+  if (!b) return;
+  if (editTarget) return;
+  selVendor = b.dataset.v;
+  const v = vendorOf(selVendor);
+  if (v && v.base) $('cfBase').value = v.base;
+  else if (selVendor === 'openai-compat') $('cfBase').value = '';
+  document.querySelectorAll('#cfVendors .vbtn').forEach(x => x.classList.toggle('on', x.dataset.v === selVendor));
+  $('cfTest').hidden = true;
+  syncVendorUI();
+});
+
+function readForm() {
+  return {
+    name: $('cfName').value.trim(),
+    vendor: selVendor,
+    base_url: $('cfBase').value.trim(),
+    api_key: $('cfKey').value,
+  };
+}
+function validateForm() {
+  const f = readForm();
+  if (!f.name) return '请输入配置名称';
+  if (!f.vendor) return '请选择供应商';
+  if (!f.base_url) return '请输入 Base URL';
+  if (f.vendor !== 'ollama' && !editTarget && !f.api_key) return '请输入 API Key';
+  return null;
+}
+function simulateTest(f) {
+  if (f.vendor === 'ollama') return { ok: true };
+  if (!f.api_key) return { ok: false, error: '请填写 API Key' };
+  if (f.api_key.startsWith('bad')) return { ok: false, error: '401 · 认证失败，请检查 Key' };
+  if (!/^https?:\/\//.test(f.base_url)) return { ok: false, error: 'Base URL 需以 http(s):// 开头' };
+  return { ok: true };
+}
+function showTestResult(el, ok, msg) {
+  el.hidden = false;
+  el.className = 'tresult ' + (ok ? 'ok' : 'bad');
+  el.textContent = ok ? '连接正常' : msg;
+}
+
+$('cfTestBtn').addEventListener('click', () => {
+  const err = validateForm();
+  $('cfgError').hidden = true;
+  if (err) { $('cfgError').textContent = err; $('cfgError').hidden = false; return; }
+  const btn = $('cfTestBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 12a9 9 0 11-6.2-8.56"/></svg> 测试中…';
+  const res = $('cfTest');
+  res.hidden = true;
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.innerHTML = '测试连接';
+    const r = simulateTest(readForm());
+    showTestResult(res, r.ok, r.error || '');
+  }, 700);
+});
+
+$('cfSave').addEventListener('click', () => {
+  const err = validateForm();
+  $('cfgError').hidden = true;
+  if (err) { $('cfgError').textContent = err; $('cfgError').hidden = false; return; }
+  const f = readForm();
+  const v = vendorOf(f.vendor);
+  const base = { vendor: f.vendor, base_url: f.base_url };
+  if (editTarget) {
+    Object.assign(editTarget, base);
+    toast(`已保存「${editTarget.name}」`);
+  } else {
+    const cfg = {
+      id: 'c' + Date.now().toString(36),
+      name: f.name,
+      vendor: f.vendor,
+      base_url: f.base_url,
+      api_key_masked: maskKey(f.api_key),
+      status: 'untested',
+      models: [],
+      affected: 0,
+      tested: null,
+    };
+    configs.unshift(cfg);
+    // 创建后自动测试
+    const r = simulateTest(f);
+    cfg.status = r.ok ? 'ok' : 'auth_error';
+    cfg.tested = '刚刚';
+    toast(`已添加「${f.name}」${r.ok ? ' · 连接正常' : ' · 请检查 Key'}`);
+  }
+  persist(); renderCards();
+  closeModal('modalConfig');
+});
+
+/* ═══════════ 卡片操作 ═══════════ */
+$('cards').addEventListener('click', e => {
+  const btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  const card = btn.closest('.cfg-card');
+  const id = card.dataset.odId.slice(4); // 'cfg-xxx' → 'xxx'
+  const cfg = configs.find(c => c.id === id);
+  if (!cfg) return;
+  const act = btn.dataset.act;
+  if (act === 'test') testCard(cfg);
+  else if (act === 'edit') openForm(cfg);
+  else if (act === 'del') askDelete(cfg);
+});
+
+function testCard(cfg) {
+  const resEl = $('res-' + cfg.id);
+  resEl.className = 'res';
+  resEl.textContent = '测试中…';
+  setTimeout(() => {
+    const v = vendorOf(cfg.vendor);
+    let r = { ok: true };
+    if (cfg.vendor !== 'ollama') {
+      if (cfg.status === 'auth_error' || cfg.status === 'network_error') r = { ok: false, error: cfg.status === 'auth_error' ? '401 · 认证失败' : '无法连接' };
+      else if (cfg.status === 'rate_limited') r = { ok: false, error: '429 · 频率限制' };
+    }
+    if (r.ok) { cfg.status = 'ok'; cfg.tested = '刚刚'; }
+    else { resEl.textContent = r.error; resEl.classList.add('bad'); }
+    persist(); renderCards();
+  }, 700);
+}
+
+/* ═══════════ 删除 + 撤销 ═══════════ */
+let deleteTarget = null;
+function askDelete(cfg) {
+  deleteTarget = cfg;
+  const inv = [];
+  if (cfg.models && cfg.models.length) inv.push(`模型 ${cfg.models.length} 个`);
+  if (cfg.affected > 0) inv.push(`被 ${cfg.affected} 本书引用`);
+  const invEl = $('delInventory');
+  if (inv.length) {
+    invEl.hidden = false;
+    invEl.innerHTML = '<span class="inv-title">删除影响</span>' + inv.map(x => `<span class="inv-chip">${esc(x)}</span>`).join('');
+  } else { invEl.hidden = true; invEl.innerHTML = ''; }
+  $('delText').innerHTML = `确定删除配置 <b>「${esc(cfg.name)}」</b>？`;
+  openModal('modalDelete');
+}
+$('delConfirm').addEventListener('click', () => {
+  if (!deleteTarget) return;
+  const idx = configs.findIndex(c => c.id === deleteTarget.id);
+  const removed = deleteTarget;
+  closeModal('modalDelete');
+  if (idx >= 0) configs.splice(idx, 1);
+  persist(); renderCards();
+  undoToast(removed);
+});
+function undoToast(cfg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 13l4 4L19 7"/></svg><span>已删除「' + esc(cfg.name) + '」</span><button class="undo">撤销</button>';
+  t.querySelector('.undo').addEventListener('click', () => {
+    const i = configs.findIndex(c => c.id === cfg.id);
+    if (i < 0) configs.unshift(cfg);
+    persist(); renderCards();
+    toast(`已恢复「${cfg.name}」`);
+    clearTimeout(t._timer);
+    t.remove();
+  });
+  $('toastWrap').appendChild(t);
+  t._timer = setTimeout(() => {
+    t.style.transition = 'opacity .3s'; t.style.opacity = '0';
+    setTimeout(() => t.remove(), 300);
+  }, 8000);
+}
+
+/* ═══════════ 通用 ═══════════ */
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 13l4 4L19 7"/></svg><span></span>';
+  t.querySelector('span').textContent = msg;
+  $('toastWrap').appendChild(t);
+  setTimeout(() => { t.style.transition = 'opacity .3s'; t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2200);
+}
+
+let lastFocus = null;
+function openModal(id) {
+  const m = $(id);
+  lastFocus = document.activeElement;
+  $('scrim').hidden = false; m.hidden = false;
+  requestAnimationFrame(() => { $('scrim').classList.add('show'); m.classList.add('show'); });
+}
+function closeModal(id) {
+  const m = $(id);
+  m.classList.remove('show'); $('scrim').classList.remove('show');
+  setTimeout(() => {
+    m.hidden = true; $('scrim').hidden = true;
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }, 200);
+}
+document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(b.dataset.close)));
+document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); }));
+$('scrim').addEventListener('click', () => {
+  const open = document.querySelector('.modal:not([hidden])');
+  if (open) closeModal(open.id);
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const open = document.querySelector('.modal:not([hidden])');
+    if (open) closeModal(open.id);
+    return;
+  }
+  if (e.key !== 'Tab') return;
+  const open = document.querySelector('.modal:not([hidden])');
+  if (!open) return;
+  const focusables = [...open.querySelectorAll('button, a, input, select, [tabindex]:not([tabindex="-1"])')]
+    .filter(el => !el.disabled && el.offsetParent !== null);
+  if (!focusables.length) return;
+  const first = focusables[0], last = focusables[focusables.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+
+/* ═══════════ 事件绑定 + 初始化 ═══════════ */
+$('btnAdd').addEventListener('click', () => openForm(null));
+$('cfName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('cfSave').click(); } });
+$('cfKey').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('cfSave').click(); } });
+
+renderUsage();
+renderCards();
+renderVendors();
+</script>
+</body>
+</html>

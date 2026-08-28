@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>爱小说 · 界面重设计 v2 — 启动页</title>
+<style>
+  /* ─── tokens ────────────────────────────────────────────────
+     视觉方向：人文亲和（human-approachable）· 墨绿 accent
+     accent 由方向库的 56% 加深至 48%，保证白字 AA 对比度。 */
+  :root {
+    --bg:      oklch(98% 0.004 240);
+    --surface: oklch(100% 0 0);
+    --fg:      oklch(20% 0.02 240);
+    --muted:   oklch(50% 0.018 240);
+    --border:  oklch(90% 0.006 240);
+    --accent:  oklch(48% 0.11 170);
+    --accent-strong: oklch(41% 0.10 170);
+    --accent-soft:   color-mix(in oklch, var(--accent) 12%, transparent);
+    --ok:    oklch(52% 0.11 155);  --ok-soft:   color-mix(in oklch, var(--ok) 14%, transparent);
+    --warn:  oklch(50% 0.13 75);   --warn-soft: color-mix(in oklch, var(--warn) 16%, transparent);
+    --err:   oklch(50% 0.17 25);   --err-soft:  color-mix(in oklch, var(--err) 12%, transparent);
+    --fg-soft:   color-mix(in oklch, var(--fg) 5%, transparent);
+    --shadow-card: 0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent),
+                   0 12px 32px -12px color-mix(in oklch, var(--fg) 14%, transparent);
+    --font-display: 'Noto Serif SC', 'Songti SC', 'STSong', 'Iowan Old Style', Georgia, serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', monospace;
+    --container: 1120px; --gutter: 32px;
+    --radius: 10px; --radius-lg: 16px;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: var(--font-body); font-size: 15px; line-height: 1.6;
+    text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased;
+  }
+  img, svg { display: block; max-width: 100%; }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; cursor: pointer; }
+  p { text-wrap: pretty; } h1, h2, h3, h4 { text-wrap: balance; }
+  .container { max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); }
+  .section { padding-block: clamp(48px, 7vw, 88px); }
+  .section + .section { border-top: 1px solid var(--border); }
+  .eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.1em; color: var(--accent); margin: 0 0 14px; }
+  .h1 { font-family: var(--font-display); font-size: clamp(34px, 5vw, 52px); line-height: 1.15; letter-spacing: 0.01em; margin: 0; }
+  .h2 { font-family: var(--font-display); font-size: 26px; line-height: 1.25; margin: 0; }
+  .lead { font-size: 17px; color: var(--muted); max-width: 52ch; margin: 18px 0 0; }
+  .meta { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+  .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+  .topnav { position: sticky; top: 0; z-index: 10; background: color-mix(in oklch, var(--bg) 90%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
+  .topnav-inner { display: flex; align-items: center; justify-content: space-between; padding-block: 12px; }
+  .logo { display: inline-flex; align-items: center; gap: 10px; font-family: var(--font-display); font-size: 17px; font-weight: 600; }
+  .logo-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: var(--surface); display: grid; place-items: center; font-family: var(--font-display); font-size: 15px; font-weight: 600; }
+  .topnav nav { display: flex; gap: 24px; align-items: center; }
+  .topnav nav a { font-size: 14px; color: var(--muted); padding: 4px 2px; border-radius: 6px; }
+  .topnav nav a:hover, .topnav nav a[aria-current="page"] { color: var(--fg); }
+  .topnav nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: var(--radius); border: 1px solid transparent; font-size: 14px; font-weight: 500; transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease; }
+  .btn:active { transform: translateY(1px); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); color: var(--surface); }
+  .btn-primary:hover { background: var(--accent-strong); }
+  .btn-secondary { background: var(--surface); color: var(--fg); border-color: var(--border); }
+  .btn-secondary:hover { border-color: var(--fg); }
+  .btn-sm { padding: 7px 13px; font-size: 13px; border-radius: 8px; }
+
+  .hero { padding-block: clamp(64px, 10vw, 120px); }
+  .hero-inner { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: center; }
+  @media (max-width: 920px) { .hero-inner { grid-template-columns: 1fr; } }
+  .hero .lead { margin-bottom: 28px; }
+
+  /* 设计系统陈列 */
+  .swatch-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+  @media (max-width: 920px) { .swatch-grid { grid-template-columns: repeat(3, 1fr); } }
+  .swatch { border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; background: var(--surface); }
+  .swatch .chip { height: 56px; }
+  .swatch .label { padding: 10px 12px; font-size: 12px; color: var(--muted); }
+  .swatch .label b { display: block; color: var(--fg); font-weight: 500; font-family: var(--font-mono); font-size: 11px; }
+  .type-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+  @media (max-width: 920px) { .type-row { grid-template-columns: 1fr; } }
+  .type-cell { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; }
+  .type-cell .spec { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-bottom: 14px; letter-spacing: 0.06em; }
+  .serif-sample { font-family: var(--font-display); font-size: 24px; line-height: 1.4; }
+  .sans-sample { font-size: 15px; line-height: 1.6; }
+  .mono-sample { font-family: var(--font-mono); font-size: 14px; }
+
+  .screen-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  @media (max-width: 920px) { .screen-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .screen-grid { grid-template-columns: 1fr; } }
+  .screen-card { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; gap: 10px; transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease; }
+  .screen-card:hover { border-color: var(--accent); box-shadow: var(--shadow-card); transform: translateY(-2px); }
+  .screen-card .num-tag { font-family: var(--font-mono); font-size: 11px; color: var(--accent); letter-spacing: 0.08em; }
+  .screen-card h3 { font-family: var(--font-display); font-size: 19px; margin: 0; }
+  .screen-card p { margin: 0; font-size: 13.5px; color: var(--muted); flex: 1; }
+  .screen-card .foot { display: flex; align-items: center; justify-content: space-between; padding-top: 8px; }
+  .screen-card .arrow { color: var(--fg); font-size: 13px; font-weight: 500; }
+  .screen-card:hover .arrow { color: var(--accent); }
+
+  .principle-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  @media (max-width: 920px) { .principle-row { grid-template-columns: 1fr 1fr; } }
+  .principle { border-top: 1px solid var(--fg); padding-top: 14px; }
+  .principle .k { font-family: var(--font-mono); font-size: 11px; color: var(--accent); letter-spacing: 0.08em; }
+  .principle h3 { font-size: 15px; margin: 6px 0; }
+  .principle p { margin: 0; font-size: 13.5px; color: var(--muted); }
+
+  .pagefoot { padding-block: 40px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+  .pagefoot .inner { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+  .badge-demo { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .b { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 12px; }
+  .b.neutral { background: var(--fg-soft); color: var(--muted); }
+  .b.warn { background: var(--warn-soft); color: var(--warn); }
+  .b.ok { background: var(--ok-soft); color: var(--ok); }
+  .b.pro { background: var(--accent-soft); color: var(--accent); }
+  .b svg { width: 12px; height: 12px; }
+</style>
+</head>
+<body>
+
+<header class="topnav" data-od-id="topnav">
+  <div class="container topnav-inner">
+    <a class="logo" href="index.html">
+      <span class="logo-mark">爱</span>
+      爱小说
+    </a>
+    <nav>
+      <a href="index.html" aria-current="page">设计说明</a>
+      <a href="list.html">作品列表</a>
+      <a class="btn btn-primary btn-sm" href="book.html">打开书工作台</a>
+    </nav>
+  </div>
+</header>
+
+<main id="content">
+  <!-- 开场 -->
+  <section class="hero" data-od-id="hero">
+    <div class="container hero-inner">
+      <div>
+        <p class="eyebrow">爱小说 · 界面重设计 V2</p>
+        <h1 class="h1">一套界面，两种状态。<br />让写作回到正文本身。</h1>
+        <p class="lead">面向中文小说家的桌面创作工作台。免费 = 完整人工写作能力；PRO = 同一界面解锁 AI。重设计围绕「建书即写、正文优先、状态可见、允许旁路」四条原则展开。</p>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <a class="btn btn-primary" href="book.html">进入书工作台</a>
+          <a class="btn btn-secondary" href="list.html">先看作品列表</a>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:10px; font-size:13.5px; color:var(--muted);">
+        <div class="badge-demo" style="margin-bottom:6px;"><span class="b neutral">未填</span><span class="b warn">进行中</span><span class="b ok">已确认</span><span class="b pro">PRO</span></div>
+        <p style="margin:0;">三态状态语言贯穿全局：设定项、卷章纲、保存状态，同一套语义。</p>
+        <p style="margin:0;">正文编辑器使用宋体（17px / 2.0 行距），专注模式一键隐藏左右栏。</p>
+        <p style="margin:0;">免费/PRO 仅差 AI 入口的显隐，不改变主界面与操作路径。</p>
+        <p style="margin:0;">一本书 = 设定 + 大纲两个模块；大纲一棵卷→章树，点章 = 章对象工作台（章纲 / 提示词 / 正文三页签），点卷 = 卷纲。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 设计系统 -->
+  <section class="section" data-od-id="design-system">
+    <div class="container">
+      <p class="eyebrow">设计系统</p>
+      <h2 class="h2">色板 · 字体 · 状态</h2>
+      <div class="swatch-grid" style="margin-top:32px;">
+        <div class="swatch"><div class="chip" style="background:var(--bg);"></div><div class="label"><b>--bg</b>页面底色</div></div>
+        <div class="swatch"><div class="chip" style="background:var(--surface);"></div><div class="label"><b>--surface</b>卡片 / 面板</div></div>
+        <div class="swatch"><div class="chip" style="background:var(--fg);"></div><div class="label"><b>--fg</b>正文墨色</div></div>
+        <div class="swatch"><div class="chip" style="background:var(--muted);"></div><div class="label"><b>--muted</b>次级文字</div></div>
+        <div class="swatch"><div class="chip" style="background:var(--border);"></div><div class="label"><b>--border</b>描边 / 分隔</div></div>
+        <div class="swatch"><div class="chip" style="background:var(--accent);"></div><div class="label"><b>--accent</b>墨绿 · 主操作</div></div>
+      </div>
+      <div class="type-row" style="margin-top:24px;">
+        <div class="type-cell">
+          <div class="spec">DISPLAY · 宋体</div>
+          <div class="serif-sample">书名与标题，文学性的骨架</div>
+        </div>
+        <div class="type-cell">
+          <div class="spec">BODY · 苹方 / 系统无衬线</div>
+          <div class="sans-sample">界面正文与控件，清晰可读。长时写作不刺激，状态信息用等宽数字对齐。</div>
+        </div>
+        <div class="type-cell">
+          <div class="spec">MONO · 等宽</div>
+          <div class="mono-sample">01 / 02 · 2,486 字 · 设定 2/6 · 已自动保存</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 屏幕 -->
+  <section class="section" data-od-id="screens">
+    <div class="container">
+      <p class="eyebrow">两屏交付</p>
+      <h2 class="h2">我的小说 → 一本书 = 设定 / 大纲</h2>
+      <div class="screen-grid" style="margin-top:32px;">
+        <a class="screen-card" href="list.html" data-od-id="screen-list">
+          <span class="num-tag">01 · 免费主流程入口</span>
+          <h3>作品列表</h3>
+          <p>多本小说卡片：书名、阶段、卷章数与更新时间。创建只填书名，回车即建，10 秒进入这本书。</p>
+          <div class="foot"><span class="meta">list.html</span><span class="arrow">打开 →</span></div>
+        </a>
+        <a class="screen-card" href="book.html" data-od-id="screen-book">
+          <span class="num-tag">02 · 统一书工作台</span>
+          <h3>一本书 · 设定 / 大纲</h3>
+          <p>两个模块：设定若干项；大纲一棵卷→章树，点卷配卷纲、点章即章对象工作台（章纲 / 提示词 / 正文三页签）。共享一棵树与自动保存，AI 提示词由设定 + 章纲组装、可编辑。</p>
+          <div class="foot"><span class="meta">book.html</span><span class="arrow">打开 →</span></div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 设计原则 -->
+  <section class="section" data-od-id="principles">
+    <div class="container">
+      <p class="eyebrow">四条设计原则（取自 PRD）</p>
+      <div class="principle-row">
+        <div class="principle"><span class="k">01</span><h3>永远知道下一步</h3><p>每屏至少一个明确的下一步入口；阶段完成即出现下一阶段入口。</p></div>
+        <div class="principle"><span class="k">02</span><h3>状态可见</h3><p>进度、保存、确认三种状态语言全局统一，完成即变色、即时反馈。</p></div>
+        <div class="principle"><span class="k">03</span><h3>允许旁路</h3><p>设定未完成也可以先写，不锁死用户；高级配置标注「可选，可后补」。</p></div>
+        <div class="principle"><span class="k">04</span><h3>正文优先</h3><p>桌面长时场景，信息密度适中；宋体排版、专注模式，低刺激。</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="pagefoot" data-od-id="footer">
+  <div class="container inner">
+    <span>© 2026 爱小说 · 界面重设计 v2</span>
+    <span class="meta">视觉方向：人文亲和 · 墨绿 accent · 正文宋体</span>
+  </div>
+</footer>
+
+</body>
+</html>
