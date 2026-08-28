@@ -22,7 +22,8 @@ export class MockApi {
     '**/api/device/remove',
     '**/api/authorize',
     '**/api/reset_password',
-    '**/api/check-auth',
+    // ⚠️ 真实调用带 query（?pc_hash=），Playwright glob 匹配完整 URL，须以 * 收尾
+    '**/api/check-auth*',
   ]
 
   constructor(page: Page) {
@@ -34,6 +35,16 @@ export class MockApi {
     this.currentUser = null
     this.devices = []
     this.userMeDead = false
+    // 兜底拦最先注册（Playwright 后注册者优先，兜底必须排最前）。
+    // 用谓词而非 glob：'**/api/**' 会误吞 vite 模块 URL（/src/api/request.ts
+    // 路径里也含 '/api/'，被答成 JSON 应用直接起不来，PR #217 调试实测）。
+    // 漏出精确路由表的 /api 一律答 code 1——绝不穿透 vite proxy（CI 上
+    // 19000 无人监听，漏网即门闩 15s×4 空转、页面用例集体超时），也绝不
+    // 返回 code 2 误触发 401 登出。
+    await this.page.route(
+      (url) => url.pathname.startsWith('/api/'),
+      (route) => route.fulfill(json(1, 'unmocked api'))
+    )
     for (const url of this.routes) {
       await this.page.route(url, (route) => this.handler(route))
     }
