@@ -71,10 +71,10 @@ async function handleReset() {
     <h1>登录</h1>
     <p class="sub">欢迎回来，继续你的故事</p>
 
-    <p v-if="route.query.redirect" class="strip info">
+    <p v-if="route.query.redirect" class="notice info">
       <Ico :d="P.info" />请先登录后继续
     </p>
-    <p v-if="errorMsg" class="strip err">
+    <p v-if="errorMsg" class="notice err">
       <Ico :d="P.alert" />{{ errorMsg }}
     </p>
 
@@ -103,10 +103,10 @@ async function handleReset() {
     <div v-if="showResetForm" class="reset-area">
       <p class="reset-t serif">重置密码</p>
 
-      <p v-if="resetMsg?.startsWith('success:')" class="strip ok">
+      <p v-if="resetMsg?.startsWith('success:')" class="notice ok">
         <Ico :d="P.check" />{{ resetMsg.slice(8) }}
       </p>
-      <p v-else-if="resetMsg" class="strip err">
+      <p v-else-if="resetMsg" class="notice err">
         <Ico :d="P.alert" />{{ resetMsg }}
       </p>
 

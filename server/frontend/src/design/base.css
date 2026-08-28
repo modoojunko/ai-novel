@@ -171,19 +171,12 @@ input, textarea, select { font: inherit; }
 .lnk:hover { color: var(--accent-strong); text-decoration: underline; }
 /* @cross-end */
 
-/* ─── S端 本地段（不入共享段：.b 待 PR2 退役；.panel 家族与空态动作槽待 C端
+/* ─── S端 本地段（不入共享段：.panel 家族与空态动作槽待 C端
    本地同名定义同批收编后入段，见 s-ui-alignment design D2 的缓收编裁定） ─────────────── */
 .btn-lg { height: 40px; padding: 0 18px; font-size: 14px; }
 .btn-block { width: 100%; }
 .btn:disabled { opacity: 0.5; pointer-events: none; }
 .lnk:disabled { opacity: 0.5; pointer-events: none; }
-
-/* 徽标（原型通用组件：.b 状态色 ok/err/warn/muted）——过渡期，PR2 改名 .pill 家族 */
-.b { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 500; }
-.b.ok { background: var(--ok-soft); color: var(--ok); }
-.b.err { background: var(--err-soft); color: var(--err); }
-.b.warn { background: var(--warn-soft); color: var(--warn); }
-.b.muted { background: var(--fg-soft); color: var(--muted); }
 
 /* 面板（原型通用组件：model-config.html 的面板形态） */
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; }

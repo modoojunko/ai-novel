@@ -45,10 +45,10 @@ async function submit() {
 
 <template>
   <div>
-    <p v-if="successMsg" class="strip ok">
+    <p v-if="successMsg" class="notice ok">
       <Ico :d="P.check" />{{ successMsg }}
     </p>
-    <p v-else-if="errorMsg" class="strip err">
+    <p v-else-if="errorMsg" class="notice err">
       <Ico :d="P.alert" />{{ errorMsg }}
     </p>
 

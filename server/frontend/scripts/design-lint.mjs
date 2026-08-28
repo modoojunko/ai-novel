@@ -8,7 +8,7 @@ import path from "node:path";
 import {
   strictGlobs, strictSrcGlobs, reportGlobs,
   allowedArbitrary, allowedOpacity, paletteRegex,
-  hexRegex, rgbRegex, emojiRegex, bannedDaisyRegex,
+  hexRegex, rgbRegex, emojiRegex, bannedDaisyRegex, retiredClassRegex,
 } from "./design-vocab.mjs";
 
 const ROOT = path.resolve(process.cwd());
@@ -105,6 +105,10 @@ function checkToken(token) {
   // 4) daisyUI 语义类回归（token 级全词匹配）
   if (bannedDaisyRegex.test(token)) {
     problems.push({ kind: "daisy", token });
+  }
+  // 5) 退役类名回归（.b/.strip → .pill/.notice，token 级全词匹配）
+  if (retiredClassRegex.test(token)) {
+    problems.push({ kind: "retired", token });
   }
   return problems;
 }

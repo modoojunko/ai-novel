@@ -60,10 +60,10 @@ async function submit() {
       用于忘记密码时找回账号，设置新密保会覆盖旧的。
     </p>
 
-    <p v-if="errorMsg" class="strip err">
+    <p v-if="errorMsg" class="notice err">
       <Ico :d="P.alert" />{{ errorMsg }}
     </p>
-    <p v-if="successMsg" class="strip ok">
+    <p v-if="successMsg" class="notice ok">
       <Ico :d="P.check" />{{ successMsg }}
     </p>
 

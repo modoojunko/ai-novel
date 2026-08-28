@@ -9,11 +9,11 @@ import ChangePasswordForm from '@/components/dashboard/ChangePasswordForm.vue'
 import SecurityForm from '@/components/dashboard/SecurityForm.vue'
 
 const session = useSessionStore()
-// none→muted、trial→warn、付费→ok（与 appbar 徽标同口径）
+// none→中性、trial→warn、付费→ok（与 appbar 徽标同口径）
 const tierCls = computed(() => {
-  if (session.tier === 'none') return 'muted'
-  if (session.tier === 'trial') return 'warn'
-  return 'ok'
+  if (session.tier === 'none') return ''
+  if (session.tier === 'trial') return 'pill-warn'
+  return 'pill-ok'
 })
 const { loadError, retry } = usePageLoad(async () => {
   if (!session.userFetched) {
@@ -46,7 +46,7 @@ const { loadError, retry } = usePageLoad(async () => {
           <div>
             <div class="who-name">{{ session.username }}</div>
             <div class="who-meta">
-              <span class="b" :class="tierCls">{{ session.tierDisplay }}</span>
+              <span class="pill pill-status" :class="tierCls">{{ session.tierDisplay }}</span>
               <span v-if="session.expiresAt" class="exp num">
                 到期：{{ session.expiresAt.slice(0, 10) }}
               </span>

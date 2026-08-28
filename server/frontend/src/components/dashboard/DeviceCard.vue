@@ -34,11 +34,11 @@ const relativeTime = computed(() => {
 })
 
 const statusBadge = computed(() => {
-  if (props.device.activated) return { cls: 'ok', text: '已激活' }
+  if (props.device.activated) return { cls: 'pill-ok', text: '已激活' }
   const code = props.device.reason?.code
-  if (code === 'account_inactive') return { cls: 'warn', text: '账号未激活' }
-  if (code === 'limit_exceeded') return { cls: 'muted', text: '超出限额' }
-  return { cls: 'muted', text: '未激活' }
+  if (code === 'account_inactive') return { cls: 'pill-warn', text: '账号未激活' }
+  if (code === 'limit_exceeded') return { cls: '', text: '超出限额' }
+  return { cls: '', text: '未激活' }
 })
 </script>
 
@@ -52,7 +52,7 @@ const statusBadge = computed(() => {
       <div class="mid">
         <div class="name-row">
           <span class="name">{{ device.hostname }}</span>
-          <span v-if="device.is_current" class="b muted">当前设备</span>
+          <span v-if="device.is_current" class="pill pill-tag">当前设备</span>
         </div>
         <div class="meta">
           {{ device.os }} · {{ device.os_arch }}
@@ -64,7 +64,7 @@ const statusBadge = computed(() => {
 
       <!-- 右侧状态与操作 -->
       <div class="ops">
-        <span class="b" :class="statusBadge.cls" :title="device.reason?.message || statusBadge.text">
+        <span class="pill pill-status" :class="statusBadge.cls" :title="device.reason?.message || statusBadge.text">
           {{ statusBadge.text }}
         </span>
 

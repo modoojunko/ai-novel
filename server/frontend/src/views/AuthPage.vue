@@ -65,7 +65,7 @@ async function submitAuth() {
   <div class="auth-card wide">
     <!-- 无效请求 -->
     <template v-if="isInvalid">
-      <p class="strip warn">
+      <p class="notice warn">
         <Ico :d="P.alert" />无效的授权请求，请从桌面应用重新发起
       </p>
     </template>
@@ -76,8 +76,8 @@ async function submitAuth() {
         <span class="ok-ring"><Ico :d="P.check" :sw="2.2" /></span>
         <h1>授权成功</h1>
         <div class="ok-meta">
-          <span class="b ok">{{ authResult.tier }}</span>
-          <span v-if="authResult.expires_at" class="b muted num">
+          <span class="pill pill-status pill-ok">{{ authResult.tier }}</span>
+          <span v-if="authResult.expires_at" class="pill pill-tag num">
             {{ authResult.expires_at.slice(0, 10) }} 到期
           </span>
         </div>
@@ -94,7 +94,7 @@ async function submitAuth() {
       <h1>设备授权</h1>
       <p class="sub">桌面应用请求绑定此设备，请登录以完成授权</p>
 
-      <p v-if="errorMsg" class="strip err">
+      <p v-if="errorMsg" class="notice err">
         <Ico :d="P.alert" />{{ errorMsg }}
       </p>
 

@@ -9,11 +9,11 @@ import SiteBeianBar from '@/components/site/SiteBeianBar.vue'
 const router = useRouter()
 const session = useSessionStore()
 
-// none→muted、trial→warn、付费→ok
+// none→中性、trial→warn、付费→ok
 const tierCls = computed(() => {
-  if (session.tier === 'none') return 'muted'
-  if (session.tier === 'trial') return 'warn'
-  return 'ok'
+  if (session.tier === 'none') return ''
+  if (session.tier === 'trial') return 'pill-warn'
+  return 'pill-ok'
 })
 
 function handleLogout() {
@@ -42,7 +42,7 @@ onMounted(() => {
         <router-link to="/dashboard/account" active-class="on">账户</router-link>
       </nav>
       <div class="spacer" />
-      <span class="b" :class="tierCls">{{ session.tierDisplay }}</span>
+      <span class="pill pill-status" :class="tierCls">{{ session.tierDisplay }}</span>
       <span class="who">{{ session.username || '用户' }}</span>
       <button class="quit" @click="handleLogout">
         <Ico :d="P.logout" />

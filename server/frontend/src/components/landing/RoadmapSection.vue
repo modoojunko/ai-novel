@@ -26,7 +26,7 @@ const roadmap = [
           class="mkt-card rd animate-fade-up"
           :style="{ animationDelay: `${0.1 + i * 0.05}s` }"
         >
-          <span class="b muted plan-tag">规划中</span>
+          <span class="pill pill-tag plan-tag">规划中</span>
           <div class="ico"><Ico :d="item.icon" /></div>
           <h3>{{ item.title }}</h3>
           <p>{{ item.desc }}</p>

@@ -62,10 +62,10 @@ async function submit() {
   <AppCard>
     <div class="panel-h"><h2>修改密码</h2></div>
 
-    <p v-if="errorMsg" class="strip err">
+    <p v-if="errorMsg" class="notice err">
       <Ico :d="P.alert" />{{ errorMsg }}
     </p>
-    <p v-if="successMsg" class="strip ok">
+    <p v-if="successMsg" class="notice ok">
       <Ico :d="P.check" />{{ successMsg }}
     </p>
 
