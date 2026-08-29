@@ -35,6 +35,8 @@ export default function App() {
           <Route path="/novel/:id" element={<NovelLayout />}>
             <Route index element={<NovelWorkspace />} />
           </Route>
+          {/* 兜底：未知地址落书架，不白屏 */}
+          <Route path="*" element={<Navigate to="/novels" replace />} />
         </Routes>
       </div>
       <Footer />

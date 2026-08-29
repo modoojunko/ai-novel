@@ -78,7 +78,7 @@ export default function ModelSettingForm({ projectId }: ModelSettingFormProps) {
         </div>
         {status === "no_key" && (
           <span className="opt" style={{ fontSize: 12, color: "var(--muted)" }}>
-            暂无可用 API Key，<a href="/config">去配置</a>
+            暂无可用 API Key，<a href="#/config">去配置</a>
           </span>
         )}
       </div>

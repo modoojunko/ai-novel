@@ -59,7 +59,7 @@ function targetKey(projectId: string, ref: string): string {
   return `target-words-${projectId}-${ref}`;
 }
 
-const DEFAULT_TARGET = 2000;
+export const DEFAULT_TARGET = 2500;
 
 /** 自动保存防抖窗口（N8）。 */
 const AUTOSAVE_DEBOUNCE_MS = 1500;

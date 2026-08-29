@@ -53,10 +53,9 @@
 .notice .nt b { font-weight: 500; }
 .notice .nt span { color: var(--muted); font-size: 12.5px; margin-left: 8px; }
 
-/* 加载骨架：卡片网格占位（design token 灰阶，无 parity 态） */
+/* 加载骨架：卡片网格占位（design token 灰阶，无 parity 态）；底色与脉冲来自共享段 .sk 原子 */
 .card-skeleton { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); padding: 22px; }
-.card-skeleton .bar { height: 12px; border-radius: 6px; background: var(--fg-soft); margin-bottom: 10px; animation: skeleton-pulse 1.4s ease-in-out infinite; }
+.card-skeleton .bar { height: 12px; border-radius: 6px; margin-bottom: 10px; }
 .card-skeleton .bar.w40 { width: 40%; }
 .card-skeleton .bar.w70 { width: 70%; }
 .card-skeleton .bar.w90 { width: 90%; }
-@keyframes skeleton-pulse { 50% { opacity: 0.45; } }
