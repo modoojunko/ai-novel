@@ -155,13 +155,12 @@ function NovelList() {
   // 免费待遇 = 非有效会员（免费层或套餐过期），与后端 require_project_limit 口径一致
   const freeLimitReached = !isMember && novels.length >= 1;
 
-  // 回访态：最近编辑的书置顶直达；该书从网格剔除，避免同书双入口
+  // 书架即「继续」入口：按修改时间倒排，最近有进展的排前面（2026-08-29 用户裁定，
+  // 取代原「继续创作条」方案——每张卡片自携继续创作状态，无需顶部重复入口）
   const sortedNovels = useMemo(
     () => [...novels].sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at)),
     [novels],
   );
-  const resumeBook = loading || loadError ? null : (sortedNovels[0] ?? null);
-  const gridNovels = resumeBook ? sortedNovels.slice(1) : sortedNovels;
 
   const guideUpgrade = () =>
     window.open(portalUrl || PORTAL_URL, "_blank", "noopener,noreferrer");
@@ -221,41 +220,6 @@ function NovelList() {
           </span>
           <Link to="/config" className="btn btn-secondary btn-sm">去配置</Link>
         </div>
-      )}
-
-      {/* 回访态：继续创作条（updated_at 最大者置顶直达工作台） */}
-      {resumeBook && (
-        <section
-          className="resume"
-          role="link"
-          tabIndex={0}
-          aria-label={`继续创作 ${resumeBook.name}`}
-          onClick={() => navigate(`/novel/${resumeBook.id}`)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") navigate(`/novel/${resumeBook.id}`);
-          }}
-        >
-          <span className="mono">{(resumeBook.name || "书")[0]}</span>
-          <div className="rgrow">
-            <span className="rlabel">
-              <Ico d={genreIconPath(resumeBook.genre)} />
-              继续创作
-            </span>
-            <div className="rt">{resumeBook.name}</div>
-            <div className="rm">
-              第 <b className="num">{resumeBook.total_volumes || 0}</b> 卷 · 第{" "}
-              <b className="num">{resumeBook.total_chapters || 0}</b> 章 · 累计{" "}
-              <b className="num">{fmt(resumeBook.word_count ?? 0)}</b> 字
-            </div>
-          </div>
-          <div className="ractions">
-            <span className="rtime">上次编辑 {relTime(resumeBook.updated_at)}</span>
-            <span className="btn btn-primary">
-              继续创作
-              <Ico d={P.arrowRight} />
-            </span>
-          </div>
-        </section>
       )}
 
       {/* 满额态：一句话说明 + 升级出口（正解口径：锁定可见，不隐藏入口） */}
@@ -365,7 +329,7 @@ function NovelList() {
         </div>
       ) : (
         <div className="cards">
-          {gridNovels.map((p) => {
+          {sortedNovels.map((p) => {
             const stage = PHASE_STAGE[p.current_phase] || "setting";
             const words = p.word_count ?? 0;
             return (
