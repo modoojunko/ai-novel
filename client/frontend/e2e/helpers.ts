@@ -1,5 +1,42 @@
+import type { Page } from "@playwright/test";
+
 export const BASE_URL = "http://localhost:8000";
 
 export function url(hashPath: string) {
   return `${BASE_URL}/#${hashPath}`;
+}
+
+/**
+ * 更新提示条打桩（client-update-notify）。
+ * "update" 载荷与原型 list.html / book.html 字面量一致（ADJUSTMENTS #15 parity 口径）；
+ * "none" = 检测成功无更新；"fail" = 端点异常（应用侧必须静默不渲染）。
+ */
+export function stubUpdateNotice(page: Page, mode: "update" | "none" | "fail") {
+  return page.route("**/api/update-check", (r) => {
+    if (mode === "fail") {
+      return r.fulfill({ status: 500, json: { detail: "boom" } });
+    }
+    if (mode === "none") {
+      return r.fulfill({
+        json: {
+          current: "0.13",
+          latest: "0.13",
+          has_update: false,
+          notes: "",
+          notes_url: "",
+          download_url: "",
+        },
+      });
+    }
+    return r.fulfill({
+      json: {
+        current: "0.11",
+        latest: "0.13",
+        has_update: true,
+        notes: "提升章纲 AI 起草的稳定性，修复若干问题",
+        notes_url: "https://www.awesomenovel.com/download/v0.13/notes.html",
+        download_url: "https://www.awesomenovel.com",
+      },
+    });
+  });
 }

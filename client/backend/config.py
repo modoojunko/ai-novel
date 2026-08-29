@@ -34,6 +34,10 @@ RELEASE_OVERRIDE_KEYS = (
     "server_api_base",
     "server_api_fallback",
     "public_server_api",
+    # client-update-notify：版本自报与更新检测地址（只读值，update_check 模块消费）
+    "client_version",
+    "client_update_url",
+    "client_update_url_fallback",
 )
 
 

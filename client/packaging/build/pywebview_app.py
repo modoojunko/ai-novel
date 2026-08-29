@@ -105,6 +105,17 @@ def start_server():
             os.environ.get("AI_NOVEL_SERVER_API_FALLBACK", ""))
         _env_with_release("PUBLIC_SERVER_API", "public_server_api",
             os.environ.get("AI_NOVEL_PUBLIC_SERVER_API", ""))
+        # client-update-notify：版本自报 + 更新检测地址（主/兜底）。
+        # 版本默认 dev（本地开发无烘焙 → update_check 跳过检测，行为同历史）；
+        # 检测地址默认值与 CI Generate release.json 同源，仅烘焙缺键时兜底。
+        _env_with_release("CLIENT_VERSION", "client_version",
+            os.environ.get("AI_NOVEL_CLIENT_VERSION", "dev"))
+        _env_with_release("CLIENT_UPDATE_URL", "client_update_url",
+            os.environ.get("AI_NOVEL_CLIENT_UPDATE_URL",
+                "https://www.awesomenovel.com/download/latest.json"))
+        _env_with_release("CLIENT_UPDATE_URL_FALLBACK", "client_update_url_fallback",
+            os.environ.get("AI_NOVEL_CLIENT_UPDATE_URL_FALLBACK",
+                "https://ai-novel-test-d1ghsr86ra814c12c-1468883265.tcloudbaseapp.com/download/latest.json"))
 
         frontend_dist = res_root / "frontend"
         if frontend_dist.exists():

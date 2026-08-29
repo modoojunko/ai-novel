@@ -25,3 +25,14 @@ def test_unknown_and_malformed_are_tolerated(tmp_path):
     assert load_release_overrides(bad) == {}
     nonobj = _write(tmp_path, '["array"]')
     assert load_release_overrides(nonobj) == {}
+
+
+def test_client_update_keys_roundtrip(tmp_path):
+    """client-update-notify 三键随 release.json 读取，空值/缺失容忍（→ 应用侧回退 dev/默认域）。"""
+    d = _write(tmp_path, '{"client_version": "0.13", '
+                          '"client_update_url": "https://www.awesomenovel.com/download/latest.json", '
+                          '"client_update_url_fallback": "  ", "other": 1}')
+    assert load_release_overrides(d) == {
+        "client_version": "0.13",
+        "client_update_url": "https://www.awesomenovel.com/download/latest.json",
+    }
