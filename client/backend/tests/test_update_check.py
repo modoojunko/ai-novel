@@ -7,7 +7,6 @@ import pytest
 
 import update_check as uc
 
-
 MAIN_URL = "https://www.awesomenovel.com/download/latest.json"
 FALLBACK_URL = "https://ai-novel-test-d1ghsr86ra814c12c-1468883265.tcloudbaseapp.com/download/latest.json"
 
@@ -97,7 +96,6 @@ def test_failure_is_silent_and_throttled(monkeypatch):
 
     async def fake_fetch():
         calls.append(1)
-        return None
 
     monkeypatch.setattr(uc, "_fetch_latest", fake_fetch)
     st = _run(uc.get_update_state())
@@ -191,7 +189,6 @@ def test_fallback_switch_on_main_failure(monkeypatch):
 
     async def all_fail(url):
         seen.append(url)
-        return None
 
     monkeypatch.setattr(uc, "_fetch_one", all_fail)
     assert _run(uc._fetch_latest()) is None
@@ -259,6 +256,7 @@ def test_dismiss_version_remembers(monkeypatch):
 
 def _client():
     from fastapi.testclient import TestClient
+
     from main import app
     return TestClient(app)
 

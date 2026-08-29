@@ -181,7 +181,7 @@ async def _fetch_latest() -> dict | None:
 
 def _derived_urls(source_url: str, latest: str) -> tuple[str, str]:
     """由实际成功的检测地址推导：更新说明页（版本化目录）与官网下载入口。"""
-    base = source_url[: -len("latest.json")] if source_url.endswith("latest.json") else source_url
+    base = source_url.removesuffix("latest.json")
     p = urlparse(source_url)
     return f"{base}v{latest}/notes.html", f"{p.scheme}://{p.netloc}"
 

@@ -33,9 +33,9 @@ from settings.router import router as settings_router
 from settings.status import router as settings_status_router
 from story.arc_wizard import router as story_arc_wizard_router
 from story.router import router as story_router
+from update_check import router as update_check_router
 from workflow.router import backfill_router as workflow_backfill_router
 from workflow.router import router as workflow_router
-from update_check import router as update_check_router
 from write.router import router as write_router
 
 
