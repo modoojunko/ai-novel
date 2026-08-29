@@ -13,6 +13,7 @@ TBD - created by archiving change 004-free-workspace. Update Purpose after archi
 - The save state SHALL be one of exactly four: `autosaving | saved | unsaved | failed`; the failed state SHALL expose a `retry()` action.
 - `wordCount` SHALL count non-whitespace Chinese characters, consistent with the backend `/tree` metric (B5).
 - `targetWords` SHALL persist (localStorage or chapter metadata) and be adjustable via `setTargetWords`.
+- When no target has been set, `targetWords` SHALL fall back to **2500** — the backend write-pipeline default — so the UI progress display and text generation share one default.
 - `isDirty` SHALL be `prose !== initialProse || summary !== initialSummary || status !== initialStatus`.
 - The hook SHALL flush unsaved changes on unmount or chapter switch (no lost-window).
 - The save endpoint SHALL prefer `PUT .../chapters/{ref}/prose` with body `{prose}` (backend #12); while that endpoint is absent it SHALL degrade to `PUT /chapters/{ref}` with the full merged body.
@@ -31,6 +32,11 @@ TBD - created by archiving change 004-free-workspace. Update Purpose after archi
 - Given prose `"你好 世界\n\n。"`
 - When `wordCount` is computed
 - Then it equals 5
+
+#### Scenario: Default target aligns with generation pipeline
+- Given a chapter with no stored target value
+- When the hook initializes `targetWords`
+- Then it equals 2500, matching the backend generation default
 
 #### Scenario: Flush on unmount
 - Given a chapter with unsaved edits
