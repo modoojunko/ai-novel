@@ -257,8 +257,10 @@ jobs:
           fetch-depth: 0
       # checkout#290：tag 触发时 checkout 只取 tag 指向的 commit，不取带注释的
       # tag 对象本身 → git tag -l %(contents) 为空、附注丢失。显式补取 tag 对象。
+      # 勿用 "tag <name>" 简写——runner git 2.55 起判 invalid refspec（v0.14 首发实挂），
+      # 必须写显式 refspec。
       - name: Fetch tag object (annotation)
-        run: git fetch origin "tag ${GITHUB_REF_NAME}" --no-tags --force
+        run: git fetch origin "+refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}" --no-tags --force
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
