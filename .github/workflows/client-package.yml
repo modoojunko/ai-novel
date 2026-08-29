@@ -386,3 +386,37 @@ jobs:
           done
           [ "$GOT" = "$EXPECTED" ] || { echo "::error::latest.json 内容不符（期望 $EXPECTED，实得 ${GOT:-空}）"; exit 1; }
           echo "CN CDN 发布完成：download/v$VER/（安装包 + notes.html）+ latest.json"
+
+      # ── 托管旧版本清理：发布校验全绿后，按版本语义序只保留最近 2 个版本目录 ──
+      # 每版净增约 70MB 且托管无生命周期机制；旧版本无任何引用入口（latest.json / 落地页直链 /
+      # notes.html 都只指当前版），历史版本获取由 GitHub Release 承接。latest.json 永不在删除
+      # 路径；dry-run 预览先行；从未上过托管的 tag（如本地遗留 tag）报错降级为 warning；清理
+      # 失败不阻塞发版（发布已成功，下个版本自动重试）。本步骤不设 if: always()——发布或校验
+      # 失败时旧版本目录是当时唯一可下载来源，绝不能先删后建。
+      - name: Prune old hosting versions (keep last 2)
+        env:
+          TCB_API_KEY: ${{ secrets.TCB_API_KEY }}
+          TCB_ENV_ID: ${{ vars.TCB_ENV_ID }}
+        run: |
+          KEEP=2
+          # checkout 不保证 tag 对象齐全（见本 job 顶部 checkout#290 注释），显式补取
+          git fetch origin 'refs/tags/v*:refs/tags/v*' --force
+          # 版本语义序（v0.13 > v0.4），勿用时间序——v0.9 / v0.11 会错排
+          OLD_TAGS="$(git tag -l 'v*' --sort=-v:refname | tail -n +$((KEEP+1)))"
+          if [ -z "$OLD_TAGS" ]; then
+            echo "保留集内已无更老版本，无需清理"
+            exit 0
+          fi
+          echo "保留最近 $KEEP 个版本，待删集合："
+          echo "$OLD_TAGS"
+          while IFS= read -r TAG; do
+            VER="${TAG#v}"
+            echo "--- 预览 download/v$VER/ ---"
+            tcb hosting delete "download/v$VER" --dir --dry-run -e "$TCB_ENV_ID" || true
+            if tcb hosting delete "download/v$VER" --dir -e "$TCB_ENV_ID"; then
+              echo "已删除 download/v$VER/"
+            else
+              echo "::warning::清理 download/v$VER 失败（可能从未上过托管），已跳过"
+            fi
+          done <<< "$OLD_TAGS"
+          echo "旧版本清理完成（保留最近 $KEEP 个版本）"
