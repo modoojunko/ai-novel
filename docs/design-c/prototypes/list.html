@@ -111,18 +111,6 @@
   .empty p { margin: 8px 0 0; font-size: 13.5px; }
 
   /* ═══ 书架三态组件（转正自 docs/ux/home.html；书架屏私有）═══ */
-  /* 回访态：继续创作条（updated_at 最大者置顶直达；该书不再入网格，避免双入口） */
-  .resume { display: flex; align-items: center; gap: 16px; background: var(--surface); border: 1px solid color-mix(in oklch, var(--accent) 26%, var(--border)); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 28px; box-shadow: var(--shadow-card); cursor: pointer; transition: border-color 0.15s ease, transform 0.15s ease; }
-  .resume:hover { border-color: var(--accent); transform: translateY(-1px); }
-  .resume:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .resume .rt { font-family: var(--font-display); font-size: 17px; font-weight: 600; }
-  .resume .rm { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
-  .resume .rm b { color: var(--fg); font-weight: 500; }
-  .resume .rlabel { font-size: 11px; letter-spacing: 0.08em; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
-  .resume .rlabel svg { width: 12px; height: 12px; color: var(--accent); }
-  .resume .rgrow { flex: 1; min-width: 0; }
-  .resume .ractions { display: inline-flex; align-items: center; gap: 14px; flex: none; }
-  .resume .rtime { font-size: 11.5px; color: var(--muted); }
 
   /* 首启态：三步引导空态（.empty 家族内长出，不另造版式） */
   .first-run { max-width: 720px; margin: 8px auto 0; text-align: center; }
@@ -217,7 +205,6 @@
 </header>
 
 <main class="main" data-od-id="book-list">
-  <div id="resumeSlot"></div>
   <div class="page-head">
     <div>
       <h1>我的作品</h1>
@@ -305,8 +292,6 @@ const fmt = n => n.toLocaleString('zh-CN');
 const isMember = localStorage.getItem('ainovel.member') !== '0';  // parity 注入：'0'=免费待遇
 const FREE_LIMIT = 1;  // 与后端 require_project_limit 口径一致：免费/过期 1 个项目
 const quota = !isMember && books.length >= FREE_LIMIT;
-const resumeBook = books[0] || null;      // 种子即最近优先；实现侧按 updated_at 降序同源
-const gridBooks = resumeBook ? books.slice(1) : books;  // 继续创作条去重：该书不再入网格
 const GENRE_ICON = {
   '科幻': '<path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 17l9 5 9-5"/>',
   '悬疑': '<path d="M9.5 11a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/><path d="M9.5 11v6M7 7L4.5 3.5M12 7l2.5-3.5M9.5 14H8M9.5 17H8"/>',
@@ -325,29 +310,6 @@ function toast(msg) {
   t.querySelector('span').textContent = msg;
   $('toastWrap').appendChild(t);
   setTimeout(() => { t.style.transition = 'opacity .3s'; t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2200);
-}
-
-function renderResume() {
-  const slot = $('resumeSlot');
-  if (!resumeBook) { slot.innerHTML = ''; return; }
-  const icon = GENRE_ICON[resumeBook.genre] || GENRE_ICON['其他'];
-  slot.innerHTML = `
-    <section class="resume" data-od-id="resume-bar" role="link" tabindex="0">
-      <span class="mono">${(resumeBook.title || '书')[0]}</span>
-      <div class="rgrow">
-        <span class="rlabel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${icon}</svg>继续创作</span>
-        <div class="rt">${resumeBook.title}</div>
-        <div class="rm">第 <b class="num">${resumeBook.vols}</b> 卷 · 第 <b class="num">${resumeBook.chs}</b> 章 · 累计 <b class="num">${fmt(resumeBook.words)}</b> 字</div>
-      </div>
-      <div class="ractions">
-        <span class="rtime">上次编辑 ${resumeBook.updated}</span>
-        <span class="btn btn-primary">继续创作<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-      </div>
-    </section>` + (quota ? `
-    <div class="notice info" data-od-id="quota-notice" role="status">
-      <span class="nt"><b>免费版书架已满（<span class="num">1/1</span>）</b><span>升级后不限作品数，现有作品不受影响</span></span>
-      <a class="btn btn-secondary btn-sm" href="#">升级</a>
-    </div>` : '');
 }
 
 const FIRST_RUN_HTML = `
@@ -403,7 +365,14 @@ function renderCards() {
     $('frImport').addEventListener('click', () => toast('导入入口在顶栏「导入」按钮'));
     return;
   }
-  gridBooks.forEach((b, i) => {
+  if (quota && !document.getElementById('quota-notice')) {
+    document.querySelector('.page-head').insertAdjacentHTML('beforebegin', `
+    <div class="notice info" data-od-id="quota-notice" role="status">
+      <span class="nt"><b>免费版书架已满（<span class="num">1/1</span>）</b><span>升级后不限作品数，现有作品不受影响</span></span>
+      <a class="btn btn-secondary btn-sm" href="#">升级</a>
+    </div>`);
+  }
+  books.forEach((b, i) => {
     const card = document.createElement('a');
     card.className = 'book-card';
     card.href = 'book.html';
@@ -510,7 +479,6 @@ document.querySelectorAll('#modalPrefs .seg button').forEach(b => {
   });
 });
 
-renderResume();
 renderCards();
 </script>
 </body>

@@ -314,3 +314,8 @@ modalAi/modalPrefs 标记与 CSS 在 PR 3/PR 4 已随屏落地（spec-report §6
    双绿）；STEP 03 口播与 page-head sub 去重，改「第一句想到什么就写什么」。
    实现侧 `list.css` 本地段 + `NovelListPage` 同步；design:check books/empty/
    quota 三场景零漂移。
+   【二次裁定回登 2026-08-29】用户拍板：继续创作条裁撤——「书架上每本书都有
+   继续创作的简单状态就好，书架排序即修改时间倒排」。list.html/实现/list.css
+   同步移除 .resume；书架网格显式按 updated_at 降序（最近有进展的排前面）；
+   满额 notice + 锁定主按钮 + 升级锁卡保留。原型 resumeSlot/ainovel.member
+   注入约定中 member 语义不变。

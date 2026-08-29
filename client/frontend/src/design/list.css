@@ -59,3 +59,28 @@
 .card-skeleton .bar.w40 { width: 40%; }
 .card-skeleton .bar.w70 { width: 70%; }
 .card-skeleton .bar.w90 { width: 90%; }
+/* ─── 书架三态组件（转正自 docs/ux/home.html；书架屏私有，非共享段）───
+   继续创作条已裁撤（2026-08-29 用户裁定）：书架按修改时间倒排即天然「继续」
+   入口，卡片自携状态；满额 notice + 锁定主按钮 + 网格尾升级锁卡保留。 */
+
+/* 首启态：三步引导空态（.empty 家族内长出，不另造版式） */
+.first-run { max-width: 720px; margin: 8px auto 0; text-align: center; }
+.first-run .fr-title { font-family: var(--font-display); font-size: 34px; color: var(--fg); display: block; }
+.fr-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 30px 0 0; text-align: left; }
+.fr-steps .step { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; }
+.fr-steps .fr-n { font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.08em; }
+.fr-steps .fr-ic { width: 34px; height: 34px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin: 10px 0 8px; }
+.fr-steps .fr-ic svg { width: 17px; height: 17px; }
+.fr-steps b { display: block; font-size: 13.5px; font-weight: 500; }
+.fr-steps p { font-size: 12.5px; color: var(--muted); margin: 5px 0 0; line-height: 1.6; }
+.fr-cta { display: flex; justify-content: center; gap: 12px; margin-top: 28px; }
+.fr-note { font-size: 12px; color: var(--muted); margin-top: 14px; }
+
+/* 满额态：网格尾升级锁卡（入口锁定可见 + 升级出口） */
+.lock-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 1px dashed color-mix(in oklch, var(--accent) 40%, var(--border)); border-radius: var(--radius-lg); padding: 22px; color: var(--muted); text-align: center; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+.lock-tile:hover { border-color: var(--accent); background: var(--accent-soft); }
+.lock-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lock-tile .lt-ic { width: 38px; height: 38px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
+.lock-tile .lt-ic svg { width: 18px; height: 18px; }
+.lock-tile b { font-size: 13.5px; color: var(--fg); font-weight: 500; }
+.lock-tile span { font-size: 12px; }
