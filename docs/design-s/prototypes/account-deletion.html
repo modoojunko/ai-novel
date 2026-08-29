@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>爱小说 · 注销账号（原型 · 入口/向导/撤销期/执行后）</title>
+<style>
+/* ═══ 内联样式：与 server/frontend/src/design/base.css 逐字同源段（tokens/btn/appbar/main/page-head/pill/panel/notice/scrim-modal）
+   + S端 本地段（notice 四语气 / btn-lg / btn-danger）+ 原型专用布局工具（kv / stage-narrow / done-mark / rule-note / steps / set-row / asset 行 / spec 标注），
+   同族于 console.html 与 refund.html；布局工具不做视觉决策，色/圆角/字体全走令牌 ═══ */
+:root {
+  --bg:      oklch(98% 0.004 240);
+  --surface: oklch(100% 0 0);
+  --fg:      oklch(20% 0.02 240);
+  --muted:   oklch(50% 0.018 240);
+  --border:  oklch(90% 0.006 240);
+  --accent: oklch(48% 0.11 170);
+  --accent-strong: oklch(41% 0.10 170);
+  --accent-soft:   color-mix(in oklch, var(--accent) 12%, transparent);
+  --ok:    oklch(52% 0.11 155);  --ok-soft:   color-mix(in oklch, var(--ok) 14%, transparent);
+  --warn:  oklch(50% 0.13 75);   --warn-soft: color-mix(in oklch, var(--warn) 16%, transparent);
+  --err:   oklch(50% 0.17 25);   --err-soft:  color-mix(in oklch, var(--err) 12%, transparent);
+  --fg-soft:   color-mix(in oklch, var(--fg) 5%, transparent);
+  --on-accent: oklch(100% 0 0);
+  --shadow-card: 0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent),
+                 0 12px 32px -12px color-mix(in oklch, var(--fg) 14%, transparent);
+  --font-display: 'Noto Serif SC', 'Songti SC', 'STSong', 'Iowan Old Style', Georgia, serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', monospace;
+  --radius: 10px; --radius-lg: 16px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; min-height: 100vh; display: flex; flex-direction: column; }
+img, svg { display: block; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; padding: 0; }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.serif { font-family: var(--font-display); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 15px; border-radius: var(--radius); border: 1px solid transparent; font-size: 13.5px; font-weight: 500; line-height: inherit; transition: background 0.15s ease, border-color 0.15s ease; }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn-primary { background: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { background: var(--accent-strong); }
+.btn-secondary { background: var(--surface); color: var(--fg); border-color: var(--border); }
+.btn-secondary:hover { border-color: var(--fg); }
+.btn-ghost { background: transparent; color: var(--muted); padding: 0 8px; }
+.btn-ghost:hover { color: var(--fg); background: var(--fg-soft); }
+.btn-danger { background: var(--err); color: var(--on-accent); }
+.btn-danger:hover:not(:disabled) { background: color-mix(in oklch, var(--err) 88%, var(--fg)); }
+.btn-lg { height: 40px; padding: 0 18px; font-size: 14px; }
+.btn:disabled { opacity: 0.5; pointer-events: none; }
+.btn-sm { height: 28px; padding: 0 12px; font-size: 12.5px; border-radius: 8px; gap: 5px; }
+.lnk { color: var(--accent); cursor: pointer; background: none; border: 0; padding: 0; font: inherit; }
+.lnk:hover { color: var(--accent-strong); text-decoration: underline; }
+.lnk-danger { color: var(--err); }
+.lnk-danger:hover { color: color-mix(in oklch, var(--err) 85%, var(--fg)); text-decoration: underline; }
+.appbar { height: 48px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.logo { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+.logo-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-family: var(--font-display); font-size: 14px; }
+.appbar .nav { display: inline-flex; gap: 4px; margin-left: 14px; }
+.appbar .nav a { font-size: 13.5px; color: var(--muted); padding: 5px 10px; border-radius: 8px; }
+.appbar .nav a:hover { color: var(--fg); }
+.appbar .nav a.on { color: var(--fg); background: var(--fg-soft); font-weight: 500; }
+.appbar .spacer { flex: 1; }
+.appbar .who { font-size: 13px; color: var(--muted); }
+.main { flex: 1; width: min(100%, 1080px); margin-inline: auto; padding: 48px 32px 80px; }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+.page-head h1 { font-family: var(--font-display); font-size: 30px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
+.page-head .sub { font-size: 13px; color: var(--muted); margin-top: 6px; margin-bottom: 1em; }
+.pill { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 11px; line-height: 1.6; font-weight: 500; background: var(--surface); color: var(--muted); white-space: nowrap; }
+.pill-tag { background: var(--surface); color: var(--muted); }
+.pill-status { padding: 2px 9px; }
+.pill-ok { background: var(--ok-soft); border-color: transparent; color: color-mix(in oklch, var(--ok) 88%, var(--fg)); }
+.pill-warn { background: var(--warn-soft); border-color: transparent; color: color-mix(in oklch, var(--warn) 85%, var(--fg)); }
+.pill-err { background: var(--err-soft); border-color: transparent; color: color-mix(in oklch, var(--err) 90%, var(--fg)); }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; }
+.panel-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.panel-h h2, .panel-h .pt { font-family: var(--font-display); font-size: 16px; font-weight: 600; margin: 0; }
+.notice { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; border-radius: 9px; padding: 10px 12px; margin: 0 0 14px; line-height: 1.55; text-align: left; }
+.notice svg { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+.notice.info { background: var(--accent-soft); color: var(--accent-strong); }
+.notice.ok { background: var(--ok-soft); color: var(--ok); }
+.notice.warn { background: var(--warn-soft); color: var(--warn); }
+.notice.err { background: var(--err-soft); color: var(--err); }
+.notice .lnk { color: inherit; font-weight: 600; }
+.notice .lnk-danger { color: inherit; font-weight: 600; }
+.scrim { position: fixed; inset: 0; background: color-mix(in oklch, var(--fg) 28%, transparent); z-index: 40; opacity: 0; transition: opacity 0.2s ease; }
+.scrim.show { opacity: 1; }
+.modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; pointer-events: auto; }
+.modal .mcard { width: min(420px, 92vw); max-height: calc(100vh - 48px); overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); transform: translateY(8px) scale(0.98); opacity: 0; transition: transform 0.18s ease, opacity 0.18s ease; }
+.modal.show .mcard { transform: none; opacity: 1; }
+.mcard-head { display: flex; align-items: center; padding: 20px 24px 0; }
+.mcard-head .mh { font-family: var(--font-display); font-size: 17px; font-weight: 600; }
+.mcard-body { padding: 14px 24px 6px; }
+.mcard-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 24px 20px; }
+
+/* ─── 原型专用：布局工具 + 业务组合（不做视觉决策，色/圆角/字体走令牌） ─── */
+.stage-narrow { max-width: 460px; margin: 0 auto; }
+.kv { display: grid; grid-template-columns: 96px 1fr; gap: 8px 12px; font-size: 13px; margin: 6px 0; }
+.kv span { color: var(--muted); }
+.kv b { font-weight: 500; }
+.done-mark { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto; }
+.done-mark.ok { background: var(--ok-soft); color: var(--ok); }
+.done-mark.warn { background: var(--warn-soft); color: var(--warn); }
+.done-mark svg { width: 26px; height: 26px; }
+.rule-note { font-size: 12.5px; color: var(--muted); line-height: 1.7; }
+.switcher { position: fixed; top: 12px; right: 12px; z-index: 90; display: flex; flex-wrap: wrap; max-width: 420px; justify-content: flex-end; gap: 4px; padding: 5px; background: var(--fg); border-radius: 9px; box-shadow: var(--shadow-card); }
+.switcher button { font-size: 11.5px; color: oklch(100% 0 0 / 70%); padding: 4px 9px; border-radius: 6px; }
+.switcher button.on { background: oklch(100% 0 0 / 16%); color: oklch(100% 0 0); font-weight: 500; }
+
+/* 向导步标（向导弹层专用组合） */
+.steps { display: flex; align-items: center; gap: 6px; margin: 10px 0 2px; font-size: 11.5px; color: var(--muted); }
+.steps .st { display: inline-flex; align-items: center; gap: 5px; }
+.steps .st i { font-style: normal; font-family: var(--font-mono); font-size: 10.5px; width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--border); color: var(--muted); }
+.steps .st.on { color: var(--accent-strong); font-weight: 600; }
+.steps .st.on i { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.steps .st.done { color: var(--muted); }
+.steps .st.done i { background: var(--fg-soft); border-color: transparent; color: var(--muted); }
+.steps .st.skip i { border-style: dashed; }
+.steps .arrow { color: var(--border); }
+
+/* 账户设置行（态一） */
+.set-rows { display: grid; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 2px; border-top: 1px solid var(--border); }
+.set-row:first-child { border-top: 0; }
+.set-row .t { font-size: 13.5px; font-weight: 500; }
+.set-row .d { font-size: 12.5px; color: var(--muted); margin-top: 2px; max-width: 520px; }
+
+/* 后果清单两组（态二） */
+.fx-list { display: grid; gap: 8px; font-size: 13px; }
+.fx-list .fx { display: flex; gap: 8px; align-items: flex-start; line-height: 1.55; }
+.fx-list .fx svg { width: 14px; height: 14px; flex: none; margin-top: 2.5px; }
+.fx-list .fx.lose svg { color: var(--err); }
+.fx-list .fx.keep svg { color: var(--ok); }
+.fx-title { font-family: var(--font-display); font-size: 13px; font-weight: 600; margin: 2px 0 6px; }
+
+/* 权益行 + 二选一（态三） */
+.asset-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--border); border-radius: 9px; padding: 9px 12px; font-size: 13px; }
+.asset-row .an { font-weight: 500; }
+.asset-row .am { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.choice { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-top: 10px; }
+.choice .c-head { display: flex; align-items: baseline; gap: 8px; }
+.choice .c-head b { font-size: 13.5px; }
+.choice .c-head .rec { font-size: 11px; color: var(--accent-strong); font-weight: 600; }
+.choice .c-desc { font-size: 12.5px; color: var(--muted); line-height: 1.65; margin: 5px 0 8px; }
+.choice.give-up { border-color: color-mix(in oklch, var(--warn) 45%, var(--border)); }
+.chk { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; line-height: 1.55; color: var(--warn); cursor: pointer; }
+.chk input { margin-top: 2px; accent-color: var(--warn); width: 14px; height: 14px; flex: none; }
+
+/* 表单（态四/态八） */
+.field { display: grid; gap: 6px; margin-top: 4px; }
+.field label { font-size: 12.5px; color: var(--muted); }
+.field input { height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius); font: inherit; font-size: 14px; background: var(--surface); color: var(--fg); }
+.field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 12%, transparent); }
+.field .hint { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+/* spec 标注（评审用，非基线元素） */
+.spec-tag { display: inline-flex; align-items: center; font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); border: 1px dashed var(--border); border-radius: 6px; padding: 1px 7px; background: var(--surface); white-space: nowrap; }
+.spec-legend { position: fixed; left: 12px; bottom: 12px; z-index: 90; max-width: 380px; font-family: var(--font-mono); font-size: 10.5px; line-height: 1.7; color: var(--muted); background: var(--surface); border: 1px dashed var(--border); border-radius: 9px; padding: 8px 11px; }
+.spec-legend b { color: var(--fg); font-weight: 600; }
+
+/* 双列（态十） */
+.two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+@media (max-width: 880px) { .two-col { grid-template-columns: 1fr; } }
+.mock-login { border: 1px solid var(--border); border-radius: 10px; padding: 14px; display: grid; gap: 10px; margin-top: 10px; }
+.mock-login .ml-t { font-family: var(--font-display); font-size: 14px; font-weight: 600; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- 评审切换器：非基线元素（ADJUSTMENTS 已登记惯例），实现对照/截图时排除 -->
+<div class="switcher" id="switcher">
+  <button data-state="entry" class="on">① 账户设置·入口</button>
+  <button data-state="consequences">② 后果清单</button>
+  <button data-state="assets">③ 权益处置</button>
+  <button data-state="password">④ 密码确认</button>
+  <button data-state="password-err">④b 密码·错误</button>
+  <button data-state="submitted">⑤ 提交成功</button>
+  <button data-state="suspended">⑥ 撤销期·控制台</button>
+  <button data-state="revoke-confirm">⑦ 撤销确认</button>
+  <button data-state="restored">⑧ 撤销成功</button>
+  <button data-state="after">⑨ 已注销·之后</button>
+</div>
+
+<!-- spec 编号图例：评审标注用，非基线元素 -->
+<div class="spec-legend" id="specLegend">
+  <b>spec 对照</b>：R1 注销入口 · R2 权益处置校验 · R3 后果告知与密码确认 · R4 撤销期与到期自动执行 · R5 身份数据处置 · R6 不涉及作品 · R7 状态可查询 · R8 人工兜底 · FH1 认证失效回登录页（frontend-auth-heal）
+</div>
+
+<!-- 态一/态六/（态七、八、九、十复用外壳）：控制台外壳 -->
+<header class="appbar">
+  <span class="logo"><span class="logo-mark">爱</span>爱小说</span>
+  <nav class="nav">
+    <a href="#">首页</a>
+    <a href="#">我的套餐</a>
+    <a href="#">我的订单</a>
+    <a href="#">我的设备</a>
+    <a href="#" class="on">我的账户</a>
+  </nav>
+  <span class="spacer"></span>
+  <span class="pill pill-status pill-warn" id="tierPill" hidden>已申请注销</span>
+  <span class="who">testuser</span>
+</header>
+
+<main class="main">
+
+  <!-- ═══════════ 态一：账户设置页 · 注销入口 ═══════════
+       spec: R1（S 端控制台提供自助注销入口；站内完成，不依赖站外触达）
+       设计注记：入口排在常规设置项之后、警示色弱化呈现（安静不诱导，design-language §12 破坏性分级：账号注销 = 最高级，确认强度集中在向导内） -->
+  <section data-stage="entry">
+    <div class="page-head">
+      <div>
+        <h1>我的账户</h1>
+        <div class="sub">管理你的账号信息、安全与设备。修改即时生效。</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-h"><h2>账号信息</h2></div>
+        <div class="kv">
+          <span>用户名</span><b class="num">testuser</b>
+          <span>注册时间</span><b class="num">2026-08-15</b>
+          <span>套餐状态</span><b>包季 · 生效中（最远到期 2027-11-26）</b>
+        </div>
+        <p class="rule-note" style="margin-top:8px">本站账号只由「用户名 + 密码」组成，没有绑定邮箱或手机号。<b>请牢记你的密码</b>——忘记密码可在登录页「忘记密码找回」恢复。</p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>安全与设备</h2></div>
+        <div class="set-rows">
+          <div class="set-row">
+            <div><div class="t">修改密码</div><div class="d">定期更换，客户端与网页端同时生效</div></div>
+            <a class="btn btn-secondary btn-sm" href="#">修改密码</a>
+          </div>
+          <div class="set-row">
+            <div><div class="t">我的设备</div><div class="d">已绑定 2 / 5 台，额度按已购最高档计算</div></div>
+            <a class="btn btn-secondary btn-sm" href="#">管理设备</a>
+          </div>
+          <div class="set-row">
+            <div><div class="t">退出登录</div><div class="d">仅退出当前浏览器会话，不影响其他设备</div></div>
+            <a class="lnk" href="#" style="font-size:12.5px">退出登录</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:14px">
+      <div class="panel-h"><h2>注销账号</h2><span class="pill pill-tag">不可逆 · 有 15 天撤销期</span></div>
+      <div class="set-rows">
+        <div class="set-row">
+          <div>
+            <div class="t">注销账号</div>
+            <div class="d">永久注销本账号：<b>15 天撤销期内可撤销，到期自动执行</b>。注销后用户名永久封存、无法找回；<b>你设备上的作品不受影响</b>；交易记录依法留存。提交前需处理未消耗的套餐权益。</div>
+          </div>
+          <button class="lnk lnk-danger" id="openWizard" style="font-size:13px; font-weight:500">注销账号…</button>
+        </div>
+        <div class="set-row">
+          <div><div class="d">遇到问题？可通过客服邮箱联系我们：alexee_zhu@163.com</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 态二：向导 · 第 1 步 后果清单（本示例账号无未消耗权益 → 第 2 步自动跳过） ═══════════
+       spec: R3（完整告知后果）+ R6（本地作品不受影响）+ R5（交易记录依法留存约 10 年、去标识化口径）+ R4（撤销期告知）+ R8（页脚兜底）
+       变体注记：若存在未消耗权益，此步之后进入态三；无未消耗权益则直接跳到态四（spec R2 scenario「无未消耗权益时直接进入确认」） -->
+  <section data-stage="consequences" hidden>
+    <div class="stage-narrow">
+      <div class="panel" style="opacity:.5; text-align:center; color:var(--muted)">（「我的账户」页在弹层下方，截图对照时以弹层为准）</div>
+    </div>
+    <div class="scrim show"></div>
+    <div class="modal show">
+      <div class="mcard" style="width:min(480px,94vw)">
+        <div class="mcard-head"><span class="mh">注销账号</span></div>
+        <div class="mcard-body">
+          <div class="steps">
+            <span class="st on"><i>1</i>了解后果</span><span class="arrow">→</span>
+            <span class="st skip"><i>2</i>权益处置 · 本账号无未消耗权益，已跳过</span><span class="arrow">→</span>
+            <span class="st"><i>3</i>确认</span>
+          </div>
+
+          <p style="font-size:13.5px; margin:12px 0 10px">注销是<b>不可逆</b>的长期操作，请先了解全部后果：</p>
+
+          <div class="fx-title">注销执行后，这些将发生</div>
+          <div class="fx-list">
+            <div class="fx lose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg><span><b>账号无法再登录</b>：全部登录凭据失效，客户端将退出到登录页。</span></div>
+            <div class="fx lose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg><span><b>用户名永久封存</b>：<span class="num">testuser</span> 注销后无法找回，任何人都不能再注册这个用户名。</span></div>
+            <div class="fx lose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg><span><b>设备绑定全部解除</b>：所有已绑定设备失去授权，设备额度释放。</span></div>
+            <div class="fx lose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg><span><b>套餐与付费功能终止</b>：本账号当前无未消耗的套餐权益（如有，会在下一步要求先处理）。</span></div>
+          </div>
+
+          <div class="fx-title" style="margin-top:14px">这些不受影响 / 依法处理</div>
+          <div class="fx-list">
+            <div class="fx keep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg><span><b>本地作品不受影响</b>：你的作品只保存在你自己的设备上，本站没有副本——注销<b>不会删除任何作品</b>。</span></div>
+            <div class="notice warn" style="margin:12px 0 0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l10 18H2L12 3z"/><path d="M12 10v5M12 18h.01"/></svg>
+              <span><b>建议提前备份作品</b>：作品仅存于这台设备，请注销前<b>将你的小说文档导出并自行妥善保存</b>——日后卸载应用、清理数据或更换设备都可能导致作品无法找回，本站没有副本、无法替你恢复。</span>
+            </div>
+            <div class="fx keep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg><span><b>交易记录依法留存约 10 年</b>：订单与支付记录按法律要求保留金额与时间，但会<b>抹去与你身份的关联</b>，不再日常展示。</span></div>
+            <div class="fx keep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg><span><b>在途退款照常到账</b>：处理中的退款不依赖账号存续，一般 <span class="num">1~7</span> 个工作日内原路退回微信。</span></div>
+          </div>
+
+          <div class="notice info" style="margin:14px 0 4px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 7v5l3 3"/></svg>
+            <span>提交申请后还有 <b class="num">15 天</b> 撤销期：期内可随时撤销、账号立即恢复；<b>到期未撤销将自动执行注销，无需再次确认</b>。撤销期内付费与套餐功能暂停。</span>
+          </div>
+        </div>
+        <div class="mcard-foot" style="align-items:center">
+          <a class="lnk lnk-danger" href="#" style="margin-right:auto; font-size:12px">遇到问题？联系客服 alexee_zhu@163.com</a>
+          <button class="btn btn-secondary">再想想</button>
+          <button class="btn btn-primary" id="consNext">我已了解，继续</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 态三：向导 · 第 2 步 权益处置（存在未消耗套餐时） ═══════════
+       spec: R2（存在待激活/排队中/消耗中权益时 MUST NOT 直接受理；二选一：去退款 / 显式勾选放弃；退款冻结与已回收不阻塞）
+       设计注记：「去退款」跳既有订单页退款流（待激活全额、消耗中按剩余秒数折算、原路退回、1~7 个工作日——全部既有规则，注销不新造资金规则）；
+       点击后离开向导，退款完成后重新进入向导、复验自动通过；「放弃」须显式勾选，注销执行时才作废，撤销期内撤销则权益保留 -->
+  <section data-stage="assets" hidden>
+    <div class="stage-narrow">
+      <div class="panel" style="opacity:.5; text-align:center; color:var(--muted)">（「我的账户」页在弹层下方，截图对照时以弹层为准）</div>
+    </div>
+    <div class="scrim show"></div>
+    <div class="modal show">
+      <div class="mcard" style="width:min(480px,94vw)">
+        <div class="mcard-head"><span class="mh">注销账号</span></div>
+        <div class="mcard-body">
+          <div class="steps">
+            <span class="st done"><i>✓</i>了解后果</span><span class="arrow">→</span>
+            <span class="st on"><i>2</i>权益处置</span><span class="arrow">→</span>
+            <span class="st"><i>3</i>确认</span>
+          </div>
+
+          <div class="notice warn" style="margin-top:12px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l10 17H2L12 3z"/><path d="M12 10v4M12 17.5h.01"/></svg>
+            <span>你还有 <b class="num">2</b> 项套餐权益未消耗完。<b>处理完成前无法提交注销申请</b>，请二选一：</span>
+          </div>
+
+          <div class="asset-row">
+            <div><div class="an">包季 <span class="pill pill-status pill-warn">消耗中</span></div><div class="am">剩 <span class="num">66</span> 天 · 退款按剩余时长折算</div></div>
+          </div>
+          <div class="asset-row" style="margin-top:8px">
+            <div><div class="an">包年 <span class="pill pill-status pill-warn">排队中</span></div><div class="am">尚未开始计时 · 未激活退款可全额</div></div>
+          </div>
+          <p class="rule-note" style="margin:8px 0 2px">退款金额与折算以订单页预览为准；「退款冻结」「已回收」的权益不阻塞注销。</p>
+
+          <div class="choice">
+            <div class="c-head"><b>去订单页退款</b><span class="rec">推荐 · 拿回剩余价值</span></div>
+            <div class="c-desc">逐笔在「我的订单」申请退款：未激活的全额退、消耗中的按剩余时长折算，原路退回微信，一般 <span class="num">1~7</span> 个工作日到账。退款不影响注销申请，<b>在途退款注销后照常到账</b>。</div>
+            <a class="btn btn-primary btn-sm" href="#">去订单页退款</a>
+            <div class="c-desc" style="margin:8px 0 0">点击后将离开本向导；退款完成后重新进入注销向导即可继续。</div>
+          </div>
+
+          <div class="choice give-up">
+            <div class="c-head"><b>放弃未消耗权益</b></div>
+            <div class="c-desc">勾选即表示<b style="color:var(--warn)">显式放弃</b>以上 <span class="num">2</span> 项权益：注销执行时作废，<b style="color:var(--warn)">不产生任何退款，不可恢复</b>。若你在 15 天撤销期内撤销注销，权益原样保留。</div>
+            <label class="chk"><input type="checkbox" id="giveUpChk" checked>我知道这些权益将作废，且不产生任何退款。</label>
+          </div>
+        </div>
+        <div class="mcard-foot">
+          <button class="btn btn-secondary" id="assetsBack">上一步</button>
+          <button class="btn btn-danger" id="assetsNext">继续注销</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 态四：向导 · 第 3 步 密码确认 ═══════════
+       spec: R3（密码二次确认；密码校验通过才受理）+ R4（受理后进入 15 天撤销期）
+       设计注记：撤销与申请同密码强度（design D3）；摘要行随路径变化（本示例为「放弃」分支，无权益路径则显示「无未消耗权益」） -->
+  <section data-stage="password" hidden>
+    <div class="stage-narrow">
+      <div class="panel" style="opacity:.5; text-align:center; color:var(--muted)">（「我的账户」页在弹层下方，截图对照时以弹层为准）</div>
+    </div>
+    <div class="scrim show"></div>
+    <div class="modal show">
+      <div class="mcard" style="width:min(480px,94vw)">
+        <div class="mcard-head"><span class="mh">注销账号</span></div>
+        <div class="mcard-body">
+          <div class="steps">
+            <span class="st done"><i>✓</i>了解后果</span><span class="arrow">→</span>
+            <span class="st done"><i>✓</i>权益处置</span><span class="arrow">→</span>
+            <span class="st on"><i>3</i>确认</span>
+          </div>
+
+          <div class="kv" style="margin-top:12px">
+            <span>账号</span><b class="num">testuser</b>
+            <span>权益处置</span><b>已选择「放弃未消耗权益」（2 项）</b>
+            <span>撤销期</span><b><span class="num">15</span> 天 · 至 <span class="num">2026-09-13</span></b>
+            <span>到期自动执行</span><b><span class="num">2026-09-13</span>（未撤销时，无需再次确认）</b>
+          </div>
+
+          <div class="notice warn" style="margin-top:8px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l10 17H2L12 3z"/><path d="M12 10v4M12 17.5h.01"/></svg>
+            <span>提交后立即进入 <b class="num">15</b> 天撤销期，到期未撤销将自动执行注销。<b>撤销也需要验证密码</b>，请务必牢记。</span>
+          </div>
+
+          <div class="field">
+            <label for="pwd">登录密码</label>
+            <input type="password" id="pwd" placeholder="输入密码，确认是你本人操作" autocomplete="off">
+            <span class="hint">密码仅用于本次确认。本站没有你的邮箱与手机号，<b>不会通过邮件或短信联系你</b>。</span>
+          </div>
+        </div>
+        <div class="mcard-foot">
+          <button class="btn btn-secondary" id="pwdBack">上一步</button>
+          <button class="btn btn-danger" id="pwdSubmit">确认申请注销</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 态四b：密码确认 · 错误反馈 ═══════════
+       spec: R3 scenario「密码错误拒绝提交」（未受理、可重试、兜底出口在补救句内） -->
+  <section data-stage="password-err" hidden>
+    <div class="stage-narrow">
+      <div class="panel" style="opacity:.5; text-align:center; color:var(--muted)">（「我的账户」页在弹层下方，截图对照时以弹层为准）</div>
+    </div>
+    <div class="scrim show"></div>
+    <div class="modal show">
+      <div class="mcard" style="width:min(480px,94vw)">
+        <div class="mcard-head"><span class="mh">注销账号</span></div>
+        <div class="mcard-body">
+          <div class="steps">
+            <span class="st done"><i>✓</i>了解后果</span><span class="arrow">→</span>
+            <span class="st done"><i>✓</i>权益处置</span><span class="arrow">→</span>
+            <span class="st on"><i>3</i>确认</span>
+          </div>
+
+          <div class="notice err" style="margin-top:12px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16.5h.01"/></svg>
+            <span>密码不正确，<b>注销申请未提交</b>，你的账号没有任何变化。请重新输入；想不起密码？请通过登录页「<a class="lnk" href="#">忘记密码找回</a>」恢复登录后重新进入本向导。</span>
+          </div>
+
+          <div class="kv">
+            <span>账号</span><b class="num">testuser</b>
+            <span>权益处置</span><b>已选择「放弃未消耗权益」（2 项）</b>
+          </div>
+
+          <div class="field">
+            <label for="pwd2">登录密码</label>
+            <input type="password" id="pwd2" value="····" aria-invalid="true" style="border-color:var(--err)" autocomplete="off">
+            <span class="hint">连续输错不会锁定账号；想不起密码请通过登录页「忘记密码找回」恢复，再回到本向导。</span>
+          </div>
+        </div>
+        <div class="mcard-foot">
+          <button class="btn btn-secondary">上一步</button>
+          <button class="btn btn-danger">确认申请注销</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 态五：提交成功（撤销期开始） ═══════════
+       spec: R4（受理后进入 15 天撤销期、到期自动执行预告）+ R7（展示到期执行日期）+ R8（兜底出口）
+       语气注记：受理态用 warn（倒计时开始，非"成功"庆祝），执行完成才是 ok（proposal 状态语言） -->
+  <section data-stage="submitted" hidden>
+    <div class="page-head">
+      <div>
+        <h1>已受理注销申请</h1>
+        <div class="sub">账号 testuser · <span class="num">2026-08-29 14:32</span> 提交</div>
+      </div>
+      <span class="pill pill-status pill-warn">注销撤销期 · 剩 <span class="num">15</span> 天</span>
+    </div>
+
+    <div class="stage-narrow">
+      <div class="panel" style="display:grid; justify-items:center; gap:8px; padding:28px 22px; text-align:center">
+        <div class="done-mark warn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 7v5l3 3"/></svg>
+        </div>
+        <div class="serif" style="font-size:19px; font-weight:600">还有 <span class="num">15</span> 天可以反悔</div>
+        <div style="font-size:13px; color:var(--muted)">改主意了，随时撤销、账号立即恢复；<br>到期未撤销将<b>自动执行注销</b>，届时不再询问。</div>
+        <div class="kv" style="text-align:left; margin-top:14px; width:100%">
+          <span>撤销期截止</span><b class="num">2026-09-13 14:32 前</b>
+          <span>到期自动执行</span><b><span class="num">2026-09-13</span>：凭据全部失效 · 设备解绑 · 权益按你的选择处置</b>
+          <span>撤销期内</span><b>付费与套餐功能暂停，仅可撤销注销</b>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:14px">
+          <button class="btn btn-primary btn-lg" id="submittedRevoke">撤销注销</button>
+          <a class="btn btn-secondary btn-lg" href="#">返回控制台</a>
+        </div>
+      </div>
+      <div class="notice info" style="margin-top:14px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 7v5l3 3"/></svg>
+        <span>到期执行时：桌面客户端将退出到登录页，<b>你设备上的作品不受影响</b>；交易记录依法留存（去除身份关联）。撤销期内申请的退款照常到账。</span>
+      </div>
+      <p style="text-align:center; margin-top:10px"><a class="lnk lnk-danger" href="#" style="font-size:12.5px">遇到问题？联系客服 alexee_zhu@163.com</a></p>
+    </div>
+  </section>
+
+  <!-- ═══════════ 态六：撤销期内 · 控制台回看状态 ═══════════
+       spec: R4 scenario「撤销期内登录提示可撤销」（warn 提示条 + 剩余天数 + 撤销出口；付费与套餐功能暂停）+ R7（状态可查询：剩余天数/到期日期）
+       状态语言：撤销期中 = pill-status warn（proposal Design Impact） -->
+  <section data-stage="suspended" hidden>
+    <div class="notice warn" style="margin-bottom:18px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l10 17H2L12 3z"/><path d="M12 10v4M12 17.5h.01"/></svg>
+      <span><b>你的账号已申请注销</b>：剩 <b class="num">12</b> 天（<span class="num">2026-09-13</span> 自动执行）。撤销期内付费与套餐功能暂停，本地作品不受影响。<button class="lnk" id="suspendedRevoke">撤销注销</button></span>
+    </div>
+
+    <div class="page-head">
+      <div>
+        <h1>你好，testuser</h1>
+        <div class="sub"><span class="num">2026-09-01</span> · 星期二 · 账号处于注销撤销期</div>
+      </div>
+      <button class="btn btn-primary" id="suspendedRevoke2">撤销注销</button>
+    </div>
+
+    <div class="cards" style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px">
+      <div class="panel card">
+        <div class="panel-h"><h2>我的套餐</h2><span class="pill pill-status pill-warn">已申请注销 · 暂停使用</span></div>
+        <div class="row" style="display:flex; align-items:baseline; gap:10px"><span class="serif" style="font-size:19px; font-weight:600">包季</span></div>
+        <div class="meta" style="font-size:12.5px; color:var(--muted)">撤销期内暂停计时与使用；撤销注销后按原到期日（<span class="num">2026-11-01</span>）继续，不做补偿也不扣时长。</div>
+        <div class="ops" style="display:flex; gap:10px; margin-top:8px">
+          <button class="btn btn-secondary btn-sm" id="suspendedRevoke3">撤销注销，恢复使用</button>
+        </div>
+      </div>
+
+      <div class="panel card">
+        <div class="panel-h"><h2>我的账户</h2></div>
+        <div class="meta" style="font-size:12.5px; color:var(--muted)">账号 testuser · 注销申请提交于 <span class="num">2026-08-29</span><br>到期自动执行：<span class="num">2026-09-13</span> · 到期后本页将无法再登录</div>
+        <div class="ops" style="display:flex; gap:10px; margin-top:8px">
+          <a class="btn btn-secondary btn-sm" href="#">查看申请详情</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="notice info" style="margin-top:14px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 7v5l3 3"/></svg>
+      <span>处理中的退款不受影响，一般 <span class="num">1~7</span> 个工作日原路退回；到期执行后订单记录依法留存、不再展示。</span>
+    </div>
+  </section>
+
+  <!-- ═══════════ 态七：撤销确认弹层（密码验证） ═══════════
+       spec: R4 scenario「撤销成功账号恢复」（完成身份验证并确认撤销）；密码强度与申请一致（design D3） -->
+  <section data-stage="revoke-confirm" hidden>
+    <div class="notice warn" style="margin-bottom:18px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l10 17H2L12 3z"/><path d="M12 10v4M12 17.5h.01"/></svg>
+      <span><b>你的账号已申请注销</b>：剩 <b class="num">12</b> 天（<span class="num">2026-09-13</span> 自动执行）。撤销期内付费与套餐功能暂停，本地作品不受影响。<span class="lnk">撤销注销</span></span>
+    </div>
+    <div class="stage-narrow">
+      <div class="panel" style="opacity:.5; text-align:center; color:var(--muted)">（撤销期控制台在弹层下方，截图对照时以弹层为准）</div>
+    </div>
+    <div class="scrim show"></div>
+    <div class="modal show">
+      <div class="mcard">
+        <div class="mcard-head"><span class="mh">撤销注销</span></div>
+        <div class="mcard-body">
+          <div class="kv">
+            <span>账号</span><b class="num">testuser</b>
+            <span>撤销期至</span><b class="num">2026-09-13 14:32</b>
+          </div>
+          <p style="font-size:13px; margin:10px 0">撤销<b>立即生效</b>：账号马上恢复正常，套餐与设备按原状态继续；如以后再需要注销，可重新申请，撤销期重新计算。</p>
+          <div class="field">
+            <label for="rpwd">登录密码</label>
+            <input type="password" id="rpwd" placeholder="输入密码，确认是你本人操作" autocomplete="off">
+            <span class="hint">与申请注销时相同的密码验证。</span>
+          </div>
+        </div>
+        <div class="mcard-foot">
+          <button class="btn btn-secondary">再想想</button>
+          <button class="btn btn-primary" id="revokeDo">确认撤销</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 态八：撤销成功 ═══════════
+       spec: R4 scenario「撤销成功账号恢复」（账号立即恢复、申请作废、可正常使用） -->
+  <section data-stage="restored" hidden>
+    <div class="page-head">
+      <div>
+        <h1>已撤销注销</h1>
+        <div class="sub">账号 testuser · <span class="num">2026-09-01 14:32</span> 撤销</div>
+      </div>
+      <span class="pill pill-status pill-ok">账号正常</span>
+    </div>
+
+    <div class="stage-narrow">
+      <div class="panel" style="display:grid; justify-items:center; gap:8px; padding:28px 22px; text-align:center">
+        <div class="done-mark ok">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>
+        </div>
+        <div class="serif" style="font-size:19px; font-weight:600">账号已恢复正常</div>
+        <div style="font-size:13px; color:var(--muted)">注销申请已作废，一切照旧。</div>
+        <div class="kv" style="text-align:left; margin-top:12px; width:100%">
+          <span>套餐与设备</span><b>不受影响，按原状态继续（包季到期 <span class="num">2026-11-01</span>）</b>
+          <span>放弃的权益</span><b>未执行，原样保留</b>
+          <span>本地作品</span><b>全程未受影响</b>
+        </div>
+        <a class="btn btn-primary btn-lg" href="#" style="margin-top:12px">返回控制台</a>
+      </div>
+      <div class="notice ok" style="margin-top:14px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>
+        <span>如以后仍需要注销，可随时在「我的账户」重新申请，撤销期将重新计算。</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 态九：到期已执行 · 之后（双端示意） ═══════════
+       spec: R5（执行后认证被拒、用户名永久封存、交易留存不展示）+ FH1（C 端清凭据回登录页、本地作品保留）+ R8（人工兜底出口）+ R6（作品不受影响口径）
+       注记：C 端复用既有登录屏、无像素变化（本态仅示意回跳后的提示文案，非 C 端视觉基线） -->
+  <section data-stage="after" hidden>
+    <div class="page-head">
+      <div>
+        <h1>注销已完成</h1>
+        <div class="sub">账号 testuser 于 <span class="num">2026-09-13</span> 到期自动执行 · 以下为双端后续示意</div>
+      </div>
+      <span class="pill pill-tag">已注销</span>
+    </div>
+
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-h"><h2>桌面客户端 · 回到登录页</h2><span class="pill pill-tag">示意 · 复用既有登录屏</span></div>
+        <div class="notice err" style="margin-bottom:0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16.5h.01"/></svg>
+          <span>登录已失效：该账号已注销。<b>你设备上的作品仍完好保留</b>，可继续离线查看。</span>
+        </div>
+        <div class="mock-login">
+          <div class="ml-t">登录爱小说</div>
+          <input type="text" placeholder="用户名" disabled style="height:34px; padding:0 12px; border:1px solid var(--border); border-radius:8px; font:inherit; color:var(--muted); background:var(--bg)">
+          <input type="password" placeholder="密码" disabled style="height:34px; padding:0 12px; border:1px solid var(--border); border-radius:8px; font:inherit; color:var(--muted); background:var(--bg)">
+          <button class="btn btn-primary" disabled style="width:100%">登录</button>
+          <span class="rule-note" style="text-align:center">没有账号？<a class="lnk" href="#">注册新账号</a></span>
+        </div>
+        <p class="rule-note" style="margin-top:10px">实现口径：注销执行后客户端 JWT 失效，代理层清空本地凭据并导航回登录页；本地作品数据全程不触碰（frontend-auth-heal）。</p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>再次尝试登录（网页端）</h2></div>
+        <div class="notice err" style="margin-bottom:12px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16.5h.01"/></svg>
+          <span>该账号已注销，登录凭据已失效，无法再以此账号登录。</span>
+        </div>
+        <div class="fx-list">
+          <div class="fx keep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg><span>用户名 <span class="num">testuser</span> 已永久封存，任何人都不能再注册。</span></div>
+          <div class="fx keep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg><span>历史订单依法留存（去除身份关联），不再日常展示；如有支付争议，凭支付凭证联系客服。</span></div>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap">
+          <a class="btn btn-secondary" href="#">注册新账号</a>
+          <a class="lnk lnk-danger" href="#" style="align-self:center; font-size:12.5px">联系客服 alexee_zhu@163.com</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* MOCK 常量区：账号与日期为示例；口径来源——
+   撤销期 15 天（design D1）、退款到账 1~7 个工作日（退款政策 §四.3）、用户名永久封存（design D5）、
+   交易记录依法留存约 10 年（proposal P2）、客服兜底 alexee_zhu@163.com（协议 §三.4）。
+   口径变更先改 openspec/changes/account-deletion/ 工件，再同步本文件并在 ADJUSTMENTS 登记。 */
+const MOCK = {
+  user: "testuser",
+  submittedAt: "2026-08-29 14:32",
+  deadline: "2026-09-13",       // 提交 + 15 天
+  suspendedViewAt: "2026-09-01",// 态六的"今天"，剩 12 天
+  assets: [
+    { name: "包季", status: "消耗中",  note: "剩 66 天 · 退款按剩余时长折算" },
+    { name: "包年", status: "排队中",  note: "尚未开始计时 · 未激活退款可全额" },
+  ],
+};
+
+/* 评审切换器 */
+const switcher = document.getElementById("switcher");
+const stages = document.querySelectorAll("[data-stage]");
+const tierPill = document.getElementById("tierPill");
+switcher.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-state]");
+  if (!btn) return;
+  switcher.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === btn));
+  stages.forEach((s) => (s.hidden = s.dataset.stage !== btn.dataset.state));
+  /* 顶栏状态 pill：注销期中 = pill-status warn；正常态不展示（proposal 状态语言） */
+  const susp = btn.dataset.state === "suspended" || btn.dataset.state === "revoke-confirm";
+  tierPill.hidden = !susp;
+});
+
+/* 态内跳转（便于评审走完整流程） */
+const go = (state) => switcher.querySelector(`[data-state="${state}"]`).click();
+document.getElementById("openWizard").addEventListener("click", () => go("consequences"));
+document.getElementById("consNext").addEventListener("click", () => go("assets"));
+document.getElementById("assetsBack").addEventListener("click", () => go("consequences"));
+document.getElementById("assetsNext").addEventListener("click", () => go("password"));
+document.getElementById("pwdBack").addEventListener("click", () => go("assets"));
+document.getElementById("pwdSubmit").addEventListener("click", () => go("submitted"));
+document.getElementById("submittedRevoke").addEventListener("click", () => go("revoke-confirm"));
+document.getElementById("suspendedRevoke").addEventListener("click", () => go("revoke-confirm"));
+document.getElementById("suspendedRevoke2").addEventListener("click", () => go("revoke-confirm"));
+document.getElementById("suspendedRevoke3").addEventListener("click", () => go("revoke-confirm"));
+document.getElementById("revokeDo").addEventListener("click", () => go("restored"));
+
+/* 权益处置交互自证：未勾选「放弃」且未去退款时，「继续注销」不可用（spec R2：完成其一之前不受理） */
+const giveUpChk = document.getElementById("giveUpChk");
+const assetsNext = document.getElementById("assetsNext");
+const syncAssetsNext = () => { assetsNext.disabled = !giveUpChk.checked; };
+giveUpChk.addEventListener("change", syncAssetsNext);
+syncAssetsNext();
+</script>
+</body>
+</html>

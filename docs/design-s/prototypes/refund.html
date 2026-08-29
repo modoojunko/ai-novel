@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>爱小说 · 申请退款（原型 · 预览/确认/终态）</title>
+<style>
+/* ═══ 内联样式：与 server/frontend/src/design/base.css 逐字同源段，来源行号见 ADJUSTMENTS.md ═══ */
+:root {
+  --bg:      oklch(98% 0.004 240);
+  --surface: oklch(100% 0 0);
+  --fg:      oklch(20% 0.02 240);
+  --muted:   oklch(50% 0.018 240);
+  --border:  oklch(90% 0.006 240);
+  --accent: oklch(48% 0.11 170);
+  --accent-strong: oklch(41% 0.10 170);
+  --accent-soft:   color-mix(in oklch, var(--accent) 12%, transparent);
+  --ok:    oklch(52% 0.11 155);  --ok-soft:   color-mix(in oklch, var(--ok) 14%, transparent);
+  --warn:  oklch(50% 0.13 75);   --warn-soft: color-mix(in oklch, var(--warn) 16%, transparent);
+  --err:   oklch(50% 0.17 25);   --err-soft:  color-mix(in oklch, var(--err) 12%, transparent);
+  --fg-soft:   color-mix(in oklch, var(--fg) 5%, transparent);
+  --on-accent: oklch(100% 0 0);
+  --shadow-card: 0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent),
+                 0 12px 32px -12px color-mix(in oklch, var(--fg) 14%, transparent);
+  --font-display: 'Noto Serif SC', 'Songti SC', 'STSong', 'Iowan Old Style', Georgia, serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', monospace;
+  --radius: 10px; --radius-lg: 16px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; min-height: 100vh; display: flex; flex-direction: column; }
+img, svg { display: block; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; padding: 0; }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.serif { font-family: var(--font-display); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 15px; border-radius: var(--radius); border: 1px solid transparent; font-size: 13.5px; font-weight: 500; line-height: inherit; transition: background 0.15s ease, border-color 0.15s ease; }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn-primary { background: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { background: var(--accent-strong); }
+.btn-secondary { background: var(--surface); color: var(--fg); border-color: var(--border); }
+.btn-secondary:hover { border-color: var(--fg); }
+.btn-ghost { background: transparent; color: var(--muted); padding: 0 8px; }
+.btn-ghost:hover { color: var(--fg); background: var(--fg-soft); }
+.btn-lg { height: 40px; padding: 0 18px; font-size: 14px; }
+.btn:disabled { opacity: 0.5; pointer-events: none; }
+.lnk { color: var(--accent); cursor: pointer; background: none; border: 0; padding: 0; font: inherit; }
+.lnk:hover { color: var(--accent-strong); text-decoration: underline; }
+.appbar { height: 48px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.logo { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+.logo-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-family: var(--font-display); font-size: 14px; }
+.appbar .nav { display: inline-flex; gap: 4px; margin-left: 14px; }
+.appbar .nav a { font-size: 13.5px; color: var(--muted); padding: 5px 10px; border-radius: 8px; }
+.appbar .nav a.on { color: var(--fg); background: var(--fg-soft); font-weight: 500; }
+.appbar .spacer { flex: 1; }
+.main { flex: 1; width: min(100%, 1080px); margin-inline: auto; padding: 48px 32px 80px; }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 36px; }
+.page-head h1 { font-family: var(--font-display); font-size: 30px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
+.page-head .sub { font-size: 13px; color: var(--muted); margin-top: 6px; margin-bottom: 1em; }
+.pill { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 11px; line-height: 1.6; font-weight: 500; background: var(--surface); color: var(--muted); white-space: nowrap; }
+.pill-tag { background: var(--surface); color: var(--muted); }
+.pill-status { padding: 2px 9px; }
+.pill-ok { background: var(--ok-soft); border-color: transparent; color: color-mix(in oklch, var(--ok) 88%, var(--fg)); }
+.pill-warn { background: var(--warn-soft); border-color: transparent; color: color-mix(in oklch, var(--warn) 85%, var(--fg)); }
+.pill-err { background: var(--err-soft); border-color: transparent; color: color-mix(in oklch, var(--err) 90%, var(--fg)); }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; }
+.panel-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.panel-h h2, .panel-h .pt { font-family: var(--font-display); font-size: 16px; font-weight: 600; margin: 0; }
+.notice { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; border-radius: 9px; padding: 10px 12px; margin: 0 0 14px; line-height: 1.55; text-align: left; }
+.notice svg { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+.notice.info { background: var(--accent-soft); color: var(--accent-strong); }
+.notice.ok { background: var(--ok-soft); color: var(--ok); }
+.notice.warn { background: var(--warn-soft); color: var(--warn); }
+.notice.err { background: var(--err-soft); color: var(--err); }
+.scrim { position: fixed; inset: 0; background: color-mix(in oklch, var(--fg) 28%, transparent); z-index: 40; opacity: 0; transition: opacity 0.2s ease; }
+.scrim.show { opacity: 1; }
+.modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; pointer-events: auto; }
+.modal .mcard { width: min(420px, 92vw); max-height: calc(100vh - 48px); overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); transform: translateY(8px) scale(0.98); opacity: 0; transition: transform 0.18s ease, opacity 0.18s ease; }
+.modal.show .mcard { transform: none; opacity: 1; }
+.mcard-head { display: flex; align-items: center; padding: 20px 24px 0; }
+.mcard-head .mh { font-family: var(--font-display); font-size: 17px; font-weight: 600; }
+.mcard-body { padding: 14px 24px 6px; }
+.mcard-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 24px 20px; }
+
+/* ─── 原型专用：布局工具 + 业务组合 ─── */
+.stage-narrow { max-width: 460px; margin: 0 auto; }
+.kv { display: grid; grid-template-columns: 96px 1fr; gap: 8px 12px; font-size: 13px; margin: 6px 0; }
+.kv span { color: var(--muted); }
+.kv b { font-weight: 500; }
+.refund-hero { display: flex; align-items: baseline; gap: 10px; margin: 4px 0 2px; }
+.refund-hero .v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 34px; font-weight: 600; letter-spacing: -0.01em; color: var(--accent-strong); }
+.refund-hero .u { font-size: 13px; color: var(--muted); }
+.done-mark { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto; }
+.done-mark.ok { background: var(--ok-soft); color: var(--ok); }
+.done-mark.warn { background: var(--warn-soft); color: var(--warn); }
+.done-mark svg { width: 26px; height: 26px; }
+.rule-note { font-size: 12.5px; color: var(--muted); line-height: 1.7; }
+.switcher { position: fixed; top: 12px; right: 12px; z-index: 90; display: flex; flex-wrap: wrap; max-width: 340px; justify-content: flex-end; gap: 4px; padding: 5px; background: var(--fg); border-radius: 9px; box-shadow: var(--shadow-card); }
+.switcher button { font-size: 11.5px; color: oklch(100% 0 0 / 70%); padding: 4px 9px; border-radius: 6px; }
+.switcher button.on { background: oklch(100% 0 0 / 16%); color: oklch(100% 0 0); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="switcher" id="switcher">
+  <button data-state="preview" class="on">折算预览</button>
+  <button data-state="confirm">确认弹层</button>
+  <button data-state="processing">退款中</button>
+  <button data-state="refunded">已退款</button>
+  <button data-state="reject-fen">拒绝·不足1分</button>
+  <button data-state="reject-window">拒绝·超1年窗</button>
+</div>
+
+<header class="appbar">
+  <span class="logo"><span class="logo-mark">爱</span>爱小说</span>
+  <nav class="nav">
+    <a href="#">首页</a>
+    <a href="#">我的套餐</a>
+    <a href="#" class="on">我的订单</a>
+    <a href="#">我的设备</a>
+    <a href="#">我的账户</a>
+  </nav>
+  <span class="spacer"></span>
+  <span class="pill pill-status pill-warn">退款中</span>
+</header>
+
+<main class="main">
+
+  <!-- ═══ 态一：折算预览（进入即见金额，先看后确认） ═══ -->
+  <section data-stage="preview">
+    <div class="page-head">
+      <div>
+        <h1>申请退款</h1>
+        <div class="sub">退款按剩余时长折算，原路退回您的微信。本操作只影响这一笔订单。</div>
+      </div>
+    </div>
+
+    <div class="stage-narrow">
+      <div class="panel">
+        <div class="panel-h"><h2>包月 · 30 天</h2><span class="pill pill-status pill-ok">已到账</span></div>
+        <div class="kv">
+          <span>订单号</span><b class="num">S20260801-4T7H</b>
+          <span>支付时间</span><b>2026-08-01 10:05</b>
+          <span>实付金额</span><b class="num" id="paidFen">¥24.00</b>
+          <span>套餐时长</span><b>2026-08-22 ～ 2026-09-20</b>
+          <span>剩余时长</span><b id="remainText">9 天 16 小时 48 分</b>
+        </div>
+        <hr style="border:0; border-top:1px solid var(--border); margin:14px 0">
+        <div class="refund-hero">
+          <span class="v" id="refundAmt">¥7.76</span>
+          <span class="u">预计退款（原路退回）</span>
+        </div>
+        <p class="rule-note">按剩余时长计算退款，精确到秒，金额四舍五入到分；**未激活或排队中（未消耗）的套餐退款为全额**。以<b>您点确认的这一刻</b>为准计算剩余；确认后套餐<b>立即停止使用</b>。</p>
+        <div style="display:flex; gap:10px; margin-top:16px">
+          <button class="btn btn-primary btn-lg" id="toConfirm">确认退款金额，继续</button>
+          <a class="btn btn-ghost" href="#">先不退了</a>
+        </div>
+      </div>
+      <p style="text-align:center; margin-top:12px"><a class="lnk" href="#">看看退款政策全文</a></p>
+    </div>
+  </section>
+
+  <!-- ═══ 态二：确认弹层（清单式确认） ═══ -->
+  <section data-stage="confirm" hidden>
+    <div class="stage-narrow">
+      <div class="notice info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+        <span>下方是您即将提交的退款信息，请核对无误后确认。</span>
+      </div>
+      <div class="panel compact" style="opacity:.55; text-align:center; color:var(--muted)">（退款预览页在弹层下方，截图对照时以弹层为准）</div>
+    </div>
+
+    <div class="scrim show"></div>
+    <div class="modal show">
+      <div class="mcard">
+        <div class="mcard-head"><span class="mh">确认退款</span></div>
+        <div class="mcard-body">
+          <div class="kv">
+            <span>订单号</span><b class="num">S20260801-4T7H</b>
+            <span>实付金额</span><b class="num">¥24.00</b>
+            <span>剩余时长</span><b>9 天 16 小时 48 分</b>
+            <span>退款金额</span><b class="num" style="font-size:16px; font-weight:600; color:var(--accent-strong)">¥7.76</b>
+          </div>
+          <p class="rule-note" style="margin:8px 0 0">提交后：对应套餐立即停止使用；退款原路退回您的微信，一般数分钟至 3 个工作日到账。已开票订单将同步处理发票冲红。</p>
+        </div>
+        <div class="mcard-foot">
+          <button class="btn btn-secondary">再想想</button>
+          <button class="btn btn-primary" id="confirmRefund">确认退款</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 态三：退款中 ═══ -->
+  <section data-stage="processing" hidden>
+    <div class="page-head">
+      <div>
+        <h1>退款处理中</h1>
+        <div class="sub">订单号 <span class="num">S20260801-4T7H</span></div>
+      </div>
+      <span class="pill pill-status pill-warn">退款中</span>
+    </div>
+
+    <div class="stage-narrow">
+      <div class="panel" style="display:grid; justify-items:center; gap:8px; padding:28px 22px; text-align:center">
+        <div class="done-mark warn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 3"/></svg>
+        </div>
+        <div class="serif" style="font-size:19px; font-weight:600">已受理，正在退回 ¥7.76</div>
+        <div style="font-size:13px; color:var(--muted)">原路退回您的微信，一般<b>数分钟至 3 个工作日</b>到账；<br>当天支付当天退，可能稍晚，款项不会丢失。</div>
+        <div class="kv" style="text-align:left; margin-top:14px">
+          <span>折算基准</span><b>2026-08-22 18:30（您确认退款时）</b>
+          <span>套餐使用</span><b>已停止</b>
+        </div>
+        <a class="btn btn-secondary" href="#">返回我的订单</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 态四：已退款 ═══ -->
+  <section data-stage="refunded" hidden>
+    <div class="page-head">
+      <div>
+        <h1>退款完成</h1>
+        <div class="sub">订单号 <span class="num">S20260801-4T7H</span></div>
+      </div>
+      <span class="pill pill-tag">已退款</span>
+    </div>
+
+    <div class="stage-narrow">
+      <div class="panel" style="display:grid; justify-items:center; gap:8px; padding:28px 22px; text-align:center">
+        <div class="done-mark ok">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>
+        </div>
+        <div class="serif" style="font-size:19px; font-weight:600">¥7.76 已原路退回</div>
+        <div style="font-size:13px; color:var(--muted)">2026-08-22 19:02 退回微信 · 对应套餐时长已收回</div>
+        <div class="kv" style="text-align:left; margin-top:12px">
+          <span>其他套餐</span><b>不受影响，按原起止继续</b>
+          <span>套餐功能</span><b id="afterState">如无其他套餐，已回到免费版</b>
+        </div>
+        <a class="btn btn-primary" href="#">返回我的订单</a>
+      </div>
+      <div class="notice info" style="margin-top:14px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+        <span>需要继续使用套餐功能？<a class="lnk" href="#">随时可以重新购买套餐</a>，时长从头计算。</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 态五：拒绝 · 剩余不足 1 分 ═══ -->
+  <section data-stage="reject-fen" hidden>
+    <div class="page-head">
+      <div>
+        <h1>申请退款</h1>
+        <div class="sub">订单号 <span class="num">S20260918-Z2P5</span> · 包月 · 2026-09-18 支付</div>
+      </div>
+    </div>
+
+    <div class="stage-narrow">
+      <div class="notice err">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16.5h.01"/></svg>
+        <span>这笔订单剩余约 <b>10 分钟</b>，折算金额不足 1 分钱，无法发起退款。</span>
+      </div>
+      <div class="panel compact" style="display:flex; justify-content:space-between; align-items:center; gap:10px">
+        <span style="font-size:13px; color:var(--muted)">订单即将到期，剩余时长可直接用完</span>
+        <a class="btn btn-secondary btn-sm" href="#">返回我的订单</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 态六：拒绝 · 超过一年退款窗口 ═══ -->
+  <section data-stage="reject-window" hidden>
+    <div class="page-head">
+      <div>
+        <h1>申请退款</h1>
+        <div class="sub">订单号 <span class="num">S20240701-M8W3</span> · 包年 · 2024-07-01 支付</div>
+      </div>
+    </div>
+
+    <div class="stage-narrow">
+      <div class="notice err">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16.5h.01"/></svg>
+        <span>这笔订单支付已超过 <b>1 年</b>，超出微信退款通道的受理窗口，无法在线退款。</span>
+      </div>
+      <div class="panel compact" style="display:flex; justify-content:space-between; align-items:center; gap:10px">
+        <span style="font-size:13px; color:var(--muted)">如确有特殊情况，客服会帮您看还能怎么处理</span>
+        <a class="btn btn-secondary btn-sm" href="/support">联系客服</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* MOCK 常量区：折算数字集中在此，口径变更只改这里（ADJUSTMENTS 登记）。
+   口径来源：docs/prd/s-payment-explore.md §11 终版——按秒折算、四舍五入到分、不足 1 分不可退。
+   示例：实付 ¥24.00（2400 分）× 剩余 838,080 秒 ÷ 30 天总秒 2,592,000 = 776 分 = ¥7.76 */
+const MOCK = {
+  paidFen: 2400,
+  totalSec: 30 * 86400,          // 2,592,000
+  remainSec: 9 * 86400 + 16 * 3600 + 48 * 60, // 838,080（9 天 16 小时 48 分）
+};
+const refundFen = Math.round(MOCK.paidFen * MOCK.remainSec / MOCK.totalSec); // 776
+const fen = (v) => "¥" + (v / 100).toFixed(2);
+
+/* 评审切换器 */
+const switcher = document.getElementById("switcher");
+const stages = document.querySelectorAll("[data-stage]");
+switcher.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-state]");
+  if (!btn) return;
+  switcher.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === btn));
+  stages.forEach((s) => (s.hidden = s.dataset.stage !== btn.dataset.state));
+});
+document.getElementById("toConfirm").addEventListener("click", () =>
+  switcher.querySelector('[data-state="confirm"]').click()
+);
+document.getElementById("confirmRefund").addEventListener("click", () =>
+  switcher.querySelector('[data-state="processing"]').click()
+);
+
+/* 数字一致性自证：页面展示值由公式实时算出 */
+document.getElementById("refundAmt").textContent = fen(refundFen);
+</script>
+</body>
+</html>

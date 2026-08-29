@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>爱小说 · 订单详情（原型 · 六状态）</title>
+<style>
+:root {
+  --bg: oklch(98% 0.004 240); --surface: oklch(100% 0 0); --fg: oklch(20% 0.02 240); --muted: oklch(50% 0.018 240);
+  --border: oklch(90% 0.006 240); --accent: oklch(48% 0.11 170); --accent-strong: oklch(41% 0.10 170);
+  --accent-soft: color-mix(in oklch, var(--accent) 12%, transparent);
+  --ok: oklch(52% 0.11 155); --ok-soft: color-mix(in oklch, var(--ok) 14%, transparent);
+  --warn: oklch(50% 0.13 75); --warn-soft: color-mix(in oklch, var(--warn) 16%, transparent);
+  --err: oklch(50% 0.17 25); --err-soft: color-mix(in oklch, var(--err) 12%, transparent);
+  --fg-soft: color-mix(in oklch, var(--fg) 5%, transparent); --on-accent: oklch(100% 0 0);
+  --font-display: 'Noto Serif SC', 'Songti SC', serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  --radius: 10px; --radius-lg: 16px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; min-height: 100vh; display: flex; flex-direction: column; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; padding: 0; }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.appbar { height: 48px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.logo { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+.logo-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-family: var(--font-display); font-size: 14px; }
+.appbar .nav { display: inline-flex; gap: 4px; margin-left: 14px; }
+.appbar .nav a { font-size: 13.5px; color: var(--muted); padding: 5px 10px; border-radius: 8px; }
+.appbar .nav a.on { color: var(--fg); background: var(--fg-soft); font-weight: 500; }
+.appbar .spacer { flex: 1; }
+.main { flex: 1; width: min(100%, 720px); margin-inline: auto; padding: 40px 32px 80px; }
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.page-head h1 { font-family: var(--font-display); font-size: 24px; font-weight: 600; margin: 0; }
+.pill { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: 12px; line-height: 1.6; font-weight: 500; background: var(--surface); color: var(--muted); white-space: nowrap; }
+.pill-status { padding: 2px 10px; }
+.pill-ok { background: var(--ok-soft); border-color: transparent; color: color-mix(in oklch, var(--ok) 88%, var(--fg)); }
+.pill-warn { background: var(--warn-soft); border-color: transparent; color: color-mix(in oklch, var(--warn) 85%, var(--fg)); }
+.pill-err { background: var(--err-soft); border-color: transparent; color: color-mix(in oklch, var(--err) 90%, var(--fg)); }
+.pill-accent { background: var(--accent-soft); border-color: transparent; color: var(--accent-strong); }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 22px; margin-bottom: 14px; }
+.panel-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.panel-h h2 { font-family: var(--font-display); font-size: 15px; font-weight: 600; margin: 0; }
+.kv { display: grid; grid-template-columns: 110px 1fr; gap: 8px 14px; font-size: 13px; }
+.kv span { color: var(--muted); }
+.kv b { font-weight: 500; }
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.field label { font-size: 12.5px; color: var(--muted); }
+.field label b { color: var(--err); font-weight: 400; }
+.input { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--fg); font-size: 14px; }
+.input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+.seg { display: inline-flex; align-items: center; background: var(--fg-soft); border-radius: 9px; padding: 2px; }
+.seg button { height: 26px; padding: 0 12px; border-radius: 7px; font-size: 12px; color: var(--muted); }
+.seg button.on { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px color-mix(in oklch, var(--fg) 8%, transparent); font-weight: 500; }
+.wx-no { color: var(--muted); display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.wx-no .copy { font-size: 11px; color: var(--accent-strong); background: var(--accent-soft); padding: 1px 8px; border-radius: 999px; cursor: pointer; }
+.notice { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; border-radius: 9px; padding: 10px 12px; margin: 0 0 14px; line-height: 1.55; }
+.notice svg { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+.notice.info { background: var(--accent-soft); color: var(--accent-strong); }
+.notice.warn { background: var(--warn-soft); color: var(--warn); }
+.notice.err { background: var(--err-soft); color: var(--err); }
+.ops { display: flex; gap: 10px; justify-content: flex-end; }
+/* 发票区：蓝票/红字票行（红冲链）；挂在订单下（决策 #8 台账的用户视图） */
+.inv-panel { border-left: 3px solid var(--accent); }
+.inv-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 7px 0; border-bottom: 1px dashed var(--border); font-size: 12.5px; }
+.inv-row:last-child { border-bottom: 0; }
+.inv-row .t { font-weight: 600; }
+.inv-row .t.red { color: var(--err); }
+.inv-row .m { color: var(--muted); font-size: 11.5px; }
+.inv-row .amt { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; }
+.inv-row .amt.red { color: var(--err); }
+/* 订单=一次付费流程；退款=流程环节。环节时间线：节点打勾串联（非独立单据） */
+.tl { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.tl-h { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
+.tl-row { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 3px 0; font-size: 12.5px; }
+.tl-mark { width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid var(--border); display: grid; place-items: center; margin-top: 2px; flex: none; }
+.tl-mark.done { border-color: var(--ok); background: var(--ok); }
+.tl-mark.now { border-color: var(--accent); }
+.tl-mark.done::after { content: ""; width: 5px; height: 8px; border: solid var(--on-accent); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg) translate(-0.5px, -1px); }
+.tl-mark.now::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.tl-mark.todo { border-style: dashed; }
+.tl-row .t.now { font-weight: 600; }
+.tl-row .t { color: var(--fg); }
+.tl-row .t.done { color: var(--muted); }
+.tl-row .when { color: var(--muted); font-size: 12px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 38px; padding: 0 18px; border-radius: var(--radius); border: 1px solid transparent; font-size: 13.5px; font-weight: 500; }
+.btn-primary { background: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { background: var(--accent-strong); }
+.btn-secondary { background: var(--surface); color: var(--fg); border-color: var(--border); }
+.btn-secondary:hover { border-color: var(--fg); }
+.btn-ghost { background: transparent; color: var(--muted); padding: 0 8px; }
+.btn-ghost:hover { color: var(--fg); background: var(--fg-soft); }
+.lnk { color: var(--accent); cursor: pointer; background: none; border: 0; padding: 0; font: inherit; }
+.lnk:hover { color: var(--accent-strong); text-decoration: underline; }
+.scrim { position: fixed; inset: 0; background: color-mix(in oklch, var(--fg) 28%, transparent); z-index: 40; }
+.mcard { width: min(430px, 92vw); background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 60; padding: 0 0 6px; }
+.mcard-head { padding: 18px 22px 0; font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+.mcard-body { padding: 12px 22px; font-size: 13px; }
+.mcard-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 22px 16px; }
+.switcher { position: fixed; top: 12px; right: 12px; z-index: 90; display: flex; gap: 4px; padding: 5px; background: var(--fg); border-radius: 9px; box-shadow: var(--shadow-card); }
+.switcher button { font-size: 11.5px; color: oklch(100% 0 0 / 70%); padding: 4px 9px; border-radius: 6px; }
+.switcher button.on { background: oklch(100% 0 0 / 16%); color: oklch(100% 0 0); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="switcher" id="switcher">
+  <button data-state="paid" class="on">已支付</button>
+  <button data-state="waiting">等待支付</button>
+  <button data-state="refunding">退款中</button>
+  <button data-state="refunded">已退款</button>
+  <button data-state="expired">已过期</button>
+  <button data-state="verify">核对中</button>
+  <button data-state="paidInv">已申请开票</button>
+</div>
+
+<header class="appbar">
+  <span class="logo"><span class="logo-mark">爱</span>爱小说</span>
+  <nav class="nav">
+    <a href="#">首页</a>
+    <a href="#">我的套餐</a>
+    <a href="#" class="on">我的订单</a>
+    <a href="#">我的设备</a>
+    <a href="#">我的账户</a>
+  </nav>
+  <span class="spacer"></span>
+</header>
+
+<main class="main">
+  <div class="page-head">
+    <h1>订单详情</h1>
+    <span class="pill pill-status pill-ok" id="statePill">已支付</span>
+  </div>
+
+  <!-- 状态说明条（随状态变化） -->
+  <div id="stateNotice"></div>
+
+  <!-- 【发票功能暂缓 2026-08-29】以下弹层保留设计，启用时解除注释 -->
+  <!--
+  <div class="scrim" id="invScrim" hidden></div>
+  <div class="mcard" id="invModal" hidden>
+    <div class="mcard-head">获取发票</div>
+    <div class="mcard-body">
+      <div class="kv" style="margin:0 0 10px">
+        <span>订单</span><b>PRO · 包季（90 天）</b>
+        <span>可开票金额</span><b class="num">¥72.00</b>
+      </div>
+      <div class="field">
+        <label>抬头类型</label>
+        <div class="seg" id="invType">
+          <button data-t="person" class="on">个人</button>
+          <button data-t="org">企业单位</button>
+        </div>
+      </div>
+      <div class="field" id="fName">
+        <label>个人姓名 <b>*</b></label>
+        <input class="input" id="invName" type="text" placeholder="与支付账户姓名一致便于核对">
+      </div>
+      <div class="field" id="fOrgName" hidden>
+        <label>单位名称 <b>*</b></label>
+        <input class="input" type="text" placeholder="请输入营业执照上的单位全称">
+      </div>
+      <div class="field" id="fTax" hidden>
+        <label>纳税人识别号 <b>*</b></label>
+        <input class="input" type="text" placeholder="单位开票必填">
+      </div>
+      <div class="field">
+        <label>接收邮箱 <b>*</b></label>
+        <input class="input" id="invMail" type="email" placeholder="电子发票将发送到此邮箱">
+      </div>
+      <p style="margin:0; font-size:12px; color:var(--muted)">提交后 3 个工作日内开出电子普票；如发生退款，发票将自动红冲并重新开具。</p>
+    </div>
+    <div class="mcard-foot">
+      <button class="btn btn-secondary" id="invCancel">取消</button>
+      <button class="btn btn-primary" id="invOk">提交开票申请</button>
+    </div>
+  </div>
+  【发票功能暂缓结束】 -->
+
+  <!-- 订单信息 -->
+  <div class="panel">
+    <div class="panel-h"><h2>订单信息</h2><span style="font-size:12px; color:var(--muted)">订单号 <span class="num" id="dNo">S20260828-7F3K</span></span></div>
+    <div class="kv">
+      <span>套餐</span><b id="dPlan">PRO · 包季（90 天）</b>
+      <span>支付金额</span><b class="num" id="dPaid">¥72.00</b>
+      <span>下单时间</span><b class="num" id="dCreated">2026-08-28 14:20</b>
+      <span id="dPayL">支付时间</span><b class="num" id="dPayT">2026-08-28 14:22</b>
+      <span id="dWxL">微信支付单号</span><b class="num wx-no" id="dWx"><span class="num">4200****7721</span><span class="copy" data-full="420018392620260828773955027721">复制</span></b>
+      <span id="dWxHL"></span><span id="dWxH" style="font-size:11px; color:var(--muted)">对账/投诉时提供给客服</span>
+      <span id="dAgrL">协议确认</span><b class="num" id="dAgr">v2026.08 · 14:21 已同意</b>
+      <span id="dRangeL">套餐起止</span><b class="num" id="dRange">2026-08-30 ～ 2026-11-27</b>
+      <span id="dExtraL" hidden></span><b id="dExtra" hidden></b>
+    </div>
+  </div>
+
+  <!-- 订单流程时间线（退款=付费流程的环节，非独立单据；微信退款单号=环节凭据，脱敏+复制） -->
+  <div class="tl" id="tlPanel" hidden>
+    <div class="tl-h">订单流程 —— 每个环节均记录状态变化时间（进行中环节为预计时间）；单号可在对账或投诉时提供给客服</div>
+    <div id="tlRows"></div>
+  </div>
+
+  <!-- 发票区（有票才显示；蓝票+红字票=抵扣链，决策 #8 台账的用户视图） -->
+  <div class="panel inv-panel" id="invBox" hidden>
+    <div class="panel-h"><h2>发票</h2><span style="font-size:11.5px; color:var(--muted)">红字发票用于抵扣原发票</span></div>
+    <div id="invRows"></div>
+  </div>
+
+  <!-- 操作区（随状态变化） -->
+  <div class="ops" id="ops"></div>
+  <p style="font-size:12.5px; color:var(--muted); margin-top:14px">
+    有疑问？<a class="lnk" href="/support">联系客服</a>（请提供上方订单号）
+  </p>
+</main>
+
+<script>
+/* 六状态配置：说明条文案 + 订单字段 + 操作按钮（详情页=信息全量 + 状态相关操作聚合） */
+const STATES = {
+  paid: {
+    pill: ["pill-status pill-ok", "已支付"],
+    notice: ["info", "套餐已到货。计时从 <b>2026-08-30</b> 开始；未激活前可全额退。"],
+    hide: [], payT: true,
+    steps: [
+      ["下单", "2026-08-28 14:20", "done"],
+      ["支付成功 ¥72.00", "2026-08-28 14:22", "done"],
+      ["套餐到货（已激活，计时中）· 剩余 87 天", "2026-08-28 14:22", "done"],
+    ],
+    ops: [["申请退款", "btn-secondary"], ["去我的套餐", "btn-primary"]], /* 发票功能暂缓：恢复时 ops 加回 ["获取发票","btn-secondary"]（弹层/JS 保留在文件尾部注释区） */
+  },
+  waiting: {
+    pill: ["pill-status pill-warn", "等待支付"],
+    notice: ["warn", "订单 15 分钟内有效，超时自动过期。二维码请在等待支付页查看。"],
+    hide: ["dRangeL", "dRange", "dWxL", "dWx", "dWxHL", "dWxH"], payT: false, payTxt: "—",
+    steps: [
+      ["下单", "2026-08-28 15:40", "done"],
+      ["等待支付（二维码有效期剩 06:12）", "", "now"],
+      ["支付成功后套餐到货，激活开始计时", "订单 15:55 过期", "todo"],
+    ],
+    ops: [["继续支付", "btn-primary"], ["取消订单", "btn-ghost"]],
+  },
+  refunding: {
+    pill: ["pill-status pill-warn", "退款中"],
+    notice: ["warn", "退款已受理，原路退回中；套餐已冻结停止使用。到账后本单转为已退款。"],
+    hide: [], payT: true,
+    steps: [
+      ["下单", "2026-08-28 14:20", "done"],
+      ["支付成功 ¥72.00", "2026-08-28 14:22", "done"],
+      ["套餐到货", "2026-08-28 14:22", "done"],
+      ["申请退款（折算 ¥7.76 · 剩余 28 天 16 小时），套餐已停止使用", "2026-09-01 18:30", "done"],
+      ["微信原路退回中（预计 2026-09-04 前到账）", "发起于 2026-09-01 18:30", "now"],
+      ["退款到账，流程完成", "预计 2026-09-01 ～ 09-04", "todo"],
+    ],
+    ops: [["取消退款申请", "btn-ghost"]],
+  },
+  paidInv: {
+    pill: ["pill-status pill-ok", "已支付"],
+    notice: ["info", "套餐已到货。计时从 <b>2026-08-30</b> 开始；未激活前可全额退。"],
+    hide: [], payT: true,
+    steps: [
+      ["下单", "2026-08-28 14:20", "done"],
+      ["支付成功 ¥72.00", "2026-08-28 14:22", "done"],
+      ["套餐到货（已激活，计时中）· 剩余 87 天", "2026-08-28 14:22", "done"],
+    ],
+    invoices: [
+      { t: "开票申请", no: "—", date: "2026-08-29 提交", amt: "+¥72.00", red: false, note: "运营开具中，3 个工作日内开出并发送邮箱" },
+    ],
+    invApplied: true,
+    ops: [["申请退款", "btn-secondary"], ["去我的套餐", "btn-primary"]],
+  },
+  refunded: {
+    pill: ["pill-tag", "已退款"],
+    notice: ["info", "退款已完成，原路退回您的微信；对应套餐已收回，其他套餐不受影响。"],
+    hide: [], payT: true,
+    steps: [
+      ["下单", "2026-08-28 14:20", "done"],
+      ["支付成功 ¥72.00", "2026-08-28 14:22", "done"],
+      ["套餐到货", "2026-08-28 14:22", "done"],
+      ["申请退款（折算 ¥7.76），套餐已停止使用", "2026-09-01 18:30", "done"],
+      ["微信原路退回 ¥7.76", "2026-09-01 19:02 到账", "done"],
+      ["流程完成", "2026-09-01 19:02", "done"],
+    ],
+    invoices: [
+      { t: "电子普票（蓝字）", no: "2631208…4471", date: "2026-08-02 开出", amt: "+¥24.00", red: false, note: "已红冲抵扣" },
+      { t: "红字发票（抵扣）", no: "2631208…5582", date: "2026-09-01 冲红", amt: "-¥24.00", red: true, note: "对应本次退款" },
+    ],
+    ops: [["再来一单", "btn-secondary"]],
+  },
+  expired: {
+    pill: ["pill-tag", "已过期"],
+    notice: ["info", "超时未支付自动过期，<b>未产生扣款</b>。重新下单按当前价格生成新订单。"],
+    hide: ["dPayL", "dPayT", "dAgrL", "dAgr", "dRangeL", "dRange", "dWxL", "dWx", "dWxHL", "dWxH"],
+    steps: [
+      ["下单", "2026-08-20 09:12", "done"],
+      ["等待支付", "—", "done"],
+      ["超时未支付，订单已过期（未产生扣款）", "2026-08-20 09:27", "now"],
+    ],
+    ops: [["重新下单", "btn-primary"]],
+  },
+  verify: {
+    pill: ["pill-status pill-err", "核对中"],
+    notice: ["err", "已收到您的支付，系统正在核对金额，暂未到账。<b>资金安全、不会丢失——请勿重复支付。</b>核对完成将自动到账。"],
+    hide: ["dRangeL", "dRange"], payT: true,
+    steps: [
+      ["下单", "2026-08-26 11:03", "done"],
+      ["支付成功 ¥24.00", "2026-08-26 11:05", "done"],
+      ["金额核对中，已冻结（发起于 11:05）", "预计数分钟至 30 分钟", "now"],
+      ["核对通过后套餐自动到货", "预计 2026-08-26 内", "todo"],
+    ],
+    ops: [["联系客服", "btn-primary"]],
+  },
+};
+
+const $ = (id) => document.getElementById(id);
+const switcher = document.getElementById("switcher");
+const sections = { paid: 1, waiting: 1 };
+
+function apply(key) {
+  const c = STATES[key];
+  const pill = $("statePill");
+  pill.className = "pill " + c.pill[0];
+  pill.textContent = c.pill[1];
+  $("stateNotice").innerHTML =
+    '<div class="notice ' + c.notice[0] + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span>' + c.notice[1] + "</span></div>";
+  for (const id of ["dPayL", "dPayT", "dAgrL", "dAgr", "dRangeL", "dRange", "dWxL", "dWx", "dWxHL", "dWxH"]) $(id).hidden = c.hide.includes(id);
+  if (!c.hide.includes("dPayT") && !c.payT && c.payTxt !== undefined) $("dPayT").textContent = c.payTxt;
+  if (key === "waiting") $("dCreated").textContent = "2026-08-28 15:40";
+  else $("dCreated").textContent = "2026-08-28 14:20";
+  $("tlPanel").hidden = false;
+  if (c.steps) {
+    $("tlRows").innerHTML = c.steps.map(([t, when, st]) =>
+      '<div class="tl-row"><span class="tl-mark ' + (st === "done" ? "done" : st === "now" ? "now" : "") + '"></span>' +
+      '<span class="t ' + (st === "done" ? "done" : "") + '">' + t + "</span>" +
+      '<span class="when">' + when + "</span></div>"
+    ).join("");
+  }
+
+  /* 发票区：有票/有申请才显示（含红字抵扣链，决策 #8 退税三链的用户视图） */
+  const invBox = document.getElementById("invBox");
+  if (c.invoices) {
+    invBox.hidden = false;
+    document.getElementById("invRows").innerHTML = c.invoices.map((v) =>
+      '<div class="inv-row"><span class="t' + (v.red ? " red" : "") + '">' + v.t + '</span>' +
+      '<span class="m">' + (v.no === "—" ? '<span class="pill pill-warn">开具中</span> · ' : "") + v.date + " · " + v.note + '</span>' +
+      '<span class="amt' + (v.red ? " red" : "") + '">' + v.amt + "</span></div>"
+    ).join("");
+  } else invBox.hidden = true;
+  $("ops").innerHTML = c.ops
+    .map(([t, cls]) => '<button class="btn ' + cls + '">' + t + "</button>")
+    .join("");
+}
+
+switcher.addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  switcher.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+  apply(b.dataset.state);
+});
+apply("paid");
+
+/* 【发票功能暂缓 2026-08-29】整块停用（弹层 HTML 已注释）。启用时：解除 HTML 注释 + 删除本行的 if 守卫。原设计：发票从订单发起（决策 #8） */
+if (false) { // 暂缓守卫：invModal 元素已随功能暂缓注释
+const invOpen = (show) => {
+  $("invScrim").hidden = !show; $("invModal").hidden = !show;
+  if (show) { $("invOk").disabled = true; }
+};
+let invType = "person";
+$("invType").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  [...$("invType").children].forEach((x) => x.classList.toggle("on", x === b));
+  invType = b.dataset.t;
+  $("fOrgName").hidden = invType !== "org";
+  $("fTax").hidden = invType !== "org";
+  $("fName").hidden = invType === "org";
+});
+const invValid = () => {
+  const mail = $("invMail").value.includes("@");
+  const name = $("invName").value.trim() || $("invOrgName")?.value.trim();
+  const org = invType === "org" && $("invTax").value.trim().length >= 15;
+  $("invOk").disabled = !(mail && (invType === "person" ? name : org));
+};
+document.addEventListener("input", (e) => { if (e.target.closest("#invModal")) invValid(); });
+document.addEventListener("click", (e) => {
+  if (e.target.textContent === "获取发票") invOpen(true);
+  if (e.target.id === "invCancel") invOpen(false);
+  if (e.target.id === "invOk") {
+    $("invModal").querySelector(".mcard-body").innerHTML =
+      '<p style="margin:6px 0 10px; font-size:13px">开票申请已提交。<b>3 个工作日内</b>开出电子普票并发送至您的邮箱；开出后可在本页「发票」区块查看与打印。</p>' +
+      '<p style="margin:0; font-size:12px; color:var(--muted)">申请记录已留存（关联订单号可在对账或投诉时提供）。</p>';
+    $("invModal").querySelector(".mcard-foot").innerHTML =
+      '<button class="btn btn-primary" id="invDone">好的，知道了</button>';
+    document.getElementById("invDone").addEventListener("click", () => invOpen(false));
+  }
+});
+}
+
+
+/* 单号复制：微信支付单号/退款单号脱敏展示，点击复制完整值（对账、微信投诉、客服凭据用） */
+document.querySelectorAll(".copy").forEach((c) =>
+  c.addEventListener("click", () => {
+    if (navigator.clipboard) navigator.clipboard.writeText(c.dataset.full);
+    c.textContent = "已复制";
+    setTimeout(() => (c.textContent = "复制"), 1200);
+  })
+);
+</script>
+</body>
+</html>

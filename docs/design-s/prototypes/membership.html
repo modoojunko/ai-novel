@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>爱小说 · 我的套餐（原型 · 套餐总览）</title>
+<style>
+/* ═══ 内联样式：与 server/frontend/src/design/base.css 逐字同源段，来源行号见 ADJUSTMENTS.md ═══ */
+:root {
+  --bg:      oklch(98% 0.004 240);
+  --surface: oklch(100% 0 0);
+  --fg:      oklch(20% 0.02 240);
+  --muted:   oklch(50% 0.018 240);
+  --border:  oklch(90% 0.006 240);
+  --accent: oklch(48% 0.11 170);
+  --accent-strong: oklch(41% 0.10 170);
+  --accent-soft:   color-mix(in oklch, var(--accent) 12%, transparent);
+  --ok:    oklch(52% 0.11 155);  --ok-soft:   color-mix(in oklch, var(--ok) 14%, transparent);
+  --warn:  oklch(50% 0.13 75);   --warn-soft: color-mix(in oklch, var(--warn) 16%, transparent);
+  --err:   oklch(50% 0.17 25);   --err-soft:  color-mix(in oklch, var(--err) 12%, transparent);
+  --fg-soft:   color-mix(in oklch, var(--fg) 5%, transparent);
+  --on-accent: oklch(100% 0 0);
+  --shadow-card: 0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent),
+                 0 12px 32px -12px color-mix(in oklch, var(--fg) 14%, transparent);
+  --font-display: 'Noto Serif SC', 'Songti SC', 'STSong', 'Iowan Old Style', Georgia, serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', monospace;
+  --radius: 10px; --radius-lg: 16px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; min-height: 100vh; display: flex; flex-direction: column; }
+img, svg { display: block; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; padding: 0; }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.serif { font-family: var(--font-display); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 15px; border-radius: var(--radius); border: 1px solid transparent; font-size: 13.5px; font-weight: 500; line-height: inherit; transition: background 0.15s ease, border-color 0.15s ease; }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { background: var(--accent-strong); }
+.btn-secondary { background: var(--surface); color: var(--fg); border-color: var(--border); }
+.btn-secondary:hover { border-color: var(--fg); }
+.btn-ghost { background: transparent; color: var(--muted); padding: 0 8px; }
+.btn-ghost:hover { color: var(--fg); background: var(--fg-soft); }
+.btn-sm { height: 28px; padding: 0 12px; font-size: 12.5px; border-radius: 8px; gap: 5px; }
+.lnk { color: var(--accent); cursor: pointer; background: none; border: 0; padding: 0; font: inherit; }
+.lnk:hover { color: var(--accent-strong); text-decoration: underline; }
+.appbar { height: 48px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.logo { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+.logo-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-family: var(--font-display); font-size: 14px; }
+.appbar .nav { display: inline-flex; gap: 4px; margin-left: 14px; }
+.appbar .nav a { font-size: 13.5px; color: var(--muted); padding: 5px 10px; border-radius: 8px; }
+.appbar .nav a.on { color: var(--fg); background: var(--fg-soft); font-weight: 500; }
+.appbar .spacer { flex: 1; }
+.main { flex: 1; width: min(100%, 1080px); margin-inline: auto; padding: 48px 32px 80px; }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 36px; }
+.page-head h1 { font-family: var(--font-display); font-size: 30px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
+.page-head .sub { font-size: 13px; color: var(--muted); margin-top: 6px; margin-bottom: 1em; }
+.pill { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 11px; line-height: 1.6; font-weight: 500; background: var(--surface); color: var(--muted); white-space: nowrap; }
+.pill-tag { background: var(--surface); color: var(--muted); }
+.pill-status { padding: 2px 9px; }
+.pill-ok { background: var(--ok-soft); border-color: transparent; color: color-mix(in oklch, var(--ok) 88%, var(--fg)); }
+.pill-warn { background: var(--warn-soft); border-color: transparent; color: color-mix(in oklch, var(--warn) 85%, var(--fg)); }
+.pill-accent { background: var(--accent-soft); border-color: transparent; color: var(--accent-strong); }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; }
+.panel-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.panel-h h2, .panel-h .pt { font-family: var(--font-display); font-size: 16px; font-weight: 600; margin: 0; }
+.panel.compact { padding: 14px 16px; }
+.notice { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; border-radius: 9px; padding: 10px 12px; margin: 0 0 14px; line-height: 1.55; text-align: left; }
+.notice svg { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+.notice.info { background: var(--accent-soft); color: var(--accent-strong); }
+.notice.warn { background: var(--warn-soft); color: var(--warn); }
+.stack { display: grid; gap: 14px; }
+
+/* ─── 原型专用：布局工具 + 业务组合 ─── */
+.tier-hero { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.tier-hero .name { font-family: var(--font-display); font-size: 24px; font-weight: 600; }
+.tl { margin: 14px 0 6px; }
+.tl-bar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; }
+.tl-bar .seg-past { background: var(--fg-soft); }
+.tl-bar .seg-now { background: var(--accent); }
+.tl-bar .seg-future { background: var(--accent-soft); }
+.tl-rows { display: grid; gap: 8px; margin-top: 12px; }
+.tl-row { display: grid; grid-template-columns: 14px minmax(0,1fr) auto; gap: 10px; align-items: center; font-size: 13px; }
+.tl-dot { width: 10px; height: 10px; border-radius: 3px; }
+.tl-dot.past { background: var(--fg-soft); }
+.tl-dot.now { background: var(--accent); }
+.tl-dot.future { background: var(--accent-soft); border: 1px dashed var(--accent); }
+.tl-row .dates { color: var(--muted); font-size: 12.5px; }
+.sum { display: flex; gap: 26px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.sum b { color: var(--fg); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 14px; }
+.dev-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 12px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--border); }
+.dev-row:last-child { border-bottom: 0; }
+.dev-row .host { font-size: 13.5px; font-weight: 500; }
+.dev-row .last { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.switcher { position: fixed; top: 12px; right: 12px; z-index: 90; display: flex; gap: 4px; padding: 5px; background: var(--fg); border-radius: 9px; box-shadow: var(--shadow-card); }
+.switcher button { font-size: 11.5px; color: oklch(100% 0 0 / 70%); padding: 4px 9px; border-radius: 6px; }
+.switcher button.on { background: oklch(100% 0 0 / 16%); color: oklch(100% 0 0); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="switcher" id="switcher">
+  <button data-state="pro" class="on">套餐总览</button>
+  <button data-state="free">免费/试用态</button>
+</div>
+
+<header class="appbar">
+  <span class="logo"><span class="logo-mark">爱</span>爱小说</span>
+  <nav class="nav">
+    <a href="#">首页</a>
+    <a href="#" class="on">我的套餐</a>
+    <a href="#">我的订单</a>
+    <a href="#">我的设备</a>
+    <a href="#">我的账户</a>
+  </nav>
+  <span class="spacer"></span>
+  <span class="pill pill-status pill-ok">PRO</span>
+</header>
+
+<main class="main">
+
+  <!-- ═══ 态一：套餐总览 ═══ -->
+  <section data-stage="pro">
+    <div class="page-head">
+      <div>
+        <h1>我的套餐</h1>
+        <div class="sub">档位按已购最高档计算，时长按购买顺序先后消耗。</div>
+      </div>
+      <a class="btn btn-primary" href="#">续费或购买时长</a>
+    </div>
+
+    <div class="stack">
+
+      <div class="panel">
+        <div class="panel-h">
+          <div class="tier-hero">
+            <span class="name">PRO</span>
+            <span class="pill pill-tag">包年</span>
+            <span class="pill pill-status pill-ok">生效中</span>
+            <span class="pill pill-tag">5 台设备</span>
+          </div>
+          <span class="sum">
+            <span>剩余合计 <b>455 天</b>（已激活）</span>
+            <span>最远到期 <b>2027-11-26</b></span>
+            <span>待激活 <b>1 个</b>（365 天）</span>
+          </span>
+        </div>
+
+        <div class="notice info" style="margin-bottom:6px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+          <span>已激活的包年即刻把设备额度提升到 <b>5 台</b>；当前正在消耗包季时长，包季到期后包年自动接上。您还有 1 个套餐待激活——<b>不计时、不占额度</b>，想囤着随时激活。</span>
+        </div>
+
+        <!-- 时长构成：试用已耗完 → 包季消耗中 → 包年未开始（宽度按 7/90/365 比例） -->
+        <div class="tl">
+          <div class="tl-bar" aria-hidden="true">
+            <div class="seg-past" style="flex:7"></div>
+            <div class="seg-now" style="flex:90"></div>
+            <div class="seg-future" style="flex:365"></div>
+          </div>
+          <div class="tl-rows">
+            <div class="tl-row">
+              <span class="tl-dot past"></span>
+              <span>注册试用 · 7 天</span>
+              <span class="dates">2026-08-15 ～ 08-22 · 已耗完</span>
+            </div>
+            <div class="tl-row">
+              <span class="tl-dot now"></span>
+              <span>包季 · 90 天 <span class="pill pill-tag">消耗中</span></span>
+              <span class="dates">2026-08-22 ～ 2026-11-27 · 剩 66 天</span>
+            </div>
+            <div class="tl-row">
+              <span class="tl-dot future"></span>
+              <span>PRO 包年 · 365 天 <span class="pill pill-tag">已激活 · 排队中</span></span>
+              <span class="dates">2026-11-27 ～ 2027-11-26</span>
+            </div>
+          </div>
+          <div style="margin-top:14px; padding:12px 14px; border:1px dashed var(--border); border-radius:9px; display:flex; align-items:center; gap:12px; justify-content:space-between; flex-wrap:wrap">
+            <span style="font-size:13px"><b>PRO 包年 · 365 天</b> <span class="pill pill-accent" style="margin-left:4px">待激活</span>
+              <span style="color:var(--muted); font-size:12.5px; margin-left:6px">2026-10-05 支付 · 激活后才开始计时，未激活可全额退</span></span>
+            <button class="btn btn-primary btn-sm">立即激活</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h">
+          <h2>我的设备</h2>
+          <span>已绑定 <b class="num">2</b> / 5 台</span>
+        </div>
+        <div class="dev-row">
+          <div>
+            <div class="host">MacBook Pro</div>
+            <div class="last">最近活跃：今天 14:22</div>
+          </div>
+          <span class="pill pill-tag">当前设备</span>
+          <span></span>
+        </div>
+        <div class="dev-row">
+          <div>
+            <div class="host">Mac mini</div>
+            <div class="last">最近活跃：3 天前</div>
+          </div>
+          <span></span>
+          <a class="btn btn-ghost btn-sm" href="#">解绑</a>
+        </div>
+        <p style="font-size:12.5px; color:var(--muted); margin:10px 0 0">
+          额度按已激活最高档计算（包年 = 5 台）；待激活套餐不占额度。<a class="lnk" href="#">管理全部设备</a> · <a class="lnk" href="#">换设备怎么办？</a>
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══ 态二：免费/试用（无任何付费订单） ═══ -->
+  <section data-stage="free" hidden>
+    <div class="page-head">
+      <div>
+        <h1>我的套餐</h1>
+        <div class="sub">购买后，套餐的使用情况与历史会展示在这里。</div>
+      </div>
+    </div>
+
+    <div class="stack">
+      <div class="panel">
+        <div class="panel-h">
+          <div class="tier-hero">
+            <span class="name">试用</span>
+            <span class="pill pill-status pill-warn">剩 2 天</span>
+            <span class="pill pill-tag">1 台设备</span>
+          </div>
+          <a class="btn btn-primary" href="#">去购买套餐</a>
+        </div>
+        <div class="tl">
+          <div class="tl-bar" aria-hidden="true">
+            <div class="seg-past" style="flex:5"></div>
+            <div class="seg-now" style="flex:2"></div>
+          </div>
+          <div class="tl-rows">
+            <div class="tl-row">
+              <span class="tl-dot now"></span>
+              <span>注册试用 · 7 天</span>
+              <span class="dates">2026-08-26 ～ 09-02 · 剩 2 天后回到免费版</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h">
+          <h2>我的设备</h2>
+          <span>已绑定 <b class="num">1</b> / 1 台</span>
+        </div>
+        <div class="dev-row">
+          <div>
+            <div class="host">MacBook Pro</div>
+            <div class="last">最近活跃：今天 14:22</div>
+          </div>
+          <span class="pill pill-tag">当前设备</span>
+          <span></span>
+        </div>
+        <p style="font-size:12.5px; color:var(--muted); margin:10px 0 0">
+          试用与免费版限 1 台设备；购买后：包月/包季 3 台、包年 5 台。<a class="lnk" href="#">对比各档位</a>
+        </p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* MOCK 常量区：时长构成与设备数为示例（ADJUSTMENTS 登记）。
+   口径来源：docs/prd/s-payment-explore.md 子决策「权益台账语义」与 C2 tier 归属（未过期行按套餐等级取最高）。 */
+const MOCK = {
+  tierRule: "最高档归属（已激活行）：激活包年即提升至包年档与 5 台额度；待激活不计时不占额度、退款全额、永不过期",
+  grants: [
+    { name: "注册试用", days: 7,   state: "past",   range: "2026-08-15 ～ 08-22" },
+    { name: "包季",     days: 90,  state: "now",    range: "2026-08-22 ～ 11-27" },
+    { name: "包年",     days: 365, state: "future", range: "2026-11-27 ～ 2027-11-26" },
+  ],
+  devicesUsed: 2, devicesLimit: 5,
+};
+
+const switcher = document.getElementById("switcher");
+const stages = document.querySelectorAll("[data-stage]");
+switcher.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-state]");
+  if (!btn) return;
+  switcher.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === btn));
+  stages.forEach((s) => (s.hidden = s.dataset.stage !== btn.dataset.state));
+});
+</script>
+</body>
+</html>
