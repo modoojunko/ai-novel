@@ -66,7 +66,7 @@ export default function LandingPage() {
           <Link to="/login">直接登录</Link>
         </p>
         <p className="note">
-          免费版可创建 <span className="num">3</span> 部作品 · 无需绑卡
+          免费版可创建 <span className="num">1</span> 部作品 · 无需绑卡
         </p>
       </div>
     </section>

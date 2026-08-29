@@ -84,10 +84,14 @@ const PROTO_BOOKS = [
 ];
 
 const MEMBER_VERIFY = { tier: "monthly", is_member: true, expired: false, trial_remaining_days: 0 };
+// quota 场景隔离口径：is_member=false 触发免费额度墙，但 tier 非 none/trial 且未过期，
+// 屏蔽账号 Banner（原型无 Banner），只比额度墙本身
+const FREE_VERIFY = { tier: "monthly", is_member: false, expired: false, trial_remaining_days: 0 };
 
 const CASES = [
-  { state: "books", books: PROTO_BOOKS },
-  { state: "empty", books: [] as unknown[] },
+  { state: "books", books: PROTO_BOOKS, member: true },
+  { state: "empty", books: [] as unknown[], member: true },
+  { state: "quota", books: [PROTO_BOOKS[0]], member: false }, // 免费额度墙：1/1
 ] as const;
 
 test.describe("design-parity 书架屏（list.html）", () => {
@@ -100,9 +104,13 @@ test.describe("design-parity 书架屏（list.html）", () => {
     test(c.state, async ({ browser }) => {
       // ── 原型侧（设计真值）──────────────────────────────────
       const protoCtx = await browser.newContext({ viewport: VIEWPORT });
-      await protoCtx.addInitScript((books) => {
-        localStorage.setItem("ainovel.books", JSON.stringify(books));
-      }, c.books);
+      await protoCtx.addInitScript(
+        ({ books, member }) => {
+          localStorage.setItem("ainovel.books", JSON.stringify(books));
+          localStorage.setItem("ainovel.member", member ? "1" : "0");
+        },
+        { books: c.books, member: c.member },
+      );
       const protoPage = await protoCtx.newPage();
       await protoPage.goto(`file://${PROTO_FILE}`);
       await protoPage.evaluate(() => document.fonts.ready);
@@ -117,11 +125,12 @@ test.describe("design-parity 书架屏（list.html）", () => {
         localStorage.setItem("auth_username", "parity");
       });
       const appPage = await appCtx.newPage();
-      const novels = c.state === "books" ? FIXED_NOVELS() : [];
+      const novels = c.state === "books" ? FIXED_NOVELS() : c.state === "quota" ? [FIXED_NOVELS()[0]] : [];
       await appPage.route("**/api/novels", (r) => r.fulfill({ json: novels }));
       // 原型常显更新提示条（ADJUSTMENTS #15）→ 应用侧同文案打桩，保持像素基线
       await stubUpdateNotice(appPage, "update");
-      await appPage.route("**/api/auth/verify", (r) => r.fulfill({ json: MEMBER_VERIFY }));
+      await appPage
+        .route("**/api/auth/verify", (r) => r.fulfill({ json: c.member ? MEMBER_VERIFY : FREE_VERIFY }));
       await appPage.route("**/api/auth/config", (r) =>
         r.fulfill({ json: { has_api_key: true, portal_url: "" } })
       );

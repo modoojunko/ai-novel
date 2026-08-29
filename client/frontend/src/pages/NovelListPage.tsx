@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { toast } from "@/lib/toast";
@@ -155,6 +155,17 @@ function NovelList() {
   // 免费待遇 = 非有效会员（免费层或套餐过期），与后端 require_project_limit 口径一致
   const freeLimitReached = !isMember && novels.length >= 1;
 
+  // 回访态：最近编辑的书置顶直达；该书从网格剔除，避免同书双入口
+  const sortedNovels = useMemo(
+    () => [...novels].sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at)),
+    [novels],
+  );
+  const resumeBook = loading || loadError ? null : (sortedNovels[0] ?? null);
+  const gridNovels = resumeBook ? sortedNovels.slice(1) : sortedNovels;
+
+  const guideUpgrade = () =>
+    window.open(portalUrl || PORTAL_URL, "_blank", "noopener,noreferrer");
+
   const upgradeBtn = (label: string) =>
     portalUrl ? (
       <a href={portalUrl} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">
@@ -212,27 +223,77 @@ function NovelList() {
         </div>
       )}
 
+      {/* 回访态：继续创作条（updated_at 最大者置顶直达工作台） */}
+      {resumeBook && (
+        <section
+          className="resume"
+          role="link"
+          tabIndex={0}
+          aria-label={`继续创作 ${resumeBook.name}`}
+          onClick={() => navigate(`/novel/${resumeBook.id}`)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") navigate(`/novel/${resumeBook.id}`);
+          }}
+        >
+          <span className="mono">{(resumeBook.name || "书")[0]}</span>
+          <div className="rgrow">
+            <span className="rlabel">
+              <Ico d={genreIconPath(resumeBook.genre)} />
+              继续创作
+            </span>
+            <div className="rt">{resumeBook.name}</div>
+            <div className="rm">
+              第 <b className="num">{resumeBook.total_volumes || 0}</b> 卷 · 第{" "}
+              <b className="num">{resumeBook.total_chapters || 0}</b> 章 · 累计{" "}
+              <b className="num">{fmt(resumeBook.word_count ?? 0)}</b> 字
+            </div>
+          </div>
+          <div className="ractions">
+            <span className="rtime">上次编辑 {relTime(resumeBook.updated_at)}</span>
+            <span className="btn btn-primary">
+              继续创作
+              <Ico d={P.arrowRight} />
+            </span>
+          </div>
+        </section>
+      )}
+
+      {/* 满额态：一句话说明 + 升级出口（正解口径：锁定可见，不隐藏入口） */}
+      {!loading && !loadError && freeLimitReached && (
+        <div className="notice info">
+          <span className="nt">
+            <b>
+              免费版书架已满（<span className="num">{novels.length}/1</span>）
+            </b>
+            <span>升级后不限作品数，现有作品不受影响</span>
+          </span>
+          {upgradeBtn("升级")}
+        </div>
+      )}
+
       <div className="page-head">
         <div>
           <h1>我的作品</h1>
           <p className="sub">建书即写 · 设定与大纲是高级配置，随时可补</p>
         </div>
-        {!freeLimitReached && (
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              className="btn btn-secondary"
-              onClick={() => setShowImport(true)}
-              title="导入已有稿子（.md / .txt / .docx）"
-            >
-              <Ico d={P.upload} />
-              导入
-            </button>
-            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-              <Ico d={P.plus} />
-              新建作品
-            </button>
-          </div>
-        )}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="btn btn-secondary"
+            onClick={() => (freeLimitReached ? guideUpgrade() : setShowImport(true))}
+            title="导入已有稿子（.md / .txt / .docx）"
+          >
+            <Ico d={P.upload} />
+            导入
+          </button>
+          {/* 锁定可见：满额时主按钮带锁仍可点，点击引导升级 */}
+          <button
+            className="btn btn-primary"
+            onClick={() => (freeLimitReached ? guideUpgrade() : setShowCreate(true))}
+          >
+            {freeLimitReached ? <Ico d={P.lock} /> : <Ico d={P.plus} />}
+            新建作品
+          </button>
+        </div>
       </div>
 
       {loadError ? (
@@ -256,16 +317,55 @@ function NovelList() {
           ))}
         </div>
       ) : novels.length === 0 ? (
-        /* 原型口径：empty 是 .cards 网格里的单个网格项（占一列），不改满宽 */
-        <div className="cards">
-          <div className="empty">
-            <div className="serif">还没有作品</div>
-            <p>点右上角「新建作品」，10 秒建好一本书，开始写第一章。</p>
+        /* 首启态：三步引导空态（.empty 家族内长出；原型 list.html 同源） */
+        <div className="first-run">
+          <div className="empty" style={{ padding: "56px 44px 48px" }}>
+            <span className="fr-title serif">开始你的第一本书</span>
+            <p>本地优先的 AI 长篇小说工作台——大纲、设定、正文，都保存在你这台电脑上。</p>
+            <div className="fr-steps">
+              <div className="step">
+                <span className="fr-n">STEP 01</span>
+                <span className="fr-ic">
+                  <Ico d={P.plus} />
+                </span>
+                <b>新建作品</b>
+                <p>起书名、选题材，30 秒建好全书骨架。</p>
+              </div>
+              <div className="step">
+                <span className="fr-n">STEP 02</span>
+                <span className="fr-ic">
+                  <Ico d={P.doc} />
+                </span>
+                <b>配置模型</b>
+                <p>填入你自己的 API Key，只存本机，不经过第三方。</p>
+              </div>
+              <div className="step">
+                <span className="fr-n">STEP 03</span>
+                <span className="fr-ic">
+                  <Ico d={P.pencil} />
+                </span>
+                <b>开写第一章</b>
+                <p>第一句想到什么就写什么，正文永远是最短路径。</p>
+              </div>
+            </div>
+            <div className="fr-cta">
+              <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+                <Ico d={P.plus} />
+                新建作品
+              </button>
+              <button className="btn btn-secondary" onClick={() => setShowImport(true)}>
+                <Ico d={P.upload} />
+                导入已有文稿
+              </button>
+            </div>
+            <p className="fr-note">
+              免费版可创建 <span className="num">1</span> 部作品 · 无需绑卡
+            </p>
           </div>
         </div>
       ) : (
         <div className="cards">
-          {novels.map((p) => {
+          {gridNovels.map((p) => {
             const stage = PHASE_STAGE[p.current_phase] || "setting";
             const words = p.word_count ?? 0;
             return (
@@ -347,6 +447,28 @@ function NovelList() {
               </div>
             );
           })}
+          {freeLimitReached && (
+            <div
+              className="lock-tile"
+              role="button"
+              tabIndex={0}
+              data-od-id="lock-tile"
+              onClick={guideUpgrade}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") guideUpgrade();
+              }}
+            >
+              <span className="lt-ic">
+                <Ico d={P.lock} />
+              </span>
+              <b>书架已满</b>
+              <span>升级后不限作品数 · 现有作品不受影响</span>
+              <span className="btn btn-secondary btn-sm">
+                <Ico d={P.spark} />
+                升级
+              </span>
+            </div>
+          )}
         </div>
       )}
 
