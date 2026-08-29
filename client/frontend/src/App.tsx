@@ -9,11 +9,17 @@ import NovelListPage from "@/pages/NovelListPage";
 import NovelLayout from "@/pages/NovelLayout";
 import NovelWorkspace from "@/components/novel/NovelWorkspace";
 import MemberBlockPrompt from "@/components/novel/license/MemberBlockPrompt";
+import { isLoggedIn } from "@/lib/auth";
 
 /** 301 过渡：旧路由 /project/:id → /novel/:id */
 function RedirectToNovel() {
   const { id } = useParams<{ id: string }>();
   return <Navigate to={"/novel/" + id} replace />;
+}
+
+/** `/` 分流：静态首页只服务未登录；已登录直落书架，不再看入口卡。 */
+function HomeGate() {
+  return isLoggedIn() ? <Navigate to="/novels" replace /> : <LandingPage />;
 }
 
 export default function App() {
@@ -24,7 +30,7 @@ export default function App() {
       <Navbar />
       <div className="flex-1 flex flex-col page-enter" key={location.pathname}>
         <Routes>
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<HomeGate />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/config" element={<ApiKeyConfigPage />} />
           {/* 301 过渡（一个版本期后删除） */}

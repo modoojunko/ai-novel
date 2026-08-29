@@ -3,25 +3,27 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>爱小说 · 启动主页（应用 home，非 landing）</title>
+<title>爱小说 · 启动首页（静态 home + 书架三态）</title>
 <!-- ═════════════════════════════════════════════════════════════════
   交付说明（设计侧工件 · 不动任何 src/）
 
-  裁定：桌面 App 双击打开的默认页是「书架 home」，不是营销页。
-    现状 / 路由渲染 LandingPage（hero 光斑 + 痛点 + 定价段），安装用户每次
-    启动先看广告。本稿裁定：/ 重定向 /novels；LandingPage 从 App 内摘除，
-    营销内容唯一住在 S端 官网/下载页；书架内「升级」直达 S端 portal。
+  裁定 v2（2026-08-29 用户拍板，推翻 v1）：
+    `/` 必须是免登录可见的静态页。v1「/ 重定向 /novels、LandingPage 摘除」作废；
+    现状 LandingPage 保留位置，按本稿新设计语言重做为静态首页。
+    已登录用户打开 `/` 自动跳书架（不多看一眼营销内容）。
 
-  三态（右下角评审切换器，非基线元素，parity 截图排除——同 .notice/.hover 先例）：
-    return 回访态   继续创作条 + 健康提示 + 书架网格
-    empty  首启态   三步引导空态（不是 hero，无营销段落）
-    quota  满额态   免费额度墙：入口锁定可见 + 升级出口（P0 #4 的正解）
+  四态（右下角评审切换器，非基线元素，parity 截图排除——同 .notice/.hover 先例）：
+    home   静态首页  未登录可见：登录/建号入口卡（用户已下载安装，不做产品介绍）
+    return 回访态    书架 `/novels`：继续创作条 + 健康提示 + 书架网格
+    empty  首启态    书架 `/novels`：三步引导空态（不是 hero，无营销段落）
+    quota  满额态    书架 `/novels`：免费额度墙——入口锁定可见 + 升级出口（P0 #4 的正解）
+  其中 return/empty/quota 三态全部落 `/novels`，`/` 只承载 home 态。
 
   词汇纪律：tokens/基础类/书架类与 client/frontend/src/design/{base,list}.css
     逐字同源；图标只用两端注册表键；零外部资源、零裸色、零 emoji。
-  新增组件：仅 .resume 继续创作条一个——落地时先入 ADJUSTMENTS.md 登记，
-    再进 base.css 共享段（双端同批）。.b 胶囊为 P1 收编对象，此处沿用现状
-    词汇以保与现网同源，不新造第四种形态。
+  新增组件：.resume 继续创作条 + .welcome 静态首页入口卡两个——落地时先入
+    ADJUSTMENTS.md 登记，再进 base.css 共享段（双端同批）。.b 胶囊为 P1 收编
+    对象，此处沿用现状词汇以保与现网同源，不新造第四种形态。
 ══════════════════════════════════════════════════════════════════ -->
 <style>
 /* ─── tokens（与 base.css 逐字同源，一字不改） ─────────────────── */
@@ -38,8 +40,10 @@
   --warn:  oklch(50% 0.13 75);   --warn-soft: color-mix(in oklch, var(--warn) 16%, transparent);
   --err:   oklch(50% 0.17 25);   --err-soft:  color-mix(in oklch, var(--err) 12%, transparent);
   --fg-soft:   color-mix(in oklch, var(--fg) 5%, transparent);
+  --on-accent: oklch(100% 0 0);
   --shadow-card: 0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent),
                  0 12px 32px -12px color-mix(in oklch, var(--fg) 14%, transparent);
+--shadow-pop: 0 18px 50px -12px color-mix(in oklch, var(--fg) 26%, transparent);
   --font-display: 'Noto Serif SC', 'Songti SC', 'STSong', 'Iowan Old Style', Georgia, serif;
   --font-body: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', monospace;
@@ -141,6 +145,17 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 .resume .ractions { display: inline-flex; align-items: center; gap: 14px; flex: none; }
 .resume .rtime { font-size: 11.5px; color: var(--muted); }
 
+/* ─── 新增组件：.welcome 静态首页入口卡（home 态专用）────────────
+   用户已经下载安装了 App，不需要被介绍产品；此页只做一件事：
+   让未登录的人登录/建号，顺带一句实用信息（数据只存本机）。 */
+.welcome { max-width: 560px; margin: 104px auto 0; text-align: center; }
+.welcome .mark { margin-bottom: 18px; }
+.welcome h2 { font-family: var(--font-display); font-size: 28px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
+.welcome .lead { font-size: 13.5px; color: var(--muted); margin: 12px 0 0; line-height: 1.7; }
+.welcome .cta { display: flex; justify-content: center; gap: 12px; margin-top: 26px; }
+.welcome .cta .btn { height: 40px; padding: 0 22px; font-size: 14px; }
+.welcome .note { font-size: 12px; color: var(--muted); margin-top: 14px; }
+
 /* ─── 首启空态扩展（.empty 家族内长出，不另造版式） ───────────── */
 .first-run { max-width: 720px; margin: 8px auto 0; text-align: center; }
 .first-run h2 { font-family: var(--font-display); font-size: 34px; font-weight: 600; margin: 18px 0 0; letter-spacing: 0.01em; }
@@ -178,13 +193,14 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 body[data-state="return"] [data-only]:not([data-only~="return"]) { display: none !important; }
 body[data-state="empty"] [data-only]:not([data-only~="empty"]) { display: none !important; }
 body[data-state="quota"] [data-only]:not([data-only~="quota"]) { display: none !important; }
+body[data-state="home"] [data-only]:not([data-only~="home"]) { display: none !important; }
 </style>
 </head>
-<body data-state="return">
+<body data-state="home">
 
 <header class="appbar">
   <a class="logo" href="#/novels"><span class="logo-mark">爱</span>爱小说</a>
-  <nav class="nav">
+  <nav class="nav" data-only="return empty quota">
     <a class="on" href="#/novels" aria-current="page">我的作品</a>
     <a href="#/config">模型配置</a>
   </nav>
@@ -193,12 +209,26 @@ body[data-state="quota"] [data-only]:not([data-only~="quota"]) { display: none !
   <!-- 已登录（return / quota） -->
   <span class="genre" data-only="return quota" title="本日 AI 章额度"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M9 13h6M9 17h4"/></svg>本日 <b class="num">3/10</b> 章</span>
   <a class="btn btn-secondary btn-sm" data-only="return quota" href="#portal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 6.2L21 9l-5 4.4 1.6 6.6L12 16.6 6.4 20 8 13.4 3 9l6.6-.8z"/></svg>升级</a>
-  <!-- 未登录（empty 首启） -->
-  <a class="btn btn-ghost btn-sm" data-only="empty" href="#/login">登录</a>
-  <button class="btn btn-ghost btn-sm" type="button">设置</button>
+  <!-- 未登录（home 静态首页 / empty 首启书架） -->
+  <a class="btn btn-ghost btn-sm" data-only="home empty" href="#/login">登录</a>
+  <a class="btn btn-primary btn-sm" data-only="home" href="#/login">免费开始</a>
+  <button class="btn btn-ghost btn-sm" type="button" data-only="return empty quota">设置</button>
 </header>
 
 <main class="main">
+
+  <!-- ▸ 静态首页（home）：未登录免登录可见；已登录打开 / 时由应用自动跳书架，不再见此页。
+       用户已下载安装、知道这是什么的——不做产品介绍，只给登录/建号入口。 -->
+  <section class="welcome" data-only="home">
+    <div class="mark"><span class="mono">爱</span></div>
+    <h2>登录后，开始你的第一本书</h2>
+    <p class="lead">作品与 API Key 只保存在这台电脑上。</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="#/login">免费开始<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      <a class="btn btn-secondary" href="#/login">我已有账号</a>
+    </div>
+    <p class="note">免费版可创建 <span class="num">3</span> 部作品 · 无需绑卡</p>
+  </section>
 
   <!-- ▸ 回访态：继续创作条（上次编辑的书置顶直达） -->
   <section class="resume" data-only="return" role="link" tabindex="0" aria-label="继续创作 剑葬九霄">
@@ -375,7 +405,8 @@ body[data-state="quota"] [data-only]:not([data-only~="quota"]) { display: none !
 <!-- 评审态切换器（非基线元素） -->
 <div class="rv" role="group" aria-label="评审状态切换">
   评审态
-  <button type="button" data-set="return" aria-pressed="true">回访</button>
+  <button type="button" data-set="home" aria-pressed="true">静态首页</button>
+  <button type="button" data-set="return" aria-pressed="false">回访</button>
   <button type="button" data-set="empty" aria-pressed="false">首启</button>
   <button type="button" data-set="quota" aria-pressed="false">书架满额</button>
 </div>
@@ -394,7 +425,7 @@ body[data-state="quota"] [data-only]:not([data-only~="quota"]) { display: none !
     });
   });
   var initial = location.hash.replace("#", "");
-  if (["return", "empty", "quota"].indexOf(initial) > -1) apply(initial);
+  if (["home", "return", "empty", "quota"].indexOf(initial) > -1) apply(initial);
 </script>
 
 </body>

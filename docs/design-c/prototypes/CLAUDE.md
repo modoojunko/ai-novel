@@ -1,6 +1,6 @@
 # 爱小说（ai-novel）前端交互原型 — 设计与实现规范
 
-本目录是「爱小说」前端的**交互式 HTML 原型**，在 OpenDesign 里直接渲染预览。本文件是唯一权威规范：后续任何 agent 复刻或新增页面时，必须先读本文件，并逐条遵守。目标是与真实 React 代码库在功能上对齐、在视觉上 100% 复刻本设计系统。
+本目录是「爱小说」前端的**交互式 HTML 原型**，在 OpenDesign 里直接渲染预览。本文件是**原型层的权威规范**（视觉 token 逐字值 / 组件类尺寸 / 页面清单 / 避坑），只对本目录四个 HTML 的像素与交互基线负责；语义、词汇、状态语言与组件档位的**标准层**是仓库内 `docs/ux/design-language.html`（全端一致性裁决见 `docs/ux/cross-end.html`，机器强制层为两端 `scripts/design-vocab.mjs`）。两层冲突时以标准层为准，并在 `ADJUSTMENTS.md` 登记本文件的对应修订。后续任何 agent 复刻或新增页面时，必须先读本文件，并逐条遵守。目标是与真实 React 代码库在功能上对齐、在视觉上 100% 复刻本设计系统。
 
 ## 0. 参考代码（只读）
 
@@ -46,10 +46,12 @@
 
 差异（有意为之，别「统一」掉）：`book.html` 用 `--radius-lg: 14px`；`list.html` 与 `index.html` 不定义 `--err`/`--err-soft`（它们没有错误态 UI，需要时再加）。`body`：`font-family: var(--font-body); font-size: 14px; line-height: 1.55;`（`index.html` 是 15px / 1.6）。
 
+实现层补充令牌（**不要求原型包含**，React/Vue `base.css` 与 `docs/ux/` 五份文档的 `:root` 同名同值；2026-08-29 起六处规范块逐字一致）：`--on-accent: oklch(100% 0 0);`（accent 实底上的反白，禁止再用 `var(--surface)` 冒充）、`--shadow-pop: 0 18px 50px -12px color-mix(in oklch, var(--fg) 26%, transparent);`（Modal / Toast / 下拉 / 悬浮菜单专属浮层投影）。
+
 ## 3. 通用组件类（跨页复用，语义一致）
 
 - 按钮 `.btn`：默认 `inline-flex; align-items:center; justify-content:center; gap:7px; height:34px; padding:0 15px; border-radius:var(--radius); font-size:13.5px; font-weight:500`。变体：`.btn-primary`（墨绿实底白字）、`.btn-secondary`（描边）、`.btn-ghost`（透明）、`.btn-danger`（红）、`.btn-sm`。
-- 徽标 `.b`（或 `.badge`）：`inline-flex; padding:2px 9px; border-radius:999px; font-size:11px`。状态色：`.b.ok` / `.b.err` / `.b.warn` / `.b.muted`。
+- 徽标 `.b`（或 `.badge`）：`inline-flex; padding:2px 9px; border-radius:999px; font-size:11px`。状态色：`.b.ok` / `.b.err` / `.b.warn` / `.b.muted`。**实现层**按 ux 标准 §6.2 把全站 13 种胶囊收敛为 `.pill-*` 四角色（`uikit/uikit.css` 有实物）；原型暂保留 `.b`，改名属跨页机械替换，须先在 `ADJUSTMENTS.md` 登记，不得两套类名长期并存。
 - 分段控件 `.seg`：外层灰底圆角容器，内 `.seg button`，选中 `.on`（`background:var(--surface); color:var(--fg); box-shadow: 0 1px 2px …`）。
 - 弹窗：`.scrim`（半透明遮罩）+ `.modal`（居中）+ `.mcard`（`width:min(440–460px, 92vw)`、`border-radius:16px`、`box-shadow:var(--shadow-card)`）。头部 `.mcard-head`（标题用 `--font-display` 17px）+ `.mcard-body` + `.mcard-foot`（右对齐按钮）。打开/关闭：给 `.scrim`/`.modal` 加 `.show` 类，用 200ms `setTimeout` 后再 `hidden`。
 - Toast：`.toast-wrap`（右下角固定）+ `.toast`（`background:var(--fg); color:var(--surface); padding:9px 16px; border-radius:10px`），带 `toast-in` 动画，自动消失。
