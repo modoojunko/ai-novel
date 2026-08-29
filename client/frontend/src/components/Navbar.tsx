@@ -11,9 +11,6 @@ export default function Navbar() {
   const loggedIn = isLoggedIn();
   const [showPrefs, setShowPrefs] = useState(false);
 
-  // Landing page has its own full-page layout
-  if (location.pathname === "/") return null;
-
   // 书工作台变体（book.html）：logo + 分隔线 + 返回我的小说 + 设置，无导航/登录。
   // PR 5：设置 = 本书偏好（字号/行距 per-book + 归档 AI 摘要），全局偏好仍在书架态。
   if (location.pathname.startsWith("/novel/")) {
@@ -50,24 +47,36 @@ export default function Navbar() {
       <Link className="logo" to="/novels">
         <span className="logo-mark">爱</span>爱小说
       </Link>
-      <nav className="nav">
-        <Link to="/novels" className={on("/novels")} aria-current={on("/novels") ? "page" : undefined}>
-          我的作品
-        </Link>
-        <Link to="/config" className={on("/config")}>
-          模型配置
-        </Link>
-      </nav>
+      {loggedIn && (
+        <nav className="nav">
+          <Link to="/novels" className={on("/novels")} aria-current={on("/novels") ? "page" : undefined}>
+            我的作品
+          </Link>
+          <Link to="/config" className={on("/config")}>
+            模型配置
+          </Link>
+        </nav>
+      )}
       <span className="spacer" />
       {!loggedIn && (
-        <Link className="btn btn-ghost btn-sm" to="/login">
-          登录
-        </Link>
+        <>
+          {/* 未登录（静态首页/登录页口径）：不给导航与设置，只给入口 */}
+          <Link className="btn btn-ghost btn-sm" to="/login">
+            登录
+          </Link>
+          <Link className="btn btn-primary btn-sm" to="/login">
+            免费开始
+          </Link>
+        </>
       )}
-      <button className="btn btn-ghost btn-sm" onClick={() => setShowPrefs(true)}>
-        设置
-      </button>
-      <PrefsModal open={showPrefs} onClose={() => setShowPrefs(false)} />
+      {loggedIn && (
+        <>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowPrefs(true)}>
+            设置
+          </button>
+          <PrefsModal open={showPrefs} onClose={() => setShowPrefs(false)} />
+        </>
+      )}
     </header>
   );
 }

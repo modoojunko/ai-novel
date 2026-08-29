@@ -8,6 +8,7 @@ import CreateProjectModal from "@/components/novel/CreateProjectModal";
 import ImportNovelModal from "@/components/novel/ImportNovelModal";
 import RenameModal from "@/components/novel/RenameModal";
 import { Ico, P, genreIconPath } from "@/components/icons";
+import { PORTAL_URL } from "@/lib/portal";
 
 interface Novel {
   id: string;
@@ -160,9 +161,10 @@ function NovelList() {
         {label}
       </a>
     ) : (
-      <Link to="/" state={{ scrollTo: "pricing" }} className="btn btn-secondary btn-sm">
+      /* 定价区块已随静态首页改版删除：兜底直连 S端 门户常量 */
+      <a href={PORTAL_URL} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">
         {label}
-      </Link>
+      </a>
     );
 
   return (
