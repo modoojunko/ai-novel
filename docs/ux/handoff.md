@@ -95,20 +95,20 @@
 - M3 两端 vocab 禁令抽共享模块或最低限度 hash 弱校验。
 - uikit 候选正式收编 `src/components/ui/`（按 uikit/README 四步：原型→base.css 收编并删 book.css:97-100 原行→搬 tsx→迁调用点）。
 
-### 独立改进点 · 启动主页重构（2026-08-28 立项）
+### 独立改进点 · 启动首页与书架改版（2026-08-28 立项，2026-08-29 裁定 v2）
 
-设计稿 `docs/ux/home.html`（三态右下角可切：回访 / 首启 / 书架满额）。
-裁定：`/` 即书架 home；App 内 Landing 整体摘除，营销内容唯一住在 S端 官网/下载页。
+设计稿 `docs/ux/home.html`（四态右下角可切：静态首页 / 回访 / 首启 / 书架满额；默认 = 静态首页）。
+裁定 v2（推翻 v1）：`/` 保持**免登录静态页**（重做为新静态首页）；已登录打开 `/` 自动跳 `/novels`；书架三态（继续创作条 / 首启引导 / 满额锁定墙）全部落 `/novels`。
 
 | # | 动作 | 落点 |
 | --- | --- | --- |
-| 1 | `/` 由 LandingPage 改 `<Navigate to="/novels" replace />`，删路由与 import | client `src/App.tsx` |
-| 2 | 删 `pathname === "/"` 时 return null 的分支 | client `src/components/Navbar.tsx` |
+| 1 | `/` 保留 LandingPage 位置并按 home 态稿重做（免登录可见）；已登录访问 `/` → `<Navigate to="/novels" replace />` | client `src/pages/LandingPage.tsx` ＋ `src/App.tsx` |
+| 2 | Navbar 登录态分支随 home 态稿调整（未登录：登录/免费开始；已登录：现网口径） | client `src/components/Navbar.tsx` |
 | 3 | 升级入口改 S端 portal 直连（去掉 scroll-to-pricing 过渡跳转） | client `src/pages/NovelListPage.tsx:163` |
-| 4 | 书架页新增 `.resume` 继续创作条（`updated_at` 最大者置顶）＋ 首启三步引导空态 ＋ 满额「锁定可见」 | `NovelListPage.tsx` ＋ `base.css` 共享段（`.resume` 先 ADJUSTMENTS 登记，双端同批） |
+| 4 | 书架页新增 `.resume` 继续创作条（`updated_at` 最大者置顶）＋ 首启三步引导空态 ＋ 满额「锁定可见」 | `NovelListPage.tsx` ＋ `base.css` 共享段（`.resume/.welcome` 先 ADJUSTMENTS 登记，双端同批） |
 | 5 | 回归：design:lint ＋ design:check（书架既有基线不波动，新增态为非 parity 对象）＋ tsc ＋ 涉路由 e2e 更新 | 两端门禁 |
 
-验收补一句：免费额度墙必须「锁定可见 + 升级出口」，不允许回到隐藏入口的老路。
+验收补两句：免费额度墙必须「锁定可见 + 升级出口」，不允许回到隐藏入口的老路；未登录打开 `/` 必须能看完整静态首页，不得强制跳登录。
 
 ## 七、悬而未决（需要用户拍板，别自作主张）
 

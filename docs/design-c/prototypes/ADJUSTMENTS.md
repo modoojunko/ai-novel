@@ -258,3 +258,13 @@ modalAi/modalPrefs 标记与 CSS 在 PR 3/PR 4 已随屏落地（spec-report §6
     （list.html 与实现侧 base.css 均为 0 12px）——更新提示条三按钮累计
     6px 错位致 parity 超阈，对齐为 0 12px 收敛；book.html 其余 sm 按钮
     （novelbar 升级等）宽度 +2px，各 parity 场景复核通过。
+
+## 静态首页改版（c-static-home，2026-08-29）
+
+4. **`.welcome` 静态首页入口卡登记**：`/` 改版为免登录入口卡（设计源
+   `docs/ux/home.html` home 态，用户已过稿；裁定 v2——`/` 免登录静态页，
+   已登录自动跳书架）。组件落 `client/frontend/src/design/landing.css`
+   本地段，**非共享段**（S端 无此页，无双端同批义务）。原营销版
+   LandingPage（mkt-* 轻重皮）整体退役，`landing.css` 营销段随之清空。
+   书架原型 `list.html` 不受影响（.welcome 只出现在 `/`，非 parity 对象）；
+   书架三态（`.resume` 继续创作条/首启空态/满额墙）等品牌意见后另批登记。
