@@ -131,8 +131,9 @@ test.describe("design-parity 书架屏（list.html）", () => {
       await stubUpdateNotice(appPage, "update");
       await appPage
         .route("**/api/auth/verify", (r) => r.fulfill({ json: c.member ? MEMBER_VERIFY : FREE_VERIFY }));
+      // portal_url 给真值：appbar「联系客服」按钮与原型同步渲染（空值时按钮隐藏，会造像素差）
       await appPage.route("**/api/auth/config", (r) =>
-        r.fulfill({ json: { has_api_key: true, portal_url: "" } })
+        r.fulfill({ json: { has_api_key: true, portal_url: "https://www.awesomenovel.com" } })
       );
       await appPage.route("**/api/auth/check-auth", (r) => r.fulfill({ json: { code: 1 } }));
       await appPage.goto("/#/novels");
