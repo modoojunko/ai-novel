@@ -55,7 +55,7 @@
 - 分段控件 `.seg`：外层灰底圆角容器，内 `.seg button`，选中 `.on`（`background:var(--surface); color:var(--fg); box-shadow: 0 1px 2px …`）。
 - 弹窗：`.scrim`（半透明遮罩）+ `.modal`（居中）+ `.mcard`（`width:min(440–460px, 92vw)`、`border-radius:16px`、`box-shadow:var(--shadow-card)`）。头部 `.mcard-head`（标题用 `--font-display` 17px）+ `.mcard-body` + `.mcard-foot`（右对齐按钮）。打开/关闭：给 `.scrim`/`.modal` 加 `.show` 类，用 200ms `setTimeout` 后再 `hidden`。
 - Toast：`.toast-wrap`（右下角固定）+ `.toast`（`background:var(--fg); color:var(--surface); padding:9px 16px; border-radius:10px`），带 `toast-in` 动画，自动消失。
-- 顶栏 `.appbar`：`.logo`（`.logo-mark` = 墨绿圆角方块内「爱」字 + 「爱小说」宋体）+ `.nav`（当前页 `class="on"` + `aria-current="page"`）+ `.spacer`。工作台页另用 `.back` 返回链接。
+- 顶栏 `.appbar`：`.logo`（`.logo-mark` = 墨绿圆角方块内「爱」字 + 「爱小说」宋体，字标 `letter-spacing: 0.08em` 与全站品牌字标统一）+ `.nav`（当前页 `class="on"` + `aria-current="page"`）+ `.spacer`。工作台页另用 `.back` 返回链接。品牌规则（2026-08-29 拍板）：「爱」方标只存在于系统层（appbar/窗口/安装图标），内容层一律纯文字字标。
 - 面板 `.panel`：`background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px 22px`，头部 `.panel-h` 标题用宋体。
 - 表单 `.field`（列布局）+ `.input`（`width:100%; padding:9px 12px; border:1px solid var(--border); border-radius:9px`，focus 用墨绿 outline）+ `.alt` 辅助说明。
 - 空状态 `.empty`：虚线描边、居中、`.serif` 标题 + 灰说明。

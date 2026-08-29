@@ -294,3 +294,9 @@ modalAi/modalPrefs 标记与 CSS 在 PR 3/PR 4 已随屏落地（spec-report §6
    防窄窗硬裁（墨晕化）。路径卡副文去「第一句」意象重复，改「落笔即存，
    想到哪写到哪」。待拍板：mark/wordmark 双轨规则（agent 倾向「mark 只存
    于 chrome，内容层纯文字字标」）。
+   【拍板回登 2026-08-29】用户同意品牌 agent 方案 (b)：「爱」方标只存在于
+   系统层（appbar/窗口/安装图标），内容层一律纯文字字标（letter-spacing
+   0.08em）。规则已写入 design-language.html §七 布局骨架与本文件 §3。
+   当前实现全合规；唯一非合规点：S端 AuthPage 授权表单的 brand-row 方标
+   （内容层），留 S端 下一批 UI 收编时去除。design-language §七 全局壳的
+   「/ 无 appbar、Footer 隐藏」过时描述一并按 c-static-home 后现状对齐。
