@@ -80,7 +80,7 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 .btn-lg svg { width: 16px; height: 16px; }
 
 .appbar { height: 48px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
-.logo { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+.logo { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-display); font-size: 16px; font-weight: 600; letter-spacing: 0.08em; }
 .logo-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: var(--surface); display: grid; place-items: center; font-family: var(--font-display); font-size: 14px; }
 .appbar .spacer { flex: 1; }
 
@@ -98,13 +98,14 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 
 /* ─── 变体 A 玄墨：居中仪式感 ────────────────────────────────── */
 .ink-glow { position: absolute; inset: 0; pointer-events: none; }
-.ink-glow::before { content: ""; position: absolute; top: -18%; left: 50%; transform: translateX(-50%); width: 860px; height: 560px; border-radius: 50%; background: radial-gradient(ellipse, color-mix(in oklch, var(--accent) 7%, transparent) 0%, transparent 62%); }
+.ink-glow::before { content: ""; position: absolute; top: -18%; left: 50%; transform: translateX(-50%); width: min(860px, 110vw); height: min(560px, 70vh); border-radius: 50%; background: radial-gradient(ellipse, color-mix(in oklch, var(--accent) 7%, transparent) 0%, transparent 55%); }
 .hero-ink { position: relative; text-align: center; width: 100%; align-self: stretch; display: flex; flex-direction: column; justify-content: space-between; padding: 5vh 24px 7vh; }
 .hero-ink h1 { font-family: var(--font-display); font-size: 56px; font-weight: 600; letter-spacing: 0.08em; line-height: 1.3; margin: 0; }
 .brand-lockup .brand-en { display: inline-flex; align-items: center; gap: 14px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.42em; color: var(--muted); }
 .brand-lockup .brand-en::before, .brand-lockup .brand-en::after { content: ""; width: 30px; height: 1px; background: var(--border); }
-.brand-lockup .brand-cn { font-family: var(--font-display); font-size: 20px; font-weight: 600; letter-spacing: 0.16em; margin-top: 12px; }
-.brand-cn .brand-ver { display: inline-block; margin-left: 10px; font-family: var(--font-mono); font-size: 11px; font-weight: 400; color: var(--muted); background: var(--fg-soft); border-radius: 999px; padding: 1px 9px; vertical-align: 2px; letter-spacing: 0.06em; }
+.brand-lockup .brand-en::after { margin-left: -0.42em; }
+.brand-lockup .brand-cn { font-family: var(--font-display); font-size: 20px; font-weight: 600; letter-spacing: 0.08em; margin-top: 12px; }
+.brand-cn .brand-ver { display: inline-block; margin-left: 10px; font-family: var(--font-mono); font-size: 11px; font-weight: 400; color: var(--muted); background: var(--fg-soft); border-radius: 999px; padding: 1px 9px; vertical-align: 2px; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
 .hero-ink .lead { margin-top: 24px; letter-spacing: 0.02em; }
 .exit-block { display: flex; flex-direction: column; align-items: center; }
 .paths { display: flex; gap: 14px; justify-content: center; }
@@ -207,7 +208,7 @@ body[data-variant="f"] [data-v]:not([data-v~="f"]) { display: none !important; }
         <div class="paths">
           <a class="path pri" href="#login" data-od-id="btn-free-start">
             <b>直接开写</b>
-            <span>建号即写，第一句想到什么就写什么</span>
+            <span>落笔即存，想到哪写到哪</span>
           </a>
           <a class="path" href="#guide" data-od-id="btn-tutorial">
             <b>新手教程</b>

@@ -48,7 +48,7 @@ export default function LandingPage() {
         <div className="paths">
           <Link to="/login" className="path pri" data-od-id="btn-free-start">
             <b>直接开写</b>
-            <span>建号即写，第一句想到什么就写什么</span>
+            <span>落笔即存，想到哪写到哪</span>
           </Link>
           <a
             href={TUTORIAL_URL}

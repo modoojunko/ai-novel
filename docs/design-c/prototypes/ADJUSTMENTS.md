@@ -283,3 +283,14 @@ modalAi/modalPrefs 标记与 CSS 在 PR 3/PR 4 已随屏落地（spec-report §6
    hero 独立爱字图标），已落地 landing.css + LandingPage.tsx；a 转正为 home
    页原型基线，b-f 保留作品牌 agent 迭代参考。新手教程暂指 GitHub 使用说明
    （站内引导流未立项）。
+
+## 品牌评审修订（Brand Guardian，2026-08-29）
+
+6. **品牌字标字距全局统一**：appbar `.logo` 与静态首页 `.brand-cn` 统一
+   `letter-spacing: 0.08em`（原 hero 0.16em 偏散、appbar 无字距，同一资产
+   两种排印）。五份原型 + base.css 六处 `.logo` 同批更新，parity 双侧同步。
+   同批速赢：`.brand-en` 右夹线 `margin-left:-0.42em` 光学居中；`.brand-ver`
+   加 tabular-nums 与 `.num` 同源；`.ink-glow` 改 `min()` 尺寸 + 透明端 55%
+   防窄窗硬裁（墨晕化）。路径卡副文去「第一句」意象重复，改「落笔即存，
+   想到哪写到哪」。待拍板：mark/wordmark 双轨规则（agent 倾向「mark 只存
+   于 chrome，内容层纯文字字标」）。
