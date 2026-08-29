@@ -7,6 +7,7 @@
 import { useState, type RefObject } from "react";
 import type { ProseAIState, ProseHandle } from "./ProsePane";
 import { toast } from "@/lib/toast";
+import { DEFAULT_TARGET } from "@/hooks/useChapterData";
 
 export interface RailChapterData {
   wordCount: number;
@@ -110,7 +111,7 @@ export default function Rail({
 
   const d = data;
   const words = d?.wordCount ?? 0;
-  const target = d?.targetWords ?? 2500;
+  const target = d?.targetWords ?? DEFAULT_TARGET;
   const pct = Math.min(100, Math.round((words / target) * 100));
 
   const commitTarget = () => {

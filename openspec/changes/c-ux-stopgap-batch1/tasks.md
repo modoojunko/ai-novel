@@ -9,6 +9,7 @@
 - [x] 1.5 `App.tsx` 增加兜底路由 `path="*"` → `<Navigate to="/novels" replace />`（验证：tsc 绿；dev 下打开 `#/unknown` 落书架不白屏）——✅
 - [x] 1.6 骨架收编 `.sk`：`list.css` 删 `@keyframes skeleton-pulse` 与 `.bar` 的 bg/animation 声明；`NovelListPage.tsx`、`ApiKeyConfigPage.tsx` 骨架 markup `bar` → `sk bar`（验证：`grep -rn skeleton-pulse src` 零命中）——✅
 - [x] 1.7 计划外小项：`PromptManagementPage.singleCard.test.tsx` 「已保存」徽标断言改 `waitFor`——门禁期间实测存量 flake（交叉实验：干净树 1/5 挂、分支 2/4 挂，与 #224 时代记录一致），加固后 3 连全量绿；非本批功能改动，仅测试加固
+- [x] 1.8 review 跟进（P3）：`DEFAULT_TARGET` 从 `useChapterData` 导出，`Rail.tsx` 兜底改导入复用，消灭 2500 双份字面量（验证：tsc 绿 + vitest 110/110）
 
 ## 2. 门禁回归
 
