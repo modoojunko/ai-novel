@@ -1,11 +1,13 @@
 name: e2e-scheduled
 
-# 功能 e2e 不挂 PR（本地 runbook 见 handoff.md §3）：每 3 小时跑一次，
+# 功能 e2e 不挂 PR（本地 runbook 见 handoff.md §3）：每日跑一次，
 # 且仅当默认分支自上次成功运行后出现新提交（sha 相同即跳过整轮）。
+# 2026-08-29 起：仓库转私有（Actions 免费额度 2000 分钟/月），从每 3 小时降频
+# 至每日一次；主保障改为「改动代码本机先跑全量 e2e」，CI 仅作每日兜底。
 # DESIGN_PARITY 像素比对依赖本地原型资产（gitignored），不在 CI 范围。
 on:
   schedule:
-    - cron: "0 */3 * * *"
+    - cron: "0 19 * * *" # UTC 19:00 = 北京时间次日 03:00
   workflow_dispatch: {} # 手动调试/验证用
 
 concurrency:
