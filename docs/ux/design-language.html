@@ -263,11 +263,14 @@ B. 接受系统宋体为最终观感，把栈改为 Songti SC 打头并在本文
 <div>
 <h4>全局壳</h4>
 <div class="flow">appbar 48px ── surface 底 + 发丝分隔
-   ├ /            → 无 appbar（营销自绘）
+   ├ /            → 标准版 appbar · 未登录变体：无导航/设置，登录 + 免费开始
    ├ /novel/*     → 书版：logo · ←我的小说 · spacer · 设置(BookPrefs)
    └ 其余         → 标准版：logo · 我的作品 · 模型配置 · spacer · 设置(Prefs)
 main 内容宽 min(100%,1080px)，padding 48/32/80
-Footer 在 / 与 /novel/* 隐藏</div>
+Footer 在 /novel/* 隐藏（/ 与其余页显示）
+品牌规则（2026-08-29 拍板）：「爱」方标只存在于系统层——appbar / 窗口 /
+安装图标；内容层（hero lockup、卡片、页脚）一律纯文字字标，宋体
+letter-spacing 0.08em 与 appbar 全局统一</div>
 <h4>工作台</h4>
 <div class="flow">novelbar 44 · modnav 44 · 视图主体
 three-col: [tree 280] [middle 1fr] [rail 236]
