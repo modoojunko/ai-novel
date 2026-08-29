@@ -17,4 +17,4 @@
 
 ## 4. 收尾
 
-- [ ] 4.1 PR 描述附「下次发版自动生效」说明与回滚方式（revert PR / Release 资产重传），合入 main。验证：PR 创建且 CI 打包验证通过。
+- [x] 4.1 PR 描述附「下次发版自动生效」说明与回滚方式（revert PR / Release 资产重传），合入 main。验证：PR 创建且 CI 打包验证通过。（PR #227：双平台打包 + CodeQL 全绿后 --admin squash 合入 9ad09d5）
