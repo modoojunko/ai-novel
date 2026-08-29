@@ -16,7 +16,7 @@
 | 方案 | ✅ 三层契约模型 + 8 处漂移裁决 + 迁移映射表 + 仲裁规则（`cross-end.html`） |
 | 候选组件 | ✅ `uikit/` 七个可搬运实现，语气词表已改齐 info/ok/warn/err |
 | 工作流 | ✅ OpenSpec 双端口径（config.yaml context/rules + design-system 六条 Requirement，validate 20 passed）；`/ux:design-brief <change-id>` 双 harness 命令 |
-| 实施 | 🔶 **S端侧已完成**（2026-08-28 s-ui-alignment，#218/#219：P0 机械批 + P1 语义批 + M1 design:cross 基线）；**C端侧未动工**（P0 #2/#4 部分、#1 的 4 处替换、P1 #1 的 13 胶囊归档、#3 表单错误态启用）；缓收编三项待 C端 同批（见六） |
+| 实施 | 🔶 **S端侧已完成**（2026-08-28 s-ui-alignment，#218/#219：P0 机械批 + P1 语义批 + M1 design:cross 基线）；**C端 止血批/首页/书架三态已完成**（2026-08-29：#226 止血批（P0 #1/#2/#5/#6 + .sk）、#228-#234 静态首页、#237/#238 书架三态）；**C端 剩余**：批次三语义收编（13 胶囊归档 / .notice 补档 / 表单错误态 / 7 处 confirm 收编 / vocab retiredClassRegex）＋ 批次四 P2 令牌与机制；缓收编三项待 C端 同批（见六） |
 
 ✅ 版本管理：docs 设计标准自 **#216**（2026-08-28）起入库，`.gitignore` 收窄为 `docs/design-c/`。本目录改动会被 git 跟踪，**随手提交**；唯一仍在本地的是 design-c 运行资产（parity 原型与比对 PNG）。
 
@@ -64,7 +64,7 @@
 
 ## 六、待办 backlog（按优先级，每条可直接转 openspec change）
 
-> **进度（2026-08-28，s-ui-alignment #218/#219）**：P0/P1 的 **S端侧已全部落地**，M1 基线已建立。剩余账目：① C端侧各项（P0 #1 的 C端 4 处替换、#2 toast.warn、#4 删 skeleton-pulse；P1 #1 的 13 胶囊归档、#2 补 .ok/.err、#3 表单错误态启用）＋ C端 批次启用同一退役禁令（`retiredClassRegex=/^(?:b|strip)$/`，S端 已先行，C端 因自有 .b 存量暂缓）；② **缓收编三项**：`.notice` 基座、`.panel` 家族、`.empty svg/.btn` 动作槽暂在各自本地段（共享段取值会在 C端 新增本地未定义属性引起 parity 漂移，design Risks 预案），C端 批次收编本地定义后移入 @cross 段；③ P2 机制批 M2/M3。改动详情见 `openspec/changes/s-ui-alignment/`（归档后为 archive）。
+> **进度（2026-08-29 更新）**：P0/P1 的 **S端侧已全部落地**（#218/#219），M1 基线已建立；**C端 止血批 #226** 已落地 P0 机械项（--on-accent 替换、toast.warn 三档、.sk 收编删 skeleton-pulse）。剩余账目：① **C端 批次三语义收编**（P1 的 13 胶囊归档、.notice 补 .ok/.err、表单错误态启用，外加 7 处 window.confirm 收编与 vocab 退役禁令 `retiredClassRegex=/^(?:b|strip)$/`，S端 已先行，C端 因自有 .b 存量暂缓）；② **缓收编三项**：`.notice` 基座、`.panel` 家族、`.empty svg/.btn` 动作槽暂在各自本地段（共享段取值会在 C端 新增本地未定义属性引起 parity 漂移，design Risks 预案），C端 批次收编本地定义后移入 @cross 段；③ P2 机制批 M2/M3。改动详情见 `openspec/changes/`（归档后在 archive）。
 
 ### P0 · 机械令牌批（约半天，纯机械）
 
@@ -98,14 +98,15 @@
 ### 独立改进点 · 启动首页与书架改版（2026-08-28 立项，2026-08-29 裁定 v2）
 
 设计稿 `docs/ux/home.html`（四态右下角可切：静态首页 / 回访 / 首启 / 书架满额；默认 = 静态首页）。
-裁定 v2（推翻 v1）：`/` 保持**免登录静态页**（重做为新静态首页）；已登录打开 `/` 自动跳 `/novels`；书架三态（继续创作条 / 首启引导 / 满额锁定墙）全部落 `/novels`。
+裁定 v2（推翻 v1）：`/` 保持**免登录静态页**（重做为新静态首页）；已登录打开 `/` 自动跳 `/novels`；书架三态落 `/novels`。
+**落地终态（2026-08-29，#228-#238 全部收官）**：静态首页与登录分流 ✅；首启三步引导与满额锁定墙 ✅（#237）；`.resume` 继续创作条上线当天即二次裁定裁撤（#238：书架按修改时间倒排即天然「继续」入口，卡片自携状态，勿再实现）。
 
 | # | 动作 | 落点 |
 | --- | --- | --- |
 | 1 | `/` 保留 LandingPage 位置并按 home 态稿重做（免登录可见）；已登录访问 `/` → `<Navigate to="/novels" replace />` | client `src/pages/LandingPage.tsx` ＋ `src/App.tsx` |
 | 2 | Navbar 登录态分支随 home 态稿调整（未登录：登录/免费开始；已登录：现网口径） | client `src/components/Navbar.tsx` |
 | 3 | 升级入口改 S端 portal 直连（去掉 scroll-to-pricing 过渡跳转） | client `src/pages/NovelListPage.tsx:163` |
-| 4 | 书架页新增 `.resume` 继续创作条（`updated_at` 最大者置顶）＋ 首启三步引导空态 ＋ 满额「锁定可见」 | `NovelListPage.tsx` ＋ `base.css` 共享段（`.resume/.welcome` 先 ADJUSTMENTS 登记，双端同批） |
+| 4 | ~~书架页新增 `.resume` 继续创作条~~ ＋ 首启三步引导空态 ＋ 满额「锁定可见」——✅ 后两项已落地（#237）；.resume 二次裁定裁撤（#238，updated_at 倒排替代），设计稿已回写 | `NovelListPage.tsx` ＋ `base.css` 共享段 |
 | 5 | 回归：design:lint ＋ design:check（书架既有基线不波动，新增态为非 parity 对象）＋ tsc ＋ 涉路由 e2e 更新 | 两端门禁 |
 
 验收补两句：免费额度墙必须「锁定可见 + 升级出口」，不允许回到隐藏入口的老路；未登录打开 `/` 必须能看完整静态首页，不得强制跳登录。
@@ -113,7 +114,7 @@
 ## 七、悬而未决（需要用户拍板，别自作主张）
 
 1. ✅ **已解决（#216 + 同日 follow-up）**：docs 已全量入库——ux/archive/prd 等标准层由 #216 收入；design-c 分层管理：`prototypes/`（视觉真值 + ADJUSTMENTS）入库、`baselines/` 比对 PNG 保持本地（可再生）。fresh clone 现在可直接跑 `design:check`。
-2. **授权动 `src/`**：~~P0/P1 都是实现层改动；未授权前只能停在设计工件与登记层~~ → **S端 侧已授权并完成**（s-ui-alignment #218/#219）；C端 侧各项动工前仍需按此拍板。
+2. **授权动 `src/`**：~~P0/P1 都是实现层改动；未授权前只能停在设计工件与登记层~~ → **S端 侧已完成**（s-ui-alignment #218/#219）；**C端 止血批/首页/书架三态也已授权并完成**（#226、#228-#238）。后续 C端 批次三/四动工前照例走 propose 审批。
 3. **design-cross.mjs 落位**：config.yaml/rules 引用的是仓库根 `scripts/design-cross.mjs`；若挪到别处须同步改 config.yaml 两处引用。
 4. **webfont 决策**（audit P2 遗留）：Noto Serif SC 打包子集 or 诚实回退栈，影响打包体积与三端视觉终值。
 5. **S端破坏性操作确认形态**：现网 S端 既无 window.confirm 也无确认组件；spec 要求删除级联用 in-app 弹窗＋inventory，S端首次遇到删除类需求时要按此立组件而不是图省事。
