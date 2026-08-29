@@ -53,6 +53,15 @@
   .btn-sm { height: 28px; padding: 0 12px; font-size: 12.5px; border-radius: 8px; gap: 5px; }
   .btn svg { width: 15px; height: 15px; }
   .btn-sm svg { width: 13px; height: 13px; }
+
+  /* ═══ 更新提示条（client-update-notify）——.notice 家族四条逐字同实现侧 list.css ═══ */
+  .notice { display: flex; align-items: center; gap: 12px; border: 1px solid color-mix(in oklch, var(--warn) 28%, var(--border)); background: var(--warn-soft); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 14px; font-size: 13px; }
+  .notice.info { border-color: color-mix(in oklch, var(--accent) 30%, var(--border)); background: var(--accent-soft); }
+  .notice .nt { flex: 1; }
+  .notice .nt b { font-weight: 500; }
+  .notice .nt span { color: var(--muted); font-size: 12.5px; margin-left: 8px; }
+  .update-strip { width: min(100%, 1080px); margin-inline: auto; padding: 20px 32px 0; }
+  .update-strip .notice { margin-bottom: 0; }
   .icon-btn { width: 30px; height: 30px; display: inline-grid; place-items: center; border-radius: 8px; color: var(--muted); }
   .icon-btn:hover { color: var(--fg); background: var(--fg-soft); }
   .icon-btn svg { width: 15px; height: 15px; }
@@ -140,12 +149,26 @@
     .appbar .nav { margin-left: 0; }
     .appbar .nav a[href="book.html"] { display: none; }
     .main { padding: 32px 16px 64px; }
+    .update-strip { padding: 16px 16px 0; }
     .page-head { flex-direction: column; align-items: flex-start; gap: 16px; margin-bottom: 28px; }
     .page-head .btn { align-self: stretch; }
   }
 </style>
 </head>
 <body>
+
+<!-- ═══ 全局更新提示条（client-update-notify）：所有屏顶端，info 语气，可关闭 ═══ -->
+<div class="update-strip" data-od-id="update-notice-strip">
+  <div class="notice info" data-od-id="update-notice">
+    <span class="nt">
+      <b>发现新版本 v0.13</b>
+      <span>提升章纲 AI 起草的稳定性，修复若干问题</span>
+    </span>
+    <button class="btn btn-secondary btn-sm" data-od-id="update-download">去下载</button>
+    <button class="btn btn-ghost btn-sm" data-od-id="update-notes">查看更新内容</button>
+    <button class="btn btn-ghost btn-sm" data-od-id="update-dismiss">知道了</button>
+  </div>
+</div>
 
 <header class="appbar" data-od-id="appbar">
   <a class="logo" href="index.html"><span class="logo-mark">爱</span>爱小说</a>

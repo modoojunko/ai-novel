@@ -24,6 +24,7 @@ import path from "path";
 import { test, expect, type Page } from "@playwright/test";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
+import { stubUpdateNotice } from "./helpers";
 
 const PROTO_FILE = path.resolve(process.cwd(), "../../docs/design-c/prototypes/book.html");
 const BASELINE_DIR = path.resolve(process.cwd(), "../../docs/design-c/baselines");
@@ -290,6 +291,8 @@ test.describe("design-parity 书工作台屏（book.html）", () => {
       });
       const appPage = await appCtx.newPage();
       stubBookAPI(appPage, c.pro, c.screen === "volume");
+      // 原型常显更新提示条（ADJUSTMENTS #15）→ 应用侧同文案打桩（沉浸全宽变体）
+      await stubUpdateNotice(appPage, "update");
       await appPage.goto(`/#/novel/${PID}`);
       await appPage.waitForSelector(".chtab", { timeout: 10000 });
       if (c.screen === "volume") {

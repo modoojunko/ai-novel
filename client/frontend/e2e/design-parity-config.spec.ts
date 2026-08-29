@@ -8,6 +8,7 @@ import path from "path";
 import { test, expect } from "@playwright/test";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
+import { stubUpdateNotice } from "./helpers";
 
 const PROTO_FILE = path.resolve(process.cwd(), "../../docs/design-c/prototypes/model-config.html");
 const BASELINE_DIR = path.resolve(process.cwd(), "../../docs/design-c/baselines");
@@ -103,6 +104,8 @@ test.describe("design-parity 模型配置屏（model-config.html）", () => {
       );
       await appPage.route("**/api/auth/check-auth", (r) => r.fulfill({ json: { code: 1 } }));
       await appPage.route("**/api/v1/api-configs", (r) => r.fulfill({ json: configs }));
+      // model-config.html 原型无更新提示条 → 打桩无更新，应用侧不得渲染
+      await stubUpdateNotice(appPage, "none");
       await appPage.goto("/#/config");
       await appPage.waitForLoadState("networkidle");
       await appPage.evaluate(() => document.fonts.ready);

@@ -14,6 +14,7 @@ import path from "path";
 import { test, expect } from "@playwright/test";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
+import { stubUpdateNotice } from "./helpers";
 
 // process.cwd() = client/frontend（playwright 运行目录，与既有 spec 一致；type:module 下无 __dirname）
 const PROTO_FILE = path.resolve(process.cwd(), "../../docs/design-c/prototypes/list.html");
@@ -118,6 +119,8 @@ test.describe("design-parity 书架屏（list.html）", () => {
       const appPage = await appCtx.newPage();
       const novels = c.state === "books" ? FIXED_NOVELS() : [];
       await appPage.route("**/api/novels", (r) => r.fulfill({ json: novels }));
+      // 原型常显更新提示条（ADJUSTMENTS #15）→ 应用侧同文案打桩，保持像素基线
+      await stubUpdateNotice(appPage, "update");
       await appPage.route("**/api/auth/verify", (r) => r.fulfill({ json: MEMBER_VERIFY }));
       await appPage.route("**/api/auth/config", (r) =>
         r.fulfill({ json: { has_api_key: true, portal_url: "" } })

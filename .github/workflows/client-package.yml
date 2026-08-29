@@ -58,23 +58,37 @@ jobs:
           npm ci
           npm run build
 
-      # ── 发布期注入：把线上 S端 域名写成 release.json，随 datas 烘进安装包 ──
-      # 换域名只改仓库 Variables：CLIENT_SERVER_API_BASE / CLIENT_SERVER_API_FALLBACK；
-      # 未配置 Variable（含 fork PR 场景）回落到云托管直连——开箱可用、与营销域名解耦。
+      # ── 发布期注入：S端 域名 + 客户端版本 + 更新检测地址，写成 release.json 随 datas 烘进安装包 ──
+      # 换域名只改仓库 Variables：CLIENT_SERVER_API_BASE / CLIENT_SERVER_API_FALLBACK /
+      # CLIENT_DOWNLOAD_BASE / CLIENT_DOWNLOAD_BASE_FALLBACK；
+      # 未配置 Variable（含 fork PR 场景）回落默认值——开箱可用、与营销域名解耦。
       # 运行时优先级：用户 config.json / 环境变量 > 包内 release.json（见 pywebview_app.start_server）。
-      - name: Generate release.json (bake S端 endpoints)
+      # client_version：tag 构建写去 v 前缀真实版本；PR/手动构建写 dev（应用侧跳过更新检测）。
+      - name: Generate release.json (bake S端 endpoints + version + update urls)
         working-directory: client/packaging/build
         shell: bash
         env:
           RELEASE_SERVER_API_BASE: ${{ vars.CLIENT_SERVER_API_BASE || 'https://novel-s-server-297265-7-1468883265.sh.run.tcloudbase.com/api' }}
           RELEASE_SERVER_API_FALLBACK: ${{ vars.CLIENT_SERVER_API_FALLBACK || 'https://novel-s-server-297265-7-1468883265.sh.run.tcloudbase.com/api' }}
+          RELEASE_DOWNLOAD_BASE: ${{ vars.CLIENT_DOWNLOAD_BASE || 'https://www.awesomenovel.com/download' }}
+          RELEASE_DOWNLOAD_FALLBACK_BASE: ${{ vars.CLIENT_DOWNLOAD_BASE_FALLBACK || 'https://ai-novel-test-d1ghsr86ra814c12c-1468883265.tcloudbaseapp.com/download' }}
         run: |
-          python - <<'PY'
-          import json, os
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            CLIENT_VERSION="$(printf '%s' "${GITHUB_REF_NAME#v}" | tr -c 'A-Za-z0-9._-' '-')"
+          else
+            CLIENT_VERSION="dev"
+          fi
+          python - "$CLIENT_VERSION" <<'PY'
+          import json, os, sys
           cfg = {
               "server_api_base": os.environ["RELEASE_SERVER_API_BASE"],
               "server_api_fallback": os.environ["RELEASE_SERVER_API_FALLBACK"],
+              "client_version": sys.argv[1],
+              "client_update_url": os.environ["RELEASE_DOWNLOAD_BASE"].rstrip("/") + "/latest.json",
+              "client_update_url_fallback": os.environ["RELEASE_DOWNLOAD_FALLBACK_BASE"].rstrip("/") + "/latest.json",
           }
+          for k in ("server_api_base", "client_update_url", "client_update_url_fallback"):
+              assert str(cfg[k]).startswith("https://"), (k, cfg[k])
           with open("release.json", "w", encoding="utf-8") as f:
               json.dump(cfg, f, ensure_ascii=False, indent=2)
           print(json.dumps(cfg, ensure_ascii=False))
@@ -102,7 +116,15 @@ jobs:
             echo "::error::release.json 未打进安装包——检查 build.spec datas 条件与生成步骤"
             exit 1
           fi
-          python -c "import json,sys; d=json.load(open(sys.argv[1],encoding='utf-8')); assert str(d.get('server_api_base','')).startswith('https://'), d; print('baked:', sys.argv[1], '->', d['server_api_base'])" "$F"
+          python -c "
+          import json, sys
+          d = json.load(open(sys.argv[1], encoding='utf-8'))
+          assert str(d.get('server_api_base', '')).startswith('https://'), d
+          assert str(d.get('client_version', '')).strip(), d
+          assert str(d.get('client_update_url', '')).startswith('https://'), d
+          assert str(d.get('client_update_url_fallback', '')).startswith('https://'), d
+          print('baked:', sys.argv[1], '->', d['client_version'], d['client_update_url'])
+          " "$F"
 
       # 冒烟：跑真实产物（--smoke 无头模式，不起 GUI），轮询 /api/health + 断言前端被服务。
       # 不跑这步，缺失 datas/hiddenimport 的坏包照样绿（历史上漏过 prompts/env.js）。
@@ -245,14 +267,16 @@ jobs:
             macOS 首次打开若提示"无法验证开发者"：右键 App → 「打开」，再确认一次即可。
             Windows 若出现 SmartScreen 提示：点「更多信息」→「仍要运行」。
             发布后请到 Pull requests 合入自动开出的「落地页版本号」更新 PR，官网下载入口才会指向本版本。
-      # ── 国内分发：转存安装包到静态托管 + 更新 latest.json ──
+      # ── 国内分发：转存安装包到静态托管 + 更新 latest.json + 生成版本更新说明页 ──
       # www 根路径路由指向静态托管（/api 才是云托管），上传后 www/download/… 即可直接下载。
-      # 版本化路径只增不改，CDN 长缓存安全；latest.json 是落地页下载弹窗的版本事实源。
+      # 版本化路径只增不改，CDN 长缓存安全；latest.json 是落地页下载弹窗与 C端 更新检测
+      # 共同的唯一版本事实源；notes.html 是该版本的更新说明页（C端 提示条「查看更新内容」直达）。
       # 任一校验失败即流水线标红，不静默。
       - name: Publish to static hosting (CN CDN)
         env:
           TCB_API_KEY: ${{ secrets.TCB_API_KEY }}
           TCB_ENV_ID: ${{ vars.TCB_ENV_ID }}
+          RELEASE_DOWNLOAD_BASE: ${{ vars.CLIENT_DOWNLOAD_BASE || 'https://www.awesomenovel.com/download' }}
         run: |
           VER="${GITHUB_REF_NAME#v}"
           EXE="$(find artifacts -name 'AI_Novel_Setup_*.exe' -print -quit)"
@@ -262,7 +286,81 @@ jobs:
           tcb login --cloudbase-api-key "$TCB_API_KEY" -e "$TCB_ENV_ID"
           tcb hosting deploy "$EXE" "download/v$VER/$(basename "$EXE")" -e "$TCB_ENV_ID"
           tcb hosting deploy "$DMG" "download/v$VER/$(basename "$DMG")" -e "$TCB_ENV_ID"
-          printf '{"version":"%s"}\n' "$VER" > latest.json
+          # ── 更新说明内容三级回退：tag 附注 → 上一版以来提交摘要 → 通用兜底 ──
+          NOTES_FROM_TAG=0
+          NOTES_FULL="$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME" 2>/dev/null || true)"
+          [ -n "$NOTES_FULL" ] && NOTES_FROM_TAG=1
+          if [ -z "$NOTES_FULL" ]; then
+            PREV="$(git describe --abbrev=0 --tags "${GITHUB_REF_NAME}^" 2>/dev/null || true)"
+            if [ -n "$PREV" ]; then
+              NOTES_FULL="$(git log --oneline "$PREV..$GITHUB_REF_NAME" 2>/dev/null | head -30 || true)"
+            fi
+          fi
+          [ -z "$NOTES_FULL" ] && NOTES_FULL="问题修复与体验优化"
+          export NOTES_BASE="$RELEASE_DOWNLOAD_BASE" NOTES_FULL NOTES_VER="$VER" NOTES_FROM_TAG
+          python - <<'PY'
+          import html, json, os, textwrap
+          ver = os.environ["NOTES_VER"]
+          base = os.environ["NOTES_BASE"].rstrip("/")
+          full = os.environ["NOTES_FULL"].strip()
+          lines = [ln.strip() for ln in full.splitlines() if ln.strip()]
+          first = lines[0] if lines else ""
+          # latest.json：version 必写；notes 仅当内容来自 tag 附注时取首行写入（回退内容不进摘要键）
+          latest = {"version": ver}
+          if os.environ["NOTES_FROM_TAG"] == "1" and first:
+              latest["notes"] = first
+          with open("latest.json", "w", encoding="utf-8") as f:
+              json.dump(latest, f, ensure_ascii=False)
+          # notes.html：版本号 + 更新内容（全文，多行保留）+ 双平台版本化直链 + 回首页
+          body = html.escape(full).replace("\n", "<br>")
+          # notes.html 生成：HTML 整体缩进 + dedent，保证 YAML 块标量缩进完整
+          page = textwrap.dedent(f"""\
+              <!DOCTYPE html>
+              <html lang="zh-CN">
+              <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>爱小说 v{ver} 更新说明</title>
+              <style>
+                :root {{ color-scheme: light; }}
+                * {{ box-sizing: border-box; }}
+                body {{ margin: 0; background: #f7f8f7; color: #1c1e21;
+                       font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+                       line-height: 1.7; }}
+                main {{ max-width: 680px; margin: 0 auto; padding: 48px 24px 64px; }}
+                h1 {{ font-size: 22px; margin: 0 0 4px; }}
+                h1 span {{ color: #5b6b66; font-weight: 500; font-size: 16px; margin-left: 8px; }}
+                .notes {{ background: #fff; border: 1px solid #e4e7e5; border-radius: 12px;
+                          padding: 20px 24px; margin: 24px 0; font-size: 14.5px; }}
+                h2 {{ font-size: 15px; margin: 0 0 12px; }}
+                .dl a {{ display: block; background: #fff; border: 1px solid #e4e7e5; border-radius: 10px;
+                         padding: 12px 18px; margin-bottom: 10px; text-decoration: none; color: #1c1e21;
+                         font-size: 14.5px; }}
+                .dl a:hover {{ border-color: #9fb8b1; }}
+                .dl small {{ color: #6b7370; margin-left: 6px; }}
+                .home {{ margin-top: 28px; }}
+                .home a {{ color: #2f6f61; }}
+              </style>
+              </head>
+              <body>
+              <main>
+                <h1>爱小说 <span>v{ver}</span> 更新说明</h1>
+                <div class="notes">{body}</div>
+                <section class="dl">
+                  <h2>下载本版本</h2>
+                  <a href="{base}/v{ver}/AI_Novel_Setup_v{ver}.exe">Windows 安装包<small>exe</small></a>
+                  <a href="{base}/v{ver}/AI_Novel_mac_v{ver}.dmg">macOS 安装包<small>dmg</small></a>
+                </section>
+                <p class="home"><a href="https://www.awesomenovel.com/">回到官网首页</a></p>
+              </main>
+              </body>
+              </html>
+              """)
+          with open("notes.html", "w", encoding="utf-8") as f:
+              f.write(page)
+          print("latest.json:", json.dumps(latest, ensure_ascii=False))
+          PY
+          tcb hosting deploy ./notes.html "download/v$VER/notes.html" -e "$TCB_ENV_ID"
           tcb hosting deploy ./latest.json "download/latest.json" -e "$TCB_ENV_ID"
           # 校验：www 直链 HEAD 200 且 content-length 与本地一致；latest.json 内容断言
           check() {
@@ -275,6 +373,12 @@ jobs:
           }
           check "https://www.awesomenovel.com/download/v$VER/$(basename "$EXE")" "$(stat -c%s "$EXE")" || exit 1
           check "https://www.awesomenovel.com/download/v$VER/$(basename "$DMG")" "$(stat -c%s "$DMG")" || exit 1
-          [ "$(curl -sf https://www.awesomenovel.com/download/latest.json)" = "{\"version\":\"$VER\"}" ] \
-            || { echo "::error::latest.json 内容不符"; exit 1; }
-          echo "CN CDN 发布完成：download/v$VER/ + latest.json"
+          check "https://www.awesomenovel.com/download/v$VER/notes.html" "$(stat -c%s notes.html)" || exit 1
+          EXPECTED="$(python -c "import json;print(json.dumps(json.load(open('latest.json',encoding='utf-8')),ensure_ascii=False,separators=(',',':')))")"
+          for i in 1 2 3 4 5 6; do
+            GOT="$(curl -sf https://www.awesomenovel.com/download/latest.json | python -c "import json,sys;print(json.dumps(json.load(sys.stdin),ensure_ascii=False,separators=(',',':')))" 2>/dev/null || true)"
+            [ "$GOT" = "$EXPECTED" ] && break
+            sleep 5
+          done
+          [ "$GOT" = "$EXPECTED" ] || { echo "::error::latest.json 内容不符（期望 $EXPECTED，实得 ${GOT:-空}）"; exit 1; }
+          echo "CN CDN 发布完成：download/v$VER/（安装包 + notes.html）+ latest.json"

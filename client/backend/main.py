@@ -35,6 +35,7 @@ from story.arc_wizard import router as story_arc_wizard_router
 from story.router import router as story_router
 from workflow.router import backfill_router as workflow_backfill_router
 from workflow.router import router as workflow_router
+from update_check import router as update_check_router
 from write.router import router as write_router
 
 
@@ -380,6 +381,9 @@ app.add_middleware(
 
 # License 验证路由
 app.include_router(auth_local_router, prefix="/api/auth", tags=["auth"])
+
+# 版本自报与更新检测（client-update-notify）
+app.include_router(update_check_router)
 
 # 业务路由
 app.include_router(ai_router)

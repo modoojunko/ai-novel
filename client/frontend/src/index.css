@@ -38,3 +38,26 @@ body,
 .page-enter {
   animation: page-fade-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+/* ── 全局更新提示条（client-update-notify，ClientShell 顶端）──
+   布局两版同原型：书架等居中内容栏（list.html 1080px）/ 工作台沉浸全宽贴边
+   （book.html，appbar 口径 12px 16px 0）。.notice 家族样式在 design/list.css，
+   此处只管挂载定位。 */
+.update-strip {
+  width: min(100%, 1080px);
+  margin-inline: auto;
+  padding: 20px 32px 0;
+}
+.update-strip--imm {
+  width: auto;
+  margin-inline: 0;
+  padding: 12px 16px 0;
+}
+.update-strip .notice {
+  margin-bottom: 0;
+}
+@media (max-width: 768px) {
+  .update-strip {
+    padding: 16px 16px 0;
+  }
+}

@@ -232,3 +232,29 @@ modalAi/modalPrefs 标记与 CSS 在 PR 3/PR 4 已随屏落地（spec-report §6
     卷未配置时不渲染），数据源 = 卷纲 §三 卷级字段 + §七章节规划行按章号对齐。
     属功能增强而非视觉复刻，原型不补元素；parity 章工作台 case 用 gapless 桩
     保持与原型一致（volume case 卷纲面板字段保留）。
+
+15. **全局更新提示条新增（client-update-notify，PR 首任务原型先行）**
+    list.html / book.html 在 appbar 之上新增 update-strip 全局层：.notice info
+    语气（家族四条样式逐字同实现侧 list.css——原型本自不含该家族，需自含拷贝）
+    + 既有 btn 词汇（secondary 主按钮「去下载」、ghost「查看更新内容」与关闭
+    「知道了」沿用 MigrationBanner 先例词）。布局分两版：书架随内容栏
+    min(100%,1080px) 居中（上距 20px），工作台全宽贴边（padding 12px 16px 0，
+    appbar 口径）。无新增共享段类；update-strip 为业务层作用域。
+    parity 口径：design-parity 书架屏 spec 需同步打桩 /api/update-check
+    返回 v0.13 + 摘要「提升章纲 AI 起草的稳定性，修复若干问题」（与原型字面量
+    一致），否则常显提示条将破坏像素基线；无更新场景基线不变（实现侧条件渲染）。
+
+---
+
+## 规范治理（2026-08-29，ux 标准层对齐）
+
+1. **权威声明分层化**：`prototypes/CLAUDE.md` 从「全站唯一权威规范」降为**原型层规范**（token 逐字值 / 组件类尺寸 / 页面清单 / 避坑）；标准层权威归属 `docs/ux/design-language.html`（裁决见 `cross-end.html`），两层冲突时以标准层为准并回登本簿。`docs/ux/README.md` 分工节同步改为三层并指向本文件。
+2. **六份规范块 token 对齐**：ux 五份文档（design-language / home / components / cross-end / audit）与 `prototypes/CLAUDE.md` §2 的 `:root` 逐字一致（23 个令牌）——补齐 `--font-display` 的 `'Iowan Old Style'`（4 份缺）、`--on-accent`（3 份缺）、`--shadow-pop`（3 份缺）。原型 HTML 未动（`--on-accent`/`--shadow-pop` 属实现层令牌，CLAUDE.md 注明不要求原型包含）。
+3. **徽标命名迁移口径**：CLAUDE.md §3 注明 `.b`/`.badge` 为原型现状，实现层按 ux 标准 §6.2 收敛为 `.pill-*` 四角色；改名须先登记后一次完成，禁止两套类名长期并存。
+
+同批顺带核出（未动，待原登记流程处理）：design-c/prototypes 新稿存在 3 处死控件（`.ai-fill`「AI 帮我填」、list `#btnImport`、model-config `#btnPrefs`——渲染有样式无行为）与 `.row-3 { repeat(3, 1fr) }` 裸 input 移动端溢出（§7.1 同款坑）；新 UI 的 `data-od-id` 仅 +1，设定 7 面板 / 卷纲 4 子表 / 章纲全字段暂进不了 parity 截图比对。
+
+    追记（同 PR）：book.html 本地 `.btn-sm` padding 0 11px 为历史孤本漂移
+    （list.html 与实现侧 base.css 均为 0 12px）——更新提示条三按钮累计
+    6px 错位致 parity 超阈，对齐为 0 12px 收敛；book.html 其余 sm 按钮
+    （novelbar 升级等）宽度 +2px，各 parity 场景复核通过。
