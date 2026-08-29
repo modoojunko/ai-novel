@@ -24,7 +24,7 @@
 @keyframes fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .welcome { position: relative; flex: 1; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; padding: 5vh 24px 7vh; overflow: hidden; }
 .welcome .ink-glow { position: absolute; inset: 0; pointer-events: none; }
-.welcome .ink-glow::before { content: ""; position: absolute; top: -18%; left: 50%; transform: translateX(-50%); width: 860px; height: 560px; border-radius: 50%; background: radial-gradient(ellipse, color-mix(in oklch, var(--accent) 7%, transparent) 0%, transparent 62%); }
+.welcome .ink-glow::before { content: ""; position: absolute; top: -18%; left: 50%; transform: translateX(-50%); width: min(860px, 110vw); height: min(560px, 70vh); border-radius: 50%; background: radial-gradient(ellipse, color-mix(in oklch, var(--accent) 7%, transparent) 0%, transparent 55%); }
 .welcome > * { position: relative; }
 .welcome .fx { animation: fade-up 0.55s ease both; }
 .welcome .fx-1 { animation-delay: 0.05s; }
@@ -32,8 +32,9 @@
 .welcome .fx-3 { animation-delay: 0.23s; }
 .brand-lockup .brand-en { display: inline-flex; align-items: center; gap: 14px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.42em; color: var(--muted); }
 .brand-lockup .brand-en::before, .brand-lockup .brand-en::after { content: ""; width: 30px; height: 1px; background: var(--border); }
-.brand-lockup .brand-cn { font-family: var(--font-display); font-size: 20px; font-weight: 600; letter-spacing: 0.16em; margin-top: 12px; }
-.brand-cn .brand-ver { display: inline-block; margin-left: 10px; font-family: var(--font-mono); font-size: 11px; font-weight: 400; color: var(--muted); background: var(--fg-soft); border-radius: 999px; padding: 1px 9px; vertical-align: 2px; letter-spacing: 0.06em; }
+.brand-lockup .brand-en::after { margin-left: -0.42em; }
+.brand-lockup .brand-cn { font-family: var(--font-display); font-size: 20px; font-weight: 600; letter-spacing: 0.08em; margin-top: 12px; }
+.brand-cn .brand-ver { display: inline-block; margin-left: 10px; font-family: var(--font-mono); font-size: 11px; font-weight: 400; color: var(--muted); background: var(--fg-soft); border-radius: 999px; padding: 1px 9px; vertical-align: 2px; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
 .welcome h1 { font-family: var(--font-display); font-size: 56px; font-weight: 600; letter-spacing: 0.08em; line-height: 1.3; margin: 0; }
 .welcome h1 .ai { color: var(--accent-strong); }
 .welcome .lead { font-size: 13.5px; color: var(--muted); margin: 24px 0 0; letter-spacing: 0.02em; }
