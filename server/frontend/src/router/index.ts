@@ -23,6 +23,12 @@ const routes = [
         meta: { guestOnly: true },
         component: () => import('@/views/RegisterPage.vue'),
       },
+      {
+        path: 'support',
+        name: 'support',
+        // 客服页对未登录访客开放（要退款的用户可能已退出登录），不设 guestOnly
+        component: () => import('@/views/SupportPage.vue'),
+      },
     ],
   },
   {

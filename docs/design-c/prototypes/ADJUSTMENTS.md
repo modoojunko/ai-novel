@@ -319,3 +319,10 @@ modalAi/modalPrefs 标记与 CSS 在 PR 3/PR 4 已随屏落地（spec-report §6
    同步移除 .resume；书架网格显式按 updated_at 降序（最近有进展的排前面）；
    满额 notice + 锁定主按钮 + 升级锁卡保留。原型 resumeSlot/ainovel.member
    注入约定中 member 语义不变。
+
+## 客服外跳入口（contact-support-page，2026-08-29）
+
+8. **list.html / book.html appbar 加「联系客服」**：设置按钮旁新增
+   `btn btn-ghost btn-sm` 同规格锚点按钮，原型内 href="#" 占位（落地实现为
+   `<portal_url>/support` 外跳，target=_blank 新窗口）。按钮原样落地，预期
+   零偏差（无新组件词汇、无档位变更）。未登录形态不加（官网落地页页脚覆盖）。

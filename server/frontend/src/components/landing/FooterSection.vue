@@ -7,6 +7,7 @@ import SiteBeianBar from '@/components/site/SiteBeianBar.vue'
     <div class="mkt-foot-in">
       <a href="https://shop.taobao.com" target="_blank" rel="noopener">淘宝店铺</a>
       <a href="https://github.com/modoojunko/ai-novel" target="_blank" rel="noopener">GitHub</a>
+      <router-link to="/support">联系客服</router-link>
       <router-link to="/login">控制台登录</router-link>
     </div>
     <p class="foot-tag serif">

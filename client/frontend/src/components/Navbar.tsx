@@ -1,17 +1,41 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { isLoggedIn } from "../lib/auth";
+import { fetchPortalUrl, isSafeExternalUrl } from "../lib/portal";
 import PrefsModal from "../components/PrefsModal";
 import BookPrefsModal from "../components/novel/BookPrefsModal";
 import { Ico, P } from "../components/icons";
 
-/** 顶栏（list.html appbar 原样）：logo + 导航 + spacer + 设置。 */
+/** S端 客服页外跳地址：portal_url 去尾斜杠拼 /support；取不到则按钮不渲染（不出死链）。 */
+async function supportUrl(): Promise<string> {
+  const portal = (await fetchPortalUrl()).replace(/\/+$/, "");
+  const url = portal ? `${portal}/support` : "";
+  return isSafeExternalUrl(url) ? url : "";
+}
+
+/** 客服外跳按钮（list.html/book.html appbar 原样）：锚点 target=_blank，
+ * pywebview cocoa 只认锚点不认编程式 window.open。 */
+function SupportLink({ url }: { url: string }) {
+  return (
+    <a className="btn btn-ghost btn-sm" href={url} target="_blank" rel="noreferrer">
+      联系客服
+    </a>
+  );
+}
+
+/** 顶栏（list.html appbar 原样）：logo + 导航 + spacer + 联系客服 + 设置。 */
 export default function Navbar() {
   const location = useLocation();
   const loggedIn = isLoggedIn();
   const [showPrefs, setShowPrefs] = useState(false);
+  const [support, setSupport] = useState("");
 
-  // 书工作台变体（book.html）：logo + 分隔线 + 返回我的小说 + 设置，无导航/登录。
+  useEffect(() => {
+    if (!loggedIn) return;
+    supportUrl().then(setSupport);
+  }, [loggedIn]);
+
+  // 书工作台变体（book.html）：logo + 分隔线 + 返回我的小说 + 联系客服 + 设置，无导航/登录。
   // PR 5：设置 = 本书偏好（字号/行距 per-book + 归档 AI 摘要），全局偏好仍在书架态。
   if (location.pathname.startsWith("/novel/")) {
     const m = location.pathname.match(/^\/novel\/([^/]+)/);
@@ -27,6 +51,7 @@ export default function Navbar() {
           我的小说
         </Link>
         <span className="spacer" />
+        {support && <SupportLink url={support} />}
         <button className="btn btn-ghost btn-sm" onClick={() => setShowPrefs(true)}>
           设置
         </button>
@@ -71,6 +96,7 @@ export default function Navbar() {
       )}
       {loggedIn && (
         <>
+          {support && <SupportLink url={support} />}
           <button className="btn btn-ghost btn-sm" onClick={() => setShowPrefs(true)}>
             设置
           </button>
