@@ -55,7 +55,8 @@ describe("概览：整章单卡", () => {
     render(<PromptManagementPage projectId="p1" chapterRef="vol-1-ch-1" />);
     await waitFor(() => expect(screen.getByTestId("pm-write-row")).toBeTruthy());
     expect(screen.getByText("整章写作提示词")).toBeTruthy();
-    expect(screen.getByText("已保存")).toBeTruthy();
+    // 徽标由 request 回包异步翻转，不能假设与行同帧就绪（全量并发下偶发挂）
+    await waitFor(() => expect(screen.getByText("已保存")).toBeTruthy());
     // 分段链路退役：不渲染段落数/分段行/生成按钮
     expect(screen.queryByText("生成段落提示词")).toBeNull();
     expect(screen.queryByText(/段/)).toBeNull();

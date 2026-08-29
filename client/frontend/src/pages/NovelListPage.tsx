@@ -247,9 +247,9 @@ function NovelList() {
         <div className="cards">
           {[1, 2, 3].map((i) => (
             <div key={i} className="card-skeleton">
-              <div className="bar w40" />
-              <div className="bar w90" />
-              <div className="bar w70" />
+              <div className="sk bar w40" />
+              <div className="sk bar w90" />
+              <div className="sk bar w70" />
             </div>
           ))}
         </div>

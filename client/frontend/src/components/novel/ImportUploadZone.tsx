@@ -100,7 +100,7 @@ export default function ImportUploadZone({
         ← 返回选择
       </button>
 
-      <h3 className="font-bold font-serif text-lg">导入已有稿子</h3>
+      <h3 className="font-bold text-lg">导入已有稿子</h3>
       <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
         支持 .txt、.md、.docx 格式，单文件不超过 10MB。
       </p>

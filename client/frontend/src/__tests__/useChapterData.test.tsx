@@ -285,7 +285,7 @@ describe("目标字数与归档", () => {
   it("目标字数持久化到 localStorage 并实时更新进度口径", async () => {
     apiState.get.mockResolvedValue({ ...CHAPTER });
     const { result } = await mountHook();
-    expect(result.current.targetWords).toBe(2000);
+    expect(result.current.targetWords).toBe(2500);
 
     act(() => result.current.setTargetWords(5000));
     expect(result.current.targetWords).toBe(5000);

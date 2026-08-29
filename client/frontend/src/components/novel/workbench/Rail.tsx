@@ -110,7 +110,7 @@ export default function Rail({
 
   const d = data;
   const words = d?.wordCount ?? 0;
-  const target = d?.targetWords ?? 2000;
+  const target = d?.targetWords ?? 2500;
   const pct = Math.min(100, Math.round((words / target) * 100));
 
   const commitTarget = () => {

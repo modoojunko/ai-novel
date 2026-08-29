@@ -28,7 +28,7 @@ const paneStyle: React.CSSProperties = {
   fontSize: 14,
   lineHeight: 1.9,
   whiteSpace: "pre-wrap",
-  fontFamily: "var(--font-serif)",
+  fontFamily: "var(--font-display)",
 };
 
 const labelStyle: React.CSSProperties = {
