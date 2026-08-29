@@ -17,13 +17,35 @@
 .btn-lg svg { width: 16px; height: 16px; }
 .btn-block { width: 100%; }
 
-/* ─── 静态首页（welcome 入口卡；设计源 docs/ux/home.html home 态）──
-   用户已下载安装、知道这是什么的——不做产品介绍，只给登录/建号入口。
+/* ─── 静态首页（玄墨三段式；转正自 prototypes/home.html 变体 a）──
+   品牌 lockup 居上 / slogan 居中 / 行动路径居下，靠留白分段不靠线。
+   用户已下载安装、知道这是什么的——不做产品介绍，只给登录/开写入口。
    C端 私有类：S端 无此页，落本地段不进 @cross 共享段。 */
-.welcome { max-width: 560px; margin: 104px auto 0; text-align: center; }
-.welcome .mark { margin-bottom: 18px; }
-.welcome h2 { font-family: var(--font-display); font-size: 28px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
-.welcome .lead { font-size: 13.5px; color: var(--muted); margin: 12px 0 0; line-height: 1.7; }
-.welcome .cta { display: flex; justify-content: center; gap: 12px; margin-top: 26px; }
-.welcome .cta .btn { height: 40px; padding: 0 22px; font-size: 14px; }
-.welcome .note { font-size: 12px; color: var(--muted); margin: 14px 0 0; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.welcome { position: relative; flex: 1; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; padding: 5vh 24px 7vh; overflow: hidden; }
+.welcome .ink-glow { position: absolute; inset: 0; pointer-events: none; }
+.welcome .ink-glow::before { content: ""; position: absolute; top: -18%; left: 50%; transform: translateX(-50%); width: 860px; height: 560px; border-radius: 50%; background: radial-gradient(ellipse, color-mix(in oklch, var(--accent) 7%, transparent) 0%, transparent 62%); }
+.welcome > * { position: relative; }
+.welcome .fx { animation: fade-up 0.55s ease both; }
+.welcome .fx-1 { animation-delay: 0.05s; }
+.welcome .fx-2 { animation-delay: 0.14s; }
+.welcome .fx-3 { animation-delay: 0.23s; }
+.brand-lockup .brand-en { display: inline-flex; align-items: center; gap: 14px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.42em; color: var(--muted); }
+.brand-lockup .brand-en::before, .brand-lockup .brand-en::after { content: ""; width: 30px; height: 1px; background: var(--border); }
+.brand-lockup .brand-cn { font-family: var(--font-display); font-size: 20px; font-weight: 600; letter-spacing: 0.16em; margin-top: 12px; }
+.brand-cn .brand-ver { display: inline-block; margin-left: 10px; font-family: var(--font-mono); font-size: 11px; font-weight: 400; color: var(--muted); background: var(--fg-soft); border-radius: 999px; padding: 1px 9px; vertical-align: 2px; letter-spacing: 0.06em; }
+.welcome h1 { font-family: var(--font-display); font-size: 56px; font-weight: 600; letter-spacing: 0.08em; line-height: 1.3; margin: 0; }
+.welcome h1 .ai { color: var(--accent-strong); }
+.welcome .lead { font-size: 13.5px; color: var(--muted); margin: 24px 0 0; letter-spacing: 0.02em; }
+.exit-block { display: flex; flex-direction: column; align-items: center; }
+.paths { display: flex; gap: 14px; justify-content: center; }
+.path { display: block; width: 252px; padding: 15px 18px; text-align: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+.path:hover { border-color: color-mix(in oklch, var(--accent) 45%, var(--border)); box-shadow: var(--shadow-card); }
+.path:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.path b { display: block; font-size: 14.5px; font-weight: 600; }
+.path span { display: block; font-size: 12px; color: var(--muted); margin-top: 4px; }
+.path.pri { border-color: color-mix(in oklch, var(--accent) 45%, var(--border)); }
+.path.pri b { color: var(--accent-strong); }
+.signin { font-size: 12.5px; color: var(--muted); margin: 18px 0 0; }
+.signin a { color: var(--fg); text-decoration: underline; text-underline-offset: 3px; }
+.welcome .note { font-size: 12px; color: var(--muted); margin: 10px 0 0; }
