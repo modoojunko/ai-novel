@@ -300,3 +300,17 @@ modalAi/modalPrefs 标记与 CSS 在 PR 3/PR 4 已随屏落地（spec-report §6
    当前实现全合规；唯一非合规点：S端 AuthPage 授权表单的 brand-row 方标
    （内容层），留 S端 下一批 UI 收编时去除。design-language §七 全局壳的
    「/ 无 appbar、Footer 隐藏」过时描述一并按 c-static-home 后现状对齐。
+
+## 书架三态落地（c-bookshelf-states，2026-08-29）
+
+7. **list.html 升级三态**（回访/首启/满额，设计源 docs/ux/home.html，品牌 agent
+   评审意见同批吸收）：books 态顶部新增 `.resume` 继续创作条（updated_at 最大
+   者置顶直达，**该书从网格剔除避免同书双入口**）；empty 态由单行空卡升级为
+   三步引导（`.first-run` 独占容器，非 .cards 网格项）；新增 quota 满额态
+   （notice.info「免费版书架已满（1/1）」+ 主按钮带锁仍可点 + 网格尾
+   `.lock-tile` 升级锁卡——主图标=锁，sparkle 只在出口按钮；「无限」营销腔
+   弃用，与 notice 逐字同口径）。免费注入约定：`localStorage ainovel.member='0'`
+   = 免费待遇（缺省=会员）。`resume .rm b` 用 fg 而非 ok 绿（页面内不出现
+   双绿）；STEP 03 口播与 page-head sub 去重，改「第一句想到什么就写什么」。
+   实现侧 `list.css` 本地段 + `NovelListPage` 同步；design:check books/empty/
+   quota 三场景零漂移。

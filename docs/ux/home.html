@@ -138,7 +138,7 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 .resume:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .resume .rt { font-family: var(--font-display); font-size: 17px; font-weight: 600; }
 .resume .rm { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
-.resume .rm b { color: var(--ok); font-weight: 500; }
+.resume .rm b { color: var(--fg); font-weight: 500; }
 .resume .rlabel { font-size: 11px; letter-spacing: 0.08em; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
 .resume .rlabel svg { width: 12px; height: 12px; color: var(--accent); }
 .resume .rgrow { flex: 1; min-width: 0; }
@@ -149,7 +149,6 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
    用户已经下载安装了 App，不需要被介绍产品；此页只做一件事：
    让未登录的人登录/建号，顺带一句实用信息（数据只存本机）。 */
 .welcome { max-width: 560px; margin: 104px auto 0; text-align: center; }
-.welcome .mark { margin-bottom: 18px; }
 .welcome h2 { font-family: var(--font-display); font-size: 28px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
 .welcome .lead { font-size: 13.5px; color: var(--muted); margin: 12px 0 0; line-height: 1.7; }
 .welcome .cta { display: flex; justify-content: center; gap: 12px; margin-top: 26px; }
@@ -170,7 +169,7 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 .fr-cta { display: flex; justify-content: center; gap: 12px; margin-top: 28px; }
 .fr-note { font-size: 12px; color: var(--muted); margin-top: 14px; }
 
-/* 满额锁定卡（.empty 家族网格项，同「还没有作品」口径） */
+/* 满额锁定卡（.empty 家族网格项）；主图标用锁（阻断语义），sparkle 只留给「升级」出口 */
 .lock-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 1px dashed color-mix(in oklch, var(--accent) 40%, var(--border)); border-radius: var(--radius-lg); padding: 22px; color: var(--muted); text-align: center; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
 .lock-tile:hover { border-color: var(--accent); background: var(--accent-soft); }
 .lock-tile .lt-ic { width: 38px; height: 38px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
@@ -221,14 +220,13 @@ body[data-state="home"] [data-only]:not([data-only~="home"]) { display: none !im
        用户已下载安装、知道这是什么的——不做产品介绍，只给登录/建号入口。
        主标题为产品 slogan「人铸灵魂，AI 行笔墨」（2026-08-29 用户定稿）。 -->
   <section class="welcome" data-only="home">
-    <div class="mark"><span class="mono">爱</span></div>
     <h2>人铸灵魂<br />AI 行笔墨</h2>
     <p class="lead">作品与 API Key 只保存在这台电脑上。</p>
     <div class="cta">
       <a class="btn btn-primary" href="#/login">免费开始<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
       <a class="btn btn-secondary" href="#/login">我已有账号</a>
     </div>
-    <p class="note">免费版可创建 <span class="num">3</span> 部作品 · 无需绑卡</p>
+    <p class="note">免费版可创建 <span class="num">1</span> 部作品 · 无需绑卡</p>
   </section>
 
   <!-- ▸ 回访态：继续创作条（上次编辑的书置顶直达） -->
@@ -253,7 +251,7 @@ body[data-state="home"] [data-only]:not([data-only~="home"]) { display: none !im
 
   <!-- ▸ 满额态：额度墙提示（免费 3 本已满；入口锁定可见 + 升级出口） -->
   <div class="notice info" data-only="quota" role="status">
-    <span class="nt"><b>免费版书架已满（<span class="num">3/3</span>）</b><span>升级后不限作品数，现有作品不受影响</span></span>
+    <span class="nt"><b>免费版书架已满（<span class="num">1/1</span>）</b><span>升级后不限作品数，现有作品不受影响</span></span>
     <a class="btn btn-secondary btn-sm" href="#portal">升级</a>
   </div>
 
@@ -383,14 +381,14 @@ body[data-state="home"] [data-only]:not([data-only~="home"]) { display: none !im
           <span class="fr-n">STEP 03</span>
           <span class="fr-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M9 13h6M9 17h4"/></svg></span>
           <b>开写第一章</b>
-          <p>大纲与设定都是高级配置，可以边写边补。</p>
+          <p>第一句想到什么就写什么，正文永远是最短路径。</p>
         </div>
       </div>
       <div class="fr-cta">
         <button class="btn btn-primary" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>新建作品</button>
         <button class="btn btn-secondary" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 8l5-5 5 5M5 20h14"/></svg>导入已有文稿</button>
       </div>
-      <p class="fr-note">免费版可创建 <span class="num">3</span> 部作品，无需绑卡</p>
+      <p class="fr-note">免费版可创建 <span class="num">1</span> 部作品，无需绑卡</p>
     </span>
   </section>
 
