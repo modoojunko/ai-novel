@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { api } from "@/lib/api";
+import { request } from "@/lib/api";
 
 interface UpdateCheckState {
   current: string;
@@ -28,7 +28,8 @@ export default function UpdateNotice() {
 
   const refresh = useCallback(async () => {
     try {
-      setState(await api.get("/update-check"));
+      // quiet：检测是后台探测，任何失败（含 503）都不得弹全局错误 toast
+      setState(await request("/update-check", { quiet: true }));
     } catch {
       /* 检测失败静默：不打扰写作 */
     }
@@ -48,7 +49,11 @@ export default function UpdateNotice() {
     const latest = state.latest;
     setState((s) => (s ? { ...s, has_update: false } : s));
     try {
-      await api.post("/update-check/dismiss", { version: latest });
+      await request("/update-check/dismiss", {
+        method: "POST",
+        body: JSON.stringify({ version: latest }),
+        quiet: true,
+      });
     } catch {
       /* 关闭失败无感：大不了下次启动再提示 */
     }

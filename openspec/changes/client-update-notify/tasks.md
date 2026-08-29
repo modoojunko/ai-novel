@@ -32,3 +32,9 @@
   - 后端 pytest：443/443（容器内）
   - e2e 全量（docker 栈重建后）：60 过 0 挂（11 skipped=parity 未开 env）+ parity 单跑 10/11
   - 对照截图：docs/design-c/baselines/book.free.app.png（沉浸全宽条实拍）；原型侧 /tmp/proto-list-update.png、/tmp/proto-book-update.png；S端 零改动，由既有下载弹窗 e2e 在 PR CI 自然回归
+
+## 6. Review 修复（PR #224 评审三项，2026-08-29）
+
+- [x] 6.1 P2 同步 DNS 阻塞事件循环：`_validate_outbound_url` 改 async，解析走 `asyncio.get_running_loop().getaddrinfo`（内部线程池），本地服务不再有 DNS 挂起全应用冻结路径；校验类测试同步 async 化。验证=后端 pytest 444/444（容器内全量）
+- [x] 6.2 P3 检测请求未 quiet：GET/POST 改走 `request(path, { quiet: true })`（api.get 不收 options），503 不再可能弹全局 toast，符合 spec「失败 MUST NOT 向用户呈现任何错误」；vitest 补 GET/POST quiet 断言，4/4 绿
+- [x] 6.3 P3 推导链接取实际成功域：`_fetch_latest` 结果带 `source_url`，说明页/官网入口按实际成功的检测地址推导（主域坏配置靠兜底成功时不连坐）；新增 `test_derived_urls_follow_successful_source`。回归：vitest 4/4 + tsc 0 错 + e2e 全量 60 过 0 挂（镜像重建后）

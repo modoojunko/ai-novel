@@ -2,16 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
-const apiGetMock = vi.fn();
-const apiPostMock = vi.fn();
+const requestMock = vi.fn();
 
 beforeEach(() => {
-  apiGetMock.mockReset();
-  apiPostMock.mockReset();
+  requestMock.mockReset();
   vi.resetModules();
-  vi.doMock("@/lib/api", () => ({
-    api: { get: apiGetMock, post: apiPostMock },
-  }));
+  vi.doMock("@/lib/api", () => ({ request: requestMock }));
 });
 
 function state(over: Partial<Record<string, unknown>> = {}) {
@@ -37,10 +33,11 @@ async function mountAt(path: string) {
 
 describe("UpdateNotice", () => {
   it("有更新：呈现版本号、摘要与三个动作；外链为 target=_blank 锚点", async () => {
-    apiGetMock.mockResolvedValue(state());
+    requestMock.mockResolvedValue(state());
     await mountAt("/novels");
 
     expect(await screen.findByText("发现新版本 v0.13")).toBeTruthy();
+    expect(requestMock).toHaveBeenCalledWith("/update-check", { quiet: true });
     expect(screen.getByText("提升章纲 AI 起草的稳定性，修复若干问题")).toBeTruthy();
     const download = screen.getByRole("link", { name: "去下载" }) as HTMLAnchorElement;
     const notes = screen.getByRole("link", { name: "查看更新内容" }) as HTMLAnchorElement;
@@ -54,34 +51,37 @@ describe("UpdateNotice", () => {
   });
 
   it("无更新 / 检测失败：不渲染任何更新元素", async () => {
-    apiGetMock.mockResolvedValue(state({ has_update: false, latest: "0.11" }));
+    requestMock.mockResolvedValue(state({ has_update: false, latest: "0.11" }));
     const { container } = await mountAt("/novels");
-    await waitFor(() => expect(apiGetMock).toHaveBeenCalled());
+    await waitFor(() => expect(requestMock).toHaveBeenCalled());
     expect(container.querySelector(".update-strip")).toBeNull();
 
-    apiGetMock.mockRejectedValue(new Error("network down"));
+    requestMock.mockRejectedValue(new Error("network down"));
     const again = await mountAt("/novels");
-    await waitFor(() => expect(apiGetMock).toHaveBeenCalled());
+    await waitFor(() => expect(requestMock).toHaveBeenCalled());
     expect(again.container.querySelector(".update-strip")).toBeNull();
   });
 
   it("「知道了」按版本关闭：调 dismiss 且提示条立即消失", async () => {
-    apiGetMock.mockResolvedValue(state());
-    apiPostMock.mockResolvedValue({ dismissed: "0.13" });
+    requestMock.mockImplementation(async (path: string) =>
+      path === "/update-check" ? state() : { dismissed: "0.13" },
+    );
     const { container } = await mountAt("/novels");
     await screen.findByText("发现新版本 v0.13");
 
     fireEvent.click(screen.getByRole("button", { name: "知道了" }));
     await waitFor(() =>
-      expect(apiPostMock).toHaveBeenCalledWith("/update-check/dismiss", {
-        version: "0.13",
+      expect(requestMock).toHaveBeenCalledWith("/update-check/dismiss", {
+        method: "POST",
+        body: JSON.stringify({ version: "0.13" }),
+        quiet: true,
       }),
     );
     expect(container.querySelector(".update-strip")).toBeNull();
   });
 
   it("工作台路由用沉浸全宽变体，书架用居中变体", async () => {
-    apiGetMock.mockResolvedValue(state());
+    requestMock.mockResolvedValue(state());
     const imm = await mountAt("/novel/abc");
     await waitFor(() => expect(imm.container.querySelector(".update-strip")).toBeTruthy());
     expect(imm.container.querySelector(".update-strip")!.className).toContain(

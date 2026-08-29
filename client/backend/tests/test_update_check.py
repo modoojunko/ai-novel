@@ -133,40 +133,40 @@ def test_invalid_version_payload_rejected():
         uc._parse_version("0.11-beta")
 
 
-# ── 出站安全校验 ─────────────────────────────────────────────────────────
+# ── 出站安全校验（async：DNS 走事件循环，不再阻塞）─────────────────────
 
 
 def test_non_https_rejected():
-    assert uc._validate_outbound_url("http://www.awesomenovel.com/download/latest.json") is False
+    assert _run(uc._validate_outbound_url("http://www.awesomenovel.com/download/latest.json")) is False
 
 
 def test_untrusted_host_rejected():
-    assert uc._validate_outbound_url("https://evil.example.com/latest.json") is False
+    assert _run(uc._validate_outbound_url("https://evil.example.com/latest.json")) is False
 
 
 def test_private_resolution_rejected(monkeypatch):
     """域名解析到私网地址同样拒绝。"""
     monkeypatch.setattr(
         uc.socket, "getaddrinfo",
-        lambda host, port, proto=None: [(2, 1, 6, "", ("192.168.1.5", port))],
+        lambda host, port, *a, **k: [(2, 1, 6, "", ("192.168.1.5", port))],
     )
-    assert uc._validate_outbound_url(MAIN_URL) is False
+    assert _run(uc._validate_outbound_url(MAIN_URL)) is False
 
 
 def test_loopback_rejected(monkeypatch):
     monkeypatch.setattr(
         uc.socket, "getaddrinfo",
-        lambda host, port, proto=None: [(2, 1, 6, "", ("127.0.0.1", port))],
+        lambda host, port, *a, **k: [(2, 1, 6, "", ("127.0.0.1", port))],
     )
-    assert uc._validate_outbound_url(MAIN_URL) is False
+    assert _run(uc._validate_outbound_url(MAIN_URL)) is False
 
 
 def test_public_resolution_accepted(monkeypatch):
     monkeypatch.setattr(
         uc.socket, "getaddrinfo",
-        lambda host, port, proto=None: [(2, 1, 6, "", ("106.55.209.168", port))],
+        lambda host, port, *a, **k: [(2, 1, 6, "", ("106.55.209.168", port))],
     )
-    assert uc._validate_outbound_url(MAIN_URL) is True
+    assert _run(uc._validate_outbound_url(MAIN_URL)) is True
 
 
 # ── 兜底切换 ─────────────────────────────────────────────────────────────
@@ -174,7 +174,10 @@ def test_public_resolution_accepted(monkeypatch):
 
 def test_fallback_switch_on_main_failure(monkeypatch):
     """主域失败 → 切兜底成功；兜底也失败才返回 None。"""
-    monkeypatch.setattr(uc, "_validate_outbound_url", lambda url: True)
+    async def always_ok(url):
+        return True
+
+    monkeypatch.setattr(uc, "_validate_outbound_url", always_ok)
     seen = []
 
     async def fake_fetch_one(url):
@@ -184,7 +187,7 @@ def test_fallback_switch_on_main_failure(monkeypatch):
     monkeypatch.setattr(uc, "_fetch_one", fake_fetch_one)
     got = _run(uc._fetch_latest())
     assert seen == [MAIN_URL, FALLBACK_URL]
-    assert got == {"latest": "0.14", "notes": "x"}
+    assert got == {"latest": "0.14", "notes": "x", "source_url": FALLBACK_URL}
 
     async def all_fail(url):
         seen.append(url)
@@ -198,7 +201,7 @@ def test_fallback_url_also_validated(monkeypatch):
     """兜底地址同样过安全校验：校验不过的直接跳过不发请求。"""
     checks = []
 
-    def fake_validate(url):
+    async def fake_validate(url):
         checks.append(url)
         return False
 
@@ -210,6 +213,25 @@ def test_fallback_url_also_validated(monkeypatch):
     monkeypatch.setattr(uc, "_fetch_one", must_not_call)
     assert _run(uc._fetch_latest()) is None
     assert checks == [MAIN_URL, FALLBACK_URL]
+
+
+def test_derived_urls_follow_successful_source(monkeypatch):
+    """主域配置坏（校验不过）靠兜底成功时，说明页/官网入口按兜底域推导。"""
+    async def validate(url):
+        return url == FALLBACK_URL
+
+    async def fetch_one(url):
+        assert url == FALLBACK_URL
+        return {"latest": "0.14", "notes": ""}
+
+    monkeypatch.setattr(uc, "_validate_outbound_url", validate)
+    monkeypatch.setattr(uc, "_fetch_one", fetch_one)
+    monkeypatch.setenv("CLIENT_VERSION", "0.11")
+
+    st = _run(uc.get_update_state())
+    assert st["has_update"] is True
+    assert st["notes_url"].startswith(FALLBACK_URL[: -len("latest.json")] + "v0.14/")
+    assert st["download_url"] == FALLBACK_URL[: -len("/download/latest.json")]
 
 
 # ── 关闭记忆 ─────────────────────────────────────────────────────────────

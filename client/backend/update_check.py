@@ -13,6 +13,7 @@
   真实外呼最多每小时一次（启动检测与会话内复查共用同一把尺）。
 """
 
+import asyncio
 import ipaddress
 import json
 import os
@@ -73,8 +74,13 @@ def _trusted_hosts() -> set[str]:
     return hosts
 
 
-def _validate_outbound_url(url: str) -> bool:
-    """仅 https + 可信域 + 解析结果全为公网地址；任一不满足即拒绝。"""
+async def _validate_outbound_url(url: str) -> bool:
+    """仅 https + 可信域 + 解析结果全为公网地址；任一不满足即拒绝。
+
+    DNS 解析走事件循环的 getaddrinfo（内部线程池）——本端点与整个 SPA 共享
+    同一 uvicorn 事件循环，同步 socket.getaddrinfo 会在解析器挂起时把应用
+    整体冻结到 DNS 超时，绝不可同步调用。
+    """
     try:
         p = urlparse(url)
         if p.scheme != "https" or not p.hostname:
@@ -89,7 +95,8 @@ def _validate_outbound_url(url: str) -> bool:
                 return False
         except ValueError:
             pass
-        infos = socket.getaddrinfo(p.hostname, 443, proto=socket.IPPROTO_TCP)
+        loop = asyncio.get_running_loop()
+        infos = await loop.getaddrinfo(p.hostname, 443, proto=socket.IPPROTO_TCP)
     except (OSError, ValueError):
         return False
     for info in infos:
@@ -157,21 +164,25 @@ async def _fetch_one(url: str) -> dict | None:
 
 
 async def _fetch_latest() -> dict | None:
-    """主域 → 兜底逐个尝试（每个地址先过出站校验）；全部失败返回 None。"""
+    """主域 → 兜底逐个尝试（每个地址先过出站校验）；全部失败返回 None。
+
+    结果带 source_url = 实际成功的地址：下游推导说明页/官网入口用它，
+    主域坏配置（校验不过、靠兜底成功）时不连坐。
+    """
     for url in _candidate_urls():
-        if not _validate_outbound_url(url):
+        if not await _validate_outbound_url(url):
             continue
         got = await _fetch_one(url)
         if got is not None:
+            got["source_url"] = url
             return got
     return None
 
 
-def _derived_urls(latest: str) -> tuple[str, str]:
-    """由主检测地址推导：更新说明页（版本化目录）与官网下载入口。"""
-    main = _candidate_urls()[0]
-    base = main[: -len("latest.json")] if main.endswith("latest.json") else main
-    p = urlparse(main)
+def _derived_urls(source_url: str, latest: str) -> tuple[str, str]:
+    """由实际成功的检测地址推导：更新说明页（版本化目录）与官网下载入口。"""
+    base = source_url[: -len("latest.json")] if source_url.endswith("latest.json") else source_url
+    p = urlparse(source_url)
     return f"{base}v{latest}/notes.html", f"{p.scheme}://{p.netloc}"
 
 
@@ -202,7 +213,9 @@ async def get_update_state() -> dict:
     latest = cached["latest"]
     dismissed = state.get("dismissed_version")
     has_update = _has_newer(latest, current) and latest != dismissed
-    notes_url, download_url = _derived_urls(latest)
+    # 旧状态文件（无 source_url）回退主地址；正常路径取实际成功的地址
+    source = str(cached.get("source_url") or "").strip() or _candidate_urls()[0]
+    notes_url, download_url = _derived_urls(source, latest)
     return {
         "current": current,
         "latest": latest,
