@@ -10,7 +10,11 @@ export default function LandingPage() {
       <div className="mark">
         <span className="mono">爱</span>
       </div>
-      <h2>登录后，开始你的第一本书</h2>
+      <h2>
+        从空白文档到完整小说
+        <br />
+        AI 陪你走完每一步
+      </h2>
       <p className="lead">作品与 API Key 只保存在这台电脑上。</p>
       <div className="cta">
         <Link to="/login" className="btn btn-primary">
