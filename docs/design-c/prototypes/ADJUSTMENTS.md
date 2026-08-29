@@ -268,3 +268,18 @@ modalAi/modalPrefs 标记与 CSS 在 PR 3/PR 4 已随屏落地（spec-report §6
    LandingPage（mkt-* 轻重皮）整体退役，`landing.css` 营销段随之清空。
    书架原型 `list.html` 不受影响（.welcome 只出现在 `/`，非 parity 对象）；
    书架三态（`.resume` 继续创作条/首启空态/满额墙）等品牌意见后另批登记。
+
+## 静态首页重设计（c-home-redesign，2026-08-29）
+
+5. **`home.html` 六变体评审稿立项**：c-static-home 上线的 welcome 入口卡被评
+   「太丑」，按 OpenDesign 原型规范重做静态首页，出六变体（玄墨/卷首/朱印/
+   断章/悬丝/对仗，slogan 均为用户定稿「人铸灵魂，AI 行笔墨」）供拍板，右下
+   角切换器非基线。评审修订：应用户反馈移除 hero 区独立「爱」字图标（品牌
+   图形收敛在 appbar logo）。本文件只承载设计评审；选定变体由实现侧落
+   `landing.css` + `LandingPage.tsx` 后，选定变体转正为 home 页原型基线并回
+   登本簿。未动既有四页基线。
+   【回登 2026-08-29】用户拍板变体 a 玄墨并经三轮评审修订（品牌 lockup 三段式
+   布局 + slogan「人铸灵魂，AI 行笔墨」+ 「直接开写/新手教程」路径卡 + 移除
+   hero 独立爱字图标），已落地 landing.css + LandingPage.tsx；a 转正为 home
+   页原型基线，b-f 保留作品牌 agent 迭代参考。新手教程暂指 GitHub 使用说明
+   （站内引导流未立项）。

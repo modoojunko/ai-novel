@@ -1,33 +1,74 @@
-// 静态首页（home 态设计稿 docs/ux/home.html）：免登录入口卡。
-// 用户已下载安装、知道这是什么的——不做产品介绍，只给登录/建号入口。
+// 静态首页（玄墨三段式；原型 prototypes/home.html 变体 a 已转正）。
+// 未登录入口卡：品牌 lockup → slogan → 行动路径；已登录由 App.tsx 的 HomeGate
+// 直接跳书架，不会看到此页。
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Ico, P } from "@/components/icons";
+import { request } from "@/lib/api";
 
-/** `/` 未登录态渲染；已登录由 App.tsx 的 HomeGate 直接跳书架。 */
+// 教程页未建：暂指 GitHub 使用说明，站内引导流立项后替换
+const TUTORIAL_URL = "https://github.com/modoojunko/ai-novel#readme";
+
+/** 版本胶囊：读后端烘包版本（release.json → /update-check，quiet 静默）；dev 构建不展示。 */
+function useBakedVersion(): string {
+  const [ver, setVer] = useState("");
+  useEffect(() => {
+    let alive = true;
+    request("/update-check", { quiet: true })
+      .then((s: { current?: string } | null) => {
+        const v = s?.current ?? "";
+        if (alive && v && v !== "dev") setVer(v);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return ver;
+}
+
 export default function LandingPage() {
+  const ver = useBakedVersion();
   return (
     <section className="welcome">
-      <div className="mark">
-        <span className="mono">爱</span>
+      <div className="ink-glow" />
+      <div className="brand-lockup fx fx-1">
+        <div className="brand-en">AWESOME-NOVEL</div>
+        <div className="brand-cn">
+          爱小说
+          {ver && <span className="brand-ver">v{ver}</span>}
+        </div>
       </div>
-      <h2>
+      <h1 className="fx fx-2">
         人铸灵魂
         <br />
-        AI 行笔墨
-      </h2>
-      <p className="lead">作品与 API Key 只保存在这台电脑上。</p>
-      <div className="cta">
-        <Link to="/login" className="btn btn-primary">
-          免费开始
-          <Ico d={P.arrowRight} size={15} />
-        </Link>
-        <Link to="/login" className="btn btn-secondary">
-          我已有账号
-        </Link>
+        <span className="ai">AI 行笔墨</span>
+      </h1>
+      <p className="lead fx fx-2">故事已经在脑子里了，现在给它第一行字。</p>
+      <div className="exit-block fx fx-3">
+        <div className="paths">
+          <Link to="/login" className="path pri" data-od-id="btn-free-start">
+            <b>直接开写</b>
+            <span>建号即写，第一句想到什么就写什么</span>
+          </Link>
+          <a
+            href={TUTORIAL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="path"
+            data-od-id="btn-tutorial"
+          >
+            <b>新手教程</b>
+            <span>5 分钟看懂从建书到成稿</span>
+          </a>
+        </div>
+        <p className="signin">
+          已有账号？
+          <Link to="/login">直接登录</Link>
+        </p>
+        <p className="note">
+          免费版可创建 <span className="num">3</span> 部作品 · 无需绑卡
+        </p>
       </div>
-      <p className="note">
-        免费版可创建 <span className="num">3</span> 部作品 · 无需绑卡
-      </p>
     </section>
   );
 }
