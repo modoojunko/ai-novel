@@ -32,7 +32,7 @@
 ## 6. 测试与 CI
 
 - [x] 6.1 S 端 pytest 全量绿（全 mock，不触真实库）。验证：`pytest` 输出全绿贴入 evidence/。
-- [ ] 6.2 S 端 e2e 全 mock 跑 PR CI 绿。验证：PR CI 记录含 e2e job 通过。
+- [x] 6.2 S 端 e2e 全 mock 跑 PR CI 绿。验证：PR CI 记录含 e2e job 通过。（run 33302017508 ✓，PR #243）
 - [ ] 6.3 本机先跑 C 端/S 端全量 e2e（本次改了交互类代码：S 端向导 + C 端失效处理）。验证：两端全量 e2e 本机输出全绿，结论记入 evidence/。
 
 ## 7. 回归与门禁
