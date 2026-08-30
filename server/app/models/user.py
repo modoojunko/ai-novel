@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Column, DateTime, String, Text, func
+from sqlalchemy import BigInteger, Column, DateTime, String, Text, func
 
 from app.models.base import Base
 
@@ -8,7 +8,8 @@ from app.models.base import Base
 class UserORM(Base):
     __tablename__ = "users"
 
-    username            = Column(String(128), primary_key=True)
+    id                  = Column(BigInteger, autoincrement=True, primary_key=True)
+    username            = Column(String(128), nullable=False, unique=True, index=True)
     password_hash       = Column(String(256), nullable=False)
     security_question   = Column(Text, default="", server_default="")
     security_answer_hash= Column(String(256), default="", server_default="")
