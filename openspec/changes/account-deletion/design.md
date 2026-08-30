@@ -94,3 +94,9 @@ C 端 JWT 持久化在 config.json。落点：client/backend（Python 代理层�
 ## Open Questions
 
 无阻塞项。两个推荐决策——撤销期 15 天（D1）、username 永久封存（D5）——已按 PM 推荐口径写入 spec；若业务方在审批时倾向不同取值（如撤销期缩短、或要求释放用户名），改动面仅限常量与 D2 步骤 2 的格式策略，不影响架构与任务拆分。
+
+### D7 · 实现补注（2026-08-30，实施期）
+
+- **code 约定**：S 端登录对「注销撤销期」返回 **code 4**（结构化状态）——code 2 已被前端 axios 拦截器全局保留为「会话失效→清 token→硬跳 /login」，复用会引发整页导航吞掉撤销视图。已注销沿用 code 1 + `data.deleted: true`。
+- **D5' username 封存实现**：username 为 users 主键且被 codes/device_grants/device_registry FK 引用，物理改名在无事务 + FK 环境不安全。实现为**行内封存**：`password_hash` 置空 + `deletion_status='已注销'` + 注册接口 `exists()` 命中已注销行 →「用户名已存在」。达成 D5 全部目标（不可登录/不可再注册/交易归属稳定），少一条跨表改名补偿链。
+- **审计载体**：`trade_events` 表随支付 change 建立；当前执行审计以结构化日志（event=deletion.requested/revoked/executed）承载，支付 change 落地后可补双写。

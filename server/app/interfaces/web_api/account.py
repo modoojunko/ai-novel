@@ -7,6 +7,7 @@ from fastapi import Depends
 from fastapi.responses import JSONResponse
 
 from app.application.identity.deletion_service import (
+    blocked_assets,
     deletion_status as deletion_status_uc,
     request_deletion,
     revoke_deletion,
@@ -105,7 +106,7 @@ async def api_user_preferences(req: PreferencesRequest, db: Db = Depends(get_db)
     return ok({"theme": theme if theme else "teal"})
 
 
-# ── 账号自助注销（account-deletion）：S 端向导三端点 ──
+# ── 账号自助注销（account-deletion）：S 端向导端点 ──
 
 @r.get("/api/user/deletion-status")
 async def api_user_deletion_status(db: Db = Depends(get_db), username: str = Depends(get_current_user_or_none)):
@@ -118,6 +119,14 @@ async def api_user_deletion_status(db: Db = Depends(get_db), username: str = Dep
     return deletion_status_uc(user)
 
 
+@r.get("/api/user/deletion-assets")
+async def api_user_deletion_assets(db: Db = Depends(get_db), username: str = Depends(get_current_user_or_none)):
+    """未消耗权益清单（US-3.1：向导权益处置步展示用，登录态查询）。"""
+    if not username:
+        return fail(code=1, msg="未登录")
+    return ok({"blocked_assets": blocked_assets(code_repo(db), username)})
+
+
 @r.post("/api/user/deletion")
 async def api_user_deletion(req: DeletionRequest, db: Db = Depends(get_db), username: str = Depends(get_current_user_or_none)):
     """受理注销申请（R2/R3/R4）：密码确认 + 未消耗权益校验 + CAS 进入 15 天撤销期。"""
@@ -127,8 +136,6 @@ async def api_user_deletion(req: DeletionRequest, db: Db = Depends(get_db), user
 
 
 @r.post("/api/user/deletion/revoke")
-async def api_user_deletion_revoke(req: DeletionRevokeRequest, db: Db = Depends(get_db), username: str = Depends(get_current_user_or_none)):
-    """撤销注销（R4）：密码同强度验证 + CAS，撤销成功账号立即恢复。"""
-    if not username:
-        return fail(code=1, msg="未登录")
-    return revoke_deletion(user_repo(db), username, req.password)
+async def api_user_deletion_revoke(req: DeletionRevokeRequest, db: Db = Depends(get_db)):
+    """撤销注销（R4）：撤销期账号登录被拒、无 JWT——用户名+密码本身即身份证明。"""
+    return revoke_deletion(user_repo(db), req.username.strip(), req.password)

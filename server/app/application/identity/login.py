@@ -43,7 +43,8 @@ def login(
             if user and user.is_deleted():
                 return {"code": 1, "msg": "该账号已注销", "data": {"deleted": True}}
         else:
-            return {"code": 2, "msg": "账号注销进行中",
+            # code 4 = 注销进行中（避开 code 2 = 会话失效的全局前端拦截约定，见 design 补注）
+            return {"code": 4, "msg": "账号注销进行中",
                     "data": {"deletion_pending": True, **deletion_payload(user)}}
 
     codes = code_repo.find_active_by_username(username)

@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { apiResetPassword } from '@/api/client'
+import { apiRevokeDeletion } from '@/api/web'
 import AppInput from '@/components/ui/AppInput.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import Ico from '@/components/ui/Ico.vue'
@@ -16,6 +17,43 @@ const username = ref('')
 const password = ref('')
 const errorMsg = ref('')
 const redirectUrl = (route.query.redirect as string) || '/dashboard'
+
+// ── 注销状态视图（account-deletion，US-5.2/R4）：撤销期登录被拒时的站内出口 ──
+const deletionPending = ref<null | { days_left: number; deadline: string }>(null)
+const accountDeleted = ref(false)
+const revokeSubmitting = ref(false)
+const revokeError = ref('')
+
+async function revokeFromLoginPage() {
+  if (!username.value || !password.value || revokeSubmitting.value) return
+  revokeSubmitting.value = true
+  revokeError.value = ''
+  try {
+    const res = await apiRevokeDeletion(username.value, password.value)
+    if (res.code === 0) {
+      // 撤销成功即恢复正常：立即重新登录进入控制台
+      const loginAgain = await session.login(username.value, password.value)
+      if (loginAgain.ok) router.push(redirectUrl)
+      else { deletionPending.value = null; errorMsg.value = loginAgain.msg || '请重新登录' }
+    } else if (res.msg?.includes('已注销')) {
+      deletionPending.value = null
+      accountDeleted.value = true
+      revokeError.value = ''
+    } else {
+      revokeError.value = res.msg || '撤销失败'
+    }
+  } catch (e: any) {
+    revokeError.value = e.message || '网络错误'
+  } finally {
+    revokeSubmitting.value = false
+  }
+}
+
+function backToLogin() {
+  deletionPending.value = null
+  accountDeleted.value = false
+  revokeError.value = ''
+}
 
 // 忘记密码展开
 const showResetForm = ref(false)
@@ -32,9 +70,20 @@ async function handleLogin() {
   const result = await session.login(username.value, password.value)
   if (result.ok) {
     router.push(redirectUrl)
-  } else {
-    errorMsg.value = result.msg || '登录失败'
+    return
   }
+  // account-deletion：撤销期 → 切换到站内撤销视图；已注销 → 明确终态与出路
+  if (result.deletionPending) {
+    deletionPending.value = result.deletionPending
+    errorMsg.value = ''
+    return
+  }
+  if (result.accountDeleted) {
+    accountDeleted.value = true
+    errorMsg.value = ''
+    return
+  }
+  errorMsg.value = result.msg || '登录失败'
 }
 
 function toggleReset() {
@@ -74,6 +123,38 @@ async function handleReset() {
     <p v-if="route.query.redirect" class="notice info">
       <Ico :d="P.info" />请先登录后继续
     </p>
+
+    <!-- 撤销期视图（US-5.2/R4）：登录即见状态，站内出口撤销 -->
+    <template v-if="deletionPending">
+      <p class="notice warn">
+        <Ico :d="P.alert" />
+        <span><b>你的账号已申请注销</b>：剩 <b class="num">{{ deletionPending.days_left }}</b> 天（<span class="num">{{ deletionPending.deadline.slice(0, 10) }}</span> 自动执行）。撤销期内付费与套餐功能暂停，<b>你设备上的作品不受影响</b>。</span>
+      </p>
+      <p v-if="revokeError" class="notice err"><Ico :d="P.alert" />{{ revokeError }}</p>
+      <div class="form-area">
+        <AppButton variant="primary" size="lg" block :loading="revokeSubmitting" @click="revokeFromLoginPage">
+          撤销注销，恢复账号
+        </AppButton>
+      </div>
+      <div class="link-row">
+        <button class="lnk" @click="backToLogin">返回登录</button>
+        <router-link to="/support" class="lnk">遇到问题？联系客服</router-link>
+      </div>
+    </template>
+
+    <!-- 已注销终态（US-6.2）：明确结果与出路 -->
+    <template v-else-if="accountDeleted">
+      <p class="notice err">
+        <Ico :d="P.alert" /><span><b>该账号已注销</b>：用户名已永久封存，无法恢复登录。你设备上的作品仍完好保留。</span>
+      </p>
+      <div class="link-row" style="justify-content:center">
+        <router-link to="/register" class="lnk">注册新账号</router-link>
+        <router-link to="/support" class="lnk">联系客服</router-link>
+      </div>
+    </template>
+
+    <!-- 正常登录表单 -->
+    <template v-else>
     <p v-if="errorMsg" class="notice err">
       <Ico :d="P.alert" />{{ errorMsg }}
     </p>
@@ -125,6 +206,7 @@ async function handleReset() {
         重置密码
       </AppButton>
     </div>
+    </template>
   </div>
 </template>
 

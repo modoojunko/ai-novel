@@ -102,7 +102,7 @@ class TestRequestDeletion:
             "username": web_user["username"], "password": WEB_PASSWORD,
         })
         body = r.json()
-        assert body["code"] == 2
+        assert body["code"] == 4  # 避开 code 2 = 会话失效的全局前端拦截
         assert body["data"]["deletion_pending"] is True
         assert body["data"]["days_left"] >= 1
 
@@ -120,13 +120,13 @@ class TestRevokeDeletion:
     def test_wrong_password_rejected(self, client, web_user):
         _request_deletion(client, web_user["token"], waive=True)
         r = client.post("/api/user/deletion/revoke", json={
-            "password": NOPE_PASSWORD}, headers=AUTH(web_user["token"]))
+            "username": web_user["username"], "password": NOPE_PASSWORD})
         assert r.json()["code"] == 1
 
     def test_revoke_restores_account(self, client, web_user):
         _request_deletion(client, web_user["token"], waive=True)
         r = client.post("/api/user/deletion/revoke", json={
-            "password": WEB_PASSWORD}, headers=AUTH(web_user["token"]))
+            "username": web_user["username"], "password": WEB_PASSWORD})
         assert r.json()["code"] == 0
 
         st = client.get("/api/user/deletion-status", headers=AUTH(web_user["token"])).json()
@@ -138,7 +138,7 @@ class TestRevokeDeletion:
 
     def test_revoke_when_no_request(self, client, web_user):
         r = client.post("/api/user/deletion/revoke", json={
-            "password": WEB_PASSWORD}, headers=AUTH(web_user["token"]))
+            "username": web_user["username"], "password": WEB_PASSWORD})
         assert r.json()["code"] == 1
         assert "没有进行中的注销申请" in r.json()["msg"]
 

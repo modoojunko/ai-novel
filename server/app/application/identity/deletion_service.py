@@ -38,8 +38,8 @@ def deletion_payload(user: User, now=None) -> dict:
     }
 
 
-def _blocked_assets(code_repo: CodeRepo, username: str) -> list[dict]:
-    """未消耗权益清单（unused=待激活，active=排队中/消耗中）。"""
+def blocked_assets(code_repo: CodeRepo, username: str) -> list[dict]:
+    """未消耗权益清单（unused=待激活，active=排队中/消耗中）。向导提交前展示用。"""
     return [
         {"code_id": c.code_id, "tier": c.tier, "status": c.status,
          "expires_at": c.expires_at.isoformat() if c.expires_at else ""}
@@ -78,7 +78,7 @@ def request_deletion(
     if user.is_deleted():
         return {"code": 1, "msg": "该账号已注销"}
 
-    assets = _blocked_assets(code_repo, username)
+    assets = blocked_assets(code_repo, username)
     if assets and not waive_assets:
         return {"code": 3, "msg": "存在未消耗的套餐权益，请先退款或确认放弃",
                 "data": {"blocked_assets": assets}}
@@ -94,6 +94,11 @@ def request_deletion(
                 username, deadline.isoformat(), waive_assets, len(assets))
     return {"code": 0, "msg": "注销申请已提交", "data": {"pending": True, "days_left": DELETION_PERIOD_DAYS,
                                                           "deadline": deadline.isoformat()}}
+
+
+def next_step_after_consequences(has_assets: bool) -> str:
+    """向导步骤路由（纯函数，便于测试）。"""
+    return "assets" if has_assets else "password"
 
 
 def revoke_deletion(user_repo: UserRepo, username: str, password: str, now=None) -> dict:

@@ -6,7 +6,11 @@ import type { ApiResponse } from './request'
 export function apiWebLogin(
   username: string,
   password: string,
-): Promise<ApiResponse<{ token: string; tier: string; expires_at: string; theme: string }>> {
+): Promise<ApiResponse<{
+  token: string; tier: string; expires_at: string; theme: string;
+  // 注销链路（account-deletion）：撤销期 code=4 结构化状态 / 已注销 code=1 + deleted 标记
+  deletion_pending?: boolean; days_left?: number; deadline?: string; deleted?: boolean;
+}>> {
   return request.post('/web/login', { username, password }).then(r => r.data)
 }
 
@@ -39,6 +43,43 @@ export function apiChangePassword(old_password: string, new_password: string): P
 
 export function apiSetSecurity(security_question: string, security_answer: string): Promise<ApiResponse> {
   return request.put('/user/security', { security_question, security_answer }).then(r => r.data)
+}
+
+// ── 账号注销（account-deletion）──
+
+export interface BlockedAsset {
+  code_id: string
+  tier: string
+  status: string
+  expires_at: string
+}
+
+export interface DeletionStatusData {
+  pending: boolean
+  deleted?: boolean
+  days_left?: number
+  deadline?: string
+  requested_at?: string
+}
+
+export function apiDeletionStatus(): Promise<ApiResponse<DeletionStatusData>> {
+  return request.get('/user/deletion-status').then(r => r.data)
+}
+
+export function apiDeletionAssets(): Promise<ApiResponse<{ blocked_assets: BlockedAsset[] }>> {
+  return request.get('/user/deletion-assets').then(r => r.data)
+}
+
+export function apiRequestDeletion(
+  password: string,
+  waive_assets: boolean,
+): Promise<ApiResponse<{ pending?: boolean; days_left?: number; deadline?: string; blocked_assets?: BlockedAsset[] }>> {
+  return request.post('/user/deletion', { password, waive_assets }).then(r => r.data)
+}
+
+/** 撤销期账号登录被拒、无 JWT——用户名+密码本身即身份证明（免 token）。 */
+export function apiRevokeDeletion(username: string, password: string): Promise<ApiResponse> {
+  return request.post('/user/deletion/revoke', { username, password }).then(r => r.data)
 }
 
 // ── License ──
