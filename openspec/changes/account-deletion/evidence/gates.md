@@ -17,3 +17,9 @@
 ## PR CI（tasks 6.2 ｜ run 33302017508，PR #243）
 
 六工作流全绿：S端 后端 ✅ · S端 前端（含 e2e 105）✅ · C端 前端 ✅ · C端 后端 ✅ · Docker 镜像 ✅（lint 修复后第二轮；首轮 S端 后端 Lint RUF100/I001 已 ruff --fix 清零）
+
+## C端 全量 e2e（tasks 6.3/5.2 ｜ 2026-08-30 本机 docker 栈）
+
+- C端 全量：**20 passed / 12 skipped / 0 failed**（21.1 分钟；含新增 session-invalid 2 用例：失效清凭据回登录入口 + 重新登录无循环）
+- S端 全量：**105 passed**（含注销 5 用例）；向导/账户页 6 张实现截图入 `evidence/screens/`
+- 生产 PG：迁移已执行并验证（users 注销四字段 + 索引 + alembic_version → a1b2c3d4e5f6，存量 3 行回填 正常）

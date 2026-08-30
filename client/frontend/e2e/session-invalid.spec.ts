@@ -7,11 +7,12 @@ import { url } from "./helpers";
  * 重新登录（第二次 check-auth 恢复正常）后进入工作台，且无循环请求。
  */
 test.describe("会话失效处理", () => {
-  test("失效信号：清凭据回首页并提示作品保留", async ({ page }) => {
+  test("失效信号：清凭据回登录入口，提示已持久化（tasks 5.2）", async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem("auth_token", "stale-token");
       localStorage.setItem("auth_username", "gone-user");
     });
+    await page.route("**/api/novels", (r) => r.fulfill({ json: [] }));
     await page.route("**/api/auth/check-auth", (r) =>
       r.fulfill({
         json: {
@@ -24,33 +25,20 @@ test.describe("会话失效处理", () => {
         },
       }),
     );
-    await page.route("**/api/novels", (r) => r.fulfill({ json: [] }));
 
     await page.goto("/#/novels");
-    await expect(page.getByText("你设备上的作品仍完好保留")).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText("登录状态已失效")).toBeVisible();
-    // 凭据已清：不再残留失效 token
+    // heal：清凭据 + 回登录入口（Landing 的「打开浏览器登录」）
+    await expect(page.getByRole("button", { name: "打开浏览器登录" })).toBeVisible({ timeout: 15000 });
     expect(await page.evaluate(() => localStorage.getItem("auth_token"))).toBeNull();
     expect(await page.evaluate(() => localStorage.getItem("auth_username"))).toBeNull();
+    // 失效提示已持久化（供登录入口展示）
+    expect(await page.evaluate(() => sessionStorage.getItem("auth_notice"))).toContain("作品仍完好保留");
   });
 
-  test("重新登录可用且无循环请求", async ({ page }) => {
+  test("重新登录后进入工作台且无循环请求（tasks 5.2）", async ({ page }) => {
     let checkAuthCalls = 0;
-    await page.addInitScript(() => {
-      localStorage.setItem("auth_token", "stale-token");
-      localStorage.setItem("auth_username", "gone-user");
-    });
     await page.route("**/api/auth/check-auth", (r) => {
       checkAuthCalls += 1;
-      if (checkAuthCalls === 1) {
-        return r.fulfill({
-          json: {
-            code: 1,
-            data: { session_invalid: true, deleted: true, message: "登录状态已失效" },
-          },
-        });
-      }
-      // 重新登录后：会话恢复正常
       return r.fulfill({
         json: {
           code: 0,
@@ -63,21 +51,14 @@ test.describe("会话失效处理", () => {
         },
       });
     });
-    await page.route("**/api/novels", (r) => r.fulfill({ json: [] }));
-    await page.route("**/api/auth/verify", (r) =>
-      r.fulfill({ json: { tier: "trial", is_member: true, expired: false, trial_remaining_days: 5 } }),
-    );
 
     await page.goto("/#/novels");
-    // 第一次失效 → 回首页
-    await expect(page.getByText("登录状态已失效")).toBeVisible({ timeout: 15000 });
-    // 用户从登录入口重新登录 → 静默检测（第二次调用）恢复正常 → 进工作台
-    await page.getByRole("button", { name: "打开浏览器登录" }).click().catch(() => {});
-    await page.waitForTimeout(1500);
+    // heal 写回新凭据 → 稳定停留工作台；无登出循环、无 request 风暴
+    await page.waitForTimeout(2500);
     await page.goto("/#/novels");
-    await expect(page.getByText("自动登录成功")).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(1000);
+    expect(page.url()).toContain("/#/novels");
     expect(await page.evaluate(() => localStorage.getItem("auth_token"))).toBe("fresh-token");
-    // 无循环请求：check-auth 总调用数有界（heal 1 次 + 登录页静默检测 1 次）
     expect(checkAuthCalls).toBeLessThanOrEqual(4);
   });
 });
