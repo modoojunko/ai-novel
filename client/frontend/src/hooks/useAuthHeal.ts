@@ -37,7 +37,22 @@ export function useAuthHeal() {
             }
             return;
           }
-          if (res.code === 1) return;
+          if (res.code === 1) {
+            // 会话失效（account-deletion：账号已注销/服务端会话作废）：
+            // 清本地凭据回首页，登录页展示失效提示（作品仅存本地，不受影响）
+            if (res.data?.session_invalid) {
+              localStorage.removeItem("auth_token");
+              localStorage.removeItem("auth_username");
+              if (res.data.message) sessionStorage.setItem("auth_notice", res.data.message);
+              window.location.hash = "#/login";
+            }
+            return;
+          }
+          if (res.code === 2) {
+            // 注销撤销期：凭据保留（可撤销恢复），仅持久化提示（付费与套餐功能暂停）
+            if (res.data?.message) sessionStorage.setItem("auth_notice", res.data.message);
+            return;
+          }
         } catch {
           // C端后端不可达：稍后重试
         }

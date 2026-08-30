@@ -282,7 +282,39 @@ async def browser_auth(silent: bool = False) -> dict:
                     "token": cfg["token"],
                 },
             }
-        return {"code": 1, "data": {"message": "未登录"}}
+        if result.get("code") == 2:
+            # 注销撤销期（account-deletion）：付费与套餐功能暂停；凭据保留（可撤销恢复），
+            # 结构化信号交由前端提示，不触发登出
+            data = result.get("data", {})
+            return {
+                "code": 2,
+                "data": {
+                    "deletion_pending": True,
+                    "days_left": data.get("days_left", 0),
+                    "deadline": data.get("deadline", ""),
+                    "message": "账号注销申请处理中，付费与套餐功能已暂停；可到网页控制台撤销。本地作品不受影响。",
+                },
+            }
+        if result.get("code") == 1:
+            # S端 明确「未登录/会话失效」：曾登录过（config.json 有 token）说明会话已被
+            # 服务端作废（典型=账号已注销/会话丢失）——清凭据并发结构化失效信号（design D6）。
+            # 本地 SQLite 作品数据全程不触碰。
+            if cfg.get("token"):
+                deleted = bool((result.get("data") or {}).get("deleted"))
+                for k in ("token", "username", "tier", "expires_at", "last_login_at"):
+                    cfg[k] = "" if k != "tier" else "none"
+                save_local_config(cfg)
+                logger.info("event=session.invalidated user_cleared=%s deleted=%s", bool(cfg.get("username")), deleted)
+                return {
+                    "code": 1,
+                    "data": {
+                        "session_invalid": True,
+                        "deleted": deleted,
+                        "message": "登录状态已失效（账号可能已注销）。你设备上的作品仍完好保留。",
+                    },
+                }
+            return {"code": 1, "data": {"message": "未登录"}}
+        # 兜底：未知 code 按未登录处理（保持旧行为）
 
     # 采集设备信息并编码为 device_profile
     device_info = collect_device_profile()

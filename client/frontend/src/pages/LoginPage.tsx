@@ -12,6 +12,12 @@ export default function LoginPage() {
   // 静默检测超 2s 仍无结果：多半是云端冷启动（MinNum=0 缩容后首次 30-60s），给出提示避免"假死"观感
   const [checkingSlow, setCheckingSlow] = useState(false);
   const [error, setError] = useState('');
+  // 会话失效/注销撤销期提示（useAuthHeal 写入 sessionStorage，登录页展示后清除）
+  const [authNotice] = useState(() => {
+    const msg = sessionStorage.getItem('auth_notice');
+    if (msg) sessionStorage.removeItem('auth_notice');
+    return msg ?? '';
+  });
   const [authUrl, setAuthUrl] = useState('');
   const cancelledRef = useRef(false);
   const pollingRef = useRef(false);
@@ -147,6 +153,7 @@ export default function LoginPage() {
         <button className="btn btn-primary btn-lg btn-block" onClick={handleBrowserAuth} disabled={loading}>
           {loading ? <Ico d={P.spinner} className="spin" size={16} /> : '打开浏览器登录'}
         </button>
+        {authNotice && <p className="note" role="status">{authNotice}</p>}
         {error && <p className="err">{error}</p>}
         {loading && authUrl && !error && (
           <p className="note">

@@ -135,7 +135,30 @@ async def api_check_auth(pc_hash: str = "", db: Db = Depends(get_db)):
     try:
         grant = grant_repo(db).get(pc_hash)
         if grant:
+            from app.domain.identity.deletion import is_due, remaining_days
             from app.domain.licensing import License
+            # 注销门禁（account-deletion）：撤销期付费功能暂停（code 2）；已注销拒绝
+            # （执行时 device_grants 已清空，此分支为补偿扫描先行标记的兜底）
+            user = user_repo(db).get(grant.username)
+            if user and user.is_deleted():
+                return {"code": 1, "msg": "该账号已注销", "data": {"deleted": True}}
+            if user and user.is_deletion_pending():
+                if user.deletion_deadline and is_due(user.deletion_deadline):
+                    from app.application.identity.deletion_service import execute_due_deletions
+                    execute_due_deletions(
+                        user_repo(db), code_repo(db), device_repo(db), grant_repo(db),
+                        usernames=[grant.username],
+                    )
+                    return {"code": 1, "msg": "该账号已注销", "data": {"deleted": True}}
+                return {
+                    "code": 2,
+                    "msg": "账号注销进行中",
+                    "data": {
+                        "deletion_pending": True,
+                        "days_left": remaining_days(user.deletion_deadline) if user.deletion_deadline else 0,
+                        "deadline": user.deletion_deadline.isoformat() if user.deletion_deadline else "",
+                    },
+                }
             codes = code_repo(db).find_active_by_username(grant.username)
             license_ = License(username=grant.username).merge(codes)
             return {

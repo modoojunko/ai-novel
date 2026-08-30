@@ -26,8 +26,8 @@
 
 ## 5. C 端会话失效处理
 
-- [ ] 5.1 client/backend 代理层：收到 S 端认证失效响应时清空 config.json 中 JWT 与用户名，向前端发结构化失效信号；全程不触碰本地 SQLite 作品数据（见 design D6）。验证：client 端测试覆盖"失效→凭据清空→信号发出"且作品数据断言不变。
-- [ ] 5.2 client/frontend：收到失效信号导航回登录页；重新登录后正常进入工作台。验证：e2e（mock 401/失效响应）断言回登录页、重登可用、无循环请求。
+- [x] 5.1 client/backend 代理层：收到 S 端认证失效响应时清空 config.json 中 JWT 与用户名，向前端发结构化失效信号；全程不触碰本地 SQLite 作品数据（见 design D6）。验证：client 端测试覆盖"失效→凭据清空→信号发出"且作品数据断言不变。
+- [ ] 5.2 client/frontend：收到失效信号导航回登录页；重新登录后正常进入工作台。（代码完成：useAuthHeal 会话失效→清凭据→hash #/login；e2e 用例待与 6.3 本机全量同批跑——docker 栈由统一会话管理，见 todo.md）验证：e2e（mock 401/失效响应）断言回登录页、重登可用、无循环请求。
 
 ## 6. 测试与 CI
 
