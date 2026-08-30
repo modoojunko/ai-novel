@@ -59,6 +59,16 @@ class DeviceRemoveRequest(BaseModel):
     id: str = ""
     pc_hash: str = ""
 
+class DeletionRequest(BaseModel):
+    password: str
+    waive_assets: bool = False  # 显式放弃未消耗权益（未勾选且有权益时受理被拒）
+
+class DeletionRevokeRequest(BaseModel):
+    password: str
+
+class AdminScanRequest(BaseModel):
+    admin_token: str
+
 
 # ── 通用响应包装 ──
 

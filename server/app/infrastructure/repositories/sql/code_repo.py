@@ -79,3 +79,12 @@ class SqlCodeRepo:
             "activated_at": datetime.now(),
             "expires_at": datetime.combine(expires_at, datetime.min.time()),
         })
+
+    def revoke_unconsumed_for_user(self, username: str) -> int:
+        """注销执行：unused（待激活）+ active（排队中/消耗中）全部置 revoked。返回行数。"""
+        result = self.db.query(ActivationCodeORM).filter(
+            ActivationCodeORM.bound_username == username,
+            ActivationCodeORM.status.in_(["unused", "active"]),
+        ).update({"status": "revoked"}, synchronize_session=False)
+        self.db.commit()
+        return result

@@ -2,6 +2,11 @@
 from __future__ import annotations
 
 from app.domain.identity import User
+from app.domain.identity.deletion import (
+    DELETION_STATUS_DELETED,
+    DELETION_STATUS_NORMAL,
+    DELETION_STATUS_PENDING,
+)
 from app.infrastructure.repositories.pg_http.client import PgRestClient, parse_dt
 
 _TABLE = "users"
@@ -21,6 +26,10 @@ class PgHttpUserRepo:
             security_answer_hash=doc.get("security_answer_hash", "") or "",
             created_at=parse_dt(doc.get("created_at")),
             theme=doc.get("theme", "") or "",
+            deletion_status=doc.get("deletion_status", "") or "正常",
+            deletion_requested_at=parse_dt(doc.get("deletion_requested_at")),
+            deletion_deadline=parse_dt(doc.get("deletion_deadline")),
+            deletion_waive_assets=bool(doc.get("deletion_waive_assets", False)),
         )
 
     def get(self, username: str) -> User | None:
@@ -57,3 +66,51 @@ class PgHttpUserRepo:
     def flush(self) -> None:
         """无 FK 顺序问题，no-op。"""
         return
+
+    # ── 账号自助注销（account-deletion）：单语句 CAS，受影响行数即语义 ──
+    def request_deletion(self, username: str, requested_at, deadline, waive: bool) -> int:
+        """WHERE deletion_status='正常'（迁移已给存量行回填默认值，无 NULL）；0 行=已在流程中。"""
+        return self.client.update_cas(
+            _TABLE,
+            {"username": f"eq.{username}", "deletion_status": f"eq.{DELETION_STATUS_NORMAL}"},
+            {
+                "deletion_status": DELETION_STATUS_PENDING,
+                "deletion_requested_at": requested_at.isoformat(),
+                "deletion_deadline": deadline.isoformat(),
+                "deletion_waive_assets": bool(waive),
+            },
+        )
+
+    def revoke_deletion(self, username: str, now) -> int:
+        """WHERE status='注销撤销期' AND deadline>now（gt.{iso}）；0 行=已到期或无申请。"""
+        return self.client.update_cas(
+            _TABLE,
+            {
+                "username": f"eq.{username}",
+                "deletion_status": f"eq.{DELETION_STATUS_PENDING}",
+                "deletion_deadline": f"gt.{now.isoformat()}",
+            },
+            {"deletion_status": DELETION_STATUS_NORMAL,
+             "deletion_requested_at": None, "deletion_deadline": None,
+             "deletion_waive_assets": False},
+        )
+
+    def mark_deleted(self, username: str, now) -> int:
+        """到期执行标记：CAS 到位即置空凭据（去标识化第一步）。"""
+        return self.client.update_cas(
+            _TABLE,
+            {
+                "username": f"eq.{username}",
+                "deletion_status": f"eq.{DELETION_STATUS_PENDING}",
+                "deletion_deadline": f"lte.{now.isoformat()}",
+            },
+            {"deletion_status": DELETION_STATUS_DELETED, "password_hash": ""},
+        )
+
+    def find_due_deletion_usernames(self, now) -> list[str]:
+        rows = self.client.find(
+            _TABLE,
+            {"deletion_status": f"eq.{DELETION_STATUS_PENDING}", "deletion_deadline": f"lte.{now.isoformat()}"},
+            select="username",
+        )
+        return [r["username"] for r in rows]

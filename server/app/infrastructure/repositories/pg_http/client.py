@@ -52,10 +52,14 @@ class PgRestClient:
         filter: dict | None = None,
         sort: list[tuple[str, str]] | None = None,
         limit: int | None = None,
+        select: str | None = None,
     ) -> list[dict]:
+        params = self._build_params(filter, sort, limit)
+        if select:
+            params["select"] = select
         resp = self._client.get(
             f"{self._endpoint}/{table}",
-            params=self._build_params(filter, sort, limit),
+            params=params,
         )
         resp.raise_for_status()
         return resp.json()
@@ -83,6 +87,23 @@ class PgRestClient:
             json=body,
         )
         resp.raise_for_status()
+
+    def update_cas(self, table: str, filter: dict, changes: dict) -> int:
+        """条件更新并返回受影响行数（account-deletion 的 CAS 基元，design A1 方案②）。
+
+        与 update 的差别：① changes 允许 None（显式写 NULL，如清空 deadline）；
+        ② Prefer: return=representation 使响应携带被更新的行，len() 即真实行数——
+        0 行=条件不满足（状态已被并发方改走），调用方据此实现幂等分支。
+        """
+        body = dict(changes)
+        resp = self._client.patch(
+            f"{self._endpoint}/{table}",
+            params=self._build_params(filter),
+            json=body,
+            headers={"Prefer": "return=representation"},
+        )
+        resp.raise_for_status()
+        return len(resp.json()) if resp.content else 0
 
     def delete(self, table: str, filter: dict) -> int:
         """删除并返回受影响行数（Prefer: return=representation 让响应携带删除的行）。"""

@@ -1,6 +1,7 @@
 """检查 License 和设备绑定状态（C端 心跳验证）。"""
 from __future__ import annotations
 
+from app.application.identity.deletion_service import deletion_payload, lazy_execute_if_due
 from app.domain.licensing import License, tier_policy
 from app.infrastructure.repositories.base import (
     CodeRepo,
@@ -30,10 +31,21 @@ def verify_license(
     if token_username != username:
         return {"code": 2, "msg": "Token 与用户名不匹配"}
 
-    # 2) 用户存在性
+    # 2) 用户存在性（惰性触发到期执行后再判，design D2 主路径）
+    lazy_execute_if_due(user_repo, code_repo, device_repo, grant_repo, username)
     user = user_repo.get(username)
     if not user:
         return {"code": 1, "msg": "用户不存在"}
+
+    # 2.5) 注销状态门禁（account-deletion）：已注销/撤销期均拒绝，C端按会话失效处理
+    # （spec R4：撤销期内付费与套餐功能 MUST NOT 正常使用；本地作品不受影响由客户端提示）
+    if user.is_deleted():
+        return {"code": 1, "msg": "该账号已注销",
+                "data": {"session_invalid": True, "deleted": True, "works_local_only": True}}
+    if user.is_deletion_pending():
+        return {"code": 2, "msg": "账号注销进行中，请到网页控制台撤销或等待到期",
+                "data": {"session_invalid": True, "deletion_pending": True,
+                         **deletion_payload(user)}}
 
     # 3) License 有效性（实时聚合 codes 表）
     codes = code_repo.find_active_by_username(username)

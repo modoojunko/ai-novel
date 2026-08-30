@@ -70,3 +70,11 @@ class PgHttpCodeRepo:
             "activated_at": to_iso(datetime.now()),
             "expires_at": to_iso(datetime.combine(expires_at, datetime.min.time())),
         })
+
+    def revoke_unconsumed_for_user(self, username: str) -> int:
+        """注销执行：unused（待激活）+ active（排队中/消耗中）全部置 revoked。返回行数。"""
+        return self.client.update_cas(
+            _TABLE,
+            {"bound_username": f"eq.{username}", "status": "in.(unused,active)"},
+            {"status": "revoked"},
+        )
