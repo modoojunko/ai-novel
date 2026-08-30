@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>爱小说 · 购买套餐（原型 · 四态 · 选型 A）</title>
+<style>
+/* ═══ 内联样式：令牌与基础类同源自 server/frontend/src/design/base.css（行号见 ADJUSTMENTS.md）；
+   布局组合为选型 A（竞品风·居中块面，2026-08-29 用户选定）═══ */
+:root {
+  --bg:      oklch(98% 0.004 240);
+  --surface: oklch(100% 0 0);
+  --fg:      oklch(20% 0.02 240);
+  --muted:   oklch(50% 0.018 240);
+  --border:  oklch(90% 0.006 240);
+  --accent: oklch(48% 0.11 170);
+  --accent-strong: oklch(41% 0.10 170);
+  --accent-soft:   color-mix(in oklch, var(--accent) 12%, transparent);
+  --ok:    oklch(52% 0.11 155);  --ok-soft:   color-mix(in oklch, var(--ok) 14%, transparent);
+  --warn:  oklch(50% 0.13 75);   --warn-soft: color-mix(in oklch, var(--warn) 16%, transparent);
+  --err:   oklch(50% 0.17 25);   --err-soft:  color-mix(in oklch, var(--err) 12%, transparent);
+  --fg-soft:   color-mix(in oklch, var(--fg) 5%, transparent);
+  --on-accent: oklch(100% 0 0);
+  --shadow-card: 0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent),
+                 0 12px 32px -12px color-mix(in oklch, var(--fg) 14%, transparent);
+  --font-display: 'Noto Serif SC', 'Songti SC', 'STSong', 'Iowan Old Style', Georgia, serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', monospace;
+  --radius: 10px; --radius-lg: 16px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 48px 24px 80px; }
+img, svg { display: block; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; padding: 0; }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.serif { font-family: var(--font-display); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.lnk { color: var(--accent); cursor: pointer; background: none; border: 0; padding: 0; font: inherit; }
+.lnk:hover { color: var(--accent-strong); text-decoration: underline; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 15px; border-radius: var(--radius); border: 1px solid transparent; font-size: 13.5px; font-weight: 500; }
+.btn-primary { background: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { background: var(--accent-strong); }
+.btn-secondary { background: var(--surface); color: var(--fg); border-color: var(--border); }
+.btn-secondary:hover { border-color: var(--fg); }
+.btn-ghost { background: transparent; color: var(--muted); padding: 0 8px; }
+.btn-ghost:hover { color: var(--fg); background: var(--fg-soft); }
+.btn:disabled { opacity: 0.45; pointer-events: none; }
+
+.notice { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; border-radius: 9px; padding: 10px 12px; margin: 0 0 14px; line-height: 1.55; text-align: left; }
+.notice svg { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+.notice.info { background: var(--accent-soft); color: var(--accent-strong); }
+.notice.ok { background: var(--ok-soft); color: var(--ok); }
+.notice.warn { background: var(--warn-soft); color: var(--warn); }
+
+.back { position: fixed; top: 16px; left: 20px; font-size: 13px; color: var(--muted); }
+.back:hover { color: var(--fg); }
+
+.brand { display: flex; align-items: center; gap: 9px; font-family: var(--font-display); font-size: 17px; font-weight: 600; }
+.logo-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-family: var(--font-display); font-size: 15px; }
+
+h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.01em; margin: 30px 0 6px; text-align: center; }
+.sub { font-size: 13px; color: var(--muted); margin: 0 0 26px; text-align: center; }
+
+.tabs { display: inline-flex; background: var(--fg-soft); border-radius: 12px; padding: 4px; gap: 4px; }
+.tabs button { height: 42px; padding: 0 26px; border-radius: 9px; font-size: 14.5px; font-weight: 600; color: var(--muted); }
+.tabs button.on { background: var(--surface); color: var(--fg); box-shadow: 0 1px 3px color-mix(in oklch, var(--fg) 10%, transparent); }
+
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; width: 860px; max-width: 100%; margin-top: 26px; }
+.off { position: absolute; top: 10px; right: 12px; font-size: 11px; font-weight: 600; color: var(--accent-strong); background: var(--accent-soft); padding: 2px 8px; border-radius: 999px; }
+.tag.cur { background: var(--fg-soft); color: var(--muted); }
+.card.free { cursor: default; }
+.card.free:hover { border-color: var(--border); }
+.card { position: relative; background: var(--surface); border: 1.5px solid var(--border); border-radius: 14px; padding: 20px 20px 18px; text-align: left; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+.card:hover { border-color: color-mix(in oklch, var(--accent) 40%, var(--border)); }
+.card.on { border-color: var(--accent); background: color-mix(in oklch, var(--accent) 4%, var(--surface)); box-shadow: 0 0 0 3px var(--accent-soft); }
+.tag { position: absolute; top: -11px; left: 16px; background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+.p-name { font-size: 15px; font-weight: 600; }
+.p-days { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.p-price { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 32px; font-weight: 600; letter-spacing: -0.02em; margin-top: 12px; }
+.p-price small { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 2px; }
+.p-was { font-size: 12px; color: var(--muted); text-decoration: line-through; margin-top: 1px; }
+.p-note { font-size: 12px; color: var(--muted); margin-top: 10px; }
+.p-feat { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: grid; gap: 4px; }
+.p-feat i { font-style: normal; font-size: 11.5px; color: var(--muted); display: flex; gap: 6px; align-items: baseline; }
+.p-feat i::before { content: ""; flex: none; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+.card.free .p-feat i::before { background: var(--muted); }
+
+.purchase { width: 860px; max-width: 100%; margin-top: 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; display: flex; align-items: center; gap: 18px; }
+.sel { font-size: 13px; color: var(--muted); }
+.sel b { display: block; font-size: 15px; color: var(--fg); font-weight: 600; margin-top: 1px; }
+.pay { margin-left: auto; text-align: right; }
+.pay .now { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+.pay .save { font-size: 12px; color: var(--warn); font-weight: 500; }
+.cta { height: 46px; padding: 0 26px; border-radius: 11px; background: var(--accent); color: var(--on-accent); font-size: 15px; font-weight: 600; }
+.agree { width: 860px; max-width: 100%; margin-top: 12px; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 7px; justify-content: center; }
+.agree input { accent-color: var(--accent); width: 14px; height: 14px; }
+.foot { margin-top: 26px; font-size: 12px; color: var(--muted); text-align: center; }
+.foot span { margin: 0 7px; }
+
+.max-preview { width: 860px; max-width: 100%; margin-top: 26px; border: 1.5px dashed var(--border); border-radius: 14px; padding: 22px; text-align: center; color: var(--muted); }
+.max-preview b { font-family: var(--font-display); font-size: 17px; color: var(--muted); display: block; margin-bottom: 4px; }
+.max-preview .meta { font-size: 12.5px; }
+
+.stage-narrow { width: 460px; max-width: 100%; margin-top: 8px; }
+.qr-stage { display: grid; justify-items: center; gap: 14px; padding: 24px 0 8px; }
+.qr-box { width: 188px; height: 188px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); display: grid; place-items: center; overflow: hidden; }
+.countdown { font-size: 13px; color: var(--muted); }
+.countdown .num { font-size: 17px; font-weight: 600; color: var(--fg); }
+.done-mark { width: 54px; height: 54px; border-radius: 50%; background: var(--ok-soft); display: grid; place-items: center; color: var(--ok); margin: 0 auto; }
+.done-mark svg { width: 26px; height: 26px; }
+.kv { display: grid; grid-template-columns: 84px 1fr; gap: 6px 12px; font-size: 13px; margin: 14px 0; text-align: left; }
+.kv span { color: var(--muted); }
+.kv b { font-weight: 500; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; }
+
+.scrim { position: fixed; inset: 0; background: color-mix(in oklch, var(--fg) 28%, transparent); z-index: 40; }
+.modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; }
+.mcard { width: min(430px, 92vw); background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); }
+.mcard-head { padding: 18px 22px 0; font-family: var(--font-display); font-size: 17px; font-weight: 600; }
+.mcard-body { padding: 14px 22px 4px; font-size: 13px; }
+.mcard-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px 18px; }
+.terms { margin: 8px 0; padding-left: 18px; display: grid; gap: 5px; font-size: 12.5px; color: var(--muted); }
+.terms li b { color: var(--fg); }
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.field label { font-size: 12.5px; color: var(--muted); }
+.input { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--fg); font-size: 14px; }
+.input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+.terms-agree { display: flex; gap: 8px; align-items: flex-start; margin: 12px 0 0; font-size: 12.5px; color: var(--fg); }
+.terms-agree input { margin-top: 3px; accent-color: var(--accent); width: 14px; height: 14px; flex: none; }
+.doc-body { max-height: 52vh; overflow-y: auto; font-size: 12.5px; line-height: 1.85; }
+.doc-body h4 { margin: 0 0 6px; font-size: 13.5px; }
+.doc-body ol { margin: 0; padding-left: 18px; display: grid; gap: 8px; color: var(--fg); }
+.doc-body .v { color: var(--muted); font-size: 11.5px; margin-top: 10px; }
+.switcher { position: fixed; top: 12px; right: 12px; z-index: 90; display: flex; gap: 4px; padding: 5px; background: var(--fg); border-radius: 9px; box-shadow: var(--shadow-card); }
+.switcher button { font-size: 11.5px; color: oklch(100% 0 0 / 70%); padding: 4px 9px; border-radius: 6px; }
+.switcher button.on { background: oklch(100% 0 0 / 16%); color: oklch(100% 0 0); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="switcher" id="switcher">
+  <button data-state="pick" class="on">选套餐</button>
+  <button data-state="waiting">等待支付</button>
+  <button data-state="paid">已到货</button>
+  <button data-state="closed">已过期</button>
+  <button data-state="failCreate">下单失败</button>
+  <button data-state="failVerify">核对中</button>
+  <button data-state="waitFail">支付失败反馈</button>
+  <button data-state="login">未登录</button>
+</div>
+
+<a class="back" href="#">‹ 返回控制台</a>
+
+<div class="brand"><span class="logo-mark">爱</span>爱小说</div>
+
+<main>
+
+  <!-- ═══ 态一：选套餐（选型 A） ═══ -->
+  <section data-stage="pick">
+    <h1>升级套餐，解锁全部写作能力</h1>
+    <p class="sub">一次性买断 · 到期不自动扣款 · 随时按剩余时长退款</p>
+
+    <div class="tabs" id="tierTabs">
+      <button data-tier="pro" class="on">PRO</button>
+      <button data-tier="max">MAX 即将推出</button>
+    </div>
+
+    <div id="tierLive">
+      <div class="cards" id="cards"></div>
+
+      <div class="purchase">
+        <div class="sel">已选<b id="selName">PRO · 包年（365 天）</b></div>
+        <div class="pay"><span class="save" id="selSave">已省 73 元</span><div class="now" id="selPrice">¥292.00</div></div>
+        <button class="cta" id="payBtn">去支付</button>
+      </div>
+      <div class="agree">点击去支付后，将确认<a class="lnk" href="#">《购买协议》</a>与<a class="lnk" href="#">《退款政策》</a>要点（v2026.08）</div>
+
+      <div class="foot">
+        <span>全部写作功能</span>·<span>时长可囤，激活才开始计时</span>·<span>原路退款</span>
+      </div>
+    </div>
+
+    <div class="max-preview" id="maxPanel" hidden>
+      <b>MAX · 即将推出</b>
+      <span class="meta">更高设备上限 · 更强 AI 能力。档位由后台配置上线——上线后此处自动变为可选时长与价格，无需改版。</span>
+    </div>
+  </section>
+
+  <!-- ═══ 态二：等待支付 ═══ -->
+  <section data-stage="waiting" hidden>
+    <h1>微信扫码支付</h1>
+    <p class="sub">订单号 <span class="num">S20260829-7F3K</span> · PRO · 包年（365 天）</p>
+
+    <div class="stage-narrow">
+      <div class="notice info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+        <span>请使用微信扫描二维码完成支付。<b>¥292.00</b> 支付成功后套餐立即到货，激活后开始计时。</span>
+      </div>
+      <div class="panel">
+        <div class="qr-stage">
+          <div class="qr-box" aria-label="微信支付二维码（占位）">
+            <svg width="150" height="150" viewBox="0 0 150 150" aria-hidden="true">
+              <g fill="var(--fg)">
+                <rect x="8" y="8" width="36" height="36" rx="4"/><rect x="14" y="14" width="24" height="24" fill="var(--surface)"/><rect x="20" y="20" width="12" height="12"/>
+                <rect x="106" y="8" width="36" height="36" rx="4"/><rect x="112" y="14" width="24" height="24" fill="var(--surface)"/><rect x="118" y="20" width="12" height="12"/>
+                <rect x="8" y="106" width="36" height="36" rx="4"/><rect x="14" y="112" width="24" height="24" fill="var(--surface)"/><rect x="20" y="118" width="12" height="12"/>
+                <rect x="56" y="12" width="8" height="8"/><rect x="70" y="20" width="8" height="8"/><rect x="84" y="12" width="8" height="8"/><rect x="60" y="30" width="8" height="8"/><rect x="78" y="34" width="8" height="8"/>
+                <rect x="12" y="56" width="8" height="8"/><rect x="26" y="62" width="8" height="8"/><rect x="40" y="54" width="8" height="8"/><rect x="56" y="60" width="8" height="8"/><rect x="72" y="52" width="8" height="8"/><rect x="88" y="62" width="8" height="8"/><rect x="104" y="56" width="8" height="8"/><rect x="120" y="64" width="8" height="8"/><rect x="134" y="54" width="8" height="8"/>
+                <rect x="56" y="76" width="8" height="8"/><rect x="70" y="84" width="8" height="8"/><rect x="86" y="78" width="8" height="8"/><rect x="100" y="86" width="8" height="8"/><rect x="116" y="78" width="8" height="8"/><rect x="130" y="86" width="8" height="8"/>
+                <rect x="14" y="100" width="8" height="8"/><rect x="30" y="92" width="8" height="8"/><rect x="44" y="102" width="8" height="8"/><rect x="58" y="96" width="8" height="8"/><rect x="74" y="104" width="8" height="8"/><rect x="92" y="94" width="8" height="8"/><rect x="108" y="102" width="8" height="8"/><rect x="124" y="94" width="8" height="8"/><rect x="136" y="104" width="8" height="8"/>
+                <rect x="56" y="116" width="8" height="8"/><rect x="72" y="122" width="8" height="8"/><rect x="88" y="112" width="8" height="8"/><rect x="102" y="120" width="8" height="8"/><rect x="118" y="114" width="8" height="8"/><rect x="132" y="124" width="8" height="8"/><rect x="60" y="134" width="8" height="8"/><rect x="80" y="130" width="8" height="8"/><rect x="98" y="136" width="8" height="8"/>
+              </g>
+            </svg>
+          </div>
+          <div class="countdown">二维码有效期剩 <span class="num">14:59</span></div>
+          <button class="btn btn-ghost">取消支付</button>
+        </div>
+      </div>
+      <p style="text-align:center; font-size:13px; color:var(--muted); margin-top:14px">
+        已扫码付款但页面没变化？<button class="lnk" id="resync">我已支付，帮我查一下到账</button>
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══ 态三：已到货（待激活） ═══ -->
+  <section data-stage="paid" hidden>
+    <h1>支付成功</h1>
+    <p class="sub">订单号 <span class="num">S20260829-7F3K</span></p>
+
+    <div class="stage-narrow">
+      <div class="panel" style="display:grid; justify-items:center; gap:6px; padding:28px 22px">
+        <div class="done-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>
+        </div>
+        <div class="serif" style="font-size:21px; font-weight:600">包年 · 已到货，待激活</div>
+        <div style="font-size:13px; color:var(--muted)">点「立即激活」马上开始计时；先存着也随时可在「我的套餐」激活</div>
+        <div class="kv" style="margin-top:16px; width:100%; max-width:320px">
+          <span>支付金额</span><b class="num">¥292.00</b>
+          <span>获得时长</span><b class="num">365 天</b>
+          <span>生效方式</span><b>激活后，接在试用结束后开始</b>
+          <span>支付方式</span><b>微信扫码支付</b>
+          <span>协议确认</span><b>v2026.08 · 已同意（14:22）</b>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:10px">
+          <button class="btn btn-primary" style="height:42px; padding:0 22px">立即激活</button>
+          <a class="btn btn-secondary" style="height:42px" href="#">返回控制台</a>
+        </div>
+        <a class="lnk" href="#" style="margin-top:6px; font-size:12.5px">先存着，之后在「我的套餐」激活</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 态四：已过期（超时未支付） ═══ -->
+  <section data-stage="closed" hidden>
+    <h1>订单已过期</h1>
+    <p class="sub">订单号 <span class="num">S20260829-7F3K</span> · 超过 15 分钟未支付，订单已自动过期</p>
+
+    <div class="stage-narrow">
+      <div class="notice warn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l10 17H2L12 3z"/><path d="M12 10v4M12 17.5h.01"/></svg>
+        <span>本次订单未支付成功，没有产生扣款。重新下单将按<b>当前价格</b>生成新订单。</span>
+      </div>
+      <div class="panel" style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 20px">
+        <span style="font-size:13px; color:var(--muted)">PRO · 包年（365 天）· 下单时价格 <b class="num">¥292.00</b></span>
+        <button class="btn btn-primary" style="height:42px; padding:0 20px">重新下单</button>
+      </div>
+      <p style="text-align:center; margin-top:14px">
+        <a class="lnk" href="#">对价格有疑问？看看当前活动说明</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══ 态〇：未登录（从 C端/外链跳入收银台时：登录后回跳购买上下文） ═══ -->
+  <section data-stage="login" hidden>
+    <h1>登录后继续购买</h1>
+    <p class="sub">PRO · 包年（365 天）· ¥292.00 —— 您的选择已保留</p>
+
+    <div class="stage-narrow">
+      <div class="panel" style="padding:22px 24px">
+        <div class="field">
+          <label>用户名</label>
+          <input class="input" type="text" placeholder="请输入用户名">
+        </div>
+        <div class="field">
+          <label>密码</label>
+          <input class="input" type="password" placeholder="请输入密码">
+        </div>
+        <button class="btn btn-primary" style="width:100%; height:42px; margin-top:4px">登录并继续购买</button>
+        <p style="text-align:center; font-size:12.5px; color:var(--muted); margin:12px 0 0">
+          还没有账号？<a class="lnk" href="#">注册即送 7 天全功能试用</a> · <a class="lnk" href="#">忘记密码</a>
+        </p>
+      </div>
+      <p style="text-align:center; margin-top:12px"><a class="lnk" href="#">‹ 暂不购买，先逛逛</a></p>
+    </div>
+  </section>
+
+  <!-- ═══ 态五·前置：等待支付·查单反馈失败版（用户点「帮我查」后内嵌显示，不跳页） ═══ -->
+  <section data-stage="waitFail" hidden>
+    <h1>微信扫码支付</h1>
+    <p class="sub">订单号 <span class="num">S20260829-7F3K</span> · PRO · 包年（365 天）</p>
+
+    <div class="stage-narrow">
+      <div class="panel">
+        <div class="qr-stage">
+          <div class="qr-box" aria-label="微信支付二维码（占位）">
+            <svg width="150" height="150" viewBox="0 0 150 150" aria-hidden="true"><g fill="var(--fg)">
+              <rect x="8" y="8" width="36" height="36" rx="4"/><rect x="14" y="14" width="24" height="24" fill="var(--surface)"/><rect x="20" y="20" width="12" height="12"/>
+              <rect x="106" y="8" width="36" height="36" rx="4"/><rect x="112" y="14" width="24" height="24" fill="var(--surface)"/><rect x="118" y="20" width="12" height="12"/>
+              <rect x="8" y="106" width="36" height="36" rx="4"/><rect x="14" y="112" width="24" height="24" fill="var(--surface)"/><rect x="20" y="118" width="12" height="12"/>
+              <rect x="56" y="12" width="8" height="8"/><rect x="70" y="20" width="8" height="8"/><rect x="84" y="12" width="8" height="8"/><rect x="60" y="30" width="8" height="8"/><rect x="78" y="34" width="8" height="8"/>
+              <rect x="12" y="56" width="8" height="8"/><rect x="26" y="62" width="8" height="8"/><rect x="40" y="54" width="8" height="8"/><rect x="56" y="60" width="8" height="8"/><rect x="72" y="52" width="8" height="8"/><rect x="88" y="62" width="8" height="8"/><rect x="104" y="56" width="8" height="8"/><rect x="120" y="64" width="8" height="8"/><rect x="134" y="54" width="8" height="8"/>
+              <rect x="56" y="76" width="8" height="8"/><rect x="70" y="84" width="8" height="8"/><rect x="86" y="78" width="8" height="8"/><rect x="100" y="86" width="8" height="8"/><rect x="116" y="78" width="8" height="8"/><rect x="130" y="86" width="8" height="8"/>
+              <rect x="14" y="100" width="8" height="8"/><rect x="30" y="92" width="8" height="8"/><rect x="44" y="102" width="8" height="8"/><rect x="58" y="96" width="8" height="8"/><rect x="74" y="104" width="8" height="8"/><rect x="92" y="94" width="8" height="8"/><rect x="108" y="102" width="8" height="8"/><rect x="124" y="94" width="8" height="8"/><rect x="136" y="104" width="8" height="8"/>
+              <rect x="56" y="116" width="8" height="8"/><rect x="72" y="122" width="8" height="8"/><rect x="88" y="112" width="8" height="8"/><rect x="102" y="120" width="8" height="8"/><rect x="118" y="114" width="8" height="8"/><rect x="132" y="124" width="8" height="8"/><rect x="60" y="134" width="8" height="8"/><rect x="80" y="130" width="8" height="8"/><rect x="98" y="136" width="8" height="8"/>
+            </g></svg>
+          </div>
+          <div class="countdown">二维码有效期剩 <span class="num">12:47</span></div>
+          <button class="btn btn-ghost">取消支付</button>
+        </div>
+      </div>
+
+      <!-- 查单结果内嵌反馈：支付失败（微信侧 PAYERROR/USERPAY_ERROR/取消） -->
+      <div class="notice warn" style="margin-top:14px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l10 17H2L12 3z"/><path d="M12 10v4M12 17.5h.01"/></svg>
+        <span>查过了：微信显示<b>本次支付未成功</b>（如余额不足、银行卡限额，或您取消了支付）。<b>二维码仍然有效</b>——请重新扫码，或在手机上更换支付方式后重试。</span>
+      </div>
+      <p style="text-align:center; font-size:12.5px; color:var(--muted); margin-top:8px">
+        反复失败？<a class="lnk" href="#">取消本单，重新下单</a> · 或 <a class="lnk" href="/support">联系客服</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══ 态五：下单失败（拿二维码这步失败，未扣款可重试） ═══ -->
+  <section data-stage="failCreate" hidden>
+    <h1>订单创建失败</h1>
+    <p class="sub">未产生任何扣款，您可以重试或返回重选套餐</p>
+
+    <div class="stage-narrow">
+      <div class="notice" style="background: var(--err-soft); color: var(--err)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16.5h.01"/></svg>
+        <span>网络波动或支付服务暂时不可用，本次未能生成支付二维码。<b>没有产生扣款</b>，请重试。</span>
+      </div>
+      <div class="panel" style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 20px">
+        <span style="font-size:13px; color:var(--muted)">PRO · 包年（365 天）· <b class="num">¥292.00</b></span>
+        <div style="display:flex; gap:8px">
+          <button class="btn btn-ghost" id="failBack">返回重选</button>
+          <button class="btn btn-primary" style="height:42px; padding:0 20px" id="failRetry">重试</button>
+        </div>
+      </div>
+      <p style="text-align:center; margin-top:14px">
+        <a class="lnk" href="/support">反复失败？联系客服</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══ 态六：支付核对中（已收款金额核对未过被冻结；绝不提供重试，防重复支付） ═══ -->
+  <section data-stage="failVerify" hidden>
+    <h1>支付核对中</h1>
+    <p class="sub">订单号 <span class="num">S20260829-7F3K</span> · PRO · 包年（365 天）</p>
+
+    <div class="stage-narrow">
+      <div class="notice" style="background: var(--err-soft); color: var(--err)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+        <span>已收到您的支付，系统正在核对金额，暂未到账。<b>资金安全、不会丢失</b>——请勿重复支付。</span>
+      </div>
+      <div class="panel" style="display:grid; gap:10px; padding:18px 20px">
+        <div style="font-size:13px">核对一般几分钟内完成；完成后套餐自动到账，可在「我的套餐」激活。</div>
+        <div style="font-size:12.5px; color:var(--muted)">超过 30 分钟未到账，请携带订单号联系客服人工处理。</div>
+        <div style="display:flex; gap:10px; margin-top:4px">
+          <a class="btn btn-primary" style="height:42px; padding:0 20px" href="/support">联系客服</a>
+          <a class="btn btn-secondary" style="height:42px" href="#">查看我的订单</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- 协议确认弹窗：确认视图 + 全文阅读视图；同意动作留痕（agreement_version + agreed_at + terms_agreed 事件） -->
+<div class="scrim" id="scrim" hidden></div>
+<div class="modal" id="termsModal" hidden>
+  <div class="mcard">
+    <div id="paneConfirm">
+      <div class="mcard-head">确认购买协议</div>
+      <div class="mcard-body">
+        <p style="margin:0 0 4px">请阅读并确认以下要点：</p>
+        <ul class="terms">
+          <li>一次性买断时长，<b>到期不自动扣款</b></li>
+          <li>套餐支付成功即到货，<b>点激活才开始计时</b>；未激活可全额退</li>
+          <li>退款<b>按剩余时长计算、原路退回</b>，不影响其他套餐</li>
+          <li>本单：<b id="mOrder">PRO · 包年（365 天）· ¥292.00</b></li>
+        </ul>
+        <p style="margin:8px 0 0; font-size:12px; color:var(--muted)">全文：<button class="lnk" data-doc="agreement">《购买协议》（v2026.08）</button> · <button class="lnk" data-doc="refund">《退款政策》（v2026.08）</button></p>
+        <label class="terms-agree"><input type="checkbox" id="termsCheck">
+          <span>我已阅读并同意<button class="lnk" data-doc="agreement">《购买协议》</button>与<button class="lnk" data-doc="refund">《退款政策》</button>：按剩余时长折算退款、原路退回</span></label>
+      </div>
+      <div class="mcard-foot">
+        <button class="btn btn-secondary" id="termsCancel">再想想</button>
+        <button class="btn btn-primary" id="termsOk" style="height:40px; padding:0 18px" disabled>阅读并同意，去支付</button>
+      </div>
+    </div>
+    <div id="paneDoc" hidden>
+      <div class="mcard-head" style="display:flex; align-items:center; justify-content:space-between">
+        <span id="docTitle">购买协议</span>
+        <button class="lnk" id="docBack" style="font-size:12.5px">‹ 返回确认</button>
+      </div>
+      <div class="mcard-body"><div class="doc-body" id="docBody"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 协议全文模板（示例要点稿，正式文本由运营/法务定稿后替换并升版本号） -->
+<template id="doc-agreement">
+  <h4>购买协议（示例要点稿）</h4>
+  <ol>
+    <li>本服务为「爱小说」会员套餐，按一次性买断时长方式提供（包月/包季/包年），到期后<b>不自动续费、不自动扣款</b>。</li>
+    <li>套餐支付成功后即时到账；到货后需在「我的套餐」中点「激活」开始计时，时长接在当前有效到期日之后。</li>
+    <li>套餐权益以购买页展示为准；设备数量按所购档位确定（包月/包季 3 台，包年 5 台）。</li>
+    <li>价格以下单时页面展示并锁定的金额为准，此后调价不影响已下单订单。</li>
+    <li>本服务为数字化商品，支付成功即完成交付。</li>
+    <li>本协议适用中华人民共和国法律；如有争议请先联系客服协商处理。</li>
+  </ol>
+  <p class="v">版本 v2026.08 · 生效日期 2026-08-01</p>
+</template>
+<template id="doc-refund">
+  <h4>退款政策（示例要点稿）</h4>
+  <ol>
+    <li><b>未激活的套餐</b>：可随时全额退款。</li>
+    <li><b>已激活套餐</b>：按退款确认时刻的剩余时长计算退款，精确到秒，金额四舍五入到分，原路退回。</li>
+    <li>退款确认后套餐立即停止使用；退款一般数分钟至 3 个工作日到账。</li>
+    <li>在线退款通道受理期为支付后 1 年内，超期请联系客服。</li>
+    <li>重复支付的多余订单无条件全额退款。</li>
+    <li>每笔订单可单独申请退款，不影响其他套餐的起止时间。</li>
+  </ol>
+  <p class="v">版本 v2026.08 · 生效日期 2026-08-01</p>
+</template>
+
+<script>
+/* MOCK 常量区：tier × period 二维配置驱动（新增套餐=加配置行）。
+   tiers：key/名称/上架状态（planned=预告占位）；skus：基准价/折扣/设备数；促销位与人数规则见 ADJUSTMENTS。 */
+const MOCK = {
+  tiers: { pro: { label: "PRO", live: true }, max: { label: "MAX", live: false } },
+  popular: "yearly",
+  buyers: 1024,
+  /* factor=该 SKU 折扣系数（1=原价）；界面显示"9折/8折"，全局系数可作为批量工具叠加 */
+  skus: {
+    "pro-monthly":   { period: "monthly",   name: "包月", days: 30,  base: 3000,  factor: 1.0, devices: 3 },
+    "pro-quarterly": { period: "quarterly", name: "包季", days: 90,  base: 9000,  factor: 0.9, devices: 3 },
+    "pro-yearly":    { period: "yearly",    name: "包年", days: 365, base: 36500, factor: 0.8, devices: 5 },
+  },
+};
+const fen = (v) => "¥" + (v / 100).toFixed(2);
+const yuan = (v) => "¥" + Math.round(v / 100);
+
+let tier = "pro", period = "yearly";
+const $ = (id) => document.getElementById(id);
+
+function renderCards() {
+  const box = $("cards");
+  box.innerHTML = "";
+  const free = document.createElement("div");
+  free.className = "card free";
+  free.innerHTML =
+    '<span class="tag cur">当前方案</span>' +
+    '<div class="p-name">免费</div>' +
+    '<div class="p-days">1 台设备</div>' +
+    '<div class="p-price">¥0</div>' +
+    '<div class="p-was">试用剩 2 天</div>' +
+    '<div class="p-feat"><i>全部基础写作工具</i><i>不含 AI 能力</i><i>本地作品永久保留</i></div>';
+  box.appendChild(free);
+  for (const [key, sku] of Object.entries(MOCK.skus)) {
+    if (!key.startsWith(tier + "-")) continue;
+    const price = Math.round(sku.base * sku.factor);
+    const card = document.createElement("div");
+    card.className = "card" + (sku.period === period ? " on" : "");
+    card.dataset.period = sku.period;
+    const off = sku.factor < 1 ? (Math.round(sku.factor * 100) / 10) + "折" : "";
+    card.innerHTML =
+      (sku.period === MOCK.popular ? '<span class="tag">最受欢迎</span>' : "") +
+      (off ? '<span class="off">' + off + "</span>" : "") +
+      '<div class="p-name">' + sku.name + "</div>" +
+      '<div class="p-days">' + sku.days + " 天 · " + sku.devices + " 台设备</div>" +
+      '<div class="p-price">' + yuan(price) + "<small>元</small></div>" +
+      '<div class="p-was">原价 ' + yuan(sku.base) + " 元</div>" +
+      '<div class="p-feat"><i>含免费全部功能</i><i>AI 生成正文（流式）</i><i>设定与章纲融入 AI</i></div>' +
+      (sku.period === MOCK.popular ? '<div class="p-note">本月已有 ' + MOCK.buyers.toLocaleString() + " 人选择</div>" : "");
+    card.addEventListener("click", () => { period = sku.period; renderCards(); refreshPurchase(); });
+    box.appendChild(card);
+  }
+}
+function refreshPurchase() {
+  const sku = MOCK.skus[tier + "-" + period];
+  const price = Math.round(sku.base * sku.factor);
+  $("selName").textContent = "PRO · " + sku.name + "（" + sku.days + " 天）";
+  $("selPrice").textContent = fen(price);
+  $("selSave").textContent = "已省 " + yuan(sku.base - price) + " 元";
+}
+$("tierTabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  [...$("tierTabs").children].forEach((x) => x.classList.toggle("on", x === b));
+  tier = b.dataset.tier;
+  const live = MOCK.tiers[tier].live;
+  $("tierLive").hidden = !live;
+  $("maxPanel").hidden = live;
+});
+
+const showPane = (confirm) => { $("paneConfirm").hidden = !confirm; $("paneDoc").hidden = confirm; };
+const openTerms = (show) => {
+  $("scrim").hidden = !show; $("termsModal").hidden = !show;
+  if (show) { showPane(true); $("termsCheck").checked = false; $("termsOk").disabled = true; }
+};
+$("payBtn").addEventListener("click", () => {
+  const sku = MOCK.skus[tier + "-" + period];
+  $("mOrder").textContent = "PRO · " + sku.name + "（" + sku.days + " 天）· " + fen(Math.round(sku.base * sku.factor));
+  openTerms(true);
+});
+$("termsCancel").addEventListener("click", () => openTerms(false));
+document.querySelectorAll("[data-doc]").forEach((b) =>
+  b.addEventListener("click", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const id = b.dataset.doc;
+    $("docTitle").textContent = id === "agreement" ? "购买协议" : "退款政策";
+    $("docBody").innerHTML = document.getElementById("doc-" + id).innerHTML;
+    showPane(false);
+  })
+);
+$("docBack").addEventListener("click", () => showPane(true));
+$("termsCheck").addEventListener("change", () => ($("termsOk").disabled = !$("termsCheck").checked));
+$("termsOk").addEventListener("click", () => { openTerms(false); $("switcher").querySelector('[data-state="waiting"]').click(); });
+$("failRetry").addEventListener("click", () => $("switcher").querySelector('[data-state="waiting"]').click());
+$("failBack").addEventListener("click", () => $("switcher").querySelector('[data-state="pick"]').click());
+$("resync").addEventListener("click", () => $("switcher").querySelector('[data-state="paid"]').click());
+
+const switcher = $("switcher");
+const stages = document.querySelectorAll("[data-stage]");
+switcher.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-state]");
+  if (!btn) return;
+  switcher.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === btn));
+  stages.forEach((s) => (s.hidden = s.dataset.stage !== btn.dataset.state));
+});
+
+renderCards();
+refreshPurchase();
+</script>
+</body>
+</html>

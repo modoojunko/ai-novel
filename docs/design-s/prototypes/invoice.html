@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>爱小说 · 发票详情（可打印）</title>
+<style>
+:root {
+  --bg: oklch(98% 0.004 240); --surface: oklch(100% 0 0); --fg: oklch(20% 0.02 240); --muted: oklch(50% 0.018 240);
+  --border: oklch(90% 0.006 240); --accent: oklch(48% 0.11 170); --accent-strong: oklch(41% 0.10 170);
+  --accent-soft: color-mix(in oklch, var(--accent) 12%, transparent);
+  --err: oklch(50% 0.17 25); --err-soft: color-mix(in oklch, var(--err) 12%, transparent);
+  --on-accent: oklch(100% 0 0);
+  --font-display: 'Noto Serif SC', 'Songti SC', serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  --radius: 10px; --radius-lg: 16px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 36px 24px 72px; }
+button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; padding: 0; }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.lnk { color: var(--accent); cursor: pointer; background: none; border: 0; padding: 0; font: inherit; }
+.lnk:hover { color: var(--accent-strong); text-decoration: underline; }
+.toolbar { width: 680px; max-width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.toolbar .actions { display: flex; gap: 8px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 36px; padding: 0 16px; border-radius: var(--radius); border: 1px solid transparent; font-size: 13.5px; font-weight: 500; }
+.btn-primary { background: var(--accent); color: var(--on-accent); }
+.btn-secondary { background: var(--surface); color: var(--fg); border-color: var(--border); }
+.btn-secondary:hover { border-color: var(--fg); }
+
+/* 发票版式：A4 打印适配（@media print 只留票据本体） */
+.invoice { width: 680px; max-width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 34px 40px; box-shadow: 0 12px 32px -12px color-mix(in oklch, var(--fg) 14%, transparent); }
+.inv-head { display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 2px solid var(--fg); padding-bottom: 14px; }
+.inv-head .seller { font-family: var(--font-display); font-size: 19px; font-weight: 600; }
+.inv-head .seller small { display: block; font-family: var(--font-body); font-size: 11.5px; color: var(--muted); font-weight: 400; margin-top: 3px; }
+.inv-head .kind { text-align: right; }
+.inv-head .kind b { font-size: 16px; }
+.inv-head .kind .st { display: inline-block; margin-top: 5px; font-size: 11px; padding: 2px 10px; border-radius: 999px; }
+.inv-head .kind .st.ok { background: color-mix(in oklch, var(--ok) 14%, transparent); color: oklch(52% 0.11 155); }
+.inv-head .kind .st.red { background: var(--err-soft); color: var(--err); }
+.inv-grid { display: grid; grid-template-columns: 130px 1fr 130px 1fr; gap: 9px 12px; font-size: 13px; margin: 18px 0; }
+.inv-grid span { color: var(--muted); }
+.inv-grid b { font-weight: 500; }
+.inv-amount { display: flex; align-items: baseline; justify-content: space-between; background: color-mix(in oklch, var(--accent) 5%, var(--surface)); border-radius: 10px; padding: 12px 18px; margin: 6px 0 16px; }
+.inv-amount .l { font-size: 13px; color: var(--muted); }
+.inv-amount .v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 27px; font-weight: 600; letter-spacing: -0.01em; }
+.inv-items { width: 100%; border-collapse: collapse; font-size: 13px; }
+.inv-items th, .inv-items td { border-bottom: 1px solid var(--border); padding: 7px 4px; text-align: left; }
+.inv-items th { color: var(--muted); font-weight: 500; font-size: 12px; }
+.inv-items td.r, .inv-items th.r { text-align: right; }
+.inv-note { font-size: 11.5px; color: var(--muted); margin-top: 14px; line-height: 1.8; }
+.stamp { position: absolute; }
+
+@media print {
+  body { padding: 0; background: var(--surface); }
+  .toolbar, .no-print { display: none !important; }
+  .invoice { border: 0; box-shadow: none; border-radius: 0; width: 100%; }
+  @page { size: A4; margin: 18mm; }
+}
+</style>
+</head>
+<body>
+
+<div class="toolbar no-print">
+  <a class="lnk" href="#">‹ 返回订单详情</a>
+  <div class="actions">
+    <button class="btn btn-primary" onclick="window.print()">打印 / 另存 PDF</button>
+  </div>
+</div>
+
+<div class="invoice">
+  <div class="inv-head">
+    <div class="seller">爱小说<br><small>服务提供方 · 数电普票</small></div>
+    <div class="kind">
+      <b>电子发票（普通发票）</b><br>
+      <span class="st ok">已开出 · 可下载</span>
+    </div>
+  </div>
+
+  <div class="inv-grid">
+    <span>发票号码</span><b class="num">2631208…4471（复制）</b>
+    <span>开票日期</span><b class="num">2026-08-02</b>
+    <span>关联订单</span><b class="num">S20260705-K1N9</b>
+    <span>购买方</span><b>张三（个人）</b>
+    <span>统一社会信用代码</span><b>—</b>
+    <span>开票人</span><b>爱小说运营</b>
+  </div>
+
+  <div class="inv-amount">
+    <span class="l">价税合计（大写：贰拾肆元整）</span>
+    <span class="v">¥24.00</span>
+  </div>
+
+  <table class="inv-items">
+    <tr><th>项目名称</th><th class="r">规格</th><th class="r">数量</th><th class="r">金额</th></tr>
+    <tr><td>＊信息技术服务＊软件会员服务</td><td class="r">包月 30 天</td><td class="r">1</td><td class="r num">¥24.00</td></tr>
+  </table>
+
+  <p class="inv-note">
+    本发票为电子发票，与纸质发票具有同等法律效力；可通过全国增值税发票查验平台查验真伪。<br>
+    红冲记录：该订单若发生退款，对应红字发票将显示在订单详情的「发票」区块（蓝字+红字成对出现）。
+  </p>
+</div>
+
+<p style="margin-top:14px; font-size:12.5px; color:var(--muted)" class="no-print">
+  退款后的发票状态：<a class="lnk" href="#">查看示例（红冲）</a> · 发票问题？<a class="lnk" href="/support">联系客服</a>
+</p>
+
+</body>
+</html>

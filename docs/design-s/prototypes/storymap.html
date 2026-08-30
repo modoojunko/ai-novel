@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>爱小说 · 购买旅程故事地图（原型）</title>
+<style>
+:root {
+  --bg: oklch(98% 0.004 240); --surface: oklch(100% 0 0); --fg: oklch(20% 0.02 240); --muted: oklch(50% 0.018 240);
+  --border: oklch(90% 0.006 240); --accent: oklch(48% 0.11 170); --accent-strong: oklch(41% 0.10 170);
+  --accent-soft: color-mix(in oklch, var(--accent) 12%, transparent);
+  --ok: oklch(52% 0.11 155); --ok-soft: color-mix(in oklch, var(--ok) 14%, transparent);
+  --warn: oklch(50% 0.13 75); --warn-soft: color-mix(in oklch, var(--warn) 16%, transparent);
+  --err: oklch(50% 0.17 25); --err-soft: color-mix(in oklch, var(--err) 12%, transparent);
+  --fg-soft: color-mix(in oklch, var(--fg) 5%, transparent); --on-accent: oklch(100% 0 0);
+  --shadow-card: 0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent), 0 12px 32px -12px color-mix(in oklch, var(--fg) 14%, transparent);
+  --font-display: 'Noto Serif SC', 'Songti SC', serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  --radius: 10px; --radius-lg: 16px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+main { max-width: 1240px; margin: 0 auto; padding: 40px 28px 80px; }
+.page-head h1 { font-family: var(--font-display); font-size: 26px; font-weight: 600; margin: 0; }
+.page-head .sub { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; }
+.pill { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 11px; line-height: 1.6; font-weight: 500; background: var(--surface); color: var(--muted); white-space: nowrap; }
+.pill-accent { background: var(--accent-soft); border-color: transparent; color: var(--accent-strong); }
+.pill-ok { background: var(--ok-soft); border-color: transparent; color: color-mix(in oklch, var(--ok) 88%, var(--fg)); }
+.pill-warn { background: var(--warn-soft); border-color: transparent; color: color-mix(in oklch, var(--warn) 85%, var(--fg)); }
+.pill-err { background: var(--err-soft); border-color: transparent; color: color-mix(in oklch, var(--err) 90%, var(--fg)); }
+
+/* 入口池 */
+.entries { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.entry { display: flex; align-items: center; gap: 8px; border: 1px dashed var(--accent); border-radius: 10px; padding: 8px 12px; font-size: 12.5px; background: color-mix(in oklch, var(--accent) 3%, var(--surface)); }
+.entry b { font-weight: 600; }
+.entry .go { color: var(--accent-strong); font-size: 11.5px; }
+
+/* 主线 */
+.backbone { display: flex; gap: 0; margin-top: 22px; overflow-x: auto; padding-bottom: 8px; }
+.stage { flex: 1 0 150px; min-width: 150px; position: relative; padding-right: 26px; }
+.stage::after { content: "→"; position: absolute; right: 6px; top: 4px; color: var(--muted); font-size: 15px; }
+.stage:last-child::after { content: ""; }
+.stage:last-child { padding-right: 0; }
+.s-head { display: flex; align-items: baseline; gap: 7px; border-bottom: 2px solid var(--accent); padding-bottom: 6px; margin-bottom: 10px; }
+.s-head .k { font-family: var(--font-mono); font-size: 11px; color: var(--accent-strong); }
+.s-head .t { font-size: 13.5px; font-weight: 600; }
+.scr { border: 1px solid var(--border); border-radius: 9px; background: var(--surface); padding: 8px 10px; margin-bottom: 8px; font-size: 12px; }
+.scr b { display: block; font-size: 12.5px; margin-bottom: 2px; }
+.scr .st { color: var(--muted); font-size: 11.5px; line-height: 1.7; }
+.scr.branch { border-color: color-mix(in oklch, var(--warn) 40%, var(--border)); }
+.act { font-size: 11.5px; color: var(--muted); line-height: 1.7; padding: 2px 2px 0; }
+.act b2 { color: var(--fg); }
+
+/* 典型路径 */
+.paths { margin-top: 26px; display: grid; gap: 12px; }
+.path { display: flex; align-items: flex-start; gap: 14px; }
+.path .who { flex: none; width: 130px; font-size: 13px; font-weight: 600; padding-top: 6px; }
+.path .who small { display: block; font-weight: 400; color: var(--muted); font-size: 11.5px; }
+.path .seq { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.path .seq .pill { font-size: 11.5px; }
+.path .seq .arr { color: var(--muted); font-size: 12px; }
+.note { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.8; }
+.note b { color: var(--fg); }
+</style>
+</head>
+<body>
+<main>
+  <div class="page-head">
+    <h1>购买旅程 · 用户故事地图</h1>
+    <div class="sub">五个原型 × 收银台七态如何被串起来：用户从哪来、点哪里、到哪去。评审用（非实现屏）。</div>
+  </div>
+
+  <!-- ═══ 入口池：用户从哪里开始 ═══ -->
+  <div class="panel">
+    <b style="font-size:14px">入口池 —— 购买旅程从这五处开始</b>
+    <div class="note" style="margin-top:10px"><b>红线：C端 零购买动作</b>——C端 只负责入口跳转（系统浏览器打开 S端），选套餐/协议/扫码/激活/退款全部且仅在 S端 发生。</div>
+    <div class="entries">
+      <span class="entry"><b>C端 · 功能墙</b>免费态锁定可见 + 「升级」出口（跳转浏览器，C端 内无购买界面）<span class="go">→ S端 收银台</span></span>
+      <span class="entry"><b>C端 · 到期提醒条</b>剩余 &lt;7 天提示（跳转浏览器）<span class="go">→ S端 收银台</span></span>
+      <span class="entry"><b>控制台首页</b>快捷卡「续费或购买时长」<span class="go">→ 收银台</span></span>
+      <span class="entry"><b>我的套餐</b>「续费或购买时长」<span class="go">→ 收银台</span></span>
+      <span class="entry"><b>我的订单 · 空态</b>「去购买套餐」<span class="go">→ 收银台</span></span>
+    </div>
+    <div class="note">所有入口统一汇入收银台（流程页，仅「‹ 返回控制台」）；<b>未登录跳入时先见登录态</b>（登录后回跳购买上下文）；更早的上游是<b>落地页 → 下载 C端 → 注册（自动送 7 天试用）</b>，不属购买旅程但决定用户带着什么状态进入。</div>
+  </div>
+
+  <!-- ═══ 主线：九个阶段 ═══ -->
+  <div class="backbone">
+    <div class="stage">
+      <div class="s-head"><span class="k">A</span><span class="t">进入购买</span></div>
+      <div class="scr"><b>收银台 · 选套餐</b><div class="st">免费卡（当前方案）+ 档位 tab + 时长卡（折扣徽标）+ 购买条</div></div>
+      <div class="act">点「去支付」→ 弹<b>协议确认</b>（要点+全文视图+打钩）→「阅读并同意，去支付」</div>
+    </div>
+    <div class="stage">
+      <div class="s-head"><span class="k">B</span><span class="t">扫码支付</span></div>
+      <div class="scr"><b>收银台 · 等待支付</b><div class="st">二维码+倒计时+取消+「我已支付帮我查」</div></div>
+      <div class="scr branch"><b>分支（同屏内嵌）</b><div class="st">查单失败反馈：重扫/换卡/重新下单</div></div>
+      <div class="scr branch"><b>跳转分支</b><div class="st">下单失败（重试）· 核对中（无重试）· 已过期（重新下单）</div></div>
+    </div>
+    <div class="stage">
+      <div class="s-head"><span class="k">C</span><span class="t">到货</span></div>
+      <div class="scr"><b>收银台 · 已到货</b><div class="st">「立即激活」主按钮 /「先存着」次链接 · 协议确认留痕可见</div></div>
+      <div class="act">二选一：<b>立即激活</b> → D；<b>先存着</b> → E</div>
+    </div>
+    <div class="stage">
+      <div class="s-head"><span class="k">D</span><span class="t">激活生效</span></div>
+      <div class="scr"><b>我的套餐</b><div class="st">时间线（已激活·排队中/消耗中）· 档位按已激活最高档 · 设备额度即刻提升</div></div>
+      <div class="act">回到 C端 重新打开 → 套餐功能可用</div>
+    </div>
+    <div class="stage">
+      <div class="s-head"><span class="k">E</span><span class="t">囤着（可选）</span></div>
+      <div class="scr"><b>我的套餐 · 待激活区块</b><div class="st">不计时/不占额度/全额退/「立即激活」</div></div>
+      <div class="act">想用时点激活 → D；反悔 → F</div>
+    </div>
+    <div class="stage">
+      <div class="s-head"><span class="k">F</span><span class="t">使用与续费</span></div>
+      <div class="scr"><b>C端 写作</b><div class="st">套餐功能全开；到期前 C端 提示条</div></div>
+      <div class="scr"><b>控制台首页</b><div class="st">进行中事项横幅（退款处理中/临期）+ 四快捷卡</div></div>
+      <div class="scr"><b>我的设备（devices.html）</b><div class="st">已绑定 N/M · 解绑腾名额 · 额度按已激活最高档</div></div>
+      <div class="act">续费 → 回 A；退款 → G</div>
+    </div>
+    <div class="stage">
+      <div class="s-head"><span class="k">G</span><span class="t">退款（可选）</span></div>
+      <div class="scr"><b>我的订单 → 申请退款</b><div class="st">折算预览（秒级）→ 确认弹层 → 冻结停止使用 → 处理中 → 已退款/拒绝态</div></div>
+      <div class="act">未激活/排队中 = 全额退；微信官方同步推到账通知</div>
+    </div>
+    <div class="stage">
+      <div class="s-head"><span class="k">H</span><span class="t">到期（可选）</span></div>
+      <div class="scr"><b>回到免费版</b><div class="st">本地作品与数据<b>永久保留</b>（红线）· 设备回 1 台</div></div>
+      <div class="act">随时再购买 → 回 A</div>
+    </div>
+  </div>
+
+  <!-- ═══ 典型路径 ═══ -->
+  <div class="panel paths">
+    <b style="font-size:14px">四条典型路径（点过去的顺序）</b>
+
+    <div class="path">
+      <div class="who">新用户首购<small>最完整的一条</small></div>
+      <div class="seq">
+        <span class="pill pill-accent">C端 功能墙·升级</span><span class="arr">→</span>
+        <span class="pill">A 选套餐</span><span class="arr">→</span>
+        <span class="pill">协议弹窗·同意</span><span class="arr">→</span>
+        <span class="pill">B 扫码支付</span><span class="arr">→</span>
+        <span class="pill">C 已到货·立即激活</span><span class="arr">→</span>
+        <span class="pill">D 生效·回 C端 使用</span><span class="arr">→</span>
+        <span class="pill pill-ok">F 使用中</span>
+      </div>
+    </div>
+
+    <div class="path">
+      <div class="who">折扣期囤货<small>买两份存一份</small></div>
+      <div class="seq">
+        <span class="pill pill-accent">控制台/套餐页续费</span><span class="arr">→</span>
+        <span class="pill">A 选套餐</span><span class="arr">→</span>
+        <span class="pill">B 支付</span><span class="arr">→</span>
+        <span class="pill">C 先存着</span><span class="arr">→</span>
+        <span class="pill pill-warn">E 待激活（囤）</span><span class="arr">→</span>
+        <span class="pill">（想用时）我的套餐·激活</span><span class="arr">→</span>
+        <span class="pill pill-ok">D 生效</span>
+      </div>
+    </div>
+
+    <div class="path">
+      <div class="who">到期续费<small>提醒驱动</small></div>
+      <div class="seq">
+        <span class="pill pill-warn">C端 到期提醒条</span><span class="arr">→</span>
+        <span class="pill">A 选套餐</span><span class="arr">→</span>
+        <span class="pill">协议·支付</span><span class="arr">→</span>
+        <span class="pill">C 立即激活</span><span class="arr">→</span>
+        <span class="pill pill-ok">D 接在原到期日后</span>
+      </div>
+    </div>
+
+    <div class="path">
+      <div class="who">退款<small>含囤单全额退</small></div>
+      <div class="seq">
+        <span class="pill pill-accent">我的订单·申请退款</span><span class="arr">→</span>
+        <span class="pill">折算预览（消耗中·秒级 / 未激活·全额）</span><span class="arr">→</span>
+        <span class="pill">确认弹层</span><span class="arr">→</span>
+        <span class="pill pill-warn">冻结·处理中</span><span class="arr">→</span>
+        <span class="pill pill-ok">已退款（微信同步通知）</span>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>支付期分支一览</b>（都从 B 等待支付出发）：余额不足/取消 = 同屏内嵌反馈（二维码仍有效可重扫）；拿码失败 = 下单失败页（未扣款可重试）；付了但核对不过 = 核对中页（无重试，防重复支付）；15 分钟不动 = 已过期（重新下单）。
+    </div>
+  </div>
+</main>
+</body>
+</html>
