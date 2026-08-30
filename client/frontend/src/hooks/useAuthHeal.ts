@@ -1,83 +1,70 @@
-import { test, expect } from "@playwright/test";
-import { url } from "./helpers";
+import { useEffect } from "react";
+import { request } from "@/lib/api";
+import { setToken } from "@/lib/auth";
+
+// 云托管 MinNum=0 缩容后首次请求触发冷启动（30-60s），期间 check-auth 返回
+// code -1（S端不可达）或请求失败。失败请求本身已唤醒实例，间隔重试即可自愈。
+const RETRY_DELAYS_MS = [20_000, 20_000, 20_000];
 
 /**
- * 会话失效（账号已注销，account-deletion tasks 5.2）：
- * check-auth 返回结构化失效信号 → C端 清凭据回登录入口、提示作品保留；
- * 重新登录（第二次 check-auth 恢复正常）后进入工作台，且无循环请求。
+ * 应用启动时静默自愈本地登录态：
+ * 后端 OAuth 会话有效（GET /auth/check-auth 返回 token）即写回 localStorage，
+ * 解决「后端 config.json token 有效、前端 localStorage 副本丢失/被清」导致的重复登录。
+ * - code 0：会话有效，写回后结束
+ * - code 1：后端明确未登录；若为结构化会话失效（account-deletion：账号已注销/
+ *   会话作废）则清本地凭据回登录入口，并持久化提示（作品仅存本地，不受影响）
+ * - code 2：注销撤销期（付费与套餐功能暂停），凭据保留（可撤销恢复），仅记录提示
+ * - code -1 / 请求失败：S端 冷启动或后端未就绪，按 RETRY_DELAYS_MS 重试
+ * 幂等：失败静默，不改动现有状态，不跳转（失效信号除外）。
  */
-test.describe("会话失效处理", () => {
-  test("失效信号：清凭据回首页并提示作品保留", async ({ page }) => {
-    await page.addInitScript(() => {
-      localStorage.setItem("auth_token", "stale-token");
-      localStorage.setItem("auth_username", "gone-user");
-    });
-    await page.route("**/api/auth/check-auth", (r) =>
-      r.fulfill({
-        json: {
-          code: 1,
-          data: {
-            session_invalid: true,
-            deleted: true,
-            message: "登录状态已失效（账号可能已注销）。你设备上的作品仍完好保留。",
-          },
-        },
-      }),
-    );
-    await page.route("**/api/novels", (r) => r.fulfill({ json: [] }));
-
-    await page.goto("/#/novels");
-    await expect(page.getByText("你设备上的作品仍完好保留")).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText("登录状态已失效")).toBeVisible();
-    // 凭据已清：不再残留失效 token
-    expect(await page.evaluate(() => localStorage.getItem("auth_token"))).toBeNull();
-    expect(await page.evaluate(() => localStorage.getItem("auth_username"))).toBeNull();
-  });
-
-  test("重新登录可用且无循环请求", async ({ page }) => {
-    let checkAuthCalls = 0;
-    await page.addInitScript(() => {
-      localStorage.setItem("auth_token", "stale-token");
-      localStorage.setItem("auth_username", "gone-user");
-    });
-    await page.route("**/api/auth/check-auth", (r) => {
-      checkAuthCalls += 1;
-      if (checkAuthCalls === 1) {
-        return r.fulfill({
-          json: {
-            code: 1,
-            data: { session_invalid: true, deleted: true, message: "登录状态已失效" },
-          },
-        });
-      }
-      // 重新登录后：会话恢复正常
-      return r.fulfill({
-        json: {
-          code: 0,
-          data: {
-            token: "fresh-token",
-            username: "gone-user",
-            tier: "trial",
-            expires_at: new Date(Date.now() + 5 * 86400000).toISOString(),
-          },
-        },
+export function useAuthHeal() {
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const sleep = (ms: number) =>
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, ms);
       });
-    });
-    await page.route("**/api/novels", (r) => r.fulfill({ json: [] }));
-    await page.route("**/api/auth/verify", (r) =>
-      r.fulfill({ json: { tier: "trial", is_member: true, expired: false, trial_remaining_days: 5 } }),
-    );
 
-    await page.goto("/#/novels");
-    // 第一次失效 → 回首页
-    await expect(page.getByText("登录状态已失效")).toBeVisible({ timeout: 15000 });
-    // 用户从登录入口重新登录 → 静默检测（第二次调用）恢复正常 → 进工作台
-    await page.getByRole("button", { name: "打开浏览器登录" }).click().catch(() => {});
-    await page.waitForTimeout(1500);
-    await page.goto("/#/novels");
-    await expect(page.getByText("自动登录成功")).toBeVisible({ timeout: 15000 });
-    expect(await page.evaluate(() => localStorage.getItem("auth_token"))).toBe("fresh-token");
-    // 无循环请求：check-auth 总调用数有界（heal 1 次 + 登录页静默检测 1 次）
-    expect(checkAuthCalls).toBeLessThanOrEqual(4);
-  });
-});
+    (async () => {
+      for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+        if (attempt > 0) await sleep(RETRY_DELAYS_MS[attempt - 1]);
+        if (cancelled) return;
+        try {
+          const res = await request("/auth/check-auth");
+          if (cancelled) return;
+          if (res.code === 0) {
+            if (res.data?.token && res.data.token !== "dev-token") {
+              setToken(res.data.token, res.data.username ?? "");
+            }
+            return;
+          }
+          if (res.code === 1) {
+            // 会话失效（account-deletion：账号已注销/服务端会话作废）：
+            // 清本地凭据回登录入口，登录页展示失效提示（作品仅存本地，不受影响）
+            if (res.data?.session_invalid) {
+              localStorage.removeItem("auth_token");
+              localStorage.removeItem("auth_username");
+              if (res.data.message) sessionStorage.setItem("auth_notice", res.data.message);
+              window.location.hash = "#/";
+            }
+            return;
+          }
+          if (res.code === 2) {
+            // 注销撤销期：凭据保留（可撤销恢复），仅持久化提示（付费与套餐功能暂停）
+            if (res.data?.message) sessionStorage.setItem("auth_notice", res.data.message);
+            return;
+          }
+        } catch {
+          // C端后端不可达：稍后重试
+        }
+        // code -1（S端 冷启动）或请求失败 → 继续下一轮
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+}
