@@ -1,4 +1,8 @@
-"""SQL（SQLAlchemy/SQLite）设备注册仓储。"""
+"""SQL（SQLAlchemy/SQLite）设备注册仓储。
+
+2026-08-30 代理键迁移：user_id 列从 String(username) 改为 BigInteger(users.id)。
+仓储层接受 username 字符串，内部经 UserORM 解析为 user_id。
+"""
 from __future__ import annotations
 
 import uuid
@@ -8,14 +12,21 @@ from sqlalchemy.orm import Session
 
 from app.domain.devices import DeviceRegistry
 from app.models.device import DeviceRegistryORM
+from app.models.user import UserORM
 
 
 class SqlDeviceRepo:
     def __init__(self, db: Session):
         self.db = db
 
-    @staticmethod
-    def _to_domain(row: DeviceRegistryORM) -> DeviceRegistry:
+    def _resolve_user_id(self, username_or_id) -> int | None:
+        """接受 username(str) 或 user_id(int)，统一返回 user_id(int)。"""
+        if isinstance(username_or_id, int):
+            return username_or_id
+        row = self.db.query(UserORM.id).filter(UserORM.username == username_or_id).first()
+        return row[0] if row else None
+
+    def _to_domain(self, row: DeviceRegistryORM) -> DeviceRegistry:
         return DeviceRegistry(
             id=row.id,
             user_id=row.user_id,
@@ -29,25 +40,34 @@ class SqlDeviceRepo:
             updated_at=row.updated_at,
         )
 
-    def get_by_fingerprint(self, user_id: str, fingerprint: str) -> DeviceRegistry | None:
+    def get_by_fingerprint(self, username: str, fingerprint: str) -> DeviceRegistry | None:
+        uid = self._resolve_user_id(username)
+        if uid is None:
+            return None
         row = self.db.query(DeviceRegistryORM).filter(
-            DeviceRegistryORM.user_id == user_id,
+            DeviceRegistryORM.user_id == uid,
             DeviceRegistryORM.fingerprint == fingerprint,
         ).first()
         return self._to_domain(row) if row else None
 
-    def list_by_user(self, user_id: str) -> list[DeviceRegistry]:
+    def list_by_user(self, username: str) -> list[DeviceRegistry]:
+        uid = self._resolve_user_id(username)
+        if uid is None:
+            return []
         rows = (
             self.db.query(DeviceRegistryORM)
-            .filter(DeviceRegistryORM.user_id == user_id)
+            .filter(DeviceRegistryORM.user_id == uid)
             .order_by(DeviceRegistryORM.last_active_at.desc())
             .all()
         )
         return [self._to_domain(r) for r in rows]
 
     def upsert(self, device: DeviceRegistry) -> DeviceRegistry:
+        uid = self._resolve_user_id(device.user_id)
+        if uid is None:
+            return device  # 用户不存在，跳过
         existing = self.db.query(DeviceRegistryORM).filter(
-            DeviceRegistryORM.user_id == device.user_id,
+            DeviceRegistryORM.user_id == uid,
             DeviceRegistryORM.fingerprint == device.fingerprint,
         ).first()
         now = datetime.now()
@@ -61,7 +81,7 @@ class SqlDeviceRepo:
         else:
             row = DeviceRegistryORM(
                 id=uuid.uuid4().hex,
-                user_id=device.user_id,
+                user_id=uid,
                 fingerprint=device.fingerprint,
                 hostname=device.hostname,
                 os=device.os,
@@ -73,9 +93,12 @@ class SqlDeviceRepo:
             self.db.add(row)
             return self._to_domain(row)
 
-    def delete_by_id(self, device_id: str, user_id: str) -> bool:
+    def delete_by_id(self, device_id: str, username: str) -> bool:
+        uid = self._resolve_user_id(username)
+        if uid is None:
+            return False
         result = self.db.query(DeviceRegistryORM).filter(
             DeviceRegistryORM.id == device_id,
-            DeviceRegistryORM.user_id == user_id,
+            DeviceRegistryORM.user_id == uid,
         ).delete()
         return result > 0

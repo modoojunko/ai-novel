@@ -33,6 +33,9 @@ def register_user(
     user_repo.create(user)
     user_repo.flush()  # SQLite 下确保用户已持久化，后续试用码 FK 不失败
 
+    # 解析代理键 user_id（一次性迁移后 FK 引用 id 而非 username）
+    user_id = user_repo.get_id(username)
+
     # 送 7 天试用 —— 与创建用户在同一事务中
     trial_code_id = f"TRIAL-{uuid.uuid4().hex[:8].upper()}"
     today = date.today()
@@ -42,7 +45,7 @@ def register_user(
         tier="trial",
         duration_days=7,
         status="unused",
-        user_id=username,  # 立即绑定，同一事务中用户已创建
+        user_id=user_id,  # 代理键 int
         expires_at=None,
         activated_at=None,
         created_at=datetime.now(),

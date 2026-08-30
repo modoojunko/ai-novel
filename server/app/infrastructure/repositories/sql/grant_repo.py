@@ -5,17 +5,23 @@ from sqlalchemy.orm import Session
 
 from app.domain.devices import DeviceGrant
 from app.models.grant import DeviceGrantORM
+from app.models.user import UserORM
 
 
 class SqlGrantRepo:
     def __init__(self, db: Session):
         self.db = db
 
-    @staticmethod
-    def _to_domain(row: DeviceGrantORM) -> DeviceGrant:
+    def _get_user_id(self, username: str) -> int | None:
+        row = self.db.query(UserORM.id).filter(UserORM.username == username).first()
+        return row[0] if row else None
+
+    def _to_domain(self, row: DeviceGrantORM) -> DeviceGrant:
+        # user_id → username（域对象仍用 username 字符串做身份）
+        user = self.db.query(UserORM.username).filter(UserORM.id == row.user_id).first()
         return DeviceGrant(
             pc_hash=row.pc_hash,
-            username=row.username,
+            username=user[0] if user else "",
             token=row.token,
             enrolled=bool(row.enrolled),
             fingerprint=row.fingerprint or "",
@@ -26,16 +32,20 @@ class SqlGrantRepo:
         return self._to_domain(row) if row else None
 
     def upsert(self, pc_hash: str, username: str, token: str, enrolled: bool, fingerprint: str) -> None:
+        user_id = self._get_user_id(username)
+        if user_id is None:
+            return  # 用户不存在，不写 grant
+
         row = self.db.query(DeviceGrantORM).filter(DeviceGrantORM.pc_hash == pc_hash).first()
         if row:
-            row.username = username
+            row.user_id = user_id
             row.token = token
             row.enrolled = 1 if enrolled else 0
             row.fingerprint = fingerprint
         else:
             row = DeviceGrantORM(
                 pc_hash=pc_hash,
-                username=username,
+                user_id=user_id,
                 token=token,
                 enrolled=1 if enrolled else 0,
                 fingerprint=fingerprint,
@@ -43,7 +53,10 @@ class SqlGrantRepo:
             self.db.add(row)
 
     def set_enrolled(self, pc_hash: str, username: str, enrolled: bool) -> None:
+        user_id = self._get_user_id(username)
+        if user_id is None:
+            return
         self.db.query(DeviceGrantORM).filter(
             DeviceGrantORM.pc_hash == pc_hash,
-            DeviceGrantORM.user_id == db.query(UserORM).filter(UserORM.username == username).first().id if db.query(UserORM).filter(UserORM.username == username).first() else None,
+            DeviceGrantORM.user_id == user_id,
         ).update({"enrolled": 1 if enrolled else 0})

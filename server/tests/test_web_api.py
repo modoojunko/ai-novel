@@ -100,7 +100,7 @@ class TestLicenseActivate:
         r = client.post("/api/license/activate", json={"code": code}, headers=_bearer(web_user["token"]))
         assert r.json()["code"] == 0, r.text
         me = client.get("/api/user/me", headers=_bearer(web_user["token"])).json()
-        assert me["data"]["tier"] == "yearly"
+        assert me["data"]["tier"] == "pro"  # tier 归一化：yearly→pro
         assert me["data"]["is_valid"] is True
 
     def test_wrong_code(self, client, web_user):

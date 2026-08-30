@@ -109,9 +109,13 @@ def get_grant(pc_hash: str):
 def count_devices(username: str) -> int:
     s = SessionLocal()
     try:
+        from app.models.user import UserORM
+        user = s.query(UserORM.id).filter(UserORM.username == username).first()
+        if not user:
+            return 0
         return (
             s.query(DeviceRegistryORM)
-            .filter(DeviceRegistryORM.user_id == username)
+            .filter(DeviceRegistryORM.user_id == user[0])
             .count()
         )
     finally:
