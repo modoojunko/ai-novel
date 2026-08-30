@@ -45,5 +45,5 @@ class SqlGrantRepo:
     def set_enrolled(self, pc_hash: str, username: str, enrolled: bool) -> None:
         self.db.query(DeviceGrantORM).filter(
             DeviceGrantORM.pc_hash == pc_hash,
-            DeviceGrantORM.username == username,
+            DeviceGrantORM.user_id == db.query(UserORM).filter(UserORM.username == username).first().id if db.query(UserORM).filter(UserORM.username == username).first() else None,
         ).update({"enrolled": 1 if enrolled else 0})

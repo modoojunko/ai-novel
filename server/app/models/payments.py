@@ -6,17 +6,18 @@ orders 含退款列族（退款=订单流程环节，无独立 refunds 表）。
 from __future__ import annotations
 
 from sqlalchemy import (
-    BigInteger, Boolean, Column, Date, DateTime, ForeignKey,
+    Boolean, Column, Date, DateTime, ForeignKey,
     Index, Integer, JSON, String, Text,
 )
 
 from app.models.base import Base
+from app.models.types import BigIntPK
 
 
 class TierORM(Base):
     __tablename__ = "tiers"
 
-    id = Column(BigInteger, autoincrement=True, primary_key=True)
+    id = Column(BigIntPK, autoincrement=True, primary_key=True)
     key = Column(String(32), nullable=False, unique=True)
     display_name = Column(String(64), nullable=False)
     rank = Column(Integer, nullable=False)  # 等级序：max(30) > pro(20) > trial(10)
@@ -29,9 +30,9 @@ class TierORM(Base):
 class SkuORM(Base):
     __tablename__ = "skus"
 
-    id = Column(BigInteger, autoincrement=True, primary_key=True)
+    id = Column(BigIntPK, autoincrement=True, primary_key=True)
     sku_key = Column(String(64), nullable=False, unique=True)
-    tier_id = Column(BigInteger, ForeignKey("tiers.id"), nullable=False)
+    tier_id = Column(BigIntPK, ForeignKey("tiers.id"), nullable=False)
     period = Column(String(16), nullable=False)  # monthly/quarterly/yearly
     period_days = Column(Integer, nullable=False)
     base_price_fen = Column(Integer, nullable=False)
@@ -47,10 +48,10 @@ class OrderORM(Base):
     """订单（根对象）：含退款环节列族 + sku_snapshot。"""
     __tablename__ = "orders"
 
-    id = Column(BigInteger, autoincrement=True, primary_key=True)
+    id = Column(BigIntPK, autoincrement=True, primary_key=True)
     order_no = Column(String(32), nullable=False, unique=True, index=True)
-    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
-    sku_id = Column(BigInteger, nullable=False)  # 无 FK（SKU 可 retired）
+    user_id = Column(BigIntPK, ForeignKey("users.id"), nullable=False)
+    sku_id = Column(BigIntPK, nullable=False)  # 无 FK（SKU 可 retired）
     sku_snapshot = Column(JSON, nullable=False)   # 下单瞬间快照
     amount_fen = Column(Integer, nullable=False)
     status = Column(String(24), nullable=False, default="pending", server_default="pending", index=True)
@@ -86,7 +87,7 @@ class OrderORM(Base):
 class TradeEventORM(Base):
     __tablename__ = "trade_events"
 
-    event_id = Column(BigInteger, autoincrement=True, primary_key=True)
+    event_id = Column(BigIntPK, autoincrement=True, primary_key=True)
     event_key = Column(String(255), nullable=False, unique=True, index=True)
     event_type = Column(String(64), nullable=False, index=True)
     order_no = Column(String(32), nullable=True, index=True)
@@ -115,9 +116,9 @@ class InvoiceORM(Base):
     """发票台账（功能暂缓，表随建占位）。"""
     __tablename__ = "invoices"
 
-    invoice_id = Column(BigInteger, autoincrement=True, primary_key=True)
-    order_id = Column(BigInteger, nullable=False)
-    refund_id = Column(BigInteger, nullable=True)
+    invoice_id = Column(BigIntPK, autoincrement=True, primary_key=True)
+    order_id = Column(BigIntPK, nullable=False)
+    refund_id = Column(BigIntPK, nullable=True)
     kind = Column(String(8), nullable=False)  # blue/red
     title = Column(JSON, nullable=False, default={})
     amount_fen = Column(Integer, nullable=False)

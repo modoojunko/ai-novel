@@ -42,7 +42,7 @@ def register_user(
         tier="trial",
         duration_days=7,
         status="unused",
-        bound_username=username,  # 立即绑定，同一事务中用户已创建
+        user_id=username,  # 立即绑定，同一事务中用户已创建
         expires_at=None,
         activated_at=None,
         created_at=datetime.now(),

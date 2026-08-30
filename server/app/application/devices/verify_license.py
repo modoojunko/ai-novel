@@ -42,7 +42,7 @@ def verify_license(
 
     # 4) 设备绑定校验
     grant = grant_repo.get(pc_hash)
-    device_valid = grant is not None and grant.username == username
+    device_valid = grant is not None and grant.user_id == username
     valid = license_valid and device_valid
 
     # 5) 设备总数

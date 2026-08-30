@@ -24,7 +24,7 @@ class PgHttpCodeRepo:
             tier=doc["tier"],
             duration_days=doc["duration_days"],
             status=doc["status"],
-            bound_username=doc.get("bound_username", "") or "",
+            user_id=doc.get("user_id", "") or "",
             expires_at=parse_dt(doc.get("expires_at")),
             activated_at=parse_dt(doc.get("activated_at")),
             created_at=parse_dt(doc.get("created_at")),
@@ -36,13 +36,13 @@ class PgHttpCodeRepo:
         return self._to_domain(doc) if doc else None
 
     def find_all_by_username(self, username: str) -> list[ActivationCode]:
-        docs = self.client.find(_TABLE, {"bound_username": username}, sort=[("activated_at", "desc")])
+        docs = self.client.find(_TABLE, {"user_id": username}, sort=[("activated_at", "desc")])
         return [self._to_domain(d) for d in docs]
 
     def find_active_by_username(self, username: str) -> list[ActivationCode]:
         docs = self.client.find(
             _TABLE,
-            {"bound_username": username, "status": "active"},
+            {"user_id": username, "status": "active"},
             sort=[("activated_at", "desc")],
         )
         return [self._to_domain(d) for d in docs]
@@ -53,20 +53,20 @@ class PgHttpCodeRepo:
 
     def create(self, code: ActivationCode) -> None:
         # 不传时间戳键：created_at 走数据库 DEFAULT now()，expires_at/activated_at 保持 NULL
-        # bound_username 空串→null：NULL 不触发 FK 检查（codes.bound_username → users.username）
+        # user_id 空串→null：NULL 不触发 FK 检查（codes.user_id → users.username）
         self.client.insert(_TABLE, {
             "code_id": code.code_id,
             "tier": code.tier,
             "duration_days": code.duration_days,
             "status": code.status,
-            "bound_username": code.bound_username or None,
+            "user_id": code.user_id or None,
             "created_by": code.created_by,
         })
 
     def activate(self, code_id: str, username: str, expires_at: date) -> None:
         self.client.update(_TABLE, {"code_id": code_id}, {
             "status": "active",
-            "bound_username": username,
+            "user_id": username,
             "activated_at": to_iso(datetime.now()),
             "expires_at": to_iso(datetime.combine(expires_at, datetime.min.time())),
         })

@@ -35,7 +35,7 @@ async def api_generate_code(req: GenerateCodeRequest, db: Db = Depends(get_db)):
             tier=req.tier,
             duration_days=tier_policy.get_duration_days(req.tier),
             status="unused",
-            bound_username="",
+            user_id="",
             expires_at=None,
             activated_at=None,
             created_at=None,
@@ -62,7 +62,7 @@ async def api_query_codes(req: QueryCodesRequest, db: Db = Depends(get_db)):
         "code_id": c.code_id,
         "tier": c.tier,
         "status": c.status,
-        "bound_username": c.bound_username,
+        "user_id": c.user_id,
         "expires_at": str(c.expires_at) if c.expires_at else "",
         "created_at": str(c.created_at) if c.created_at else "",
     } for c in codes]

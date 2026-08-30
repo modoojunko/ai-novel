@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func
 
 from app.models.base import Base
+from app.models.types import BigIntPK
 
 
 class ActivationCodeORM(Base):
@@ -13,10 +14,10 @@ class ActivationCodeORM(Base):
     tier            = Column(String(32), nullable=False, index=True)
     duration_days   = Column(Integer, nullable=False)
     status          = Column(String(32), default="unused", server_default="unused", index=True)
-    user_id         = Column(BigInteger, ForeignKey("users.id"), nullable=True, index=True)
+    user_id         = Column(BigIntPK, ForeignKey("users.id"), nullable=True, index=True)
     # 支付发货扩展（a002 加列）
     source          = Column(String(12), nullable=False, default="admin", server_default="admin")
-    order_id        = Column(BigInteger, nullable=True, index=True)
+    order_id        = Column(BigIntPK, nullable=True, index=True)
     grant_start     = Column(DateTime, nullable=True)
     status_detail   = Column(String(24), nullable=True, default="unused", server_default="unused")
     activated_at    = Column(DateTime, nullable=True)

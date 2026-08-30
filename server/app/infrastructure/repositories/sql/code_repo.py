@@ -20,7 +20,7 @@ class SqlCodeRepo:
             tier=row.tier,
             duration_days=row.duration_days,
             status=row.status,
-            bound_username=row.bound_username or "",
+            user_id=row.user_id or "",
             expires_at=row.expires_at,
             activated_at=row.activated_at,
             created_at=row.created_at,
@@ -34,7 +34,7 @@ class SqlCodeRepo:
     def find_all_by_username(self, username: str) -> list[ActivationCode]:
         rows = (
             self.db.query(ActivationCodeORM)
-            .filter(ActivationCodeORM.bound_username == username)
+            .filter(ActivationCodeORM.user_id == username)
             .order_by(ActivationCodeORM.activated_at.desc())
             .all()
         )
@@ -44,7 +44,7 @@ class SqlCodeRepo:
         rows = (
             self.db.query(ActivationCodeORM)
             .filter(
-                ActivationCodeORM.bound_username == username,
+                ActivationCodeORM.user_id == username,
                 ActivationCodeORM.status == "active",
             )
             .order_by(ActivationCodeORM.activated_at.desc())
@@ -67,7 +67,7 @@ class SqlCodeRepo:
             tier=code.tier,
             duration_days=code.duration_days,
             status=code.status,
-            bound_username=code.bound_username or None,  # 空串→NULL，避免 FK 引用空用户
+            user_id=code.user_id or None,  # 空串→NULL，避免 FK 引用空用户
             created_by=code.created_by,
         )
         self.db.add(row)
@@ -75,7 +75,7 @@ class SqlCodeRepo:
     def activate(self, code_id: str, username: str, expires_at: date) -> None:
         self.db.query(ActivationCodeORM).filter(ActivationCodeORM.code_id == code_id).update({
             "status": "active",
-            "bound_username": username,
+            "user_id": username,
             "activated_at": datetime.now(),
             "expires_at": datetime.combine(expires_at, datetime.min.time()),
         })
