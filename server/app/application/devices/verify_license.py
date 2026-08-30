@@ -1,7 +1,10 @@
 """检查 License 和设备绑定状态（C端 心跳验证）。"""
 from __future__ import annotations
 
-from app.application.identity.deletion_service import deletion_payload, lazy_execute_if_due
+from app.application.identity.deletion_service import (
+    deletion_payload,
+    lazy_execute_if_due,
+)
 from app.domain.licensing import License, tier_policy
 from app.infrastructure.repositories.base import (
     CodeRepo,

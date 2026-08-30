@@ -20,7 +20,7 @@ from tests.conftest import WEB_PASSWORD
 WRONG_PASSWORD = "".join(("wrong", "-", "pass"))
 NOPE_PASSWORD = "".join(("n", "ope"))
 
-AUTH = lambda tok: {"Authorization": f"Bearer {tok}"}  # noqa: E731
+AUTH = lambda tok: {"Authorization": f"Bearer {tok}"}
 
 
 def _request_deletion(client, tok, password=WEB_PASSWORD, waive=True):
@@ -165,8 +165,16 @@ class TestExpiryExecution:
     def test_execute_five_steps_and_repos_state(self, client, web_user, db_session):
         from app.application.identity.deletion_service import execute_due_deletions
         from app.infrastructure.repositories.factory import (
-            code_repo as _code_repo, device_repo as _device_repo,
-            grant_repo as _grant_repo, user_repo as _user_repo,
+            code_repo as _code_repo,
+        )
+        from app.infrastructure.repositories.factory import (
+            device_repo as _device_repo,
+        )
+        from app.infrastructure.repositories.factory import (
+            grant_repo as _grant_repo,
+        )
+        from app.infrastructure.repositories.factory import (
+            user_repo as _user_repo,
         )
 
         username = web_user["username"]
@@ -191,8 +199,16 @@ class TestExpiryExecution:
     def test_execute_idempotent_replay(self, client, web_user, db_session):
         from app.application.identity.deletion_service import execute_due_deletions
         from app.infrastructure.repositories.factory import (
-            code_repo as _code_repo, device_repo as _device_repo,
-            grant_repo as _grant_repo, user_repo as _user_repo,
+            code_repo as _code_repo,
+        )
+        from app.infrastructure.repositories.factory import (
+            device_repo as _device_repo,
+        )
+        from app.infrastructure.repositories.factory import (
+            grant_repo as _grant_repo,
+        )
+        from app.infrastructure.repositories.factory import (
+            user_repo as _user_repo,
         )
 
         username = web_user["username"]
@@ -226,8 +242,16 @@ class TestAdminScan:
         _backdate_deadline(db_session, web_user["username"], due)
         from app.application.identity.deletion_service import execute_due_deletions
         from app.infrastructure.repositories.factory import (
-            code_repo as _code_repo, device_repo as _device_repo,
-            grant_repo as _grant_repo, user_repo as _user_repo,
+            code_repo as _code_repo,
+        )
+        from app.infrastructure.repositories.factory import (
+            device_repo as _device_repo,
+        )
+        from app.infrastructure.repositories.factory import (
+            grant_repo as _grant_repo,
+        )
+        from app.infrastructure.repositories.factory import (
+            user_repo as _user_repo,
         )
 
         username = web_user["username"]

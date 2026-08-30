@@ -8,7 +8,12 @@ from app.application.identity.deletion_service import (
 from app.application.identity.update_user_theme import stored_to_wire
 from app.domain.identity.deletion import is_due
 from app.domain.licensing import License
-from app.infrastructure.repositories.base import CodeRepo, DeviceRepo, GrantRepo, UserRepo
+from app.infrastructure.repositories.base import (
+    CodeRepo,
+    DeviceRepo,
+    GrantRepo,
+    UserRepo,
+)
 from app.infrastructure.security.jwt import sign_jwt
 from app.infrastructure.security.password import verify_password
 

@@ -144,7 +144,9 @@ async def api_check_auth(pc_hash: str = "", db: Db = Depends(get_db)):
                 return {"code": 1, "msg": "该账号已注销", "data": {"deleted": True}}
             if user and user.is_deletion_pending():
                 if user.deletion_deadline and is_due(user.deletion_deadline):
-                    from app.application.identity.deletion_service import execute_due_deletions
+                    from app.application.identity.deletion_service import (
+                        execute_due_deletions,
+                    )
                     execute_due_deletions(
                         user_repo(db), code_repo(db), device_repo(db), grant_repo(db),
                         usernames=[grant.username],

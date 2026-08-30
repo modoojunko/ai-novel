@@ -8,9 +8,11 @@ from fastapi.responses import JSONResponse
 
 from app.application.identity.deletion_service import (
     blocked_assets,
-    deletion_status as deletion_status_uc,
     request_deletion,
     revoke_deletion,
+)
+from app.application.identity.deletion_service import (
+    deletion_status as deletion_status_uc,
 )
 from app.application.identity.login import login
 from app.application.identity.register_user import register_user
@@ -28,8 +30,8 @@ from app.infrastructure.security.password import hash_password, verify_password
 from app.interfaces.deps import Db, get_current_user_or_none, get_db
 from app.interfaces.dto import (
     ChangePasswordRequest,
-    DeletionRevokeRequest,
     DeletionRequest,
+    DeletionRevokeRequest,
     PreferencesRequest,
     SecurityRequest,
     WebLoginRequest,
