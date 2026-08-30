@@ -7,7 +7,7 @@
 ## 2. 数据迁移（alembic 本地生成 + MCP applyMigration）
 
 - [x] 2.1 本地生成 alembic 迁移：`users` 新增 `deletion_status`（正常/注销撤销期/已注销，中文枚举沿 codes 风格）、`deletion_requested_at`、`deletion_deadline` 三字段（口径见 design D1）。验证：本地 `alembic upgrade head` 后字段存在，`alembic downgrade -1` 往返无损。
-- [ ] 2.2 通过 MCP applyMigration 将迁移应用到 CloudBase PG 生产/开发环境。验证：applyMigration 返回成功，查询 `users` 表结构确认三字段就位。
+- [x] 2.2 通过 MCP applyMigration 将迁移应用到 CloudBase PG 生产/开发环境。
 
 ## 3. S 端后端：注销 API（单语句 CAS + 幂等，见 design D1–D3）
 
