@@ -105,6 +105,7 @@ def load_or_create_config() -> dict:
         "last_login_at": "",
         "server_api": "",
         "portal_url": DEFAULT_PORTAL_URL,
+        "deletion_pending": False,
     }
     for k, v in defaults.items():
         if k not in cfg:
@@ -272,6 +273,7 @@ async def browser_auth(silent: bool = False) -> dict:
             cfg["tier"] = data.get("tier", "none")
             cfg["expires_at"] = data.get("expires_at", "")
             cfg["last_login_at"] = datetime.now(UTC).isoformat()
+            cfg["deletion_pending"] = False  # 重新登录/撤销恢复：清除暂停标记
             save_local_config(cfg)
             await _ensure_local_user(cfg["username"])
             return {
@@ -284,8 +286,11 @@ async def browser_auth(silent: bool = False) -> dict:
             }
         if result.get("code") == 2:
             # 注销撤销期（account-deletion）：付费与套餐功能暂停；凭据保留（可撤销恢复），
-            # 结构化信号交由前端提示，不触发登出
+            # 结构化信号交由前端提示，不触发登出。暂停落地为本地权限标记，
+            # check_permission() 读取后 allowed=False（AI/会员能力冻结，撤销即恢复）。
             data = result.get("data", {})
+            cfg["deletion_pending"] = True
+            save_local_config(cfg)
             return {
                 "code": 2,
                 "data": {
@@ -301,10 +306,12 @@ async def browser_auth(silent: bool = False) -> dict:
             # 本地 SQLite 作品数据全程不触碰。
             if cfg.get("token"):
                 deleted = bool((result.get("data") or {}).get("deleted"))
+                stale_user = cfg.get("username", "")
                 for k in ("token", "username", "tier", "expires_at", "last_login_at"):
                     cfg[k] = "" if k != "tier" else "none"
+                cfg["deletion_pending"] = False
                 save_local_config(cfg)
-                logger.info("event=session.invalidated user_cleared=%s deleted=%s", bool(cfg.get("username")), deleted)
+                logger.info("event=session.invalidated user=%s deleted=%s", stale_user, deleted)
                 return {
                     "code": 1,
                     "data": {
@@ -389,6 +396,20 @@ def check_permission(now: date | None = None) -> dict:
             return max(0, (date.fromisoformat(expires_at[:10]) - now).days)
         except ValueError:
             return 0
+
+    # 注销撤销期（account-deletion）：付费与套餐功能暂停（spec R4 MUST NOT）。
+    # 标记由 browser_auth 在 check-auth code 2 时写入；撤销后重新登录自动清除。
+    if cfg.get("deletion_pending"):
+        return {
+            "allowed": False,
+            "tier": tier,
+            "is_member": False,
+            "expired": False,
+            "reason": "deletion_pending",
+            "msg": "账号注销申请处理中，付费与套餐功能已暂停；可到网页控制台撤销。本地作品不受影响。",
+            "project_limit": 1,
+            "trial_remaining_days": _remaining_days(),
+        }
 
     # 免费层（none / 未知值一律按免费处理）
     if tier not in MEMBER_TIERS:

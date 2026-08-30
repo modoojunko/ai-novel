@@ -340,7 +340,7 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 
   <!-- ═══════════ 态三：向导 · 第 2 步 权益处置（存在未消耗套餐时） ═══════════
        spec: R2（存在待激活/排队中/消耗中权益时 MUST NOT 直接受理；二选一：去退款 / 显式勾选放弃；退款冻结与已回收不阻塞）
-       设计注记：「去退款」跳既有订单页退款流（待激活全额、消耗中按剩余秒数折算、原路退回、1~7 个工作日——全部既有规则，注销不新造资金规则）；
+       设计注记（2026-08-30 评审修订：支付未上线，退款出口暂走客服兜底 /support，订单页口径待支付 change 落地后恢复）：「去退款」跳既有订单页退款流（待激活全额、消耗中按剩余秒数折算、原路退回、1~7 个工作日——全部既有规则，注销不新造资金规则）；
        点击后离开向导，退款完成后重新进入向导、复验自动通过；「放弃」须显式勾选，注销执行时才作废，撤销期内撤销则权益保留 -->
   <section data-stage="assets" hidden>
     <div class="stage-narrow">
@@ -371,10 +371,10 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
           <p class="rule-note" style="margin:8px 0 2px">退款金额与折算以订单页预览为准；「退款冻结」「已回收」的权益不阻塞注销。</p>
 
           <div class="choice">
-            <div class="c-head"><b>去订单页退款</b><span class="rec">推荐 · 拿回剩余价值</span></div>
-            <div class="c-desc">逐笔在「我的订单」申请退款：未激活的全额退、消耗中的按剩余时长折算，原路退回微信，一般 <span class="num">1~7</span> 个工作日到账。退款不影响注销申请，<b>在途退款注销后照常到账</b>。</div>
-            <a class="btn btn-primary btn-sm" href="#">去订单页退款</a>
-            <div class="c-desc" style="margin:8px 0 0">点击后将离开本向导；退款完成后重新进入注销向导即可继续。</div>
+            <div class="c-head"><b>联系客服处理</b><span class="rec">推荐 · 拿回剩余价值</span></div>
+            <div class="c-desc">客服将按《退款政策》为你处理未消耗权益：未激活的全额退、消耗中的按剩余时长折算，原路退回微信，一般 <span class="num">1~7</span> 个工作日到账。退款不影响注销申请，<b>在途退款注销后照常到账</b>。</div>
+            <a class="btn btn-primary btn-sm" href="#">联系客服处理</a>
+            <div class="c-desc" style="margin:8px 0 0">客服邮箱见页脚；处理完成后重新进入注销向导即可继续。</div>
           </div>
 
           <div class="choice give-up">

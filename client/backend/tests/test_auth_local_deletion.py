@@ -61,6 +61,7 @@ async def test_session_invalid_clears_credentials(
     cfg = json.loads(logged_in_config.read_text(encoding="utf-8"))
     assert cfg["token"] == ""
     assert cfg["tier"] == "none"
+    assert not cfg.get("deletion_pending"), "会话失效应同时清除撤销期暂停标记"
     # 非登录字段不动：设备指纹与 AI 配置保留
     assert cfg["pc_hash"] == "pchos"
     assert cfg["api_key"] == "sk-test"
@@ -86,7 +87,7 @@ async def test_fresh_install_keeps_untouched(
 async def test_deletion_pending_keeps_credentials(
     logged_in_config: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    """撤销期（code 2）：凭据保留（可撤销恢复），返回结构化暂停提示。"""
+    """撤销期（code 2）：凭据保留（可撤销恢复），权限标记落盘，返回结构化暂停提示。"""
     monkeypatch.setattr(
         service,
         "call_server_api",
@@ -100,3 +101,31 @@ async def test_deletion_pending_keeps_credentials(
     assert result["data"]["deletion_pending"] is True
     cfg = json.loads(logged_in_config.read_text(encoding="utf-8"))
     assert cfg["token"] == "jwt-old", "撤销期不清凭据"
+    assert cfg["deletion_pending"] is True, "权限暂停标记必须落盘（AI 门禁读取）"
+
+
+def test_check_permission_blocked_during_pending(logged_in_config: Path):
+    """撤销期标记 → check_permission allowed=False（AI 门禁据此冻结付费能力）。"""
+    cfg = json.loads(logged_in_config.read_text(encoding="utf-8"))
+    cfg["tier"] = "yearly"
+    cfg["deletion_pending"] = True
+    logged_in_config.write_text(json.dumps(cfg), encoding="utf-8")
+
+    perm = service.check_permission()
+    assert perm["allowed"] is False
+    assert perm["is_member"] is False
+    assert perm["reason"] == "deletion_pending"
+
+
+def test_check_permission_restored_after_relogin(logged_in_config: Path):
+    """重新登录清除标记 → 权限恢复（撤销后回归正常）。"""
+    cfg = json.loads(logged_in_config.read_text(encoding="utf-8"))
+    cfg["tier"] = "yearly"
+    cfg["expires_at"] = "2027-01-01"
+    cfg["last_login_at"] = "2026-08-30T00:00:00+00:00"
+    cfg["deletion_pending"] = False
+    logged_in_config.write_text(json.dumps(cfg), encoding="utf-8")
+
+    perm = service.check_permission()
+    assert perm["allowed"] is True
+    assert perm["is_member"] is True

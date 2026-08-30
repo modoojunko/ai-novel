@@ -188,7 +188,7 @@ async function submit() {
         <AppButton variant="error" @click="nextFromConsequences">我已了解，继续</AppButton>
       </template>
       <template v-else-if="step === 'assets'">
-        <AppButton variant="secondary" :to="'/dashboard/orders'">去订单页退款</AppButton>
+        <AppButton variant="secondary" :to="'/support'">联系客服处理</AppButton>
         <AppButton variant="error" :disabled="!waive" @click="nextFromAssets">放弃并继续</AppButton>
       </template>
       <template v-else-if="step === 'password'">
