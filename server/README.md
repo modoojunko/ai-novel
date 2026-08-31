@@ -156,6 +156,24 @@ curl https://<cloudrun-domain>/api/web/register -X POST -H 'Content-Type: applic
   -d '{"username":"smoke1","password":"Pass123!","security_question":"q?","security_answer":"a"}'
 ```
 
+### 4. 生产 schema 变更 SOP（pg-schema-self-check）
+
+生产 PG 的表结构**不随部署迁移**（pg_http 启动不跑 alembic），加表/加列/改列全靠人工执行 DDL。两道防线防止"代码上线了、表没改"：
+
+- **部署前门禁**：`s-server-deploy.yml` 在部署后端之前跑 `server/scripts/pg_gate.py`，对照 `app/infrastructure/pg_schema.py` 的 `REQUIRED` 清单探测生产库，缺失即中止部署并打印清单。
+- **启动自检兜底**：后端 pg_http 启动时用同一清单自检，云托管日志可见 `event=app.schema_check result=ok`（通过留痕）或 `result=fail missing=表.列`（告警，不阻断启动）。
+
+**改表流程**（新 feature change 涉及表结构时）：
+
+1. 同一 PR 内更新 `app/infrastructure/pg_schema.py` 的 `REQUIRED` 清单（design D2 强制约定）+ models + 仓储代码。
+2. push main 触发部署 → 门禁拦截（exit 1，日志列缺失项）。
+3. 会话内 CloudBase MCP 设备码登录 → `managePgDatabase` 应用对应 DDL。
+4. **改列类型或重建表后必须刷新网关连接池**：rdb 网关连接池缓存旧查询的预编译计划，仅改表会继续 `DATABASE_22P02` 400（2026-08-31 事故实证）；执行 `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid();` 杀光连接（十几秒 503 自愈）。纯加列可跳过此步。
+5. 重跑部署（workflow_dispatch 或 re-run failed jobs）。
+6. 云托管日志确认 `event=app.schema_check result=ok tables=5`。
+
+**回滚**：revert 该 PR 重新部署即可（代码回退，生产 DDL 不需要回滚——多出的列对旧代码无害）。
+
 > 本地开发：`python app/main.py`（默认 sqlite，数据在 `server/license.db`）；现有 50 个测试全部基于 sqlite 后端运行。
 
 ## S端 前端部署（CloudBase 静态托管，成本≈0）

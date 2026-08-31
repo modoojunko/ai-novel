@@ -24,21 +24,40 @@
 - 404 = 表缺失；
 - 400（PGRST204 未知列）= 再逐列探测，定位出缺失列名。
 
+**2026-08-31 事故增补——文本列类型探测**：`device_registry.user_id` 生产为 bigint 而代码预期 varchar 时，`select` 探测照样 200，存在性探测检不出类型漂移（当日实测）。故对清单内 **text 族列**追加哨兵探测 `probe_type(table, col)`：`?select=<col>&<col>=eq.<哨兵>&limit=1`——200=存在且为文本族；400+错误码 `22P02`=列存在但类型不符；400+`PGRST204`/`42703`=缺列。错误码从响应体 JSON `code` 提取（网关包装形如 `DATABASE_22P02`）。
+
 否决的替代：查 `information_schema`（pg_http 无 SQL 通道，引直连违背既有架构决策）；PostgREST root OpenAPI 一次拿全 schema（CloudBase 网关不保证开放 root 文档，解析重量级）。
 
 ### D2 必需清单：单一事实源 `app/infrastructure/pg_schema.py`
-`REQUIRED: dict[str, tuple[str, ...]]`，按仓储层实际读写列维护（初版清单见下）。实现时对照 `app/models/` 与各 `pg_http/*_repo.py` 终审一遍；此后新增表/列的 feature change 必须同 PR 更新清单。
+`REQUIRED: dict[str, tuple[tuple[str, str], ...]]`，元素为 `(列名, 类型族)`——`text`=字符串语义列（哨兵探测存在性+类型），`typed`=数值/时间/布尔列（仅存在性探测）。按仓储层实际读写列维护，2026-08-31 对照 `app/models/` 与各 `pg_http/*_repo.py` 终审（初版清单与仓储出入：补 `users.id`/`deletion_*` 四列、`codes.user_id/order_id/grant_start/status_detail/refund_requested_at`、`device_registry.updated_at`；`device_grants` 实际无数值列外键解读差异，以仓储代码为准）。此后新增表/列的 feature change 必须同 PR 更新清单。
 
 ```python
 REQUIRED = {
-    "users": ("username", "password_hash", "security_question",
-              "security_answer_hash", "status", "theme", "created_at"),
-    "codes": ("code_id", "tier", "duration_days", "status",
-              "bound_username", "created_by", "activated_at", "expires_at", "created_at"),
-    "device_registry": ("id", "user_id", "fingerprint", "hostname",
-                        "os", "os_arch", "last_active_at", "bound_at", "created_at"),
-    "device_grants": ("pc_hash", "username", "token", "enrolled", "fingerprint", "created_at"),
-    "global_config": ("key", "value"),
+    "users": (
+        ("id", "typed"), ("username", "text"), ("password_hash", "text"),
+        ("security_question", "text"), ("security_answer_hash", "text"),
+        ("status", "text"), ("theme", "text"), ("created_at", "typed"),
+        ("deletion_status", "text"), ("deletion_requested_at", "typed"),
+        ("deletion_deadline", "typed"), ("deletion_waive_assets", "typed"),
+    ),
+    "codes": (
+        ("code_id", "text"), ("tier", "text"), ("duration_days", "typed"),
+        ("status", "text"), ("user_id", "typed"), ("bound_username", "text"),
+        ("order_id", "typed"), ("grant_start", "typed"), ("status_detail", "text"),
+        ("activated_at", "typed"), ("expires_at", "typed"),
+        ("created_at", "typed"), ("created_by", "text"), ("refund_requested_at", "typed"),
+    ),
+    "device_registry": (
+        ("id", "text"), ("user_id", "text"), ("fingerprint", "text"),
+        ("hostname", "text"), ("os", "text"), ("os_arch", "text"),
+        ("last_active_at", "typed"), ("bound_at", "typed"),
+        ("created_at", "typed"), ("updated_at", "typed"),
+    ),
+    "device_grants": (
+        ("pc_hash", "text"), ("user_id", "typed"), ("token", "text"),
+        ("enrolled", "typed"), ("fingerprint", "text"),
+    ),
+    "global_config": (("key", "text"), ("value", "text")),
 }
 ```
 
@@ -65,6 +84,11 @@ REQUIRED = {
 
 ### D6 应用路径：MCP 人工授权，不做 CI 自动 DDL
 门禁拦截后按 SOP（写入 `server/README.md`）：会话内 CloudBase MCP 设备码登录（用户浏览器授权）→ `managePgDatabase` 执行对应 DDL → 重跑部署（workflow_dispatch / re-run）。否决 CI 自动加列：DDL 变更生产 schema 属高危写操作，必须人工授权与审阅；且 CI 内复刻 MCP 的管理 API 属逆向集成，脆弱。
+
+**2026-08-31 事故增补**：SOP 必须含「改列类型/重建表后的连接池刷新」步骤——rdb 网关连接池缓存旧查询预编译计划（bigint 时代模板），仅改表不杀连接则旧查询模板继续 400（`DATABASE_22P02`），必须 `pg_terminate_backend` 杀光连接逼池子重建；`NOTIFY pgrst` 对该网关实测无效。
+
+### D7 类型对拍的边界（known limitation）
+PostgREST 通道下，文本→数值互错可检（哨兵探测 22P02，当日事故形态）；数值↔时间戳、数值精度等**非文本列之间的类型漂移不可检**（select 探测只答存在性）。彻底对拍需 SQL 直连查 `information_schema`，违背 D1 架构决策，接受此边界并在此登记；若未来事故形态落在盲区，再议引入只读 SQL 通道。
 
 ### 两道防线的关系
 门禁（CI，上线前拦截）为主，启动自检（运行时告警）为兜底——覆盖手工部署、MCP 部署绕过流水线、以及 DDL 应用后 PostgREST 网关 schema 缓存未刷新等边缘态。两者共享同一 `REQUIRED` 清单与判定逻辑（清单在 app 包内，门禁脚本 import 同一份），加列 feature change 只需同步一处。

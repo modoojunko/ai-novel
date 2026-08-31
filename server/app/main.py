@@ -92,7 +92,15 @@ def on_startup():
     app.state.notify_service = NotifyService(send_key=settings.SERVERCHAN_SENDKEY)
 
     if settings.DB_BACKEND == "pg_http":
-        # CloudBase PG 表结构由管理端 MCP applyMigration 预建，应用启动不迁移
+        # CloudBase PG 表结构由管理端 MCP applyMigration 预建，应用启动不迁移；
+        # 但"代码上线、DDL 漏执行"的漂移无法靠迁移链兜底——启动时探测一次必需
+        # 表/列，缺失打告警日志（不阻断启动，spec：缺失告警/探测失败不阻断）。
+        from app.infrastructure.pg_schema import run_schema_check
+        from app.infrastructure.repositories.pg_http import get_pg_client
+        try:
+            run_schema_check(get_pg_client())
+        except Exception as exc:  # 自检自身异常不得影响启动
+            logger.warning("event=app.schema_check result=probe_failed error=%s", exc)
         logger.info("event=app.started version=%s db_backend=pg_http", "2.1.0")
         return
 

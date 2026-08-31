@@ -134,6 +134,56 @@ class PgRestClient:
         """PostgREST 每次请求即时生效，无事务；接口层统一调用，no-op。"""
         return
 
+    # ══ schema 探测（pg_schema 自检 / pg_gate 门禁共用，design D1）══
+
+    @staticmethod
+    def _error_code(resp: httpx.Response) -> str:
+        """提取网关/PostgREST 错误码（响应体 JSON 的 code 字段，如 DATABASE_22P02）。"""
+        try:
+            body = resp.json()
+        except ValueError:
+            return ""
+        return str(body.get("code", "")) if isinstance(body, dict) else ""
+
+    def probe_columns(self, table: str, cols: list[str]) -> tuple[int, str, list[str]]:
+        """存在性探测：GET /{table}?select=<cols>&limit=1。
+
+        与 find() 相反，不 raise（网络异常 TransportError 仍向上抛，由调用方降级）。
+        返回 (http_status, pg_error_code, missing_cols)：
+        - 200 = 全部列存在，missing_cols=[]
+        - 404 = 表缺失（missing_cols=全部列名）
+        - 400 = 逐列复探定位缺失列（missing_cols 为 `表.列` 形态）
+        """
+        resp = self._client.get(
+            f"{self._endpoint}/{table}",
+            params={"select": ",".join(cols), "limit": "1"},
+        )
+        code = self._error_code(resp)
+        if resp.status_code == 404:
+            return resp.status_code, code, [f"{table}.{c}" for c in cols]
+        if resp.status_code == 400:
+            missing = []
+            for col in cols:
+                r = self._client.get(
+                    f"{self._endpoint}/{table}", params={"select": col, "limit": "1"},
+                )
+                if r.status_code != 200:
+                    missing.append(f"{table}.{col}")
+            return resp.status_code, code, missing
+        return resp.status_code, code, []
+
+    def probe_type(self, table: str, col: str, sentinel: str) -> tuple[int, str]:
+        """文本列类型探测：GET /{table}?select=<col>&<col>=eq.<sentinel>&limit=1。
+
+        200 = 列存在且接受文本值（文本族）；400+22P02 = 列存在但类型不符；
+        400+PGRST204/42703 = 缺列。返回 (http_status, pg_error_code)。
+        """
+        resp = self._client.get(
+            f"{self._endpoint}/{table}",
+            params={"select": col, col: f"eq.{sentinel}", "limit": "1"},
+        )
+        return resp.status_code, self._error_code(resp)
+
     @staticmethod
     def _build_params(
         filter: dict | None,
