@@ -104,18 +104,24 @@ class SqlCodeRepo:
 
     def revoke_unconsumed_for_user(self, username: str) -> int:
         """注销执行：unused（待激活）+ active（排队中/消耗中）全部置 revoked。返回行数。"""
+        uid = self._resolve_user_id(username)
+        if uid is None:
+            return 0
         result = self.db.query(ActivationCodeORM).filter(
-            ActivationCodeORM.bound_username == username,
+            ActivationCodeORM.user_id == uid,
             ActivationCodeORM.status.in_(["unused", "active"]),
         ).update({"status": "revoked"}, synchronize_session=False)
         self.db.commit()
         return result
 
     def find_unconsumed_by_username(self, username: str) -> list[ActivationCode]:
+        uid = self._resolve_user_id(username)
+        if uid is None:
+            return []
         rows = (
             self.db.query(ActivationCodeORM)
             .filter(
-                ActivationCodeORM.bound_username == username,
+                ActivationCodeORM.user_id == uid,
                 ActivationCodeORM.status.in_(["unused", "active"]),
             )
             .order_by(ActivationCodeORM.activated_at.desc())
@@ -125,9 +131,12 @@ class SqlCodeRepo:
 
     def request_refund_for_user(self, code_id: str, username: str, now) -> int:
         """权益级退款申请：CAS 标记 refund_requested_at（幂等，重复申请 0 行）。"""
+        uid = self._resolve_user_id(username)
+        if uid is None:
+            return 0
         result = self.db.query(ActivationCodeORM).filter(
             ActivationCodeORM.code_id == code_id,
-            ActivationCodeORM.bound_username == username,
+            ActivationCodeORM.user_id == uid,
             ActivationCodeORM.status.in_(["unused", "active"]),
             ActivationCodeORM.refund_requested_at.is_(None),
         ).update({"refund_requested_at": now}, synchronize_session=False)

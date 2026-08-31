@@ -136,7 +136,7 @@ async def api_user_deletion_refund_request(req: AssetRefundRequest, db: Db = Dep
     """权益级退款申请（用户评审 2026-08-31：每个未消耗权益独立退款入口）。"""
     if not username:
         return fail(code=1, msg="未登录")
-    return request_asset_refund(code_repo(db), username, req.code_id)
+    return request_asset_refund(code_repo(db), user_repo(db), username, req.code_id)
 
 
 @r.post("/api/user/deletion")

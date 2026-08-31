@@ -63,8 +63,11 @@ class SqlGrantRepo:
 
     def delete_all_for_user(self, username: str) -> int:
         """注销执行：清空该用户全部设备授权。返回行数。"""
+        user_id = self._get_user_id(username)
+        if user_id is None:
+            return 0
         result = self.db.query(DeviceGrantORM).filter(
-            DeviceGrantORM.username == username,
+            DeviceGrantORM.user_id == user_id,
         ).delete(synchronize_session=False)
         self.db.commit()
         return result

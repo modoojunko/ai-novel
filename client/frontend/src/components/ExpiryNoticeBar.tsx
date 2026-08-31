@@ -33,9 +33,19 @@ export default function ExpiryNoticeBar() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [portal, setPortal] = useState("");
 
+  // portal 地址延迟拉取：仅在确认要展示提示条后请求。
+  // 启动即拉会在未登录/令牌失效场景触发 /auth/config 401 全局副作用
+  // （request() 401 → 清凭据回登录），与 useAuthHeal 的静默自愈相冲突。
   useEffect(() => {
-    fetchPortalUrl().then((u) => setPortal(u || PORTAL_URL));
-  }, []);
+    if (!notice) return;
+    let cancelled = false;
+    fetchPortalUrl().then((u) => {
+      if (!cancelled) setPortal(u || PORTAL_URL);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [notice]);
 
   useEffect(() => {
     let cancelled = false;
