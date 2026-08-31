@@ -6,10 +6,11 @@ Change 1 全链路演练的核心工具——模拟微信回调/查单/退款结
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from app.config import settings
+from app.interfaces.deps import get_db
 
 # 仅 mock 模式注册
 if settings.DB_BACKEND == "sqlite" or True:  # Change 1 全部走 mock
@@ -46,7 +47,7 @@ class InjectRefundRequest(BaseModel):
 if hasattr(r, "routes"):  # mock 模式才有路由
 
     @r.post("/inject-payment")
-    async def inject_payment(req: InjectPaymentRequest, request: Request):
+    async def inject_payment(req: InjectPaymentRequest, request: Request, db=Depends(get_db)):
         """D1：模拟支付成功回调（mock 网关标记订单已付+触发发货）。"""
         if not _check_admin(request):
             return {"code": 401, "msg": "unauthorized"}
@@ -57,7 +58,6 @@ if hasattr(r, "routes"):  # mock 模式才有路由
         # 触发发货
         from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
         from app.application.payments.fulfill_payment import fulfill_payment
-        db = request.app.state.db
         order = OrderRepo(db).find_by_order_no(req.order_no)
         if not order:
             return {"code": 404, "msg": "order not found"}
@@ -69,13 +69,12 @@ if hasattr(r, "routes"):  # mock 模式才有路由
         return {"code": 0, "data": {"status": result.get("status")}}
 
     @r.post("/inject-amount-mismatch")
-    async def inject_amount_mismatch(req: InjectAmountMismatchRequest, request: Request):
+    async def inject_amount_mismatch(req: InjectAmountMismatchRequest, request: Request, db=Depends(get_db)):
         """D2：模拟金额不符（订单进 exception）。"""
         if not _check_admin(request):
             return {"code": 401, "msg": "unauthorized"}
         from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
         from app.domain.payments.order import Transition
-        db = request.app.state.db
         t = Transition("pending", "amount_mismatch", "exception", "", "金额不符")
         result = OrderRepo(db).compare_and_transition(req.order_no, t)
         TradeEventRepo(db).append({
@@ -87,7 +86,7 @@ if hasattr(r, "routes"):  # mock 模式才有路由
         return {"code": 0, "data": {"status": "exception" if result else "cas_lost"}}
 
     @r.post("/inject-refund-result")
-    async def inject_refund_result(req: InjectRefundRequest, request: Request):
+    async def inject_refund_result(req: InjectRefundRequest, request: Request, db=Depends(get_db)):
         """D3：模拟退款回调结果。"""
         if not _check_admin(request):
             return {"code": 401, "msg": "unauthorized"}
@@ -98,7 +97,6 @@ if hasattr(r, "routes"):  # mock 模式才有路由
             gw.simulate_refund_success(req.order_no)
         from app.application.payments.refund_flow import complete_refund
         from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
-        db = request.app.state.db
         if req.status == "SUCCESS":
             result = complete_refund(OrderRepo(db), TradeEventRepo(db), req.order_no)
             return {"code": 0, "data": result}
