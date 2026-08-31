@@ -61,10 +61,10 @@ async def get_skus(request: Request, db: Db = Depends(get_db)):
     tiers = tier_repo.find_all()
 
     # 三态开关
-    from app.infrastructure.repositories.sql.config_repo import SqlConfigRepo
-    config_repo = SqlConfigRepo(db)
-    enabled = config_repo.get("payments.purchase.enabled") or "off"
-    rehearsal_list = (config_repo.get("payments.rehearsal.usernames") or "").split(",")
+    from app.infrastructure.repositories.factory import config_repo
+    cfg = config_repo(db)
+    enabled = cfg.get("payments.purchase.enabled") or "off"
+    rehearsal_list = (cfg.get("payments.rehearsal.usernames") or "").split(",")
 
     # 构建响应（附录 Z.4 SkusView）
     from app.domain.payments.pricing import calc_discount_display
@@ -393,11 +393,10 @@ async def get_membership(request: Request, db: Db = Depends(get_db)):
         return {"code": 4001, "msg": "未登录"}
     # 简化实现：从 codes 表聚合
 
-    from app.infrastructure.repositories.sql.code_repo import SqlCodeRepo
+    from app.infrastructure.repositories.factory import code_repo
     from app.domain.licensing.license import License
 
-    code_repo = SqlCodeRepo(db)
-    codes = code_repo.find_active_by_username(username)
+    codes = code_repo(db).find_active_by_username(username)
     lic = License(username=username).merge(codes)
 
     from datetime import datetime
@@ -421,15 +420,14 @@ async def activate_grant(req: ActivateRequest, request: Request, db: Db = Depend
     if not username:
         return {"code": 4001, "msg": "未登录"}
 
-    from app.infrastructure.repositories.factory import user_repo
+    from app.infrastructure.repositories.factory import code_repo as _code_repo_factory, user_repo
     from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
-    from app.infrastructure.repositories.sql.code_repo import SqlCodeRepo
     from app.application.payments.activate_entitlement import activate_entitlement
 
     user_id = user_repo(db).get_id(username)
     try:
         result = activate_entitlement(
-            OrderRepo(db), TradeEventRepo(db), SqlCodeRepo(db),
+            OrderRepo(db), TradeEventRepo(db), _code_repo_factory(db),
             req.order_no, user_id,
         )
         if "error" in result:
