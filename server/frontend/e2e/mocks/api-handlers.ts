@@ -58,6 +58,7 @@ export class MockApi {
   private assetsBlocking = true
   private accountDeleted = false
   private assetRefundRequested = false
+  private deletionAssetHasOrder = true
   private routes: string[] = [
     '**/api/web/login',
     '**/api/web/register',
@@ -272,7 +273,7 @@ export class MockApi {
     if (path === '/api/user/deletion-assets' && method === 'GET') {
       if (!this.currentUser) return route.fulfill(json(1, '未登录'))
       const blocked = this.assetsBlocking
-        ? [{ code_id: 'TRIAL-AB12CD34', tier: 'trial', status: 'active', expires_at: '2026-09-05' }]
+        ? [{ code_id: 'TRIAL-AB12CD34', tier: 'trial', status: 'active', expires_at: '2026-09-05', has_order: true }]
         : []
       return route.fulfill(json(0, { blocked_assets: blocked }))
     }
@@ -282,7 +283,7 @@ export class MockApi {
       if (!this.currentUser) return route.fulfill(json(1, '未登录'))
       if (this.assetsBlocking && !body?.waive_assets && !this.assetRefundRequested) {
         return route.fulfill(json(3, { blocked_assets: [
-          { code_id: 'TRIAL-AB12CD34', tier: 'trial', status: 'active', expires_at: '2026-09-05' },
+          { code_id: 'TRIAL-AB12CD34', tier: 'trial', status: 'active', expires_at: '2026-09-05', has_order: true },
         ] }, { msg: '存在未消耗的套餐权益，请先退款或确认放弃' }))
       }
       this.deletionPending = true

@@ -44,6 +44,7 @@ def blocked_assets(code_repo: CodeRepo, username: str) -> list[dict]:
         {"code_id": c.code_id, "tier": c.tier, "status": c.status,
          "duration_days": c.duration_days,
          "refund_requested": c.refund_requested_at is not None,
+         "has_order": c.order_id is not None,
          "expires_at": c.expires_at.isoformat() if c.expires_at else ""}
         for c in code_repo.find_unconsumed_by_username(username)
     ]

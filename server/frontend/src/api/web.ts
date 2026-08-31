@@ -54,6 +54,8 @@ export interface BlockedAsset {
   duration_days: number
   expires_at: string
   refund_requested?: boolean
+  has_order?: boolean
+  order_id?: number
 }
 
 export interface DeletionStatusData {

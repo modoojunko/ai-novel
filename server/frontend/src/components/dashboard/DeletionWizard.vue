@@ -193,14 +193,14 @@ async function submit() {
           <span class="asset-meta">{{ assetSummary(a) }}</span>
           <span class="asset-action">
             <AppButton
-              v-if="rowState(a.code_id) !== 'refund_requested' && rowState(a.code_id) !== 'waived'"
+              v-if="a.has_order && rowState(a.code_id) !== 'refund_requested' && rowState(a.code_id) !== 'waived'"
               variant="secondary" size="sm" :disabled="refundBusy === a.code_id"
               @click="requestRefund(a)"
             >
               申请退款
             </AppButton>
             <span v-else-if="rowState(a.code_id) === 'refund_requested'" class="pill pill-status pill-warn">退款处理中</span>
-            <span v-else class="pill pill-status">已放弃</span>
+            <span v-else-if="rowState(a.code_id) === 'waived'" class="pill pill-status">已放弃</span>
           </span>
         </div>
       </div>
