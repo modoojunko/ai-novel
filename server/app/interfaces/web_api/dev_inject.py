@@ -114,6 +114,49 @@ if hasattr(r, "routes"):  # mock 模式才有路由
             gw.simulate_payerror(order_no)
         return {"code": 0, "data": {"pay_status": "PAYERROR"}}
 
+    @r.post("/cron-run")
+    async def cron_run(request: Request, db=Depends(get_db)):
+        """D6：手动触发补偿扫描（R1-R4 等价，演练期专用；正式触发器见 pay-cron 云函数）。"""
+        if not _check_admin(request):
+            return {"code": 401, "msg": "unauthorized"}
+        from datetime import datetime, timezone
+
+        from app.application.payments.reconcile import daily_reconcile
+        from app.application.payments.refund_flow import cooldown_submit
+        from app.application.payments.scan_orders import (
+            scan_paid_unfulfilled,
+            scan_refund_followup,
+            scan_timeout_close,
+        )
+        from app.infrastructure.repositories.payments_repo import (
+            OrderRepo,
+            ReconciliationReportRepo,
+            TradeEventRepo,
+        )
+
+        gateway = getattr(request.app.state, "payment_gateway", None)
+        notify = getattr(request.app.state, "notify_service", None)
+        order_repo = OrderRepo(db)
+        event_repo = TradeEventRepo(db)
+
+        closed = scan_timeout_close(order_repo, event_repo, gateway)
+        cooldown = [
+            cooldown_submit(order_repo, event_repo, gateway, o)
+            for o in order_repo.find_cooldown_expired(datetime.now(timezone.utc))
+        ]
+        repaired = scan_paid_unfulfilled(order_repo, event_repo)
+        refund_actions = scan_refund_followup(order_repo, event_repo, gateway, notify=notify)
+        reconcile = daily_reconcile(
+            db, gateway, order_repo, event_repo, ReconciliationReportRepo(db), notify=notify,
+        )
+        return {"code": 0, "data": {
+            "closed": len(closed),
+            "cooldown_submitted": len(cooldown),
+            "repaired": len(repaired),
+            "refund_actions": len(refund_actions),
+            "reconcile": reconcile,
+        }}
+
     @r.get("/gateway-state")
     async def gateway_state(request: Request):
         """D5：查看 mock 网关当前状态（调试用）。"""
