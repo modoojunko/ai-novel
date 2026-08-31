@@ -80,11 +80,13 @@ const STATUS_NAMES: Record<string, string> = {
 }
 const tierName = (t: string) => TIER_NAMES[t] ?? t
 const statusName = (s: string) => STATUS_NAMES[s] ?? s
+
+/** 权益行摘要：lifetime 不伪造到期日；已过期的如实标注 */
 const assetSummary = (a: BlockedAsset) => {
-  const parts = [statusName(a.status)]
-  if (a.duration_days) parts.push(`${a.duration_days} 天`)
-  if (a.expires_at) parts.push(`到期 ${a.expires_at.slice(0, 10)}`)
-  return parts.join(" · ")
+  if (a.tier === "lifetime") return "永久有效"
+  const expired = a.expires_at ? new Date(a.expires_at) < new Date() : false
+  const base = a.duration_days ? `${a.duration_days} 天` : ""
+  return expired ? `${base}（已过期）`.trim() : base
 }
 
 function close() {
@@ -188,9 +190,7 @@ async function submit() {
       <div class="asset-list">
         <div v-for="a in assets" :key="a.code_id" class="asset-row">
           <span class="pill pill-status pill-warn">{{ tierName(a.tier) }}</span>
-          <span class="asset-meta">
-            {{ statusName(a.status) }}<template v-if="a.duration_days"> · {{ a.duration_days }} 天</template><template v-if="a.expires_at"> · 到期 <span class="num">{{ a.expires_at.slice(0, 10) }}</span></template>
-          </span>
+          <span class="asset-meta">{{ assetSummary(a) }}</span>
           <span class="asset-action">
             <AppButton
               v-if="rowState(a.code_id) !== 'refund_requested' && rowState(a.code_id) !== 'waived'"
