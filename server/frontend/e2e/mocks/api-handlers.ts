@@ -37,6 +37,12 @@ export class MockApi {
   private refundPreviewOverride: { refundable: boolean; reason: string; refund_fen?: number; remaining_desc?: string } | null = null
   /** 冷静期剩余秒数（e2e 用短窗口） */
   private refundCooldown = 300
+  /** 下单连续失败次数（failCreate 态测试） */
+  private createOrderFailCount = 0
+  /** 查单 hint（SUCCESS 转成功态；NOTPAY/PAYERROR/CLOSED） */
+  private payHint = 'NOTPAY'
+  /** 购买开关（off → 收银台登录卡态） */
+  private purchaseEnabled = true
   /** 会话失效模式：/user/me 返回 HTTP 200 + code 1（与真实后端「用户不存在/未登录」一致） */
   private userMeDead = false
   /** 让接下来 N 次 /user/preferences 失败（测「保存失败→重试→落库」路径） */
@@ -53,12 +59,6 @@ export class MockApi {
     '**/api/license/activate',
     '**/api/device/my',
     '**/api/device/remove',
-    '**/api/pay/membership',
-    // ⚠️ /api/pay 全域拦截：Playwright glob '**/x*y' 形态对带 query/子路径的
-    // URL 匹配不稳（'**/api/pay/orders*' 实测穿透 vite 404），统一收口到
-    // '**/api/pay/**'，具体路径在 handler 内分流；未覆盖的 pay 路径答 code 1。
-    '**/api/pay/**',
-    '**/api/pay/skus',
     '**/api/authorize',
     '**/api/reset_password',
     // ⚠️ 真实调用带 query（?pc_hash=），Playwright glob 匹配完整 URL，须以 * 收尾
@@ -88,6 +88,13 @@ export class MockApi {
     for (const url of this.routes) {
       await this.page.route(url, (route) => this.handler(route))
     }
+    // pay 域最后用谓词注册（后注册者优先）：glob 对带 query/子路径的 URL
+    // 匹配不稳（'**/api/pay/orders*' / '**/api/pay/**' 实测穿透 vite 代理，
+    // 被 FastAPI 打回 {"detail":"Not Found"}），谓词与兜底拦同款语义最可靠。
+    await this.page.route(
+      (url) => url.pathname.startsWith('/api/pay/'),
+      (route) => this.handler(route)
+    )
   }
 
   registerUser(overrides: Partial<TestUser> = {}): TestUser {
@@ -134,6 +141,21 @@ export class MockApi {
   /** 覆写退款预览结果（拒绝态测试） */
   setRefundPreview(p: { refundable: boolean; reason: string; refund_fen?: number; remaining_desc?: string } | null): void {
     this.refundPreviewOverride = p
+  }
+
+  /** 让接下来 N 次下单失败 */
+  failCreateOrder(times = 1): void {
+    this.createOrderFailCount = times
+  }
+
+  /** 设置查单结果 hint（收银台轮询/手动查单） */
+  setPayHint(hint: 'SUCCESS' | 'NOTPAY' | 'PAYERROR' | 'CLOSED'): void {
+    this.payHint = hint
+  }
+
+  /** 设置购买开关（off = 收银台「登录后继续购买」态） */
+  setPurchaseEnabled(on: boolean): void {
+    this.purchaseEnabled = on
   }
 
   private refundStatusOf(orderStatus: string): string {
@@ -365,18 +387,9 @@ export class MockApi {
       return route.fulfill(json(0, { grant_restored: true }))
     }
 
-    if (/^\/api\/pay\/orders\/[^/]+\/query$/.test(path) && method === 'POST') {
-      return route.fulfill(json(0, { hit: false, hint: 'NOTPAY' }))
-    }
-
-    // pay 域内未覆盖的路径 → code 1（绝不穿透 vite proxy，同兜底拦逻辑）
-    if (path.startsWith('/api/pay/')) {
-      return route.fulfill(json(1, 'unmocked pay api'))
-    }
-
     if (path === '/api/pay/skus' && method === 'GET') {
       return route.fulfill(json(0, {
-        purchase_enabled: true,
+        purchase_enabled: this.purchaseEnabled,
         agreement_version: 'v2026.08',
         tiers: [{ key: 'pro', label: 'PRO', is_live: true }],
         skus: [
@@ -386,6 +399,34 @@ export class MockApi {
         ],
         popular_sku: 'pro_yearly',
       }))
+    }
+
+    if (path === '/api/pay/orders' && method === 'POST') {
+      const body = route.request().postDataJSON()
+      if (!body?.sku_key || !body?.agreement_version) {
+        return route.fulfill(json(4003, null, { msg: '参数缺失' }))
+      }
+      if (this.createOrderFailCount > 0) {
+        this.createOrderFailCount--
+        return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 500, msg: 'mock create order fail' }) })
+      }
+      return route.fulfill(json(0, {
+        order_no: 'SE2ENEWORDER0001',
+        amount_fen: 23920,
+        code_url: 'weixin://mock/e2e-new-order',
+        status: 'pending',
+        expires_at: new Date(Date.now() + 900_000).toISOString(),
+        ttl_seconds: 900,
+      }))
+    }
+
+    if (/^\/api\/pay\/orders\/[^/]+\/query$/.test(path) && method === 'POST') {
+      return route.fulfill(json(0, { hit: this.payHint === 'SUCCESS', hint: this.payHint }))
+    }
+
+    // pay 域内未覆盖的路径 → code 1（绝不穿透 vite proxy，同兜底拦逻辑）
+    if (path.startsWith('/api/pay/')) {
+      return route.fulfill(json(1, 'unmocked pay api'))
     }
 
     // 未匹配 → 让请求正常通过

@@ -39,9 +39,10 @@ const routes = [
     ],
   },
   {
-    // 购买流程页——无控制台外壳，独立布局
+    // 购买流程页——无控制台外壳，独立布局；未登录先登录后回跳
     path: '/pay',
     name: 'pay-cashier',
+    meta: { requiresAuth: true },
     component: () => import('@/views/pay/CashierPage.vue'),
   },
   {

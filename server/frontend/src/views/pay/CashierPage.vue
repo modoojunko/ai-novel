@@ -20,7 +20,6 @@ const skusData = ref<SkusView | null>(null)
 const selectedSku = ref<SkuItem | null>(null)
 const order = ref<CreateOrderResult | null>(null)
 const payState = ref<'pick' | 'waiting' | 'success' | 'closed' | 'failCreate' | 'failVerify' | 'waitFail'>('pick')
-const agreed = ref(false)
 const showTerms = ref(false)
 const termsRead = ref(false)
 const countdownSec = ref(0)
@@ -34,12 +33,12 @@ const selectedPrice = computed(() => {
   return fenToYuan(selectedSku.value.price_fen)
 })
 
-const canPay = computed(() => agreed.value && !!selectedSku.value)
+// 协议确认在「去支付」后的弹窗里打钩留痕（产品拍板），选卡本身不设门槛
+const canPay = computed(() => !!selectedSku.value)
 
 // ── 方法 ──
 function selectSku(sku: SkuItem) {
   selectedSku.value = sku
-  agreed.value = false
 }
 
 async function loadSkus() {
