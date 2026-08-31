@@ -62,6 +62,22 @@ AI Novel（爱小说）—— 基于 C/S 架构的 AI 辅助长篇小说创作�
 
 这些准则有效的情况是：diff 中不必要的变更更少、因过度设计导致的重写更少、澄清问题出现在实现之前而非犯错之后。
 
+## C端前端设计语言（写 client/ 前端前必读）
+
+在 ai-novel 项目里写前端时，动手前按顺序读完：
+
+1. `docs/ux/design-language.html` —— 标准层，token/词汇以它为准
+2. `docs/design-c/prototypes/CLAUDE.md` —— 原型层规范 + §7 避坑
+3. `docs/design-c/prototypes/*.html` —— 像素基线，对照实现
+
+硬规则：
+
+- 只写 `client/` 代码，不改 `docs/` 下的规范与原型。
+- 发现设计有问题：先在 `docs/design-c/prototypes/ADJUSTMENTS.md` 登记，再动手。
+- 禁止两套类名并存。
+- 颜色一律用规范里的 oklch token，禁止裸 hex/rgb/hsl。
+- 图标用内联 SVG 单线。
+
 ## 常用命令
 
 ```bash

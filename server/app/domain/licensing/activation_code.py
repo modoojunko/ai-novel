@@ -16,6 +16,7 @@ class ActivationCode:
     activated_at: datetime | None
     created_at: datetime | None
     created_by: str
+    refund_requested_at: datetime | None = None  # 账号注销联动：权益级退款申请时刻
 
     def can_activate(self) -> bool:
         """状态机：只有 unused 的码可以被激活。"""

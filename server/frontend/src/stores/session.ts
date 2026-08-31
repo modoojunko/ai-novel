@@ -83,7 +83,10 @@ export const useSessionStore = defineStore('session', () => {
     if (data.theme !== undefined) recordTheme(data.theme)
   }
 
-  async function login(usernameInput: string, password: string): Promise<{ ok: boolean; msg?: string }> {
+  async function login(
+    usernameInput: string,
+    password: string,
+  ): Promise<{ ok: boolean; msg?: string; deletionPending?: { days_left: number; deadline: string }; accountDeleted?: boolean }> {
     isLoading.value = true
     try {
       // 冷启动门闩：等预热完成（共享 Promise）再发真实请求，避免直接撞 503
@@ -95,6 +98,18 @@ export const useSessionStore = defineStore('session', () => {
       }
       return { ok: false, msg: res.msg || '登录失败' }
     } catch (e: any) {
+      // account-deletion（拦截器 reject，code/data 挂在 Error 上）：
+      // code 4 = 撤销期结构化状态（避开 code 2=会话失效的全局硬跳）；data.deleted = 已注销终态
+      if (e?.code === 4 && e?.data?.deletion_pending) {
+        return {
+          ok: false,
+          msg: e.message || '账号注销进行中',
+          deletionPending: { days_left: e.data.days_left ?? 0, deadline: e.data.deadline ?? '' },
+        }
+      }
+      if (e?.data?.deleted) {
+        return { ok: false, msg: e.message || '该账号已注销', accountDeleted: true }
+      }
       return { ok: false, msg: e.message || '网络错误' }
     } finally {
       isLoading.value = false

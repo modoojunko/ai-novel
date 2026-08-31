@@ -60,3 +60,11 @@ class SqlGrantRepo:
             DeviceGrantORM.pc_hash == pc_hash,
             DeviceGrantORM.user_id == user_id,
         ).update({"enrolled": 1 if enrolled else 0})
+
+    def delete_all_for_user(self, username: str) -> int:
+        """注销执行：清空该用户全部设备授权。返回行数。"""
+        result = self.db.query(DeviceGrantORM).filter(
+            DeviceGrantORM.username == username,
+        ).delete(synchronize_session=False)
+        self.db.commit()
+        return result

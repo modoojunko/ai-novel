@@ -5,6 +5,13 @@ import { siteBeian, hasBeianInfo } from '@/constants/site-beian'
 <template>
   <!-- 全站统一备案信息条；两段皆空整条隐藏，不留占位空壳 -->
   <footer v-if="hasBeianInfo" class="beian-bar">
+    <nav class="legal-links" aria-label="法律文件">
+      <a href="/legal/user-agreement.html">用户服务协议</a>
+      <a href="/legal/payment-notice.html">付费须知</a>
+      <a href="/legal/refund-policy.html">退款政策</a>
+      <a href="/legal/privacy-policy.html">隐私政策</a>
+    </nav>
+    <span class="sep" aria-hidden="true">|</span>
     <a
       v-if="siteBeian.icp"
       :href="siteBeian.miitUrl"
@@ -32,5 +39,9 @@ import { siteBeian, hasBeianInfo } from '@/constants/site-beian'
   color: color-mix(in oklch, var(--muted) 70%, transparent);
 }
 .beian-bar a { color: inherit; text-decoration: none; }
+.sep { color: color-mix(in oklch, var(--muted) 40%, transparent); }
+.legal-links { display: flex; gap: 14px; }
+.legal-links a { color: inherit; text-decoration: none; }
+.legal-links a:hover { color: var(--fg); }
 .beian-bar a:hover { color: var(--fg); }
 </style>

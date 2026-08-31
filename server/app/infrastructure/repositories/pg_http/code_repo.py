@@ -43,6 +43,7 @@ class PgHttpCodeRepo:
             activated_at=parse_dt(doc.get("activated_at")),
             created_at=parse_dt(doc.get("created_at")),
             created_by=doc.get("created_by", "") or "",
+            refund_requested_at=parse_dt(doc.get("refund_requested_at")),
         )
 
     def get(self, code_id: str) -> ActivationCode | None:
@@ -90,3 +91,32 @@ class PgHttpCodeRepo:
             "activated_at": to_iso(datetime.now()),
             "expires_at": to_iso(datetime.combine(expires_at, datetime.min.time())),
         })
+
+    def revoke_unconsumed_for_user(self, username: str) -> int:
+        """注销执行：unused（待激活）+ active（排队中/消耗中）全部置 revoked。返回行数。"""
+        return self.client.update_cas(
+            _TABLE,
+            {"bound_username": f"eq.{username}", "status": "in.(unused,active)"},
+            {"status": "revoked"},
+        )
+
+    def find_unconsumed_by_username(self, username: str) -> list[ActivationCode]:
+        docs = self.client.find(
+            _TABLE,
+            {"bound_username": username, "status": "in.(unused,active)"},
+            sort=[("activated_at", "desc")],
+        )
+        return [self._to_domain(d) for d in docs]
+
+    def request_refund_for_user(self, code_id: str, username: str, now) -> int:
+        """权益级退款申请：CAS 标记 refund_requested_at（幂等，重复申请 0 行）。"""
+        return self.client.update_cas(
+            _TABLE,
+            {
+                "code_id": f"eq.{code_id}",
+                "bound_username": f"eq.{username}",
+                "status": "in.(unused,active)",
+                "refund_requested_at": "is.null",
+            },
+            {"refund_requested_at": now.isoformat()},
+        )

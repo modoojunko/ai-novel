@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>爱小说 · 我的账户（原型 · 默认/撤销期）</title>
+<style>
+/* ═══ 内联样式：与 server/frontend/src/design/base.css 逐字同源段（tokens/btn/appbar/main/page-head/pill/panel/notice/scrim-modal）
+   + S端 本地段（notice 四语气 / btn-lg / btn-danger）+ 原型专用布局工具（kv / stage-account / rule-note / set-row / field / 危险区间距 / spec 标注 / toast），
+   同族于 console.html 与 account-deletion.html；布局工具不做视觉决策，色/圆角/字体全走令牌 ═══ */
+:root {
+  --bg:      oklch(98% 0.004 240);
+  --surface: oklch(100% 0 0);
+  --fg:      oklch(20% 0.02 240);
+  --muted:   oklch(50% 0.018 240);
+  --border:  oklch(90% 0.006 240);
+  --accent: oklch(48% 0.11 170);
+  --accent-strong: oklch(41% 0.10 170);
+  --accent-soft:   color-mix(in oklch, var(--accent) 12%, transparent);
+  --ok:    oklch(52% 0.11 155);  --ok-soft:   color-mix(in oklch, var(--ok) 14%, transparent);
+  --warn:  oklch(50% 0.13 75);   --warn-soft: color-mix(in oklch, var(--warn) 16%, transparent);
+  --err:   oklch(50% 0.17 25);   --err-soft:  color-mix(in oklch, var(--err) 12%, transparent);
+  --fg-soft:   color-mix(in oklch, var(--fg) 5%, transparent);
+  --on-accent: oklch(100% 0 0);
+  --shadow-card: 0 1px 2px color-mix(in oklch, var(--fg) 5%, transparent),
+                 0 12px 32px -12px color-mix(in oklch, var(--fg) 14%, transparent);
+  --font-display: 'Noto Serif SC', 'Songti SC', 'STSong', 'Iowan Old Style', Georgia, serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', monospace;
+  --radius: 10px; --radius-lg: 16px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; min-height: 100vh; display: flex; flex-direction: column; }
+img, svg { display: block; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; padding: 0; }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.serif { font-family: var(--font-display); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 15px; border-radius: var(--radius); border: 1px solid transparent; font-size: 13.5px; font-weight: 500; line-height: inherit; transition: background 0.15s ease, border-color 0.15s ease; }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn-primary { background: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { background: var(--accent-strong); }
+.btn-secondary { background: var(--surface); color: var(--fg); border-color: var(--border); }
+.btn-secondary:hover { border-color: var(--fg); }
+.btn-ghost { background: transparent; color: var(--muted); padding: 0 8px; }
+.btn-ghost:hover { color: var(--fg); background: var(--fg-soft); }
+.btn-danger { background: var(--err); color: var(--on-accent); }
+.btn-danger:hover:not(:disabled) { background: color-mix(in oklch, var(--err) 88%, var(--fg)); }
+.btn-lg { height: 40px; padding: 0 18px; font-size: 14px; }
+.btn:disabled { opacity: 0.5; pointer-events: none; }
+.btn-sm { height: 28px; padding: 0 12px; font-size: 12.5px; border-radius: 8px; gap: 5px; }
+.lnk { color: var(--accent); cursor: pointer; background: none; border: 0; padding: 0; font: inherit; }
+.lnk:hover { color: var(--accent-strong); text-decoration: underline; }
+.lnk-danger { color: var(--err); }
+.btn-outline-danger { background: var(--surface); color: var(--err); border: 1px solid color-mix(in oklch, var(--err) 45%, var(--border)); font-weight: 500; }
+.btn-outline-danger:hover:not(:disabled) { background: var(--err-soft); border-color: var(--err); }
+.lnk-danger:hover { color: color-mix(in oklch, var(--err) 85%, var(--fg)); text-decoration: underline; }
+.appbar { height: 48px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.logo { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+.logo-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-family: var(--font-display); font-size: 14px; }
+.appbar .nav { display: inline-flex; gap: 4px; margin-left: 14px; }
+.appbar .nav a { font-size: 13.5px; color: var(--muted); padding: 5px 10px; border-radius: 8px; }
+.appbar .nav a:hover { color: var(--fg); }
+.appbar .nav a.on { color: var(--fg); background: var(--fg-soft); font-weight: 500; }
+.appbar .spacer { flex: 1; }
+.appbar .who { font-size: 13px; color: var(--muted); }
+.main { flex: 1; width: min(100%, 1080px); margin-inline: auto; padding: 48px 32px 80px; }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+.page-head h1 { font-family: var(--font-display); font-size: 30px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
+.page-head .sub { font-size: 13px; color: var(--muted); margin-top: 6px; margin-bottom: 1em; }
+.pill { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 11px; line-height: 1.6; font-weight: 500; background: var(--surface); color: var(--muted); white-space: nowrap; }
+.pill-tag { background: var(--surface); color: var(--muted); }
+.pill-status { padding: 2px 9px; }
+.pill-ok { background: var(--ok-soft); border-color: transparent; color: color-mix(in oklch, var(--ok) 88%, var(--fg)); }
+.pill-warn { background: var(--warn-soft); border-color: transparent; color: color-mix(in oklch, var(--warn) 85%, var(--fg)); }
+.pill-err { background: var(--err-soft); border-color: transparent; color: color-mix(in oklch, var(--err) 90%, var(--fg)); }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; }
+.panel-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.panel-h h2, .panel-h .pt { font-family: var(--font-display); font-size: 16px; font-weight: 600; margin: 0; }
+.notice { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; border-radius: 9px; padding: 10px 12px; margin: 0 0 14px; line-height: 1.55; text-align: left; }
+.notice svg { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+.notice.info { background: var(--accent-soft); color: var(--accent-strong); }
+.notice.ok { background: var(--ok-soft); color: var(--ok); }
+.notice.warn { background: var(--warn-soft); color: var(--warn); }
+.notice.err { background: var(--err-soft); color: var(--err); }
+.notice .lnk { color: inherit; font-weight: 600; }
+.notice .lnk-danger { color: inherit; font-weight: 600; }
+.scrim { position: fixed; inset: 0; background: color-mix(in oklch, var(--fg) 28%, transparent); z-index: 40; opacity: 0; transition: opacity 0.2s ease; }
+.scrim.show { opacity: 1; }
+.modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; pointer-events: auto; }
+.modal .mcard { width: min(420px, 92vw); max-height: calc(100vh - 48px); overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); transform: translateY(8px) scale(0.98); opacity: 0; transition: transform 0.18s ease, opacity 0.18s ease; }
+.modal.show .mcard { transform: none; opacity: 1; }
+.mcard-head { display: flex; align-items: center; padding: 20px 24px 0; }
+.mcard-head .mh { font-family: var(--font-display); font-size: 17px; font-weight: 600; }
+.mcard-body { padding: 14px 24px 6px; }
+.mcard-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 24px 20px; }
+
+/* ─── 原型专用：布局工具 + 业务组合（不做视觉决策，色/圆角/字体走令牌） ─── */
+/* 账户设置窄列（account-settings-design.md §3.1：单列 640px 居中——动线即安全阶梯，危险区的距离只在垂直动线上成立） */
+.stage-account { max-width: 640px; margin-inline: auto; }
+.kv { display: grid; grid-template-columns: 96px 1fr; gap: 8px 12px; font-size: 13px; margin: 6px 0; }
+.kv span { color: var(--muted); }
+.kv b { font-weight: 500; }
+.rule-note { font-size: 12.5px; color: var(--muted); line-height: 1.7; }
+.switcher { position: fixed; top: 12px; right: 12px; z-index: 90; display: flex; gap: 4px; padding: 5px; background: var(--fg); border-radius: 9px; box-shadow: var(--shadow-card); }
+.switcher button { font-size: 11.5px; color: oklch(100% 0 0 / 70%); padding: 4px 9px; border-radius: 6px; }
+.switcher button.on { background: oklch(100% 0 0 / 16%); color: oklch(100% 0 0); font-weight: 500; }
+
+/* 账户设置行（B3 常规项 / B4 危险行，IA §2） */
+.set-rows { display: grid; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 2px; border-top: 1px solid var(--border); }
+.set-row:first-child { border-top: 0; }
+.set-row .t { font-size: 13.5px; font-weight: 500; }
+.set-row .d { font-size: 12.5px; color: var(--muted); margin-top: 2px; max-width: 520px; }
+
+/* 危险区（B4，IA §3.3 三原则）：隔离=仅此一条放大间距（40~56px，折叠线以下）；弱化与距离不另造样式——全组唯一警示色=行内 lnk-danger，无大标题/无 pill 标注/无图标/无 notice */
+.danger-zone { margin-top: 48px; }
+.dz-label { font-family: var(--font-display); font-size: 12px; font-weight: 600; letter-spacing: .08em; color: var(--err); margin: 0; }
+.dz-box { background: var(--surface); border: 1px solid color-mix(in oklch, var(--err) 35%, var(--border)); border-radius: var(--radius-lg); }
+.dz-box .set-row { padding: 14px 20px; }
+
+/* 修改密码弹层表单（S1） */
+.field { display: grid; gap: 6px; margin-top: 4px; }
+.field label { font-size: 12.5px; color: var(--muted); }
+.field input { height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius); font: inherit; font-size: 14px; background: var(--surface); color: var(--fg); }
+.field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 12%, transparent); }
+.field .hint { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.f-err { font-size: 12px; color: var(--err); }
+
+/* spec 标注（评审用，非基线元素）：标注块归属 IA·B1–B5（account-settings-design.md §2） */
+.spec-tag { display: inline-flex; align-items: center; font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); border: 1px dashed var(--border); border-radius: 6px; padding: 1px 7px; background: var(--surface); white-space: nowrap; }
+
+/* toast（原型演示 S1 成功反馈用，非基线；实现走 useToast，禁 alert） */
+.toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(6px); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card); padding: 9px 16px; font-size: 13px; text-align: center; opacity: 0; transition: opacity 0.18s ease, transform 0.18s ease; z-index: 80; pointer-events: none; }
+.toast.show { opacity: 1; transform: translateX(-50%); }
+</style>
+</head>
+<body>
+
+<!-- 评审切换器：非基线元素（ADJUSTMENTS 已登记惯例），实现对照/截图时排除 -->
+<div class="switcher" id="switcher">
+  <button data-state="default" class="on">S0 默认态</button>
+  <button data-state="suspended">S3 撤销期</button>
+</div>
+
+<!-- 控制台外壳：DashboardLayout（appbar + 常驻导航 5 项 + tier pill；frontend-detail-design §2.2） -->
+<header class="appbar">
+  <span class="logo"><span class="logo-mark">爱</span>爱小说</span>
+  <nav class="nav">
+    <a href="#">首页</a>
+    <a href="#">我的套餐</a>
+    <a href="#">我的订单</a>
+    <a href="#">我的设备</a>
+    <a href="#" class="on">我的账户</a>
+  </nav>
+  <span class="spacer"></span>
+  <span class="pill pill-status pill-warn" id="tierPill" hidden>已申请注销</span>
+  <span class="who">testuser</span>
+</header>
+
+<main class="main">
+
+  <!-- ═══════════ S0 默认态（IA §3.4 上线框 · 块清单 B1–B5） ═══════════
+       动线：身份（看）→ 动作（改）→ 危险（走）→ 兜底（找客服）；注意力重量递减、破坏性递增、响度递减（IA §3.2）
+       负清单（B6）：无套餐状态、无设备摘要/额度规则文案、无下载入口、无订单提醒——各有归属页，本页不搬
+       spec 依据：docs/design-s/account-settings-design.md；注销向导弹层本体 = account-deletion.html 态②③④ -->
+  <section data-stage="default">
+    <div class="stage-account">
+
+      <!-- B1 页头（primary）：撤销期变体在右侧追加「撤销注销」主按钮（态⑥先例） -->
+      <div class="page-head">
+        <div>
+          <h1>我的账户</h1>
+          <div class="sub">管理你的账号信息与安全设置，修改即时生效。</div>
+        </div>
+        <span class="spec-tag">IA·B1 页头</span>
+      </div>
+
+      <!-- B2 账号信息（primary）：身份信息全量落点（首页卡只是摘要，T4-7）；
+           无套餐状态行——套餐 OWN 于套餐页（负清单 B6/D1）；rule-note 是账号模型告知（无邮箱找回→密码即一切），非堆砌说明 -->
+      <section class="panel" aria-labelledby="b2h">
+        <div class="panel-h"><h2 id="b2h">账号信息</h2><span class="spec-tag">IA·B2 账号信息</span></div>
+        <div class="kv">
+          <span>用户名</span><b class="num">testuser</b>
+          <span>注册时间</span><b class="num">2026-08-15</b>
+        </div>
+        <p class="rule-note" style="margin-top:8px">本站账号只由「用户名 + 密码」组成，没有绑定邮箱或手机号。<b>请牢记你的密码</b>——忘记密码可在登录页「忘记密码找回」恢复。</p>
+      </section>
+
+      <!-- B3 安全（secondary）：修改密码 → 退出登录（US-1.1 顺序，2026-08-30 用户裁定移除"我的设备"入口行——
+           设备有独立导航页，账户页 OWN 边界=身份+安全+危险区+退出；注销的设备波及面由向导后果清单告知）；
+           退出登录无确认（低破坏、可逆，与首页卡同款 lnk 行为一致，T4-7） -->
+      <section class="panel" aria-labelledby="b3h" style="margin-top:14px">
+        <div class="panel-h"><h2 id="b3h">安全</h2><span class="spec-tag">IA·B3 · US-1.1 顺序</span></div>
+        <div class="set-rows">
+          <div class="set-row">
+            <div><div class="t">修改密码</div><div class="d">定期更换，客户端与网页端同时生效</div></div>
+            <button class="btn btn-secondary btn-sm js-open-pw" type="button">修改密码</button>
+          </div>
+          <div class="set-row">
+            <div><div class="t">退出登录</div><div class="d">仅退出当前浏览器会话，不影响其他设备</div></div>
+            <a class="lnk" href="#" style="font-size:12.5px">退出登录</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- B4 危险区（danger zone，IA §3.3）：隔离=48px 间距折叠线以下；弱化=全组唯一警示色 lnk-danger（无大标题/无 pill 标注/无图标/无 notice/btn-danger 留在向导内）；距离=动线终点，上方无任何文案预告。
+           入口行只写三个关键事实（不可登录/15 天撤销期/作品不受影响）——完整后果清单是向导第 1 步的法定职责（US-2.1/R3）。
+           section + h2 语义层级保留（读屏可感知），视觉降档与 set-row .t 同档（响度与语义解耦，IA §6.1） -->
+      <section class="danger-zone" aria-labelledby="b4h">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px">
+          <h2 id="b4h" class="dz-label">危险区</h2>
+          <span class="spec-tag">IA·B4 危险区 · 红发丝线框=视觉一致 · 链接=唯一警示色（安静）</span>
+        </div>
+        <div class="dz-box">
+          <div class="set-row">
+            <div>
+              <div class="t" style="margin-bottom:3px">注销账号…</div>
+              <div class="d">注销后无法再登录，用户名永久封存；提交后有 15 天撤销期，到期自动执行；你设备上的作品不受影响。</div>
+            </div>
+            <button class="btn btn-outline-danger" id="openWizard" type="button">注销账号…</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- B5 客服兜底页脚（R8 保险丝）：全页兜底、不特指注销——从注销块挪出，修正旧版"注销的下一站是客服"的视觉语义（D4） -->
+      <footer style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:28px">
+        <a class="lnk lnk-danger" href="#" style="font-size:12.5px">遇到问题？联系客服 alexee_zhu@163.com</a>
+        <span class="spec-tag">IA·B5 页脚兜底 · R8</span>
+      </footer>
+
+    </div>
+  </section>
+
+  <!-- ═══════════ S3 撤销期回场（IA §3.4 下线框 · US-5.2/R7） ═══════════
+       本页增量只有两处：页头「撤销注销」primary + 危险区降为 warn 状态行——响度跟随用户当前任务，而非跟随危险等级。
+       全局 warn 横幅与 appbar pill「已申请注销」由 DashboardLayout 外壳承载（本原型=appbar pill，见顶栏切换），本页内容不重复渲染横幅。
+       B2/B3 不变、撤销期内均可用；两处「撤销注销」触发同一撤销密码弹层（态⑦同构，完整恢复流态⑧见 account-deletion.html） -->
+  <section data-stage="suspended" hidden>
+    <div class="stage-account">
+
+      <!-- B1 变体：page-head 右侧主按钮（态⑥首页先例延用，IA §4.2-6 待拍板项） -->
+      <div class="page-head">
+        <div>
+          <h1>我的账户</h1>
+          <div class="sub">管理你的账号信息与安全设置，修改即时生效。</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px">
+          <span class="spec-tag">IA·B1 变体 · US-5.2</span>
+          <button class="btn btn-primary" data-revoke type="button">撤销注销</button>
+        </div>
+      </div>
+
+      <!-- B2 不变 -->
+      <section class="panel" aria-labelledby="b2h2">
+        <div class="panel-h"><h2 id="b2h2">账号信息</h2><span class="spec-tag">IA·B2 不变</span></div>
+        <div class="kv">
+          <span>用户名</span><b class="num">testuser</b>
+          <span>注册时间</span><b class="num">2026-08-15</b>
+        </div>
+        <p class="rule-note" style="margin-top:8px">本站账号只由「用户名 + 密码」组成，没有绑定邮箱或手机号。<b>请牢记你的密码</b>——忘记密码可在登录页「忘记密码找回」恢复。</p>
+      </section>
+
+      <!-- B3 不变，撤销期内均可用 -->
+      <section class="panel" aria-labelledby="b3h2" style="margin-top:14px">
+        <div class="panel-h"><h2 id="b3h2">安全与设备</h2><span class="spec-tag">IA·B3 不变 · 均可用</span></div>
+        <div class="set-rows">
+          <div class="set-row">
+            <div><div class="t">修改密码</div><div class="d">定期更换，客户端与网页端同时生效</div></div>
+            <button class="btn btn-secondary btn-sm js-open-pw" type="button">修改密码</button>
+          </div>
+          <div class="set-row">
+            <div><div class="t">退出登录</div><div class="d">仅退出当前浏览器会话，不影响其他设备</div></div>
+            <a class="lnk" href="#" style="font-size:12.5px">退出登录</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- B4 变体：入口行 → warn 状态行（撤销期升响度是正当的：用户的当前任务就是撤销）；
+           撤销成功回到本页即回 S0（危险区复原为入口行；重新申请则撤销期重新计算，US-5.3） -->
+      <section class="danger-zone" aria-label="注销状态">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px">
+          <h2 class="dz-label">危险区</h2>
+          <span class="spec-tag">IA·B4 变体 · 响度随任务（撤销期升为 warn）</span>
+        </div>
+        <div class="dz-box">
+          <div class="set-row">
+            <div>
+              <div style="margin-bottom:3px"><span class="pill pill-status pill-warn">已申请注销 · 剩 <span class="num">12</span> 天</span></div>
+              <div class="d"><span class="num">2026-09-13</span> 到期自动执行；撤销期内付费与套餐功能暂停。</div>
+            </div>
+            <button class="lnk" data-revoke type="button" style="font-size:12.5px">撤销注销</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- B5 不变 -->
+      <footer style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:28px">
+        <a class="lnk lnk-danger" href="#" style="font-size:12.5px">遇到问题？联系客服 alexee_zhu@163.com</a>
+        <span class="spec-tag">IA·B5 页脚兜底 · R8</span>
+      </footer>
+
+    </div>
+  </section>
+
+</main>
+
+<!-- S1 修改密码弹层（IA §5 S1）：三字段短表单 + 取消/确认修改；成功 = toast「密码已修改」+ 关弹层，失败 = .f-err 不关弹层可重试；
+     autocomplete 按口径（current/new password）；Esc/焦点圈/焦点还原/滚动锁定由弹层纪律承担（IA §6.1） -->
+<div class="scrim" id="pwScrim" hidden></div>
+<div class="modal" id="pwModal" role="dialog" aria-modal="true" aria-labelledby="pwTitle" hidden>
+  <div class="mcard">
+    <div class="mcard-head"><span class="mh" id="pwTitle">修改密码</span></div>
+    <div class="mcard-body">
+      <div class="field">
+        <label for="curPwd">当前密码</label>
+        <input type="password" id="curPwd" autocomplete="current-password">
+      </div>
+      <div class="field">
+        <label for="newPwd">新密码</label>
+        <input type="password" id="newPwd" autocomplete="new-password">
+      </div>
+      <div class="field">
+        <label for="newPwd2">确认新密码</label>
+        <input type="password" id="newPwd2" autocomplete="new-password">
+        <span class="f-err" id="pwErr" hidden></span>
+      </div>
+    </div>
+    <div class="mcard-foot">
+      <button class="btn btn-secondary" id="pwCancel" type="button">取消</button>
+      <button class="btn btn-primary" id="pwSubmit" type="button">确认修改</button>
+    </div>
+  </div>
+</div>
+
+<!-- S3 撤销密码弹层（态⑦同构）：文案与 account-deletion.html 态⑦逐字一致；完整撤销流（态⑦→⑧）见该原型 -->
+<div class="scrim" id="rvScrim" hidden></div>
+<div class="modal" id="rvModal" role="dialog" aria-modal="true" aria-labelledby="rvTitle" hidden>
+  <div class="mcard">
+    <div class="mcard-head"><span class="mh" id="rvTitle">撤销注销</span></div>
+    <div class="mcard-body">
+      <div class="kv">
+        <span>账号</span><b class="num">testuser</b>
+        <span>撤销期至</span><b class="num">2026-09-13 14:32</b>
+      </div>
+      <p style="font-size:13px; margin:10px 0">撤销<b>立即生效</b>：账号马上恢复正常，套餐与设备按原状态继续；如以后再需要注销，可重新申请，撤销期重新计算。</p>
+      <div class="field">
+        <label for="rpwd">登录密码</label>
+        <input type="password" id="rpwd" placeholder="输入密码，确认是你本人操作" autocomplete="off">
+        <span class="hint">与申请注销时相同的密码验证。</span>
+      </div>
+    </div>
+    <div class="mcard-foot">
+      <button class="btn btn-secondary" id="rvCancel" type="button">再想想</button>
+      <button class="btn btn-primary" id="rvDo" type="button">确认撤销</button>
+    </div>
+  </div>
+</div>
+
+<!-- toast 载体（原型演示；实现走 useToast） -->
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* MOCK 常量区：账号与日期为示例，口径同 account-deletion.html——
+   用户名 testuser / 注册 2026-08-15（与首页卡同源 T4-7）、设备 2/5 台（devices store 同源，T7 系）、
+   撤销期 15 天（design D1）、deadline 2026-09-13、S3 视角日 2026-09-01（剩 12 天，态⑥同源）、
+   客服兜底 alexee_zhu@163.com（协议 §三.4）。
+   IA 依据：docs/design-s/account-settings-design.md（块清单 B1–B5 / 状态 S0–S3）。 */
+const MOCK = {
+  user: "testuser",
+  registeredAt: "2026-08-15",
+  devices: { used: 2, limit: 5 },
+  remainDays: 12,
+  deadline: "2026-09-13",
+};
+
+/* 评审切换器：S0 默认 / S3 撤销期（外壳 tier pill 随态切换：撤销期中 = warn「已申请注销」，US-5.2） */
+const switcher = document.getElementById("switcher");
+const stages = document.querySelectorAll("[data-stage]");
+const tierPill = document.getElementById("tierPill");
+const go = (state) => switcher.querySelector(`[data-state="${state}"]`).click();
+switcher.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-state]");
+  if (!btn) return;
+  switcher.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === btn));
+  stages.forEach((s) => (s.hidden = s.dataset.stage !== btn.dataset.state));
+  tierPill.hidden = btn.dataset.state !== "suspended";
+});
+
+/* 弹层通用（原型简化版 AppModal：Esc / Tab 焦点圈 / 焦点还原 / 滚动锁定；一次只有一个实例，IA §5 弹层纪律） */
+let lastFocus = null;
+function openModal(scrim, modal, focusEl) {
+  lastFocus = document.activeElement;
+  scrim.hidden = false; modal.hidden = false;
+  requestAnimationFrame(() => { scrim.classList.add("show"); modal.classList.add("show"); });
+  document.body.style.overflow = "hidden";
+  (focusEl || modal.querySelector("button")).focus();
+}
+function closeModal(scrim, modal) {
+  scrim.classList.remove("show"); modal.classList.remove("show");
+  setTimeout(() => { scrim.hidden = true; modal.hidden = true; }, 180);
+  document.body.style.overflow = "";
+  if (lastFocus) lastFocus.focus();
+}
+function bindModal(scrim, modal) {
+  modal.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { closeModal(scrim, modal); return; }
+    if (e.key === "Tab") {
+      const els = [...modal.querySelectorAll("button, input")].filter((el) => !el.disabled);
+      const first = els[0], last = els[els.length - 1];
+      if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+      else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+    }
+  });
+  scrim.addEventListener("click", () => closeModal(scrim, modal));
+}
+
+/* toast（原型演示；实现走 useToast） */
+const toast = document.getElementById("toast");
+let toastTimer = null;
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 2400);
+}
+
+/* S1 修改密码（IA §5 S1）：成功 → toast「密码已修改」+ 关弹层 + 页面无变化；失败 → 弹层内 .f-err，不关弹层可重试。
+   原型校验仅演示两条失败路径（缺项/两次不一致），不承诺实现侧密码规则；loading 防重复由实现侧承担 */
+const pwScrim = document.getElementById("pwScrim");
+const pwModal = document.getElementById("pwModal");
+bindModal(pwScrim, pwModal);
+document.querySelectorAll(".js-open-pw").forEach((btn) =>
+  btn.addEventListener("click", () => openModal(pwScrim, pwModal, document.getElementById("curPwd"))));
+document.getElementById("pwCancel").addEventListener("click", () => closeModal(pwScrim, pwModal));
+document.getElementById("pwSubmit").addEventListener("click", () => {
+  const cur = document.getElementById("curPwd").value;
+  const n1 = document.getElementById("newPwd").value;
+  const n2 = document.getElementById("newPwd2").value;
+  const errEl = document.getElementById("pwErr");
+  let msg = "";
+  if (!cur || !n1 || !n2) msg = "请填写当前密码、新密码与确认新密码。";
+  else if (n1 !== n2) msg = "两次输入的新密码不一致。";
+  if (msg) { errEl.textContent = msg; errEl.hidden = false; return; }
+  errEl.hidden = true;
+  ["curPwd", "newPwd", "newPwd2"].forEach((id) => (document.getElementById(id).value = ""));
+  closeModal(pwScrim, pwModal);
+  showToast("密码已修改");
+});
+
+/* S2 注销向导出口（IA §5 S2）：入口保持安静可达；向导弹层本体 = account-deletion.html 态②③④，本页不内嵌（避免双源漂移） */
+document.getElementById("openWizard").addEventListener("click", () =>
+  showToast("原型演示：此处打开注销向导弹层（见 account-deletion.html 态②③④）"));
+
+/* S3 撤销出口：页头主按钮 + 危险区状态行，两处触发同一撤销弹层（撤销动作多处可达，IA §3.4 说明）；
+   确认撤销 → 本页演示回 S0（危险区复原为入口行）；完整「恢复成功页」= account-deletion.html 态⑧ */
+const rvScrim = document.getElementById("rvScrim");
+const rvModal = document.getElementById("rvModal");
+bindModal(rvScrim, rvModal);
+document.querySelectorAll("[data-revoke]").forEach((el) =>
+  el.addEventListener("click", () => openModal(rvScrim, rvModal, document.getElementById("rpwd"))));
+document.getElementById("rvCancel").addEventListener("click", () => closeModal(rvScrim, rvModal));
+document.getElementById("rvDo").addEventListener("click", () => {
+  closeModal(rvScrim, rvModal);
+  go("default");
+});
+</script>
+</body>
+</html>

@@ -11,6 +11,9 @@ from typing import Any
 
 import httpx
 
+# 显式 PostgREST 操作符前缀：filter 值以此开头时原样透传，纯值才补 eq.
+_OPERATORS = ("eq.", "neq.", "gt.", "gte.", "lt.", "lte.", "in.", "is.", "or.", "not.", "textSearch.")
+
 
 def to_iso(value: datetime | None) -> str | None:
     """datetime → ISO 8601 字符串（PostgREST 存储/返回格式）。"""
@@ -27,8 +30,6 @@ def parse_dt(value: Any) -> datetime | None:
 
 
 class PgRestClient:
-    """PostgREST 客户端：filter dict → `eq.` 查询参数，sort → `order=`，limit → `limit=`。"""
-
     def __init__(
         self,
         endpoint: str,
@@ -52,10 +53,14 @@ class PgRestClient:
         filter: dict | None = None,
         sort: list[tuple[str, str]] | None = None,
         limit: int | None = None,
+        select: str | None = None,
     ) -> list[dict]:
+        params = self._build_params(filter, sort, limit)
+        if select:
+            params["select"] = select
         resp = self._client.get(
             f"{self._endpoint}/{table}",
-            params=self._build_params(filter, sort, limit),
+            params=params,
         )
         resp.raise_for_status()
         return resp.json()
@@ -84,6 +89,23 @@ class PgRestClient:
         )
         resp.raise_for_status()
 
+    def update_cas(self, table: str, filter: dict, changes: dict) -> int:
+        """条件更新并返回受影响行数（account-deletion 的 CAS 基元，design A1 方案②）。
+
+        与 update 的差别：① changes 允许 None（显式写 NULL，如清空 deadline）；
+        ② Prefer: return=representation 使响应携带被更新的行，len() 即真实行数——
+        0 行=条件不满足（状态已被并发方改走），调用方据此实现幂等分支。
+        """
+        body = dict(changes)
+        resp = self._client.patch(
+            f"{self._endpoint}/{table}",
+            params=self._build_params(filter),
+            json=body,
+            headers={"Prefer": "return=representation"},
+        )
+        resp.raise_for_status()
+        return len(resp.json()) if resp.content else 0
+
     def delete(self, table: str, filter: dict) -> int:
         """删除并返回受影响行数（Prefer: return=representation 让响应携带删除的行）。"""
         resp = self._client.request(
@@ -107,7 +129,14 @@ class PgRestClient:
     ) -> dict[str, str]:
         params: dict[str, str] = {}
         for key, value in (filter or {}).items():
-            params[key] = "is.null" if value is None else f"eq.{value}"
+            if value is None:
+                params[key] = "is.null"
+            elif isinstance(value, str) and value.startswith(_OPERATORS):
+                # 显式 PostgREST 操作符（in.(...)、gte.<ts> 等）原样透传；
+                # 纯值才补 eq. 前缀——否则 eq.in.(...) 是 400 语法错误
+                params[key] = value
+            else:
+                params[key] = f"eq.{value}"
         if sort:
             params["order"] = ",".join(f"{field}.{direction}" for field, direction in sort)
         if limit is not None:
