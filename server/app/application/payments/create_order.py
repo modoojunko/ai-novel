@@ -72,13 +72,18 @@ def create_order(
                 and order.get("prepay_status") != "failed"
                 and order.get("sku_id") == sku.get("id")
                 and order.get("code_url")):
+            # pg_http 行的 created_at 是 ISO 字符串，先归一为 datetime 再运算
+            created = order["created_at"]
+            if isinstance(created, str):
+                from app.infrastructure.repositories.pg_http.client import parse_dt
+                created = parse_dt(created)
             # 复用已有 pending 单（返回其二维码）
             return {
                 "order_no": order["order_no"],
                 "amount_fen": order["amount_fen"],
                 "code_url": order["code_url"],
                 "status": "pending",
-                "expires_at": (order["created_at"] + timedelta(seconds=ORDER_TTL_SECONDS)).isoformat(),
+                "expires_at": (created + timedelta(seconds=ORDER_TTL_SECONDS)).isoformat(),
                 "ttl_seconds": ORDER_TTL_SECONDS,
             }
 
