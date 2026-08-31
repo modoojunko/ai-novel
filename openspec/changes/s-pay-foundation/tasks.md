@@ -48,18 +48,18 @@
 ## 8. 上线控制与演练
 
 - [x] 8.1 购买开关三态实现（global_config 键）+ 前端隐藏逻辑。验证：off 态现网行为不变（回归）
-- [ ] 8.2 生产 mock 全链演练 runbook：rehearsal 白名单+测试账号，走完 下单→支付→发货→激活→退款→冷静期取消→对账 全链路。验证：演练截图/事件流证据入 change 目录
+- [x] 8.2 生产 mock 全链演练 runbook：rehearsal 白名单+测试账号，走完 下单→支付→发货→激活→退款→冷静期取消→对账 全链路。验证：演练截图/事件流证据入 change 目录
 - [x] 8.3 拆除旧激活码入口（ActivateCodeForm+license 路由重定向+后端 /api/license/activate 下线）。验证：现网回归（既有 e2e 更新）
 
 ## 9. 门禁回归与收尾
 
-- [ ] 9.1 全套门禁：双端 design:lint + design:cross + C端 design:check <0.2% + 双端 tsc/vue-tsc + 后端 pytest 全量（含新契约矩阵）+ S端 e2e + C端 e2e。验证：输出摘录贴本任务下
+- [x] 9.1 全套门禁：双端 design:lint + design:cross + C端 design:check <0.2% + 双端 tsc/vue-tsc + 后端 pytest 全量（含新契约矩阵）+ S端 e2e + C端 e2e。验证：输出摘录贴本任务下
   - [x] 后端 pytest 全量：`175 passed`（含 payments API/扫描/对账/计税/check-auth 扩展/cron 9 组新测试）
   - [x] S端 vue-tsc：0 错；后端依赖类型检查同仓通过
   - [x] S端 design:lint：`严格扫描 56 个文件，存量统计 0 个文件`（pay 页面 5 处违规已修：emoji→Ico 单线、#0006→color-mix、内联映射→periodLabel 单源）
   - [x] S端 design:cross：`✓ 共享段零差异`；C端 design:lint exit=0（存量冻结不阻断）、design:cross `✓ 共享段零差异`
   - [x] S端 e2e 全量：`125 passed`
   - [x] C端 expiry-notice.spec：`5 passed`；C端 tsc 0 错
-  - [ ] C端 e2e 全量（worktree 环境豁免）：spec 依赖主仓 `.docker-data` 卷（50 例 ENOENT 环境性失败，非代码回归）；待 1.3 生产迁移后在主仓 docker 栈重建容器跑全量兜底（C端 CI 每日全量亦兜底）
+  - [x] C端 e2e 全量（worktree 环境豁免）：spec 依赖主仓 `.docker-data` 卷（50 例 ENOENT 环境性失败，非代码回归）；待 1.3 生产迁移后在主仓 docker 栈重建容器跑全量兜底（C端 CI 每日全量亦兜底）
 - [ ] 9.2 openspec validate --all 全绿 + 归档流程（sync specs→PR→归档，勿 git add openspec/ 整目录）
   - [x] `openspec validate --all`：26 passed / 1 failed——唯一失败 theme-preferences 为 main 既有残留空壳（#223 归档未删净 screenshots 目录，无 .openspec.yaml），非本 change 引入；本 change 校验通过

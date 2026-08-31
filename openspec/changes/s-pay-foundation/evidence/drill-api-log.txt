@@ -1,0 +1,27 @@
+== 1.login ok token=eyJhbGciOiJIUzI1NiIs...
+== 2.skus (rehearsal whitelist user)
+{"code": 0, "data": {"purchase_enabled": true, "agreement_version": "v2026.08", "tiers": [{"key": "pro", "label": "PRO", "is_live": true}], "skus": [{"sku_key": "pro_monthly", "tier_key": "pro", "period": "monthly", "period_days": 30, "base_price_fen": 3000, "discount_display": "", "price_fen": 3000, "device_limit": 3}, {"sku_key": "pro_quarterly", "tier_key": "pro", "period": "quarterly", "period
+== 3.create order pro_yearly
+{"code": 0, "data": {"order_no": "S20260831-5A67B86849A58A68", "amount_fen": 23920, "code_url": "weixin://mock/S20260831-5A67B86849A58A68", "status": "pending", "expires_at": "2026-08-31T10:46:46.587812+00:00", "ttl_seconds": 900}}
+ORDER_NO=S20260831-5A67B86849A58A68
+== 4.D1 inject-payment
+{"code": 0, "data": {"status": "fulfilled"}}
+== 5.manual query (paid->fulfilled)
+{"code": 0, "data": {"hit": true, "hint": "SUCCESS"}}
+== 6.order detail
+{"code": 0, "data": {"order_no": "S20260831-5A67B86849A58A68", "status": "fulfilled", "sku_key": "3", "snapshot": {"period": "yearly", "tier_key": "pro", "period_days": 365, "device_limit": 5, "tier_display": "PRO", "base_price_fen": 29900, "discount_permille": 800}, "amount_fen": 23920, "created_at": "2026-08-31T10:31:46.587812", "paid_at": "2026-08-31T10:31:47.199841", "refunded_at": "", "agreem
+== 7.activate grant
+{"code": -1, "msg": "内部错误，请查看服务器日志"}
+== 8.membership
+{"code": 0, "data": {"tier": "trial", "remaining_sec": 566891, "remaining_desc": "6 天", "max_expires_at": "2026-09-07T00:00:00", "pending_count": 0}}
+== 9.refund preview
+{"code": -1, "msg": "内部错误，请查看服务器日志"}
+== 10.request refund (cooldown)
+{"code": -1, "msg": "内部错误，请查看服务器日志"}
+== 11.cancel refund (restore)
+{"code": 4006, "msg": "not_in_cooldown"}
+== 12.order detail after cancel
+{"code": 0, "data": {"order_no": "S20260831-5A67B86849A58A68", "status": "fulfilled", "sku_key": "3", "snapshot": {"period": "yearly", "tier_key": "pro", "period_days": 365, "device_limit": 5, "tier_display": "PRO", "base_price_fen": 29900, "discount_permille": 800}, "amount_fen": 23920, "created_at": "2026-08-31T10:31:46.587812", "paid_at": "2026-08-31T10:31:47.199841", "refunded_at": "", "agreem
+== 13.re-request refund (2nd cooldown, let expire)
+{"code": -1, "msg": "内部错误，请查看服务器日志"}
+REQ_AT=2026-08-31T10:31:50Z
