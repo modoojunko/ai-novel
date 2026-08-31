@@ -95,6 +95,9 @@ def _seed_new_db(db_path: str):
         security_answer_hash=hash_password("三体"),
         status="active",
     ))
+    db.flush()  # 确保用户持久化，后续 FK 引用 id
+    _user_row = db.query(UserORM.id).filter(UserORM.username == "modoojunko").first()
+    _uid = _user_row[0]
 
     # trial code
     db.add(ActivationCodeORM(
@@ -102,7 +105,7 @@ def _seed_new_db(db_path: str):
         tier="trial",
         duration_days=7,
         status="active",
-        bound_username="modoojunko",
+        user_id=_uid,
         activated_at=datetime.now(),
         expires_at=datetime.combine(expires, datetime.min.time()),
         created_by="system",
@@ -111,7 +114,7 @@ def _seed_new_db(db_path: str):
     # device_registry
     db.add(DeviceRegistryORM(
         id="test-device-reg-001",
-        user_id="modoojunko",
+        user_id=_uid,
         fingerprint="test-fingerprint-001",
         hostname="测试机-PC",
         os="Windows-11",
@@ -122,7 +125,7 @@ def _seed_new_db(db_path: str):
     jwt_token = sign_jwt("modoojunko")
     db.add(DeviceGrantORM(
         pc_hash="test-pc-hash-001",
-        username="modoojunko",
+        user_id=_uid,
         token=jwt_token,
         enrolled=1,
         fingerprint="test-fingerprint-001",

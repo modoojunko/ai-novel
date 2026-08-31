@@ -7,6 +7,11 @@ on:
       - "server/**"
       - ".github/workflows/s-server-deploy.yml"
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "checkout 的分支/tag/commit（默认 main；可用于部署 feature 分支）"
+        required: false
+        default: "main"
 
 permissions:
   contents: read
@@ -24,6 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || 'main' }}
 
       - uses: actions/setup-node@v4
         with:
@@ -36,7 +43,11 @@ jobs:
         run: tcb login --cloudbase-api-key ${{ secrets.TCB_API_KEY }} -e ${{ vars.TCB_ENV_ID }}
 
       # ── 后端：云托管（云端构建镜像，本地无需 Docker）──
-      # 用 secrets 生成部署配置（仓库内 cloudbaserc.json 只放占位符，凭据不入库）
+      # 用 secrets 生成部署配置（仓库内 cloudbaserc.json 只放占位符，凭据不入库）。
+      # ⚠️ envParams 是每次部署的全量覆盖：云托管控制台手动加的环境变量会被这里
+      #    冲掉——新增环境变量必须同步补进本配置。PAYMENTS_GATEWAY/CRON_TOKEN/
+      #    SERVERCHAN_SENDKEY 未配 secrets 时注入空串，后端语义均安全
+      #    （空 gateway 回落 mock；空 cron token fail-closed；空 SendKey 降级日志）。
       - name: 生成后端部署配置
         run: |
           cat > server/cloudbaserc.json <<'EOF'
@@ -51,7 +62,10 @@ jobs:
                 "TCB_PG_ENV_ID": "${{ vars.TCB_ENV_ID }}",
                 "TCB_PG_API_KEY": "${{ secrets.TCB_API_KEY }}",
                 "JWT_SECRET": "${{ secrets.JWT_SECRET }}",
-                "ADMIN_TOKEN": "${{ secrets.ADMIN_TOKEN }}"
+                "ADMIN_TOKEN": "${{ secrets.ADMIN_TOKEN }}",
+                "PAYMENTS_GATEWAY": "${{ secrets.PAYMENTS_GATEWAY }}",
+                "CRON_TOKEN": "${{ secrets.CRON_TOKEN }}",
+                "SERVERCHAN_SENDKEY": "${{ secrets.SERVERCHAN_SENDKEY }}"
               }
             }
           }

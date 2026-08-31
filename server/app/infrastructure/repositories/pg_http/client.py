@@ -20,6 +20,19 @@ def to_iso(value: datetime | None) -> str | None:
     return value.isoformat() if value is not None else None
 
 
+def jsonable(doc: dict) -> dict:
+    """文档值 JSON 兼容化：datetime/date → ISO 字符串（httpx json= 不认 datetime）。"""
+    out = {}
+    for k, v in doc.items():
+        if isinstance(v, datetime):
+            out[k] = v.isoformat()
+        elif hasattr(v, "isoformat") and not isinstance(v, (str, bytes)):
+            out[k] = v.isoformat()  # date 等同形对象
+        else:
+            out[k] = v
+    return out
+
+
 def parse_dt(value: Any) -> datetime | None:
     """ISO 字符串 → datetime；空值/已是 datetime 原样处理。"""
     if not value:
@@ -77,11 +90,11 @@ class PgRestClient:
     def insert(self, table: str, doc: dict) -> None:
         # None → JSON null：PostgREST 省略字段会应用列 DEFAULT（如 ''），
         # 显式 null 才能写 NULL。需要数据库默认值的列（如 created_at）由调用方不传键。
-        resp = self._client.post(f"{self._endpoint}/{table}", json=doc)
+        resp = self._client.post(f"{self._endpoint}/{table}", json=jsonable(doc))
         resp.raise_for_status()
 
     def update(self, table: str, filter: dict, changes: dict) -> None:
-        body = {k: v for k, v in changes.items() if v is not None}
+        body = jsonable({k: v for k, v in changes.items() if v is not None})
         resp = self._client.patch(
             f"{self._endpoint}/{table}",
             params=self._build_params(filter),

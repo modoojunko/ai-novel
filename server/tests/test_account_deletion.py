@@ -37,9 +37,10 @@ def _parse_deadline(iso: str) -> datetime:
 
 
 def _seed_grant(db_session, username: str, pc_hash: str) -> None:
-    """播种设备授权（check-auth 按 pc_hash 解析用户）。"""
+    """播种设备授权（check-auth 按 pc_hash 解析用户）。user_id 代理键（s-pay-foundation）。"""
+    uid = db_session.query(UserORM.id).filter(UserORM.username == username).scalar()
     db_session.add(
-        DeviceGrantORM(pc_hash=pc_hash, username=username, token="tok", enrolled=1, fingerprint="fp")
+        DeviceGrantORM(pc_hash=pc_hash, user_id=uid, token="tok", enrolled=1, fingerprint="fp")
     )
     db_session.commit()
 
@@ -297,13 +298,14 @@ class TestAdminScan:
 
 class TestUnusedAssetBlocking:
     def test_unused_bound_code_blocks_and_lists(self, client, web_user, db_session):
-        """待激活（unused）绑定码：阻塞受理并列入清单（R2，评审 P1）。"""
+        """待激活（unused）绑定码：阻塞受理并列入清单（R2，评审 P1）。user_id 代理键。"""
         from app.models.code import ActivationCodeORM
 
+        uid = db_session.query(UserORM.id).filter(UserORM.username == web_user["username"]).scalar()
         db_session.add(
             ActivationCodeORM(
                 code_id="UNUSED-1", tier="yearly", duration_days=365,
-                status="unused", bound_username=web_user["username"], created_by="system",
+                status="unused", user_id=uid, created_by="system",
             )
         )
         db_session.commit()

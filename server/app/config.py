@@ -46,6 +46,20 @@ class Settings:
     # ── Admin ──
     ADMIN_TOKEN: str = os.getenv("ADMIN_TOKEN", "admin123")
 
+    # ── 支付运维（设计 G7/B3/演练 A9）──
+    # 支付网关切换：mock（默认/空串，Change 1 全链替身+dev 注入端点注册）|
+    # wxpay|alipay（Change 2，dev 注入端点自动消失）
+    PAYMENTS_GATEWAY: str = os.getenv("PAYMENTS_GATEWAY", "mock") or "mock"
+    # Server酱 SendKey：资金类告警通道；空 = 降级为仅日志（本地/CI 默认）
+    SERVERCHAN_SENDKEY: str = os.getenv("SERVERCHAN_SENDKEY", "")
+    # 定时扫描端点（R1-R4）令牌：pay-cron 云函数以 X-Cron-Token 头携带；空 = 端点全拒
+    CRON_TOKEN: str = os.getenv("CRON_TOKEN", "")
+    # 演练白名单：逗号分隔用户名。购买开关=rehearsal 时仅名单内用户可下单，
+    # 且对账/计税报表排除名单用户（演练数据不进资金口径）
+    PAYMENTS_REHEARSAL_USERNAMES: str = os.getenv("PAYMENTS_REHEARSAL_USERNAMES", "")
+    # 月销免税额度标注（分）：月净额低于此值在计税报表标注"未超小规模免税额度"
+    TAX_EXEMPT_THRESHOLD_FEN: int = int(os.getenv("TAX_EXEMPT_THRESHOLD_FEN", "10000000"))
+
     # ── 日志 ──
     LOG_DIR: str = os.getenv("LOG_DIR", str(DB_DIR / "logs"))
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
@@ -58,6 +72,8 @@ class Settings:
         "none":     {"device_limit": 0,  "duration_days": 0,    "display": "无套餐"},
         "trial":    {"device_limit": 1,  "duration_days": 7,    "display": "试用"},
         "free":     {"device_limit": 1,  "duration_days": 0,    "display": "免费"},
+        "pro":      {"device_limit": 5,  "duration_days": 0,    "display": "PRO"},   # 归一化档（monthly/quarterly/yearly → pro；取最高设备数 5）
+        "max":      {"device_limit": 10, "duration_days": 0,    "display": "MAX"},   # 规划中
         "monthly":  {"device_limit": 3,  "duration_days": 30,   "display": "月付"},
         "quarterly":{"device_limit": 3,  "duration_days": 90,   "display": "季付"},
         "yearly":   {"device_limit": 5,  "duration_days": 365,  "display": "年付"},

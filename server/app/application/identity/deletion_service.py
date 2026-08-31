@@ -51,19 +51,21 @@ def blocked_assets(code_repo: CodeRepo, username: str) -> list[dict]:
 
 def request_asset_refund(
     code_repo: CodeRepo,
+    user_repo,
     username: str,
     code_id: str,
     now=None,
 ) -> dict:
     """权益级退款申请（用户评审 2026-08-31：每个未消耗权益独立退款入口）。
 
-    - 身份由 JWT 端点保证；这里校验 权益属于本人 + 未消耗 + 未重复申请；
+    - 身份由 JWT 端点保证；这里校验 权益属于本人（user_id 代理键比对）+ 未消耗 + 未重复申请；
     - CAS 标记 refund_requested_at（幂等：重复申请 0 行 → 返回当前状态）；
     - 退款由客服人工执行（支付体系未上线）：完成后权益置 revoked，阻塞自然解除。
     """
     now = now or utcnow_naive()
+    uid = user_repo.get_id(username)
     code = code_repo.get(code_id)
-    if not code or code.bound_username != username:
+    if not code or code.user_id != uid:
         return {"code": 1, "msg": "权益不存在或不属于当前账号"}
     if code.status not in ("unused", "active"):
         return {"code": 1, "msg": "该权益当前状态不支持退款申请"}

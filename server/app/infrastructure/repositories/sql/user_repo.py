@@ -27,6 +27,11 @@ class SqlUserRepo:
             deletion_waive_assets=bool(row.deletion_waive_assets),
         )
 
+    def get_id(self, username: str) -> int | None:
+        """username → user_id（代理键解析 helper，2026-08-30 新增）。"""
+        row = self.db.query(UserORM.id).filter(UserORM.username == username).first()
+        return row[0] if row else None
+
     def get(self, username: str) -> User | None:
         row = self.db.query(UserORM).filter(UserORM.username == username).first()
         return self._to_domain(row) if row else None

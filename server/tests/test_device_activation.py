@@ -63,10 +63,13 @@ def seed_raw_user(username: str):
 def seed_device_row(username: str, fingerprint: str, days_ago: float, hostname: str = "测试机"):
     s = SessionLocal()
     try:
+        from app.models.user import UserORM
+        u = s.query(UserORM.id).filter(UserORM.username == username).first()
+        uid = u[0] if u else None
         s.add(
             DeviceRegistryORM(
                 id=uuid.uuid4().hex,
-                user_id=username,
+                user_id=uid,
                 fingerprint=fingerprint,
                 hostname=hostname,
                 os="Windows 11",
@@ -84,10 +87,13 @@ def seed_device_row(username: str, fingerprint: str, days_ago: float, hostname: 
 def seed_grant_row(pc_hash: str, username: str, fingerprint: str = "", enrolled: int = 0):
     s = SessionLocal()
     try:
+        from app.models.user import UserORM
+        u = s.query(UserORM.id).filter(UserORM.username == username).first()
+        uid = u[0] if u else None
         s.add(
             DeviceGrantORM(
                 pc_hash=pc_hash,
-                username=username,
+                user_id=uid,
                 token="legacy-token",
                 enrolled=enrolled,
                 fingerprint=fingerprint,
@@ -109,9 +115,13 @@ def get_grant(pc_hash: str):
 def count_devices(username: str) -> int:
     s = SessionLocal()
     try:
+        from app.models.user import UserORM
+        user = s.query(UserORM.id).filter(UserORM.username == username).first()
+        if not user:
+            return 0
         return (
             s.query(DeviceRegistryORM)
-            .filter(DeviceRegistryORM.user_id == username)
+            .filter(DeviceRegistryORM.user_id == user[0])
             .count()
         )
     finally:
@@ -277,25 +287,38 @@ class TestDevicesCurrentAPI:
         assert data["device_count"] == 1
         assert data["active_limit"] == 1
 
-    def test_limit_exceeded(self, client, web_user, gen_code):
-        """monthly（限额 3）第 4 台设备 → limit_exceeded。"""
-        code = gen_code("monthly")[0]
-        r = client.post(
-            "/api/license/activate",
-            json={"code": code},
-            headers={"Authorization": f"Bearer {web_user['token']}"},
-        )
-        assert r.json()["code"] == 0
+    def test_limit_exceeded(self, client, web_user):
+        """pro（限额 5，归一化后 monthly→pro）第 6 台设备 → limit_exceeded。
 
-        for i, days in enumerate((3.0, 2.0, 1.0, 0.5)):
+        激活码 web 端点已下线（8.3）：直接播种已激活码行使账号达到 pro 档。
+        """
+        from app.models.code import ActivationCodeORM
+
+        s = SessionLocal()
+        try:
+            u = s.query(UserORM.id).filter(UserORM.username == web_user["username"]).first()
+            s.add(ActivationCodeORM(
+                code_id="CODE-LIMITEX-1",
+                tier="monthly",
+                duration_days=30,
+                status="active",
+                user_id=u[0],
+                activated_at=datetime.now() - timedelta(days=1),
+                expires_at=datetime.now() + timedelta(days=29),
+            ))
+            s.commit()
+        finally:
+            s.close()
+
+        # seed 6 台（pro limit=5），FP-0 最旧 → 排序后第 6 位，不在 top-5 内
+        for i, days in enumerate((6.0, 5.0, 4.0, 3.0, 2.0, 1.0)):
             seed_device_row(web_user["username"], f"FP-{i}", days)
-        # FP-0 最旧（3 天前）→ 排序后第 4 位，不在 top-3 内
         seed_grant_row("hash-102", web_user["username"], fingerprint="FP-0")
 
         data = self._get(client, "hash-102", web_user["token"])
         assert data["activated"] is False
         assert data["reason"]["code"] == "limit_exceeded"
-        assert data["active_limit"] == 3
+        assert data["active_limit"] == 5
 
     def test_account_inactive(self, client, uid):
         """无套餐用户（无任何激活码）→ account_inactive。"""

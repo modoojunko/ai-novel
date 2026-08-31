@@ -74,6 +74,23 @@ def on_startup():
     logger = logging.getLogger("app")
     logger.info("event=app.start db_backend=%s db_path=%s", settings.DB_BACKEND, settings.DB_PATH)
 
+    # 初始化支付网关：Change 1 仅实现 Mock；显式设 PAYMENTS_GATEWAY=wxpay/alipay
+    # 而无对应实现时 fail-fast 拒绝启动——绝不允许静默用 Mock 收真实付款
+    # （该开关同时控制 dev 注入端点的注册，见 config.PAYMENTS_GATEWAY）。
+    from app.infrastructure.payments.gateway import MockPaymentGateway
+    if settings.PAYMENTS_GATEWAY == "mock":
+        app.state.payment_gateway = MockPaymentGateway()
+        logger.info("event=payments.gateway type=mock")
+    else:
+        raise RuntimeError(
+            f"PAYMENTS_GATEWAY={settings.PAYMENTS_GATEWAY} 的真实网关尚未实现"
+            "（Change 2 交付 WechatPayGateway 后放开）；拒绝以 Mock 处理真实付款"
+        )
+
+    # 告警通道单例（Server酱；未配置 key 时降级为日志）
+    from app.infrastructure.notify import NotifyService
+    app.state.notify_service = NotifyService(send_key=settings.SERVERCHAN_SENDKEY)
+
     if settings.DB_BACKEND == "pg_http":
         # CloudBase PG 表结构由管理端 MCP applyMigration 预建，应用启动不迁移
         logger.info("event=app.started version=%s db_backend=pg_http", "2.1.0")

@@ -11,12 +11,13 @@ class ActivationCode:
     tier: str
     duration_days: int
     status: str              # "unused" | "active"
-    bound_username: str
+    user_id: str
     expires_at: datetime | None
     activated_at: datetime | None
     created_at: datetime | None
     created_by: str
     refund_requested_at: datetime | None = None  # 账号注销联动：权益级退款申请时刻
+    grant_start: datetime | None = None  # s-pay-foundation：激活计时起点（未激活=None）
 
     def can_activate(self) -> bool:
         """状态机：只有 unused 的码可以被激活。"""
@@ -25,6 +26,6 @@ class ActivationCode:
     def activate(self, username: str, expire_date: datetime) -> None:
         """激活码 → active。由领域服务调用。"""
         self.status = "active"
-        self.bound_username = username
+        self.user_id = username
         self.expires_at = expire_date
         self.activated_at = datetime.now()

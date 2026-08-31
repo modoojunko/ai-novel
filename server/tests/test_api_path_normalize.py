@@ -53,3 +53,28 @@ def test_register_via_both_forms_same_result(client, uid):
 
     again = client.post("/api/web/register", json=payload)
     assert again.json()["code"] != 0
+
+
+# ── 动态路径段匹配（s-pay-foundation：/orders/{order_no} 等参数化路由）──
+
+def test_dynamic_path_normalized(client):
+    """剥前缀形态命中参数化路由：/pay/orders/{order_no} → /api/pay/orders/{order_no}。"""
+    r = client.get("/pay/orders/S-TEST-1")
+    assert r.status_code == 200
+    assert r.json()["code"] == 4001  # 路由命中（未登录业务码），非 404
+
+
+def test_dynamic_subpath_normalized(client):
+    r = client.post("/pay/orders/S-TEST-1/query")
+    assert r.status_code == 200  # 命中路由而非 404
+
+
+def test_dynamic_path_wrong_segments_not_matched(client):
+    """段数不一致的路径不该被误改写命中。"""
+    assert client.get("/pay/orders/S-TEST-1/extra/seg").status_code == 404
+
+
+def test_static_path_still_normalized_after_template_change(client):
+    r = client.get("/check-auth", params={"pc_hash": "x"})
+    assert r.status_code == 200
+    assert "code" in r.json()

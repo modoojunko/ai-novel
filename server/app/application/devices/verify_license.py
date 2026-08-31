@@ -55,7 +55,7 @@ def verify_license(
     license_ = License(username=username).merge(codes)
     license_valid = license_.is_valid()
 
-    # 4) 设备绑定校验
+    # 4) 设备绑定校验（域对象 username 已由 grant_repo 从 user_id 反查回 username）
     grant = grant_repo.get(pc_hash)
     device_valid = grant is not None and grant.username == username
     valid = license_valid and device_valid

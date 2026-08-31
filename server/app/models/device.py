@@ -10,13 +10,14 @@ from sqlalchemy import (
 )
 
 from app.models.base import Base
+from app.models.types import BigIntPK
 
 
 class DeviceRegistryORM(Base):
     __tablename__ = "device_registry"
 
     id              = Column(String(32), primary_key=True)  # hex UUID (32 chars)
-    user_id         = Column(String(128), ForeignKey("users.username"), nullable=False, index=True)
+    user_id         = Column(BigIntPK, ForeignKey("users.id"), nullable=False, index=True)
     fingerprint     = Column(String(256), default="", server_default="")
     hostname        = Column(String(256), default="", server_default="")
     os              = Column(String(128), default="", server_default="")

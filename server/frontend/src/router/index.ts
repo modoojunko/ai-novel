@@ -39,6 +39,13 @@ const routes = [
     ],
   },
   {
+    // 购买流程页——无控制台外壳，独立布局；未登录先登录后回跳
+    path: '/pay',
+    name: 'pay-cashier',
+    meta: { requiresAuth: true },
+    component: () => import('@/views/pay/CashierPage.vue'),
+  },
+  {
     path: '/dashboard',
     component: () => import('@/layouts/DashboardLayout.vue'),
     meta: { requiresAuth: true },
@@ -49,9 +56,29 @@ const routes = [
         component: () => import('@/views/dashboard/DashboardHome.vue'),
       },
       {
+        // 激活码入口已拆除（8.3）——老链接重定向到我的套餐
         path: 'license',
-        name: 'license',
-        component: () => import('@/views/dashboard/LicensePage.vue'),
+        redirect: { name: 'membership' },
+      },
+      {
+        path: 'membership',
+        name: 'membership',
+        component: () => import('@/views/dashboard/MembershipPage.vue'),
+      },
+      {
+        path: 'orders',
+        name: 'orders',
+        component: () => import('@/views/pay/OrdersPage.vue'),
+      },
+      {
+        path: 'orders/:orderNo',
+        name: 'order-detail',
+        component: () => import('@/views/pay/OrderDetailPage.vue'),
+      },
+      {
+        path: 'orders/:orderNo/refund',
+        name: 'order-refund',
+        component: () => import('@/views/pay/RefundPage.vue'),
       },
       {
         path: 'devices',

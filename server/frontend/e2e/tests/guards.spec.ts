@@ -33,7 +33,7 @@ test.describe('路由守卫', () => {
       // 导航到 dashboard
       await page.goto('/dashboard')
       await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15000 })
-      await expect(page.locator('h1')).toHaveText('首页', { timeout: 15000 })
+      await expect(page.locator('h1')).toContainText('你好', { timeout: 15000 })
     })
   })
 

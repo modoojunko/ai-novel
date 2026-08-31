@@ -160,12 +160,14 @@ class TestPgHttpUserRepo:
 class TestPgHttpCodeRepo:
     def test_find_active_by_username_builds_filter_and_sort(self):
         def handler(request: httpx.Request) -> httpx.Response:
-            assert request.url.params["bound_username"] == "eq.alice"
+            if "/users" in request.url.path:
+                return _ok([{"id": 42, "username": "alice"}])
+            assert request.url.params["user_id"] == "eq.42"
             assert request.url.params["status"] == "eq.active"
             assert request.url.params["order"] == "activated_at.desc"
             return _ok([{
                 "code_id": "AC-1", "tier": "monthly", "duration_days": 30,
-                "status": "active", "bound_username": "alice",
+                "status": "active", "user_id": 42,
                 "expires_at": "2026-09-15T00:00:00",
                 "activated_at": "2026-08-15T00:00:00",
                 "created_at": "2026-08-14T00:00:00", "created_by": "admin",
@@ -188,11 +190,13 @@ class TestPgHttpCodeRepo:
 
     def test_activate_patches_expiry(self):
         def handler(request: httpx.Request) -> httpx.Response:
+            if "/users" in request.url.path:
+                return _ok([{"id": 42, "username": "alice"}])
             assert request.method == "PATCH"
             assert request.url.params["code_id"] == "eq.AC-1"
             body = request.read().decode()
             assert '"status":"active"' in body
-            assert '"bound_username":"alice"' in body
+            assert '"user_id":42' in body
             assert '"expires_at":"2026-08-22T00:00:00"' in body
             return httpx.Response(204)
 
@@ -204,14 +208,13 @@ class TestPgHttpCodeRepo:
             body = request.read().decode()
             assert '"code_id":"AC-2"' in body
             assert "created_at" not in body  # 时间戳走 DB DEFAULT
-            # 空串 bound_username → 显式 null（NULL 不触发 FK 冲突）
-            assert '"bound_username":null' in body
+            assert '"user_id":null' in body  # 空值 → null（FK 不触发检查）
             return httpx.Response(201)
 
         repo = PgHttpCodeRepo(make_client(handler))
         repo.create(ActivationCode(
             code_id="AC-2", tier="trial", duration_days=7, status="unused",
-            bound_username="", expires_at=None, activated_at=None,
+            user_id=None, expires_at=None, activated_at=None,
             created_at=None, created_by="admin",
         ))
 
@@ -268,7 +271,9 @@ class TestPgHttpDeviceRepo:
 class TestPgHttpGrantRepo:
     def test_get_maps_enrolled_bool(self):
         def handler(request: httpx.Request) -> httpx.Response:
-            return _ok([{"pc_hash": "h1", "username": "alice", "token": "t",
+            if request.url.path.endswith("/users"):
+                return httpx.Response(200, json=[{"id": 7, "username": "alice"}])
+            return _ok([{"pc_hash": "h1", "user_id": 7, "token": "t",
                          "enrolled": 1, "fingerprint": "fp"}])
 
         repo = PgHttpGrantRepo(make_client(handler))
@@ -276,13 +281,17 @@ class TestPgHttpGrantRepo:
         assert grant is not None
         assert grant.enrolled is True
         assert grant.token == "t"
+        assert grant.username == "alice"  # user_id 反解为 username
 
     def test_upsert_inserts_with_enrolled_int(self):
         def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/users"):
+                return httpx.Response(200, json=[{"id": 7, "username": "alice"}])
             if request.method == "GET":
                 return _ok([])
             body = request.read().decode()
             assert '"enrolled":1' in body
+            assert '"user_id":7' in body
             return httpx.Response(201)
 
         repo = PgHttpGrantRepo(make_client(handler))
@@ -290,8 +299,12 @@ class TestPgHttpGrantRepo:
 
     def test_set_enrolled(self):
         def handler(request: httpx.Request) -> httpx.Response:
+            # 先解析 username→user_id，再按 pc_hash+user_id 更新（代理键契约）
+            if request.url.path.endswith("/users"):
+                assert request.url.params["username"] == "eq.alice"
+                return httpx.Response(200, json=[{"id": 7, "username": "alice"}])
             assert request.url.params["pc_hash"] == "eq.h1"
-            assert request.url.params["username"] == "eq.alice"
+            assert request.url.params["user_id"] == "eq.7"
             body = request.read().decode()
             assert '"enrolled":0' in body
             return httpx.Response(204)

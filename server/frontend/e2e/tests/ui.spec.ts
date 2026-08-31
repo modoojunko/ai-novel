@@ -18,8 +18,9 @@ test.describe('UI 基础设施', () => {
       await page.goto('/dashboard')
       await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15000 })
       await expect(page.locator('header.appbar nav a:has-text("首页")')).toBeVisible()
-      await expect(page.locator('header.appbar nav a:has-text("License")')).toBeVisible()
-      await expect(page.locator('header.appbar nav a:has-text("设备")')).toBeVisible()
+      await expect(page.locator('header.appbar nav a:has-text("我的套餐")')).toBeVisible()
+      await expect(page.locator('header.appbar nav a:has-text("我的订单")')).toBeVisible()
+      await expect(page.locator('header.appbar nav a:has-text("我的设备")')).toBeVisible()
       await expect(page.locator('header.appbar nav a:has-text("账户")')).toBeVisible()
     })
 

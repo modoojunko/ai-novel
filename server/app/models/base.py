@@ -30,9 +30,16 @@ def _set_sqlite_pragma(dbapi_connection, connection_record):
 
 
 def get_db():
-    """FastAPI Depends 用：请求级 DB session。"""
+    """FastAPI Depends 用：请求级 DB session（成功提交/异常回滚的事务边界）。
+
+    仓储层普遍只 flush 不 commit——没有请求级提交时，写入随 close() 丢弃，
+    下一个请求不可见（演练实锤：下单后 D1 注入查不到单）。"""
     db = SessionLocal()
     try:
         yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()

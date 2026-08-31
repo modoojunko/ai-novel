@@ -3,12 +3,14 @@ from __future__ import annotations
 from sqlalchemy import Boolean, Column, DateTime, String, Text, func
 
 from app.models.base import Base
+from app.models.types import BigIntPK
 
 
 class UserORM(Base):
     __tablename__ = "users"
 
-    username            = Column(String(128), primary_key=True)
+    id                  = Column(BigIntPK, autoincrement=True, primary_key=True)
+    username            = Column(String(128), nullable=False, unique=True, index=True)
     password_hash       = Column(String(256), nullable=False)
     security_question   = Column(Text, default="", server_default="")
     security_answer_hash= Column(String(256), default="", server_default="")
