@@ -5,7 +5,7 @@ import { P } from '@/components/ui/icons'
 const steps = [
   { n: '1', icon: P.download, title: '下载安装', desc: '在 GitHub Releases 页获取 Windows 安装包或 macOS DMG；Windows 双击即用，macOS 首次打开请右键 App 选「打开」' },
   { n: '2', icon: P.user, title: '注册账号', desc: '应用内或本站注册，自动获得 7 天全功能试用' },
-  { n: '3', icon: P.key, title: '激活 License', desc: '淘宝购买激活码，在控制台一键激活，设备自动绑定' },
+  { n: '3', icon: P.key, title: '激活 License', desc: '官网「套餐」在线购买，微信扫码支付，控制台一键激活，设备自动绑定' },
 ]
 </script>
 
