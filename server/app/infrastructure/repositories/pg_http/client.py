@@ -11,6 +11,9 @@ from typing import Any
 
 import httpx
 
+# 显式 PostgREST 操作符前缀：filter 值以此开头时原样透传，纯值才补 eq.
+_OPERATORS = ("eq.", "neq.", "gt.", "gte.", "lt.", "lte.", "in.", "is.", "or.", "not.", "textSearch.")
+
 
 def to_iso(value: datetime | None) -> str | None:
     """datetime → ISO 8601 字符串（PostgREST 存储/返回格式）。"""
@@ -27,8 +30,6 @@ def parse_dt(value: Any) -> datetime | None:
 
 
 class PgRestClient:
-    """PostgREST 客户端：filter dict → `eq.` 查询参数，sort → `order=`，limit → `limit=`。"""
-
     def __init__(
         self,
         endpoint: str,
@@ -128,7 +129,14 @@ class PgRestClient:
     ) -> dict[str, str]:
         params: dict[str, str] = {}
         for key, value in (filter or {}).items():
-            params[key] = "is.null" if value is None else f"eq.{value}"
+            if value is None:
+                params[key] = "is.null"
+            elif isinstance(value, str) and value.startswith(_OPERATORS):
+                # 显式 PostgREST 操作符（in.(...)、gte.<ts> 等）原样透传；
+                # 纯值才补 eq. 前缀——否则 eq.in.(...) 是 400 语法错误
+                params[key] = value
+            else:
+                params[key] = f"eq.{value}"
         if sort:
             params["order"] = ",".join(f"{field}.{direction}" for field, direction in sort)
         if limit is not None:
