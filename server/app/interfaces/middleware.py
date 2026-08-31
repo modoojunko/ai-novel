@@ -70,17 +70,32 @@ class ApiPathNormalizeMiddleware:
     带 /api 的形态——即同一路由同时接受 带前缀/剥前缀 两种进法：
       /web/login   （网关剥过）→ 内部按 /api/web/login 匹配
       /api/web/login（直连云托管域名，保持原样）
-    仅精确匹配启动时收集到的路由表，其余路径原样放行。
+    仅匹配启动时收集到的路由表（静态路径精确匹配；含 {param} 的动态路径
+    按段匹配——段数相等且非参数段一致，如
+      /pay/orders/S123   （网关剥过）→ 内部按 /api/pay/orders/{order_no} 匹配
+    ），其余路径原样放行。
     """
 
     def __init__(self, app, api_paths: frozenset[str]):
         self.app = app
-        self.api_paths = api_paths
+        self._exact = {p for p in api_paths if "{" not in p}
+        self._templates = [p.split("/") for p in api_paths if "{" in p]
+
+    def _matches(self, candidate: str) -> bool:
+        if candidate in self._exact:
+            return True
+        segs = candidate.split("/")
+        for tpl in self._templates:
+            if len(tpl) != len(segs):
+                continue
+            if all(a.startswith("{") or a == b for a, b in zip(tpl, segs)):
+                return True
+        return False
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
             path = scope.get("path", "")
-            if path and not path.startswith("/api/") and f"/api{path}" in self.api_paths:
+            if path and not path.startswith("/api/") and self._matches(f"/api{path}"):
                 scope = dict(scope)
                 scope["path"] = f"/api{path}"
                 if "raw_path" in scope:
