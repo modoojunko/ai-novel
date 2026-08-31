@@ -24,6 +24,7 @@ def scan_timeout_close(
     order_repo: OrderRepo,
     event_repo: TradeEventRepo,
     gateway: PaymentGateway,
+    code_repo=None,
     ttl_seconds: int = 900,
 ) -> list[dict]:
     """T1：扫描超时 pending 单 → 先查单（关单铁律）→ 关单或补发货。"""
@@ -44,6 +45,7 @@ def scan_timeout_close(
                 transaction_id=query.transaction_id,
                 payer_openid=query.payer_openid,
                 paid_at=now,
+                code_repo=code_repo,
             )
             results.append({"order_no": order_no, "action": "revived_fulfilled"})
         else:
@@ -56,6 +58,7 @@ def scan_timeout_close(
                     order_repo, event_repo, order,
                     transaction_id=query2.transaction_id,
                     paid_at=now,
+                    code_repo=code_repo,
                 )
                 results.append({"order_no": order_no, "action": "close_race_fulfilled"})
             elif close.success:
@@ -76,6 +79,7 @@ def scan_timeout_close(
 def scan_paid_unfulfilled(
     order_repo: OrderRepo,
     event_repo: TradeEventRepo,
+    code_repo=None,
 ) -> list[dict]:
     """T2：扫描 paid 但未 fulfilled 的订单 → 补发货。"""
     paid_orders = order_repo.find_paid_unfulfilled()
@@ -86,6 +90,7 @@ def scan_paid_unfulfilled(
             order_repo, event_repo, order,
             transaction_id=order.get("transaction_id", ""),
             paid_at=order.get("paid_at"),
+            code_repo=code_repo,
         )
         results.append({"order_no": order["order_no"], "action": "fulfilled"})
 

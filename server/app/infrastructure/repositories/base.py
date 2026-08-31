@@ -56,6 +56,23 @@ class CodeRepo(Protocol):
         WHERE 绑定本人 + 未消耗 + 未申请；0 行=状态已被并发方改变（幂等）。"""
         ...
 
+    # ── 支付台账（s-pay-foundation：到货-激活两段式）──
+    def create_from_order(self, code_id: str, tier: str, duration_days: int,
+                          user_id: int, order_id: int, now) -> bool:
+        """发货插台账行（status=pending_activation，grant_start 空）。
+        撞 code_id 唯一键返回 False（发货幂等键）。"""
+        ...
+    def find_by_order(self, order_id: int) -> list[ActivationCode]:
+        """按订单查台账行（激活入口）。"""
+        ...
+    def find_active_by_user_id(self, user_id: int) -> list[ActivationCode]:
+        """已激活行（顺延起点计算）。"""
+        ...
+    def activate_pending(self, code_id: str, grant_start, expires_at, activated_at) -> bool:
+        """CAS pending_activation→active（写入 grant_start/expires_at）。
+        False=状态已被并发方改走（重复激活/已退）。"""
+        ...
+
 
 class DeviceRepo(Protocol):
     def get_by_fingerprint(self, user_id: str, fingerprint: str) -> DeviceRegistry | None: ...

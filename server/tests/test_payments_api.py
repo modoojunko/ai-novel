@@ -175,3 +175,50 @@ class TestListOrders:
     def test_requires_auth(self, client):
         r = client.get("/api/pay/orders")
         assert r.json()["code"] == 4001
+
+
+class TestFulfillActivateFlow:
+    """到货-激活两段式全链（sqlite 端到端）：下单→D1 注入支付→查单发货→激活。"""
+
+    def _switch_on(self, db_session):
+        from app.models.config import GlobalConfigORM
+        s = db_session
+        s.merge(GlobalConfigORM(key="payments.purchase.enabled", value="on"))
+        s.commit()
+
+    def test_order_inject_query_activate(self, client, web_user, _catalog, db_session, admin_token):
+        self._switch_on(db_session)
+        auth = _auth(web_user)
+        # 下单
+        r = client.post("/api/pay/orders", headers=auth, json={
+            "sku_key": "pro_yearly", "agreement_version": AGREEMENT_VERSION})
+        body = r.json()
+        assert body["code"] == 0, body
+        order_no = body["data"]["order_no"]
+        # D1 注入支付（mock 网关标记+发货，含 codes 台账行）
+        r = client.post("/api/dev/pay/inject-payment", headers={"X-Admin-Token": admin_token},
+                        json={"order_no": order_no})
+        assert r.json()["code"] == 0, r.text
+        assert r.json()["data"]["status"] == "fulfilled"
+        # 激活
+        r = client.post("/api/pay/grants/activate", headers=auth, json={"order_no": order_no})
+        body = r.json()
+        assert body["code"] == 0, body
+        assert body["data"]["tier"] == "pro"
+        assert body["data"]["expires_at"] > body["data"]["grant_start"]
+        # 重复激活 → NotActivatableError（DomainError 家族=4012 拒绝）
+        r = client.post("/api/pay/grants/activate", headers=auth, json={"order_no": order_no})
+        assert r.json()["code"] == 4012
+        # 台账行已 active 且带 grant_start/order_id
+        from app.models.code import ActivationCodeORM
+        from app.models.payments import OrderORM
+        s = db_session
+        row = s.query(ActivationCodeORM).filter(
+            ActivationCodeORM.code_id == f"O-{order_no}").one()
+        assert row.status == "active"
+        assert row.grant_start is not None and row.order_id is not None
+        order_row = s.query(OrderORM).filter(OrderORM.order_no == order_no).one()
+        assert row.order_id == order_row.id
+        # membership 汇总出现 pro
+        r = client.get("/api/pay/membership", headers=auth)
+        assert r.json()["data"]["tier"] == "pro"

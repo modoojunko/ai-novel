@@ -1,6 +1,7 @@
 """activate_entitlement：到货-激活两段式的第二段。
 
 设计依据：backend-detail-design.md §4.12。
+激活起点顺延：max(现有 active 行最远到期日, 今天)——囤套餐不计时、接续消耗。
 """
 from __future__ import annotations
 
@@ -17,7 +18,9 @@ def calc_grant_start(active_codes: list, today: date | None = None) -> date:
     for code in active_codes:
         exp = getattr(code, "expires_at", None)
         if exp:
-            exp_date = exp if isinstance(exp, date) else exp.date()
+            exp_date = exp.date() if isinstance(exp, datetime) else exp
+            if isinstance(exp_date, datetime):  # 兜底：带时区等异形
+                exp_date = exp_date.date()
             if exp_date > max_exp:
                 max_exp = exp_date
     return max_exp
@@ -35,46 +38,41 @@ def activate_entitlement(
     Returns:
         {code_id, grant_start, expires_at, tier}
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC（表列口径）
     order = order_repo.find_by_order_no(order_no)
     if not order:
         return {"error": "order_not_found"}
+    if order["status"] not in ("fulfilled",):
+        return {"error": "not_fulfilled"}
 
-    # 找到该订单的 codes 行
-    codes = code_repo.find_by_order(order.get("id") or order_no)
+    # 找到该订单的台账行
+    order_id = order.get("id") or order_no
+    codes = code_repo.find_by_order(order_id)
     if not codes:
         return {"error": "code_not_found"}
 
-    code = codes[0] if isinstance(codes, list) else codes
-    if code.get("status") not in ("pending_activation",):
+    pending = [c for c in codes if c.status == "pending_activation"]
+    if not pending:
         raise NotActivatableError()
+    code = pending[0]
 
     snapshot = order.get("sku_snapshot") or {}
     period_days = snapshot.get("period_days", 30)
     tier = snapshot.get("tier_key", "pro")
 
     # 计算顺延起点
-    active_codes = code_repo.find_active_by_user(user_id)
+    active_codes = code_repo.find_active_by_user_id(user_id)
     base = calc_grant_start(active_codes)
-    grant_start = datetime(base.year, base.month, base.day, tzinfo=timezone.utc)
+    grant_start = datetime(base.year, base.month, base.day)
     expires_at = grant_start + timedelta(days=period_days)
 
-    # CAS codes pending_activation→active
-    updated = code_repo.compare_and_update(
-        code["code_id"],
-        from_status="pending_activation",
-        to_status="active",
-        changes={
-            "grant_start": grant_start,
-            "expires_at": expires_at,
-            "activated_at": now,
-        },
-    )
+    # CAS codes pending_activation→active（重复激活/已退 → False）
+    updated = code_repo.activate_pending(code.code_id, grant_start, expires_at, now)
     if not updated:
         raise NotActivatableError()
 
     event_repo.append({
-        "event_key": f"codes:{code['code_id']}:activated",
+        "event_key": f"codes:{code.code_id}:activated",
         "event_type": "codes.activated",
         "order_no": order_no,
         "payload": {
@@ -85,7 +83,7 @@ def activate_entitlement(
     })
 
     return {
-        "code_id": code["code_id"],
+        "code_id": code.code_id,
         "grant_start": grant_start.isoformat(),
         "expires_at": expires_at.isoformat(),
         "tier": tier,

@@ -129,3 +129,51 @@ class PgHttpCodeRepo:
             },
             {"refund_requested_at": now.isoformat()},
         )
+
+    # ── 支付台账（s-pay-foundation：到货-激活两段式）──
+
+    def create_from_order(self, code_id: str, tier: str, duration_days: int,
+                          user_id: int, order_id: int, now) -> bool:
+        """发货插台账行（pending_activation）；撞 code_id 唯一键返回 False。"""
+        return self.client.insert_or_conflict(_TABLE, {
+            "code_id": code_id,
+            "tier": tier,
+            "duration_days": duration_days,
+            "status": "pending_activation",
+            "status_detail": "pending_activation",
+            "user_id": user_id,
+            "source": "order",
+            "order_id": order_id,
+            "created_by": "payment",
+        })
+
+    def find_by_order(self, order_id: int) -> list[ActivationCode]:
+        docs = self.client.find(
+            _TABLE,
+            {"order_id": f"eq.{order_id}"},
+            sort=[("created_at", "asc")],
+        )
+        return [self._to_domain(d) for d in docs]
+
+    def find_active_by_user_id(self, user_id: int) -> list[ActivationCode]:
+        docs = self.client.find(
+            _TABLE,
+            {"user_id": f"eq.{user_id}", "status": "eq.active"},
+            sort=[("expires_at", "desc")],
+        )
+        return [self._to_domain(d) for d in docs]
+
+    def activate_pending(self, code_id: str, grant_start, expires_at, activated_at) -> bool:
+        """CAS pending_activation→active；False=已被并发方改走。"""
+        rows = self.client.update_cas(
+            _TABLE,
+            {"code_id": f"eq.{code_id}", "status": "eq.pending_activation"},
+            {
+                "status": "active",
+                "status_detail": "active",
+                "grant_start": grant_start.isoformat() if grant_start else None,
+                "expires_at": expires_at.isoformat() if expires_at else None,
+                "activated_at": activated_at.isoformat() if activated_at else None,
+            },
+        )
+        return rows > 0

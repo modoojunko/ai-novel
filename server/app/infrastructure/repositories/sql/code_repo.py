@@ -142,3 +142,61 @@ class SqlCodeRepo:
         ).update({"refund_requested_at": now}, synchronize_session=False)
         self.db.commit()
         return result
+
+    # ── 支付台账（s-pay-foundation：到货-激活两段式）──
+
+    def create_from_order(self, code_id: str, tier: str, duration_days: int,
+                          user_id: int, order_id: int, now) -> bool:
+        """发货插台账行（pending_activation）；撞 code_id 唯一键返回 False。"""
+        if self.db.query(ActivationCodeORM).filter(
+                ActivationCodeORM.code_id == code_id).first() is not None:
+            return False
+        self.db.add(ActivationCodeORM(
+            code_id=code_id,
+            tier=tier,
+            duration_days=duration_days,
+            status="pending_activation",
+            status_detail="pending_activation",
+            user_id=user_id,
+            source="order",
+            order_id=order_id,
+            created_by="payment",
+        ))
+        self.db.commit()
+        return True
+
+    def find_by_order(self, order_id: int) -> list[ActivationCode]:
+        rows = (
+            self.db.query(ActivationCodeORM)
+            .filter(ActivationCodeORM.order_id == order_id)
+            .order_by(ActivationCodeORM.created_at)
+            .all()
+        )
+        return [self._to_domain(r) for r in rows]
+
+    def find_active_by_user_id(self, user_id: int) -> list[ActivationCode]:
+        rows = (
+            self.db.query(ActivationCodeORM)
+            .filter(
+                ActivationCodeORM.user_id == user_id,
+                ActivationCodeORM.status == "active",
+            )
+            .order_by(ActivationCodeORM.expires_at.desc())
+            .all()
+        )
+        return [self._to_domain(r) for r in rows]
+
+    def activate_pending(self, code_id: str, grant_start, expires_at, activated_at) -> bool:
+        """CAS pending_activation→active；False=已被并发方改走。"""
+        result = self.db.query(ActivationCodeORM).filter(
+            ActivationCodeORM.code_id == code_id,
+            ActivationCodeORM.status == "pending_activation",
+        ).update({
+            "status": "active",
+            "status_detail": "active",
+            "grant_start": grant_start,
+            "expires_at": expires_at,
+            "activated_at": activated_at,
+        }, synchronize_session=False)
+        self.db.commit()
+        return result > 0

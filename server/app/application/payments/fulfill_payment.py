@@ -19,12 +19,13 @@ def fulfill_payment(
     transaction_id: str,
     payer_openid: str = "",
     paid_at: datetime | None = None,
+    code_repo=None,
 ) -> dict:
     """支付确认 → 发货（全量可重入）。
 
     步骤（每步崩溃都有恢复路径——T2 补偿扫描重放本函数）：
     1. CAS pending→paid（含 closed→paid 复活）
-    2. 幂等插 codes 台账行（order_no 部分唯一索引=发货幂等键）
+    2. 幂等插 codes 台账行（code_id=O-{order_no} 唯一键=发货幂等键）
     3. CAS paid→fulfilled
 
     Returns:
@@ -67,31 +68,26 @@ def fulfill_payment(
         "payload": {"transaction_id": transaction_id, "paid_at": now.isoformat()},
     })
 
-    # ── 步骤 2：幂等发货（插 codes 台账行）──
+    # ── 步骤 2：幂等发货（插 codes 台账行，到货-激活两段式第一段）──
     snapshot = updated.get("sku_snapshot") or {}
     code_id = f"O-{order_no}"
-    codes_doc = {
-        "code_id": code_id,
-        "tier": snapshot.get("tier_key", "pro"),
-        "duration_days": snapshot.get("period_days", 30),
-        "status": "pending_activation",  # 到货-激活两段式：先落 pending_activation
-        "user_id": updated["user_id"],
-        "source": "order",
-        "order_id": updated.get("id"),
-        "grant_start": None,  # 激活时才写
-        "activated_at": None,
-        "expires_at": None,
-        "created_at": now,
-        "created_by": "payment",
-    }
-    codes_created = event_repo.append({
+    if code_repo is not None:
+        created = code_repo.create_from_order(
+            code_id=code_id,
+            tier=snapshot.get("tier_key", "pro"),
+            duration_days=snapshot.get("period_days", 30),
+            user_id=updated["user_id"],
+            order_id=updated.get("id"),
+            now=now,
+        )
+    else:
+        created = False  # 调用方未注入台账仓储（旧调用方兼容）——事件仍留痕
+    event_repo.append({
         "event_key": f"codes:{code_id}:granted",
         "event_type": "codes.granted",
         "order_no": order_no,
-        "payload": {"code_id": code_id, "tier": codes_doc["tier"]},
+        "payload": {"code_id": code_id, "tier": codes_doc_tier(snapshot), "created": created},
     })
-    # 注意：codes 插入由 code_repo 负责（应用层组合根注入），此处只记事件
-    # 实际 codes 插入在调用方（fulfillment 编排器）完成，本函数关注订单状态机
 
     # ── 步骤 3：CAS paid→fulfilled ──
     t2 = Transition("paid", "delivery_complete", "fulfilled", "", "发货完成")
@@ -114,3 +110,7 @@ def fulfill_payment(
     })
 
     return fulfilled
+
+
+def codes_doc_tier(snapshot: dict) -> str:
+    return snapshot.get("tier_key", "pro")

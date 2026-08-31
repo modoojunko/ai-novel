@@ -255,10 +255,12 @@ async def query_order(order_no: str, request: Request, db: Db = Depends(get_db))
     }.get(result.status, "DEGRADED")
 
     if result.status == PaymentStatus.SUCCESS and order["status"] in ("pending", "paid"):
+        from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
         fulfill_payment(
             OrderRepo(db), TradeEventRepo(db), order,
             transaction_id=result.transaction_id,
             payer_openid=result.payer_openid,
+            code_repo=_code_repo_factory(db),
         )
 
     return {"code": 0, "data": {"hit": result.status == PaymentStatus.SUCCESS, "hint": hint}}

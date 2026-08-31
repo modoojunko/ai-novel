@@ -41,8 +41,10 @@ async def cron_scan_orders(
     gateway = request.app.state.payment_gateway
     order_repo = OrderRepo(db)
     event_repo = TradeEventRepo(db)
+    from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
+    code_repo = _code_repo_factory(db)
 
-    closed = scan_timeout_close(order_repo, event_repo, gateway)
+    closed = scan_timeout_close(order_repo, event_repo, gateway, code_repo=code_repo)
 
     # 冷静期到点：CAS 赢的才提交（与用户取消竞态，先到者赢）
     submitted = 0
@@ -67,7 +69,8 @@ async def cron_scan_repairs(
     from app.application.payments.scan_orders import scan_paid_unfulfilled
     from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
-    repaired = scan_paid_unfulfilled(OrderRepo(db), TradeEventRepo(db))
+    from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
+    repaired = scan_paid_unfulfilled(OrderRepo(db), TradeEventRepo(db), _code_repo_factory(db))
     logger.info("event=cron.r2 repaired=%d", len(repaired))
     return {"code": 0, "data": {"repaired": len(repaired)}}
 

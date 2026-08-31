@@ -61,10 +61,12 @@ if hasattr(r, "routes"):  # mock 模式才有路由
         order = OrderRepo(db).find_by_order_no(req.order_no)
         if not order:
             return {"code": 404, "msg": "order not found"}
+        from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
         result = fulfill_payment(
             OrderRepo(db), TradeEventRepo(db), order,
             transaction_id=req.transaction_id or f"mock_tx_{req.order_no}",
             payer_openid=req.payer_openid,
+            code_repo=_code_repo_factory(db),
         )
         return {"code": 0, "data": {"status": result.get("status")}}
 
