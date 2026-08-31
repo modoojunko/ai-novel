@@ -29,7 +29,7 @@
 ## 5. 接口层
 
 - [ ] 5.1 Web API 12 端点 + 回调端点骨架（生产验签 Change 2；Change 1 仅 dev 注入）+ 限流点位。验证：路由表对照附录 Z.3 逐端点
-- [ ] 5.2 ADMIN API 12 端点（含退款处置/开关三态/白名单管理）+ Admin 鉴权中间件。验证：401/403/操作留痕
+- [x] ~~5.2 ADMIN API~~ → **pay-ops 云函数**（7 action 零攻击面，已实现 cloudfunctions/pay-ops/index.py）
 - [ ] 5.3 dev 注入端点 D1-D5（X-Admin-Token 强制+mock 模式注册守卫）+ check-auth 扩展（days_remaining+attention）。验证：生产模式路由不存在
 - [ ] 5.4 CloudBase 定时触发器四条（T1 冷静期/T2 补偿/T3 退款跟进+扫描 D/T4 对账；R1-R4 cron 七段）+ 云函数薄壳部署。验证：触发器配置+端到端触发一次
 
