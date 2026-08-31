@@ -271,7 +271,9 @@ class TestPgHttpDeviceRepo:
 class TestPgHttpGrantRepo:
     def test_get_maps_enrolled_bool(self):
         def handler(request: httpx.Request) -> httpx.Response:
-            return _ok([{"pc_hash": "h1", "username": "alice", "token": "t",
+            if request.url.path.endswith("/users"):
+                return httpx.Response(200, json=[{"id": 7, "username": "alice"}])
+            return _ok([{"pc_hash": "h1", "user_id": 7, "token": "t",
                          "enrolled": 1, "fingerprint": "fp"}])
 
         repo = PgHttpGrantRepo(make_client(handler))
@@ -279,13 +281,17 @@ class TestPgHttpGrantRepo:
         assert grant is not None
         assert grant.enrolled is True
         assert grant.token == "t"
+        assert grant.username == "alice"  # user_id 反解为 username
 
     def test_upsert_inserts_with_enrolled_int(self):
         def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/users"):
+                return httpx.Response(200, json=[{"id": 7, "username": "alice"}])
             if request.method == "GET":
                 return _ok([])
             body = request.read().decode()
             assert '"enrolled":1' in body
+            assert '"user_id":7' in body
             return httpx.Response(201)
 
         repo = PgHttpGrantRepo(make_client(handler))
@@ -293,8 +299,12 @@ class TestPgHttpGrantRepo:
 
     def test_set_enrolled(self):
         def handler(request: httpx.Request) -> httpx.Response:
+            # 先解析 username→user_id，再按 pc_hash+user_id 更新（代理键契约）
+            if request.url.path.endswith("/users"):
+                assert request.url.params["username"] == "eq.alice"
+                return httpx.Response(200, json=[{"id": 7, "username": "alice"}])
             assert request.url.params["pc_hash"] == "eq.h1"
-            assert request.url.params["username"] == "eq.alice"
+            assert request.url.params["user_id"] == "eq.7"
             body = request.read().decode()
             assert '"enrolled":0' in body
             return httpx.Response(204)

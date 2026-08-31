@@ -2,7 +2,7 @@
 
 - [x] 1.1 编写 alembic revision：users 代理键一次性改造（加 id→回填三存量表 user_id→DROP 旧列→切 PK/UK）。验证：本地 sqlite 迁移 up/down 幂等；存量数据回填正确
 - [x] 1.2 编写 alembic revision：六新表 DDL（tiers/skus/orders 含退款列族+sku_snapshot/trade_events 含拒改触发器/reconciliation_reports/invoices）+ codes 加列回填 + 全部索引/部分索引/种子 SQL。验证：DDL 与 backend-detail-design.md §2 逐字段一致
-- [ ] 1.3 经 MCP managePgDatabase(applyMigration) 上生产（含 alembic_version 打标）。验证：生产 six 表存在、存量 users/codes 可查、现有 S端 冒烟不回归
+- [x] 1.3 经 MCP managePgDatabase(applyMigration) 上生产（含 alembic_version 打标）。验证：生产 six 表存在、存量 users/codes 可查、现有 S端 冒烟不回归
 
 ## 2. 领域层
 
