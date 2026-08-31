@@ -9,6 +9,9 @@ Revises: a001_users_surrogate
 from alembic import op
 import sqlalchemy as sa
 
+# SQLite 仅对 INTEGER PRIMARY KEY 自增；PG 用 BIGINT（BigIntPK 跨库类型，同 ORM types.py）
+BIGPK = sa.BigInteger().with_variant(sa.Integer(), "sqlite")
+
 revision = 'a002_payments_tables'
 down_revision = 'a001_users_surrogate'
 branch_labels = None
@@ -18,7 +21,7 @@ depends_on = None
 def upgrade() -> None:
     # ── tiers（档位配置：PRO/MAX）──
     op.create_table('tiers',
-        sa.Column('id', sa.BigInteger(), autoincrement=True, primary_key=True),
+        sa.Column('id', BIGPK, autoincrement=True, primary_key=True),
         sa.Column('key', sa.String(32), nullable=False, unique=True),
         sa.Column('display_name', sa.String(64), nullable=False),
         sa.Column('rank', sa.Integer(), nullable=False),
@@ -31,9 +34,9 @@ def upgrade() -> None:
 
     # ── skus（SKU 配置：tier × period）──
     op.create_table('skus',
-        sa.Column('id', sa.BigInteger(), autoincrement=True, primary_key=True),
+        sa.Column('id', BIGPK, autoincrement=True, primary_key=True),
         sa.Column('sku_key', sa.String(64), nullable=False, unique=True),
-        sa.Column('tier_id', sa.BigInteger(), sa.ForeignKey('tiers.id'), nullable=False),
+        sa.Column('tier_id', BIGPK, sa.ForeignKey('tiers.id'), nullable=False),
         sa.Column('period', sa.String(16), nullable=False),
         sa.Column('period_days', sa.Integer(), nullable=False),
         sa.Column('base_price_fen', sa.Integer(), nullable=False),
@@ -51,10 +54,10 @@ def upgrade() -> None:
 
     # ── orders（根对象：含退款列族 + sku_snapshot）──
     op.create_table('orders',
-        sa.Column('id', sa.BigInteger(), autoincrement=True, primary_key=True),
+        sa.Column('id', BIGPK, autoincrement=True, primary_key=True),
         sa.Column('order_no', sa.String(32), nullable=False, unique=True),
-        sa.Column('user_id', sa.BigInteger(), sa.ForeignKey('users.id'), nullable=False),
-        sa.Column('sku_id', sa.BigInteger(), nullable=False),
+        sa.Column('user_id', BIGPK, sa.ForeignKey('users.id'), nullable=False),
+        sa.Column('sku_id', BIGPK, nullable=False),
         sa.Column('sku_snapshot', sa.JSON(), nullable=False),
         sa.Column('amount_fen', sa.Integer(), nullable=False),
         sa.Column('status', sa.String(24), nullable=False, server_default='pending'),
@@ -109,7 +112,7 @@ def upgrade() -> None:
 
     # ── trade_events（append-only 审计流水）──
     op.create_table('trade_events',
-        sa.Column('event_id', sa.BigInteger(), autoincrement=True, primary_key=True),
+        sa.Column('event_id', BIGPK, autoincrement=True, primary_key=True),
         sa.Column('event_key', sa.String(255), nullable=False, unique=True),
         sa.Column('event_type', sa.String(64), nullable=False),
         sa.Column('order_no', sa.String(32), nullable=True),
@@ -136,9 +139,9 @@ def upgrade() -> None:
 
     # ── invoices（发票台账；功能暂缓，表随建）──
     op.create_table('invoices',
-        sa.Column('invoice_id', sa.BigInteger(), autoincrement=True, primary_key=True),
-        sa.Column('order_id', sa.BigInteger(), nullable=False),
-        sa.Column('refund_id', sa.BigInteger(), nullable=True),
+        sa.Column('invoice_id', BIGPK, autoincrement=True, primary_key=True),
+        sa.Column('order_id', BIGPK, nullable=False),
+        sa.Column('refund_id', BIGPK, nullable=True),
         sa.Column('kind', sa.String(8), nullable=False),
         sa.Column('title', sa.JSON(), nullable=False),
         sa.Column('amount_fen', sa.Integer(), nullable=False),
@@ -153,7 +156,7 @@ def upgrade() -> None:
 
     # ── codes 加列（权益台账扩展）──
     op.add_column('codes', sa.Column('source', sa.String(12), nullable=False, server_default='admin'))
-    op.add_column('codes', sa.Column('order_id', sa.BigInteger(), nullable=True))
+    op.add_column('codes', sa.Column('order_id', BIGPK, nullable=True))
     op.add_column('codes', sa.Column('grant_start', sa.DateTime(), nullable=True))
     op.add_column('codes', sa.Column('status_detail', sa.String(24), nullable=True,
                   server_default='unused'))
