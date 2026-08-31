@@ -1,21 +1,34 @@
-"""CloudBase PG HTTP API 设备授权凭证仓储。"""
+"""CloudBase PG HTTP API 设备授权凭证仓储（user_id 代理键，s-pay-foundation）。
+
+域对象 DeviceGrant 仍以 username 字符串做身份；仓储内部完成 username ↔ user_id 解析。
+"""
 from __future__ import annotations
 
 from app.domain.devices import DeviceGrant
 from app.infrastructure.repositories.pg_http.client import PgRestClient
 
 _TABLE = "device_grants"
+_USERS = "users"
 
 
 class PgHttpGrantRepo:
     def __init__(self, client: PgRestClient):
         self.client = client
 
-    @staticmethod
-    def _to_domain(doc: dict) -> DeviceGrant:
+    def _resolve_user_id(self, username: str) -> int | None:
+        doc = self.client.find_one(_USERS, {"username": username})
+        return int(doc["id"]) if doc and doc.get("id") is not None else None
+
+    def _resolve_username(self, user_id) -> str:
+        if user_id is None:
+            return ""
+        doc = self.client.find_one(_USERS, {"id": int(user_id)})
+        return doc.get("username", "") if doc else ""
+
+    def _to_domain(self, doc: dict) -> DeviceGrant:
         return DeviceGrant(
             pc_hash=doc["pc_hash"],
-            username=doc["username"],
+            username=self._resolve_username(doc.get("user_id")),
             token=doc["token"],
             enrolled=bool(doc.get("enrolled", False)),
             fingerprint=doc.get("fingerprint", "") or "",
@@ -26,31 +39,36 @@ class PgHttpGrantRepo:
         return self._to_domain(doc) if doc else None
 
     def upsert(self, pc_hash: str, username: str, token: str, enrolled: bool, fingerprint: str) -> None:
+        user_id = self._resolve_user_id(username)
+        if user_id is None:
+            return  # 用户不存在，不写 grant
+
         existing = self.client.find_one(_TABLE, {"pc_hash": pc_hash})
+        payload = {
+            "user_id": user_id,
+            "token": token,
+            "enrolled": 1 if enrolled else 0,
+            "fingerprint": fingerprint,
+        }
         if existing:
-            self.client.update(_TABLE, {"pc_hash": pc_hash}, {
-                "username": username,
-                "token": token,
-                "enrolled": 1 if enrolled else 0,
-                "fingerprint": fingerprint,
-            })
+            self.client.update(_TABLE, {"pc_hash": pc_hash}, payload)
         else:
             # 省略 created_at：数据库 DEFAULT now()
-            self.client.insert(_TABLE, {
-                "pc_hash": pc_hash,
-                "username": username,
-                "token": token,
-                "enrolled": 1 if enrolled else 0,
-                "fingerprint": fingerprint,
-            })
+            self.client.insert(_TABLE, {"pc_hash": pc_hash, **payload})
 
     def set_enrolled(self, pc_hash: str, username: str, enrolled: bool) -> None:
+        user_id = self._resolve_user_id(username)
+        if user_id is None:
+            return
         self.client.update(
             _TABLE,
-            {"pc_hash": pc_hash, "username": username},
+            {"pc_hash": pc_hash, "user_id": user_id},
             {"enrolled": 1 if enrolled else 0},
         )
 
     def delete_all_for_user(self, username: str) -> int:
         """注销执行：清空该用户全部设备授权。返回行数。"""
-        return self.client.delete(_TABLE, {"username": username})
+        user_id = self._resolve_user_id(username)
+        if user_id is None:
+            return 0
+        return self.client.delete(_TABLE, {"user_id": user_id})
