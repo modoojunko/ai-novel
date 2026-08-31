@@ -49,6 +49,8 @@ class Settings:
     # ── 支付运维（设计 G7/B3/演练 A9）──
     # Server酱 SendKey：资金类告警通道；空 = 降级为仅日志（本地/CI 默认）
     SERVERCHAN_SENDKEY: str = os.getenv("SERVERCHAN_SENDKEY", "")
+    # 定时扫描端点（R1-R4）令牌：pay-cron 云函数以 X-Cron-Token 头携带；空 = 端点全拒
+    CRON_TOKEN: str = os.getenv("CRON_TOKEN", "")
     # 演练白名单：逗号分隔用户名。购买开关=rehearsal 时仅名单内用户可下单，
     # 且对账/计税报表排除名单用户（演练数据不进资金口径）
     PAYMENTS_REHEARSAL_USERNAMES: str = os.getenv("PAYMENTS_REHEARSAL_USERNAMES", "")

@@ -61,10 +61,8 @@ def daily_reconcile(
     bill_date: str | None = None,
 ) -> dict:
     """T4 日对账。bill_date 缺省=昨天（北京时间）。返回报表摘要 dict。"""
-    from datetime import date as _date
-
     if bill_date is None:
-        bill_date = (_date.today(BEIJING_TZ) - timedelta(days=1)).isoformat()
+        bill_date = (datetime.now(BEIJING_TZ) - timedelta(days=1)).date().isoformat()
 
     # ── mock 网关：记 skipped 结束（Change 1 阶段，对账管道占位）──
     if isinstance(gateway, MockPaymentGateway):
