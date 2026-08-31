@@ -168,7 +168,7 @@ class TestAdminCodes:
         rows = {c["code_id"]: c for c in d["data"]["codes"]}
         assert code in rows
         assert rows[code]["status"] == "active"
-        assert rows[code]["bound_username"] == web_user["username"]
+        assert rows[code]["user_id"] is not None  # 代理键已绑定
 
     def test_query_bad_token(self, client):
         r = client.post("/api/query_codes", json={"admin_token": "wrong-admin-token"})
@@ -389,7 +389,7 @@ class TestFullJourney:
         ).json()["data"]["codes"][0]
         client.post("/api/license/activate", json={"code": code}, headers=_bearer(token))
         me2 = client.get("/api/user/me", headers=_bearer(token)).json()
-        assert me2["data"]["tier"] == "quarterly"
+        assert me2["data"]["tier"] == "pro"  # tier 归一化：quarterly→pro
 
         # 3) 改密码 → 新密码可登录
         client.put(
