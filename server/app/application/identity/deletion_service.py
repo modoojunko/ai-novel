@@ -43,9 +43,37 @@ def blocked_assets(code_repo: CodeRepo, username: str) -> list[dict]:
     return [
         {"code_id": c.code_id, "tier": c.tier, "status": c.status,
          "duration_days": c.duration_days,
+         "refund_requested": c.refund_requested_at is not None,
          "expires_at": c.expires_at.isoformat() if c.expires_at else ""}
         for c in code_repo.find_unconsumed_by_username(username)
     ]
+
+
+def request_asset_refund(
+    code_repo: CodeRepo,
+    username: str,
+    code_id: str,
+    now=None,
+) -> dict:
+    """权益级退款申请（用户评审 2026-08-31：每个未消耗权益独立退款入口）。
+
+    - 身份由 JWT 端点保证；这里校验 权益属于本人 + 未消耗 + 未重复申请；
+    - CAS 标记 refund_requested_at（幂等：重复申请 0 行 → 返回当前状态）；
+    - 退款由客服人工执行（支付体系未上线）：完成后权益置 revoked，阻塞自然解除。
+    """
+    now = now or utcnow_naive()
+    code = code_repo.get(code_id)
+    if not code or code.bound_username != username:
+        return {"code": 1, "msg": "权益不存在或不属于当前账号"}
+    if code.status not in ("unused", "active"):
+        return {"code": 1, "msg": "该权益当前状态不支持退款申请"}
+    rows = code_repo.request_refund_for_user(code_id, username, now)
+    if rows == 0:
+        return {"code": 0, "msg": "退款申请已在处理中",
+                "data": {"code_id": code_id, "refund_requested": True}}
+    logger.info("event=asset.refund_requested user=%s code=%s", username, code_id)
+    return {"code": 0, "msg": "退款申请已提交",
+            "data": {"code_id": code_id, "refund_requested": True}}
 
 
 def deletion_status(user: User, now=None) -> dict:

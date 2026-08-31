@@ -52,7 +52,7 @@ test.describe('账号自助注销', () => {
     await expect(page.getByText(/你的账号已申请注销/).first()).toBeVisible()
   })
 
-  test('有未消耗权益：阻塞并列清单，勾选放弃后方可继续', async ({ page, mockApi }) => {
+  test('有未消耗权益：逐项申请退款后方可继续（或放弃）', async ({ page, mockApi }) => {
     mockApi.setAssetsBlocking(true)
     await page.reload()
     await expect(page.getByRole('heading', { name: '账户设置' })).toBeVisible()
@@ -63,11 +63,14 @@ test.describe('账号自助注销', () => {
     await shot(page, '01b-wizard-consequences')
     await page.getByRole('button', { name: '我已了解，继续' }).click()
 
-    // 权益处置步：未勾选放弃时「放弃并继续」禁用
+    // 权益处置步：未申请退款的权益 → 行内 [申请退款]；未处置完「放弃并继续」禁用
     await expect(page.getByText('未消耗的套餐权益', { exact: false }).first()).toBeVisible()
     await shot(page, '02-wizard-assets')
     await expect(page.getByRole('button', { name: '放弃并继续' })).toBeDisabled()
-    await page.getByText('我知道这些权益将作废').click()
+
+    // 逐项申请退款：按钮消失 → 行内出现「退款处理中」→ 全部处置完可继续
+    await page.getByRole('button', { name: '申请退款' }).click()
+    await expect(page.getByText('退款处理中')).toBeVisible()
     await expect(page.getByRole('button', { name: '放弃并继续' })).toBeEnabled()
     await page.getByRole('button', { name: '放弃并继续' }).click()
 

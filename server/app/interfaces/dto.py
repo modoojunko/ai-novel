@@ -63,6 +63,9 @@ class DeletionRequest(BaseModel):
     password: str
     waive_assets: bool = False  # 显式放弃未消耗权益（未勾选且有权益时受理被拒）
 
+class AssetRefundRequest(BaseModel):
+    code_id: str  # 权益级退款申请（每个未消耗权益独立入口）
+
 class DeletionRevokeRequest(BaseModel):
     username: str  # 撤销期账号登录被拒、无 JWT——用户名+密码本身即身份证明（免 token）
     password: str

@@ -53,6 +53,7 @@ export interface BlockedAsset {
   status: string
   duration_days: number
   expires_at: string
+  refund_requested?: boolean
 }
 
 export interface DeletionStatusData {
@@ -69,6 +70,11 @@ export function apiDeletionStatus(): Promise<ApiResponse<DeletionStatusData>> {
 
 export function apiDeletionAssets(): Promise<ApiResponse<{ blocked_assets: BlockedAsset[] }>> {
   return request.get('/user/deletion-assets').then(r => r.data)
+}
+
+/** 权益级退款申请（登录态即身份；客服人工执行，15 个工作日口径）。 */
+export function apiRequestAssetRefund(codeId: string): Promise<ApiResponse<{ code_id: string; refund_requested: boolean }>> {
+  return request.post('/user/deletion/refund-request', { code_id: codeId }).then(r => r.data)
 }
 
 export function apiRequestDeletion(

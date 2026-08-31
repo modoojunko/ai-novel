@@ -64,3 +64,4 @@
 | 2026-08-30 | account-settings.html + account-deletion.html | 口径 | 用户评审"注销账号为啥不是按钮"：入口由纯链接升级为**红描边按钮**（btn-outline-danger）——可供性不足且与退出登录良性链接视觉等权；实心 btn-danger 仍只用于向导内最终确认，两档重量体系。IA 文档 B4 修订二同步 |
 | 2026-08-30 | account-settings.html + account-deletion.html | 口径 | 用户评审"我的账号里为啥还有我的设备"：B3 移除设备入口行（与负清单自相矛盾的例外），组名改「安全」；设备仅保留全局导航入口，注销波及面由向导后果清单告知。IA 文档 B3 修订同步 |
 | 2026-08-30 | account-deletion.html | 口径 | 评审 P1 修复：权益处置「去订单页退款」死链（/dashboard/orders 未实施）改 **客服兜底（/support）**；支付 change 落地后恢复订单页口径。Vue 实现（DeletionWizard）同批改齐 |
+| 2026-08-31 | account-deletion.html + DeletionWizard.vue | 口径 | 用户评审"说二选一实际只有放弃"：权益处置步如实重构——①联系客服协商（离开向导，完成后重进继续）②确认放弃就地继续（勾选门控提交）；footer 仅保留「放弃并继续」（需勾选②）；原始码串不再展示，权益行人话化（档位名·状态·时长·到期日） |

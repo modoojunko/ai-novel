@@ -21,6 +21,7 @@ export class MockApi {
   private deletionDeadline = '2026-09-14'
   private assetsBlocking = true
   private accountDeleted = false
+  private assetRefundRequested = false
   private routes: string[] = [
     '**/api/web/login',
     '**/api/web/register',
@@ -31,6 +32,7 @@ export class MockApi {
     // account-deletion（注销向导/撤销期）
     '**/api/user/deletion-status',
     '**/api/user/deletion-assets',
+    '**/api/user/deletion/refund-request',
     '**/api/user/deletion',
     '**/api/user/deletion/revoke',
     '**/api/license/activate',
@@ -56,6 +58,7 @@ export class MockApi {
     this.deletionDaysLeft = 15
     this.deletionDeadline = '2026-09-14'
     this.assetsBlocking = true
+    this.assetRefundRequested = false
     this.accountDeleted = false
     // 兜底拦最先注册（Playwright 后注册者优先，兜底必须排最前）。
     // 用谓词而非 glob：'**/api/**' 会误吞 vite 模块 URL（/src/api/request.ts
@@ -167,6 +170,13 @@ export class MockApi {
       return route.fulfill(json(0, { pending: false, deleted: false }))
     }
 
+    if (path === '/api/user/deletion/refund-request' && method === 'POST') {
+      const body = route.request().postDataJSON()
+      this.assetRefundRequested = true
+      return route.fulfill(json(0, { code_id: body?.code_id ?? '', refund_requested: true },
+        { msg: '退款申请已提交' }))
+    }
+
     if (path === '/api/user/deletion-assets' && method === 'GET') {
       if (!this.currentUser) return route.fulfill(json(1, '未登录'))
       const blocked = this.assetsBlocking
@@ -178,7 +188,7 @@ export class MockApi {
     if (path === '/api/user/deletion' && method === 'POST') {
       const body = route.request().postDataJSON()
       if (!this.currentUser) return route.fulfill(json(1, '未登录'))
-      if (this.assetsBlocking && !body?.waive_assets) {
+      if (this.assetsBlocking && !body?.waive_assets && !this.assetRefundRequested) {
         return route.fulfill(json(3, { blocked_assets: [
           { code_id: 'TRIAL-AB12CD34', tier: 'trial', status: 'active', expires_at: '2026-09-05' },
         ] }, { msg: '存在未消耗的套餐权益，请先退款或确认放弃' }))

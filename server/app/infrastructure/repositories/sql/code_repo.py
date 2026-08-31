@@ -25,6 +25,7 @@ class SqlCodeRepo:
             activated_at=row.activated_at,
             created_at=row.created_at,
             created_by=row.created_by or "",
+            refund_requested_at=row.refund_requested_at,
         )
 
     def get(self, code_id: str) -> ActivationCode | None:
@@ -100,3 +101,14 @@ class SqlCodeRepo:
             .all()
         )
         return [self._to_domain(r) for r in rows]
+
+    def request_refund_for_user(self, code_id: str, username: str, now) -> int:
+        """权益级退款申请：CAS 标记 refund_requested_at（幂等，重复申请 0 行）。"""
+        result = self.db.query(ActivationCodeORM).filter(
+            ActivationCodeORM.code_id == code_id,
+            ActivationCodeORM.bound_username == username,
+            ActivationCodeORM.status.in_(["unused", "active"]),
+            ActivationCodeORM.refund_requested_at.is_(None),
+        ).update({"refund_requested_at": now}, synchronize_session=False)
+        self.db.commit()
+        return result

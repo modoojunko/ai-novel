@@ -10,6 +10,7 @@ import { ref, computed, watch } from 'vue'
 import {
   apiDeletionAssets,
   apiDeletionStatus,
+  apiRequestAssetRefund,
   apiRequestDeletion,
   type BlockedAsset,
 } from '@/api/web'
@@ -39,6 +40,31 @@ const submittedDeadline = ref('')
 
 const hasAssets = computed(() => assets.value.length > 0)
 const canSubmit = computed(() => exportConfirmed.value && !!password.value && !submitting.value)
+
+// 权益级行内状态：pending（未处理）→ refund_requested（退款申请已提交，客服人工执行）/ waived（放弃）
+const rowStates = ref<Record<string, 'pending' | 'refund_requested' | 'waived'>>({})
+const refundBusy = ref('')
+const rowState = (codeId: string) => rowStates.value[codeId] ?? 'pending'
+const canProceedAssets = computed(() => assets.value.every((a) => rowState(a.code_id) !== 'pending'))
+const pendingCount = computed(() => assets.value.filter((a) => rowState(a.code_id) === 'pending').length)
+
+async function requestRefund(a: BlockedAsset) {
+  if (refundBusy.value) return
+  refundBusy.value = a.code_id
+  errorMsg.value = ''
+  try {
+    const res = await apiRequestAssetRefund(a.code_id)
+    if (res.code === 0) {
+      rowStates.value = { ...rowStates.value, [a.code_id]: 'refund_requested' }
+    } else {
+      errorMsg.value = res.msg || '提交失败'
+    }
+  } catch (e: any) {
+    errorMsg.value = e.message || '网络错误'
+  } finally {
+    refundBusy.value = ''
+  }
+}
 
 // 档位/状态的人话口径（与 session.tierDisplay、LicenseCard 同源约定）
 const TIER_NAMES: Record<string, string> = {
@@ -70,6 +96,7 @@ watch(() => props.open, async (val) => {
   // 每次打开复位：权益状态以服务端为准（离开去退款的用户重进时复验自动通过）
   step.value = 'consequences'
   assets.value = []
+  rowStates.value = {}
   waive.value = false
   exportConfirmed.value = false
   password.value = ''
@@ -152,10 +179,11 @@ async function submit() {
       <p v-if="errorMsg" class="notice err" style="margin-top:12px"><Ico :d="P.alert" />{{ errorMsg }}</p>
     </div>
 
-    <!-- 步骤 2：权益处置（R2，无未消耗权益时跳过） -->
+    <!-- 步骤 2：权益处置（R2，无未消耗权益时跳过）。每项权益独立处置：
+         [申请退款]（客服人工处理）或 [放弃]（不退款随注销作废）。全部处置完毕才能继续。 -->
     <div v-else-if="step === 'assets'">
       <p class="notice warn">
-        <Ico :d="P.alert" /><span>你有 <b>{{ assets.length }} 项未消耗的套餐权益</b>，注销前需要先处理（二选一）。</span>
+        <Ico :d="P.alert" /><span>你有 <b>{{ assets.length }} 项未消耗的套餐权益</b>。注销<b>不会自动退还它们</b>——每一项都需要你单独确认处理方式：</span>
       </p>
       <div class="asset-list">
         <div v-for="a in assets" :key="a.code_id" class="asset-row">
@@ -163,13 +191,28 @@ async function submit() {
           <span class="asset-meta">
             {{ statusName(a.status) }}<template v-if="a.duration_days"> · {{ a.duration_days }} 天</template><template v-if="a.expires_at"> · 到期 <span class="num">{{ a.expires_at.slice(0, 10) }}</span></template>
           </span>
+          <span class="asset-action">
+            <AppButton
+              v-if="rowState(a.code_id) !== 'refund_requested' && rowState(a.code_id) !== 'waived'"
+              variant="secondary" size="sm" :disabled="refundBusy === a.code_id"
+              @click="requestRefund(a)"
+            >
+              申请退款
+            </AppButton>
+            <span v-else-if="rowState(a.code_id) === 'refund_requested'" class="pill pill-status pill-warn">退款处理中</span>
+            <span v-else class="pill pill-status">已放弃</span>
+          </span>
         </div>
       </div>
 
-      <label class="chk" style="margin-top:14px">
-        <input v-model="waive" type="checkbox" />
-        <span>我知道这些权益将<b>作废且不产生任何退款</b>，选择放弃并继续注销。</span>
-      </label>
+      <div class="choice-block" style="margin-top:12px">
+        <div class="choice-h">不想逐项等待退款？</div>
+        <div class="choice-d">勾选即<b>放弃全部尚未申请退款的权益</b>（作废且不产生任何退款，不可恢复），注销立即可继续。</div>
+        <label class="chk">
+          <input v-model="waive" type="checkbox" />
+          <span>放弃其余全部未申请退款的权益，直接继续注销。</span>
+        </label>
+      </div>
 
       <p v-if="errorMsg" class="notice err" style="margin-top:12px"><Ico :d="P.alert" />{{ errorMsg }}</p>
     </div>
@@ -211,8 +254,8 @@ async function submit() {
         <AppButton variant="error" @click="nextFromConsequences">我已了解，继续</AppButton>
       </template>
       <template v-else-if="step === 'assets'">
-        <AppButton variant="secondary" :to="'/support'">联系客服处理</AppButton>
-        <AppButton variant="error" :disabled="!waive" @click="nextFromAssets">放弃并继续</AppButton>
+        <span v-if="!canProceedAssets" class="foot-hint">请先为每项权益选择处理方式（申请退款或放弃）</span>
+        <AppButton variant="error" :disabled="!canProceedAssets" @click="nextFromAssets">放弃并继续</AppButton>
       </template>
       <template v-else-if="step === 'password'">
         <AppButton variant="secondary" @click="close">上一步</AppButton>
@@ -244,4 +287,10 @@ async function submit() {
 .kv b { font-weight: 500; }
 .asset-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
 .asset-row { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+.asset-action { margin-left: auto; flex: none; }
+.foot-hint { font-size: 12px; color: var(--muted); }
+.choice-block { border: 1px solid var(--border); border-radius: 9px; padding: 12px 14px; margin-top: 10px; }
+.choice-h { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.choice-h .num { color: var(--err); margin-right: 4px; }
+.choice-d { font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-bottom: 10px; }
 </style>

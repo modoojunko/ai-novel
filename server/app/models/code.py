@@ -17,5 +17,7 @@ class ActivationCodeORM(Base):
     bound_username  = Column(String(128), ForeignKey("users.username"), nullable=True)
     activated_at    = Column(DateTime, nullable=True)
     expires_at      = Column(DateTime, nullable=True)
+    # 账号注销联动（account-deletion）：权益级退款申请时刻（空=未申请）
+    refund_requested_at = Column(DateTime, nullable=True)
     created_at      = Column(DateTime, server_default=func.now())
     created_by      = Column(String(64), default="", server_default="")

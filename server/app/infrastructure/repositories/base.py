@@ -51,6 +51,10 @@ class CodeRepo(Protocol):
     def revoke_unconsumed_for_user(self, username: str) -> int:
         """注销执行：该用户 unused/active（待激活+排队中+消耗中）全部置 revoked。返回行数。"""
         ...
+    def request_refund_for_user(self, code_id: str, username: str, now) -> int:
+        """权益级退款申请（account-deletion）：CAS 标记 refund_requested_at。
+        WHERE 绑定本人 + 未消耗 + 未申请；0 行=状态已被并发方改变（幂等）。"""
+        ...
 
 
 class DeviceRepo(Protocol):

@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app.application.identity.deletion_service import (
     blocked_assets,
+    request_asset_refund,
     request_deletion,
     revoke_deletion,
 )
@@ -29,6 +30,7 @@ from app.infrastructure.repositories.factory import (
 from app.infrastructure.security.password import hash_password, verify_password
 from app.interfaces.deps import Db, get_current_user_or_none, get_db
 from app.interfaces.dto import (
+    AssetRefundRequest,
     ChangePasswordRequest,
     DeletionRequest,
     DeletionRevokeRequest,
@@ -127,6 +129,14 @@ async def api_user_deletion_assets(db: Db = Depends(get_db), username: str = Dep
     if not username:
         return fail(code=1, msg="未登录")
     return ok({"blocked_assets": blocked_assets(code_repo(db), username)})
+
+
+@r.post("/api/user/deletion/refund-request")
+async def api_user_deletion_refund_request(req: AssetRefundRequest, db: Db = Depends(get_db), username: str = Depends(get_current_user_or_none)):
+    """权益级退款申请（用户评审 2026-08-31：每个未消耗权益独立退款入口）。"""
+    if not username:
+        return fail(code=1, msg="未登录")
+    return request_asset_refund(code_repo(db), username, req.code_id)
 
 
 @r.post("/api/user/deletion")
