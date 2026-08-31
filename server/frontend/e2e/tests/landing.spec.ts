@@ -69,8 +69,9 @@ test.describe('Landing Page', () => {
     await expect(page.getByText('¥299')).toBeVisible()
     // 「最受欢迎」跟随 popular_sku（年付），不再写死季付
     await expect(page.locator('#pricing .mkt-plan.pro h3')).toHaveText('年付')
-    // 购买入口全部进自家收银台，淘宝死链清零
-    await expect(page.locator('#pricing a[href*="taobao"]')).toHaveCount(0)
+    // 购买入口全部进自家收银台，淘宝死链全站清零（含页脚/激活指南）
+    await expect(page.locator('a[href*="taobao"]')).toHaveCount(0)
+    await expect(page.getByText(/淘宝/)).toHaveCount(0)
     expect(await page.locator('#pricing a[href="/pay"]').count()).toBe(3)
   })
 
