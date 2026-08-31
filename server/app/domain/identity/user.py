@@ -14,9 +14,27 @@ class User:
     security_answer_hash: str
     created_at: datetime | None = None
     theme: str = ""            # 界面主题 key（空 = 默认 teal，见 identity/theme.py）
+    # 账号自助注销状态（design D1）：空值视为 正常（存量行兼容）
+    deletion_status: str = "正常"     # 正常 | 注销撤销期 | 已注销
+    deletion_requested_at: datetime | None = None
+    deletion_deadline: datetime | None = None
+    deletion_waive_assets: bool = False
 
     def is_active(self) -> bool:
         return self.status == "active"
 
     def is_locked(self) -> bool:
         return self.status == "locked"
+
+    # ── 注销状态（account-deletion）──
+    @property
+    def effective_deletion_status(self) -> str:
+        return self.deletion_status or "正常"
+
+    def is_deletion_pending(self) -> bool:
+        """处于 15 天撤销期（已申请、未执行）。"""
+        return self.effective_deletion_status == "注销撤销期"
+
+    def is_deleted(self) -> bool:
+        """注销已执行（去标识化完成）。"""
+        return self.effective_deletion_status == "已注销"

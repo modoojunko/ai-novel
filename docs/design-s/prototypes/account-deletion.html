@@ -55,6 +55,8 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 .lnk { color: var(--accent); cursor: pointer; background: none; border: 0; padding: 0; font: inherit; }
 .lnk:hover { color: var(--accent-strong); text-decoration: underline; }
 .lnk-danger { color: var(--err); }
+.btn-outline-danger { background: var(--surface); color: var(--err); border: 1px solid color-mix(in oklch, var(--err) 45%, var(--border)); font-weight: 500; }
+.btn-outline-danger:hover:not(:disabled) { background: var(--err-soft); border-color: var(--err); }
 .lnk-danger:hover { color: color-mix(in oklch, var(--err) 85%, var(--fg)); text-decoration: underline; }
 .appbar { height: 48px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
 .logo { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-display); font-size: 16px; font-weight: 600; }
@@ -98,6 +100,13 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 
 /* ─── 原型专用：布局工具 + 业务组合（不做视觉决策，色/圆角/字体走令牌） ─── */
 .stage-narrow { max-width: 460px; margin: 0 auto; }
+/* 账户设置窄列（2026-08-30 态一重设计，account-settings-design.md §3.1：单列 640px 居中，替代旧 two-col 双列） */
+.stage-account { max-width: 640px; margin-inline: auto; }
+/* 危险区隔离间距（同稿 §3.3：40~56px ≈ 2–3 倍常规 panel 间距，折叠线以下；弱化=全组唯一警示色 lnk-danger） */
+.danger-zone { margin-top: 48px; }
+.dz-label { font-family: var(--font-display); font-size: 12px; font-weight: 600; letter-spacing: .08em; color: var(--err); margin: 0; }
+.dz-box { background: var(--surface); border: 1px solid color-mix(in oklch, var(--err) 35%, var(--border)); border-radius: var(--radius-lg); }
+.dz-box .set-row { padding: 14px 20px; }
 .kv { display: grid; grid-template-columns: 96px 1fr; gap: 8px 12px; font-size: 13px; margin: 6px 0; }
 .kv span { color: var(--muted); }
 .kv b { font-weight: 500; }
@@ -206,61 +215,73 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 
 <main class="main">
 
-  <!-- ═══════════ 态一：账户设置页 · 注销入口 ═══════════
+  <!-- ═══════════ 态一：账户设置页 · 注销入口（2026-08-30 重设计） ═══════════
        spec: R1（S 端控制台提供自助注销入口；站内完成，不依赖站外触达）
-       设计注记：入口排在常规设置项之后、警示色弱化呈现（安静不诱导，design-language §12 破坏性分级：账号注销 = 最高级，确认强度集中在向导内） -->
+       设计注记（依据 ../account-settings-design.md，用户批评旧版为无设计堆砌，全量重排）：
+       单列 640px 窄列（.stage-account），动线 = 身份→动作→危险→兜底，响度递减、破坏性递增；
+       危险区降为隔离行（无大标题/无 pill 标注/无图标/无 notice，唯一警示色 = lnk-danger，间距 48px 折叠线以下，US-1.1 安静不诱导）；
+       套餐状态行删除（OWN 套餐页，D1）；设备行降为入口 + 两个数字、删额度规则文案（D2）；客服兜底挪到页脚（R8 保险丝，修正 D4）；
+       块归属标注 IA·B1–B5（同稿 §2）；同款结构独立成页 = account-settings.html（含修改密码弹层与撤销期变体） -->
   <section data-stage="entry">
-    <div class="page-head">
-      <div>
-        <h1>我的账户</h1>
-        <div class="sub">管理你的账号信息、安全与设备。修改即时生效。</div>
-      </div>
-    </div>
+    <div class="stage-account">
 
-    <div class="two-col">
-      <div class="panel">
-        <div class="panel-h"><h2>账号信息</h2></div>
+      <!-- B1 页头 -->
+      <div class="page-head">
+        <div>
+          <h1>我的账户</h1>
+          <div class="sub">管理你的账号信息与安全设置，修改即时生效。</div>
+        </div>
+        <span class="spec-tag">IA·B1 页头</span>
+      </div>
+
+      <!-- B2 账号信息（primary）：套餐状态不进本块（负清单 D1） -->
+      <section class="panel" aria-labelledby="b2h">
+        <div class="panel-h"><h2 id="b2h">账号信息</h2><span class="spec-tag">IA·B2 账号信息</span></div>
         <div class="kv">
           <span>用户名</span><b class="num">testuser</b>
           <span>注册时间</span><b class="num">2026-08-15</b>
-          <span>套餐状态</span><b>包季 · 生效中（最远到期 2027-11-26）</b>
         </div>
         <p class="rule-note" style="margin-top:8px">本站账号只由「用户名 + 密码」组成，没有绑定邮箱或手机号。<b>请牢记你的密码</b>——忘记密码可在登录页「忘记密码找回」恢复。</p>
-      </div>
+      </section>
 
-      <div class="panel">
-        <div class="panel-h"><h2>安全与设备</h2></div>
+      <!-- B3 安全与设备（secondary）：顺序 = US-1.1 裁定；设备行 = 入口 + 两个数字（D2） -->
+      <section class="panel" aria-labelledby="b3h" style="margin-top:14px">
+        <div class="panel-h"><h2 id="b3h">安全</h2><span class="spec-tag">IA·B3 · US-1.1 顺序</span></div>
         <div class="set-rows">
           <div class="set-row">
             <div><div class="t">修改密码</div><div class="d">定期更换，客户端与网页端同时生效</div></div>
             <a class="btn btn-secondary btn-sm" href="#">修改密码</a>
           </div>
           <div class="set-row">
-            <div><div class="t">我的设备</div><div class="d">已绑定 2 / 5 台，额度按已购最高档计算</div></div>
-            <a class="btn btn-secondary btn-sm" href="#">管理设备</a>
-          </div>
-          <div class="set-row">
             <div><div class="t">退出登录</div><div class="d">仅退出当前浏览器会话，不影响其他设备</div></div>
             <a class="lnk" href="#" style="font-size:12.5px">退出登录</a>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
 
-    <div class="panel" style="margin-top:14px">
-      <div class="panel-h"><h2>注销账号</h2><span class="pill pill-tag">不可逆 · 有 15 天撤销期</span></div>
-      <div class="set-rows">
-        <div class="set-row">
-          <div>
-            <div class="t">注销账号</div>
-            <div class="d">永久注销本账号：<b>15 天撤销期内可撤销，到期自动执行</b>。注销后用户名永久封存、无法找回；<b>你设备上的作品不受影响</b>；交易记录依法留存。提交前需处理未消耗的套餐权益。</div>
+      <!-- B4 危险区（danger zone）：隔离/弱化/距离三原则（IA §3.3）；完整后果清单在向导内（态②③④），入口行只写三个关键事实 -->
+      <section class="danger-zone" aria-labelledby="b4h">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px">
+          <h2 id="b4h" class="dz-label">危险区</h2>
+          <span class="spec-tag">IA·B4 危险区 · 红发丝线框=视觉一致 · 链接=唯一警示色（安静）</span>
+        </div>
+        <div class="dz-box">
+          <div class="set-row">
+            <div>
+              <div class="t" style="margin-bottom:3px">注销账号…</div>
+              <div class="d">注销后无法再登录，用户名永久封存；提交后有 15 天撤销期，到期自动执行；你设备上的作品不受影响。</div>
+            </div>
+            <button class="btn btn-outline-danger" id="openWizard">注销账号…</button>
           </div>
-          <button class="lnk lnk-danger" id="openWizard" style="font-size:13px; font-weight:500">注销账号…</button>
         </div>
-        <div class="set-row">
-          <div><div class="d">遇到问题？可通过客服邮箱联系我们：alexee_zhu@163.com</div></div>
-        </div>
-      </div>
+      </section>
+
+      <!-- B5 客服兜底页脚（R8 保险丝：全页兜底、不特指注销，修正 D4） -->
+      <footer style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:28px">
+        <a class="lnk lnk-danger" href="#" style="font-size:12.5px">遇到问题？联系客服 alexee_zhu@163.com</a>
+        <span class="spec-tag">IA·B5 页脚兜底 · R8</span>
+      </footer>
+
     </div>
   </section>
 
@@ -319,7 +340,7 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 
   <!-- ═══════════ 态三：向导 · 第 2 步 权益处置（存在未消耗套餐时） ═══════════
        spec: R2（存在待激活/排队中/消耗中权益时 MUST NOT 直接受理；二选一：去退款 / 显式勾选放弃；退款冻结与已回收不阻塞）
-       设计注记：「去退款」跳既有订单页退款流（待激活全额、消耗中按剩余秒数折算、原路退回、1~7 个工作日——全部既有规则，注销不新造资金规则）；
+       设计注记（2026-08-30 评审修订：支付未上线，退款出口暂走客服兜底 /support，订单页口径待支付 change 落地后恢复）：「去退款」跳既有订单页退款流（待激活全额、消耗中按剩余秒数折算、原路退回、1~7 个工作日——全部既有规则，注销不新造资金规则）；
        点击后离开向导，退款完成后重新进入向导、复验自动通过；「放弃」须显式勾选，注销执行时才作废，撤销期内撤销则权益保留 -->
   <section data-stage="assets" hidden>
     <div class="stage-narrow">
@@ -350,10 +371,10 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
           <p class="rule-note" style="margin:8px 0 2px">退款金额与折算以订单页预览为准；「退款冻结」「已回收」的权益不阻塞注销。</p>
 
           <div class="choice">
-            <div class="c-head"><b>去订单页退款</b><span class="rec">推荐 · 拿回剩余价值</span></div>
-            <div class="c-desc">逐笔在「我的订单」申请退款：未激活的全额退、消耗中的按剩余时长折算，原路退回微信，一般 <span class="num">1~7</span> 个工作日到账。退款不影响注销申请，<b>在途退款注销后照常到账</b>。</div>
-            <a class="btn btn-primary btn-sm" href="#">去订单页退款</a>
-            <div class="c-desc" style="margin:8px 0 0">点击后将离开本向导；退款完成后重新进入注销向导即可继续。</div>
+            <div class="c-head"><b>联系客服处理</b><span class="rec">推荐 · 拿回剩余价值</span></div>
+            <div class="c-desc">客服将按《退款政策》为你处理未消耗权益：未激活的全额退、消耗中的按剩余时长折算，原路退回微信，一般 <span class="num">1~7</span> 个工作日到账。退款不影响注销申请，<b>在途退款注销后照常到账</b>。</div>
+            <a class="btn btn-primary btn-sm" href="#">联系客服处理</a>
+            <div class="c-desc" style="margin:8px 0 0">客服邮箱见页脚；处理完成后重新进入注销向导即可继续。</div>
           </div>
 
           <div class="choice give-up">
@@ -394,6 +415,8 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
             <span>撤销期</span><b><span class="num">15</span> 天 · 至 <span class="num">2026-09-13</span></b>
             <span>到期自动执行</span><b><span class="num">2026-09-13</span>（未撤销时，无需再次确认）</b>
           </div>
+
+          <label class="chk" style="margin-top:12px"><input type="checkbox" id="exportChk">我已将小说文档<b>导出并自行妥善保存</b>（作品仅存于这台设备，注销后请自行保管好备份文件）。</label>
 
           <div class="notice warn" style="margin-top:8px">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l10 17H2L12 3z"/><path d="M12 10v4M12 17.5h.01"/></svg>
@@ -699,6 +722,13 @@ const assetsNext = document.getElementById("assetsNext");
 const syncAssetsNext = () => { assetsNext.disabled = !giveUpChk.checked; };
 giveUpChk.addEventListener("change", syncAssetsNext);
 syncAssetsNext();
+
+// 导出备份确认（2026-08-30 用户要求）：未勾选不可提交注销申请
+const exportChk = document.getElementById("exportChk");
+const pwdSubmit = document.getElementById("pwdSubmit");
+const syncExportChk = () => { pwdSubmit.disabled = !exportChk.checked; };
+exportChk.addEventListener("change", syncExportChk);
+syncExportChk();
 </script>
 </body>
 </html>

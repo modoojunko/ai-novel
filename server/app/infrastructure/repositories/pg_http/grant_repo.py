@@ -50,3 +50,7 @@ class PgHttpGrantRepo:
             {"pc_hash": pc_hash, "username": username},
             {"enrolled": 1 if enrolled else 0},
         )
+
+    def delete_all_for_user(self, username: str) -> int:
+        """注销执行：清空该用户全部设备授权。返回行数。"""
+        return self.client.delete(_TABLE, {"username": username})

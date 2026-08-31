@@ -21,6 +21,10 @@ class SqlUserRepo:
             security_answer_hash=row.security_answer_hash or "",
             created_at=row.created_at,
             theme=row.theme or "",
+            deletion_status=row.deletion_status or "正常",
+            deletion_requested_at=row.deletion_requested_at,
+            deletion_deadline=row.deletion_deadline,
+            deletion_waive_assets=bool(row.deletion_waive_assets),
         )
 
     def get(self, username: str) -> User | None:
@@ -59,3 +63,53 @@ class SqlUserRepo:
     def flush(self) -> None:
         """确保用户已持久化，后续试用码 FK 不失败。"""
         self.db.flush()
+
+    # ── 账号自助注销（account-deletion）：单语句 CAS，rowcount 即语义 ──
+    def request_deletion(self, username: str, requested_at, deadline, waive: bool) -> int:
+        result = self.db.query(UserORM).filter(
+            UserORM.username == username,
+            UserORM.deletion_status.in_(["正常", ""]),
+        ).update(
+            {
+                "deletion_status": "注销撤销期",
+                "deletion_requested_at": requested_at,
+                "deletion_deadline": deadline,
+                "deletion_waive_assets": bool(waive),
+            },
+            synchronize_session=False,
+        )
+        self.db.commit()
+        return result
+
+    def revoke_deletion(self, username: str, now) -> int:
+        result = self.db.query(UserORM).filter(
+            UserORM.username == username,
+            UserORM.deletion_status == "注销撤销期",
+            UserORM.deletion_deadline > now,
+        ).update(
+            {"deletion_status": "正常", "deletion_requested_at": None, "deletion_deadline": None,
+             "deletion_waive_assets": False},
+            synchronize_session=False,
+        )
+        self.db.commit()
+        return result
+
+    def mark_deleted(self, username: str, now) -> int:
+        """到期执行标记：CAS 到位后立刻清空凭据（去标识化第一步，防过期账号继续持有有效密码）。"""
+        result = self.db.query(UserORM).filter(
+            UserORM.username == username,
+            UserORM.deletion_status == "注销撤销期",
+            UserORM.deletion_deadline <= now,
+        ).update(
+            {"deletion_status": "已注销", "password_hash": ""},
+            synchronize_session=False,
+        )
+        self.db.commit()
+        return result
+
+    def find_due_deletion_usernames(self, now) -> list[str]:
+        rows = self.db.query(UserORM.username).filter(
+            UserORM.deletion_status == "注销撤销期",
+            UserORM.deletion_deadline <= now,
+        ).all()
+        return [r[0] for r in rows]

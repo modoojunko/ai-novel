@@ -4,7 +4,8 @@
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
+from urllib.parse import unquote
 
 import httpx
 import pytest
@@ -309,3 +310,68 @@ class TestPgHttpConfigRepo:
         repo = PgHttpConfigRepo(make_client(handler))
         assert repo.get("heartbeat_grace_days") == "90"
         assert repo.get("missing", "fallback") == "fallback"
+
+
+# ══════════════════════════════════════════════════════════════════
+# PostgREST 方言契约（account-deletion 评审 P2）：显式操作符不被二次加 eq.
+# ══════════════════════════════════════════════════════════════════
+
+class TestPostgrestDialectContract:
+    def test_find_explicit_in_filter_passthrough(self):
+        """in.() 操作符值原样透传——eq.in.(...) 是 400 语法错误（评审 P1 回归钉）。"""
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return _ok([{"code_id": "C1", "status": "unused"}])
+
+        client = make_client(handler)
+        rows = client.find(
+            "codes",
+            {"bound_username": "writer1", "status": "in.(unused,active)"},
+        )
+        assert len(rows) == 1
+        url = unquote(str(requests[0].url))
+        assert "status=in.(unused,active)" in url
+        assert "bound_username=eq.writer1" in url
+        assert "eq.in." not in url
+
+    def test_update_cas_sends_filters_prefer_and_body(self):
+        """update_cas：条件进 query、变更进 body（None → null）、Prefer 头携带。"""
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return _ok([{"username": "writer1", "deletion_status": "已注销"}])
+
+        client = make_client(handler)
+        now = datetime(2026, 9, 13, 12, 0, 0, tzinfo=UTC)
+        rows = client.update_cas(
+            "users",
+            {
+                "username": "eq.writer1",
+                "deletion_status": "eq.注销撤销期",
+                "deletion_deadline": f"lte.{now.isoformat()}",
+            },
+            {"deletion_status": "已注销", "password_hash": "", "deletion_deadline": None},
+        )
+        assert rows == 1
+        req = requests[0]
+        assert req.method == "PATCH"
+        assert "deletion_status=eq.注销撤销期" in unquote(str(req.url))
+        assert "deletion_deadline=lte." in unquote(str(req.url))
+        assert req.headers.get("Prefer") == "return=representation"
+        body = req.read().decode("utf-8")
+        assert '"deletion_status"' in body and '"password_hash"' in body
+
+    def test_plain_value_still_gets_eq_prefix(self):
+        """回归：纯值仍补 eq. 前缀（显式操作符分支不影响既有行为）。"""
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return _ok([{"username": "alice"}])
+
+        client = make_client(handler)
+        client.find("users", {"deletion_status": "正常"})
+        assert "deletion_status=eq.正常" in unquote(str(requests[0].url))

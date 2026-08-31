@@ -79,3 +79,11 @@ class SqlDeviceRepo:
             DeviceRegistryORM.user_id == user_id,
         ).delete()
         return result > 0
+
+    def delete_all_for_user(self, user_id: str) -> int:
+        """注销执行：清空该用户全部设备绑定。返回行数。"""
+        result = self.db.query(DeviceRegistryORM).filter(
+            DeviceRegistryORM.user_id == user_id,
+        ).delete(synchronize_session=False)
+        self.db.commit()
+        return result

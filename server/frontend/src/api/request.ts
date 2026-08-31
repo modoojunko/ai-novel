@@ -70,9 +70,11 @@ request.interceptors.response.use(
       if (data.code === 2) {
         handleUnauthorized()
       }
-      // 把后端 code 挂到 Error 上：调用方需区分业务失败（code 1）与网络错误
-      const err = new Error(data.msg || '请求失败') as Error & { code?: number }
+      // 把后端 code 挂到 Error 上：调用方需区分业务失败（code 1）与网络错误；
+      // data 一并携带（account-deletion 的 code 3/4 需要其中的权益清单/剩余天数）
+      const err = new Error(data.msg || '请求失败') as Error & { code?: number; data?: any }
       err.code = data.code
+      err.data = data.data
       return Promise.reject(err)
     }
 
