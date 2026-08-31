@@ -39,6 +39,12 @@ const routes = [
     ],
   },
   {
+    // 购买流程页——无控制台外壳，独立布局
+    path: '/pay',
+    name: 'pay-cashier',
+    component: () => import('@/views/pay/CashierPage.vue'),
+  },
+  {
     path: '/dashboard',
     component: () => import('@/layouts/DashboardLayout.vue'),
     meta: { requiresAuth: true },
@@ -52,6 +58,11 @@ const routes = [
         path: 'license',
         name: 'license',
         component: () => import('@/views/dashboard/LicensePage.vue'),
+      },
+      {
+        path: 'membership',
+        name: 'membership',
+        component: () => import('@/views/dashboard/MembershipPage.vue'),
       },
       {
         path: 'devices',
