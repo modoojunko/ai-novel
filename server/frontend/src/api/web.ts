@@ -51,6 +51,7 @@ export interface BlockedAsset {
   code_id: string
   tier: string
   status: string
+  duration_days: number
   expires_at: string
 }
 

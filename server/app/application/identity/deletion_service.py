@@ -42,6 +42,7 @@ def blocked_assets(code_repo: CodeRepo, username: str) -> list[dict]:
     """未消耗权益清单：unused（待激活）+ active（排队中/消耗中）都阻塞注销并向导展示（R2）。"""
     return [
         {"code_id": c.code_id, "tier": c.tier, "status": c.status,
+         "duration_days": c.duration_days,
          "expires_at": c.expires_at.isoformat() if c.expires_at else ""}
         for c in code_repo.find_unconsumed_by_username(username)
     ]

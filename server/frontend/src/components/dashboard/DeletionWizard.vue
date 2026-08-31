@@ -40,6 +40,27 @@ const submittedDeadline = ref('')
 const hasAssets = computed(() => assets.value.length > 0)
 const canSubmit = computed(() => exportConfirmed.value && !!password.value && !submitting.value)
 
+// 档位/状态的人话口径（与 session.tierDisplay、LicenseCard 同源约定）
+const TIER_NAMES: Record<string, string> = {
+  lifetime: "永久会员",
+  yearly: "年付会员",
+  quarterly: "季付会员",
+  monthly: "月付会员",
+  trial: "7 天免费试用",
+}
+const STATUS_NAMES: Record<string, string> = {
+  unused: "待激活（尚未开始计时）",
+  active: "生效中",
+}
+const tierName = (t: string) => TIER_NAMES[t] ?? t
+const statusName = (s: string) => STATUS_NAMES[s] ?? s
+const assetSummary = (a: BlockedAsset) => {
+  const parts = [statusName(a.status)]
+  if (a.duration_days) parts.push(`${a.duration_days} 天`)
+  if (a.expires_at) parts.push(`到期 ${a.expires_at.slice(0, 10)}`)
+  return parts.join(" · ")
+}
+
 function close() {
   emit('update:open', false)
 }
@@ -138,8 +159,10 @@ async function submit() {
       </p>
       <div class="asset-list">
         <div v-for="a in assets" :key="a.code_id" class="asset-row">
-          <span class="pill pill-status pill-warn">{{ a.tier }}</span>
-          <span class="num">{{ a.code_id }}</span>
+          <span class="pill pill-status pill-warn">{{ tierName(a.tier) }}</span>
+          <span class="asset-meta">
+            {{ statusName(a.status) }}<template v-if="a.duration_days"> · {{ a.duration_days }} 天</template><template v-if="a.expires_at"> · 到期 <span class="num">{{ a.expires_at.slice(0, 10) }}</span></template>
+          </span>
         </div>
       </div>
 
