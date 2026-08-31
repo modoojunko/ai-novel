@@ -12,8 +12,6 @@ DELETION_STATUS_DELETED = "已注销"
 
 DELETION_PERIOD_DAYS = 15
 
-_ANON_PREFIX = "deleted-"  # 预留：对外展示已注销身份时的统一前缀（username 本身因 FK 不改名，见 design D5'）
-
 
 def utcnow_naive() -> datetime:
     """naive UTC。库内 datetime 统一按 naive UTC 比较（sqlite CURRENT_TIMESTAMP 与 PG now() 落库均归一）。"""

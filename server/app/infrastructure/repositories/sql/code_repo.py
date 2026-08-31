@@ -88,3 +88,15 @@ class SqlCodeRepo:
         ).update({"status": "revoked"}, synchronize_session=False)
         self.db.commit()
         return result
+
+    def find_unconsumed_by_username(self, username: str) -> list[ActivationCode]:
+        rows = (
+            self.db.query(ActivationCodeORM)
+            .filter(
+                ActivationCodeORM.bound_username == username,
+                ActivationCodeORM.status.in_(["unused", "active"]),
+            )
+            .order_by(ActivationCodeORM.activated_at.desc())
+            .all()
+        )
+        return [self._to_domain(r) for r in rows]

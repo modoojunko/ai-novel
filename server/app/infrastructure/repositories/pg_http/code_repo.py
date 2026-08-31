@@ -78,3 +78,11 @@ class PgHttpCodeRepo:
             {"bound_username": f"eq.{username}", "status": "in.(unused,active)"},
             {"status": "revoked"},
         )
+
+    def find_unconsumed_by_username(self, username: str) -> list[ActivationCode]:
+        docs = self.client.find(
+            _TABLE,
+            {"bound_username": username, "status": "in.(unused,active)"},
+            sort=[("activated_at", "desc")],
+        )
+        return [self._to_domain(d) for d in docs]

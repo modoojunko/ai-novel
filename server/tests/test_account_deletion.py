@@ -13,6 +13,7 @@ from app.domain.identity.deletion import (
     deadline_from,
     utcnow_naive,
 )
+from app.models.grant import DeviceGrantORM
 from app.models.user import UserORM
 from tests.conftest import WEB_PASSWORD
 
@@ -33,6 +34,21 @@ def _request_deletion(client, tok, password=WEB_PASSWORD, waive=True):
 
 def _parse_deadline(iso: str) -> datetime:
     return datetime.fromisoformat(iso)
+
+
+def _seed_grant(db_session, username: str, pc_hash: str) -> None:
+    """播种设备授权（check-auth 按 pc_hash 解析用户）。"""
+    db_session.add(
+        DeviceGrantORM(pc_hash=pc_hash, username=username, token="tok", enrolled=1, fingerprint="fp")
+    )
+    db_session.commit()
+
+
+def _backdate_deadline(db_session, username: str, past: datetime) -> None:
+    db_session.query(UserORM).filter(UserORM.username == username).update(
+        {"deletion_deadline": past}
+    )
+    db_session.commit()
 
 
 def _request_and_expire(client, web_user) -> datetime:
@@ -277,3 +293,60 @@ class TestAdminScan:
     def test_scan_endpoint_ok(self, client, admin_token):
         r = client.post("/api/admin/deletion-scan", json={"admin_token": admin_token})
         assert r.json()["code"] == 0
+
+
+class TestUnusedAssetBlocking:
+    def test_unused_bound_code_blocks_and_lists(self, client, web_user, db_session):
+        """待激活（unused）绑定码：阻塞受理并列入清单（R2，评审 P1）。"""
+        from app.models.code import ActivationCodeORM
+
+        db_session.add(
+            ActivationCodeORM(
+                code_id="UNUSED-1", tier="yearly", duration_days=365,
+                status="unused", bound_username=web_user["username"], created_by="system",
+            )
+        )
+        db_session.commit()
+
+        r = _request_deletion(client, web_user["token"], waive=False)
+        body = r.json()
+        assert body["code"] == 3
+        assert any(a["code_id"] == "UNUSED-1" for a in body["data"]["blocked_assets"])
+
+        st = client.get("/api/user/deletion-status", headers=AUTH(web_user["token"])).json()
+        assert st["data"]["pending"] is False
+
+        r2 = _request_deletion(client, web_user["token"], waive=True)
+        assert r2.json()["code"] == 0
+
+
+class TestCheckAuthGate:
+    """check-auth 注销门禁（C端 唯一状态信号源，评审补测）。"""
+
+    def test_pending_returns_structured_state(self, client, web_user, db_session):
+        _request_deletion(client, web_user["token"], waive=True)
+        _seed_grant(db_session, web_user["username"], "pc-pending")
+
+        r = client.get("/api/check-auth", params={"pc_hash": "pc-pending"})
+        body = r.json()
+        assert body["code"] == 2
+        assert body["data"]["deletion_pending"] is True
+        assert body["data"]["days_left"] >= 1
+
+    def test_expired_check_auth_executes_and_rejects(self, client, web_user, db_session):
+        _request_deletion(client, web_user["token"], waive=True)
+        _seed_grant(db_session, web_user["username"], "pc-expired")
+        _backdate_deadline(db_session, web_user["username"], utcnow_naive() - timedelta(seconds=1))
+
+        r2 = client.get("/api/check-auth", params={"pc_hash": "pc-expired"})
+        body = r2.json()
+        assert body["code"] == 1 and "已注销" in body["msg"]
+        assert body["data"]["deleted"] is True
+
+    def test_unknown_pc_hash_untouched(self, client, web_user, db_session):
+        _request_deletion(client, web_user["token"], waive=True)
+        _seed_grant(db_session, web_user["username"], "pc-known")
+        # 未知 pc_hash：维持「等待授权」原语义，不泄漏注销状态
+        r = client.get("/api/check-auth", params={"pc_hash": "pc-unknown"})
+        assert r.json()["code"] == 1
+
