@@ -7,6 +7,11 @@ on:
       - "server/**"
       - ".github/workflows/s-server-deploy.yml"
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "checkout 的分支/tag/commit（默认 main；可用于部署 feature 分支）"
+        required: false
+        default: "main"
 
 permissions:
   contents: read
@@ -24,6 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || 'main' }}
 
       - uses: actions/setup-node@v4
         with:
