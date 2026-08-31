@@ -1,16 +1,18 @@
 <script setup lang="ts">
 /**
  * 收银台——购买流程页（无控制台外壳）。
- * 选套餐 → 协议弹窗 → 扫码支付 → 八态分支。
+ * 选套餐、协议弹窗、扫码支付、八态分支。
  * 设计事实源：docs/design-s/prototypes/cashier.html（选型 A）
  */
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   apiPaySkus, apiPayCreateOrder, apiPayQueryOrder, apiPayCancelOrder,
-  fenToYuan, fenToYuanShort,
+  fenToYuan, fenToYuanShort, periodLabel,
   type SkusView, type SkuItem, type CreateOrderResult,
 } from '@/api/pay'
+import Ico from '@/components/ui/Ico.vue'
+import { P } from '@/components/ui/icons'
 
 const router = useRouter()
 
@@ -71,14 +73,14 @@ async function confirmPay() {
     payState.value = 'waiting'
     startPolling()
     startCountdown(order.value.ttl_seconds)
-  } catch (e: any) {
-    if (e?.code === 4012) {
-      // 未登录 → 登录卡
-      payState.value = 'pick'
-      return
+    } catch (e: any) {
+      if (e?.code === 4012) {
+        // 开关未开放
+        payState.value = 'pick'
+        return
+      }
+      payState.value = 'failCreate'
     }
-    payState.value = 'failCreate'
-  }
 }
 
 function startPolling() {
@@ -87,7 +89,7 @@ function startPolling() {
   pollTimer = setInterval(async () => {
     if (!order.value) return
     count++
-    // 3s×20 → 5s×60 → 10s 循环
+    // 3s 起步，20 轮后 5s，80 轮后 10s
     const interval = count <= 20 ? 3000 : count <= 80 ? 5000 : 10000
     if (pollTimer) clearInterval(pollTimer)
     pollTimer = setInterval(() => pollTick(), interval)
@@ -242,7 +244,7 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
           @click="selectSku(sku)"
         >
           <span v-if="sku.sku_key === skusData.popular_sku" class="pill pill-accent pay-card-badge">最受欢迎</span>
-          <div class="pay-card-name">{{ { monthly: '包月', quarterly: '包季', yearly: '包年' }[sku.period] }}</div>
+          <div class="pay-card-name">{{ periodLabel(sku.period) }}</div>
           <div class="pay-card-days">{{ sku.period_days }} 天 · {{ sku.device_limit }} 台设备</div>
           <div class="pay-card-price">
             {{ fenToYuanShort(sku.price_fen) }}<small>元</small>
@@ -261,7 +263,7 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
         <div class="pay-purchase-info">
           <div class="pay-purchase-label">已选</div>
           <div class="pay-purchase-name">
-            {{ { monthly: '包月', quarterly: '包季', yearly: '包年' }[selectedSku.period] }}（{{ selectedSku.period_days }} 天）
+            {{ periodLabel(selectedSku.period) }}（{{ selectedSku.period_days }} 天）
           </div>
         </div>
         <div class="pay-purchase-price">
@@ -314,7 +316,7 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
     <template v-else-if="payState === 'success'">
       <h1 class="pay-h1">支付成功</h1>
       <div class="pay-card pay-success-card">
-        <div class="pay-success-mark">✓</div>
+        <div class="pay-success-mark"><Ico :d="P.check" :size="26" /></div>
         <div class="pay-success-title">已到货，待激活</div>
         <div class="pay-success-hint">点「立即激活」马上开始计时；先存着也随时可在「我的套餐」激活</div>
         <div class="pay-success-actions">
@@ -359,7 +361,7 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
               <li>一次性买断时长，<b>到期不自动扣款</b></li>
               <li>套餐支付成功即到货，<b>点激活才开始计时</b>；未激活可全额退</li>
               <li>退款<b>按剩余时长计算、原路退回</b>，不影响其他套餐</li>
-              <li>本单：<b>{{ selectedSku ? `${{ monthly: '包月', quarterly: '包季', yearly: '包年' }[selectedSku.period]}（${selectedSku.period_days} 天）· ${selectedPrice}` : '' }}</b></li>
+              <li>本单：<b>{{ selectedSku ? `${periodLabel(selectedSku.period)}（${selectedSku.period_days} 天）· ${selectedPrice}` : '' }}</b></li>
             </ul>
             <label class="pay-agree">
               <input v-model="termsRead" type="checkbox" />

@@ -81,9 +81,9 @@ const membershipStatusPill = computed(() => {
 })
 
 const todayText = computed(() => {
+  const weeks = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
   const d = new Date()
-  const weeks = ['日', '一', '二', '三', '四', '五', '六']
-  return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日 · 星期${weeks[d.getDay()]}`
+  return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日 · ${weeks.at(d.getDay())}`
 })
 </script>
 

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 /**
- * 申请退款——preview → confirm 弹窗 → processing / refunded；含两拒绝态。
+ * 申请退款——preview、confirm 弹窗、processing/refunded 三段 + 两拒绝态。
  * 设计事实源：docs/design-s/prototypes/refund.html
  * 冻结式口径：确认即冻结停止使用；界面不允许出现「处理期间继续使用/失败已恢复」类文案。
  */
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import Ico from '@/components/ui/Ico.vue'
+import { P } from '@/components/ui/icons'
 import {
   apiPayOrderDetail, apiPayRefundPreview, apiPayRequestRefund,
   fenToYuan, fmtBj, orderTitle, periodDaysLabel,
@@ -76,7 +78,7 @@ async function doConfirm() {
           <span class="pill-status pill-warn">退款中</span>
         </div>
         <div class="panel center">
-          <div class="done-mark warn">◔</div>
+          <div class="done-mark warn"><Ico :d="P.spinner" :size="34" /></div>
           <div class="serif">已受理，正在退回 {{ fenToYuan(refundFen) }}</div>
           <p>原路退回您的微信，一般数分钟至 3 个工作日到账；当天支付当天退，可能稍晚，款项不会丢失。</p>
           <div class="kv inline">
@@ -94,7 +96,7 @@ async function doConfirm() {
           <span class="pill-status pill-tag">已退款</span>
         </div>
         <div class="panel center">
-          <div class="done-mark ok">✓</div>
+          <div class="done-mark ok"><Ico :d="P.check" :size="34" /></div>
           <div class="serif">{{ fenToYuan(refundFen) }} 已原路退回</div>
           <p>{{ fmtBj(order.refunded_at || '') }} 退回微信 · 对应套餐时长已收回</p>
           <div class="kv inline">
@@ -221,14 +223,14 @@ hr { border: none; border-top: 1px dashed var(--border); margin: 16px 0; }
 .notice.warn { background: color-mix(in oklch, orange 12%, var(--surface)); }
 .notice.info { background: color-mix(in oklch, var(--accent, var(--fg)) 7%, var(--surface)); }
 .notice.tail { margin-top: 14px; text-align: center; }
-.done-mark { font-size: 40px; line-height: 1; margin-bottom: 12px; }
-.done-mark.ok { color: var(--ok, #1a7f37); }
-.done-mark.warn { color: var(--warn, #b45309); }
+.done-mark { display: grid; place-items: center; width: 54px; height: 54px; border-radius: 50%; margin: 0 auto 12px; }
+.done-mark.ok { color: var(--ok); background: var(--ok-soft); }
+.done-mark.warn { color: var(--warn); background: var(--warn-soft); }
 .serif { font-family: var(--font-display); font-size: 20px; font-weight: 600; }
 .panel.center p { font-size: 13px; color: var(--muted); margin: 10px 0 0; }
 .panel.center .btn { margin-top: 20px; }
 /* 弹窗 */
-.scrim { position: fixed; inset: 0; background: #0006; display: flex; align-items: center; justify-content: center; z-index: 60; }
+.scrim { position: fixed; inset: 0; background: color-mix(in oklch, var(--fg) 42%, transparent); display: flex; align-items: center; justify-content: center; z-index: 60; }
 .modal { background: var(--surface); border-radius: var(--radius-lg); padding: 22px 24px; width: min(420px, calc(100vw - 48px)); }
 .m-title { font-family: var(--font-display); font-weight: 600; font-size: 16px; margin-bottom: 14px; }
 .m-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
