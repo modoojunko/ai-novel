@@ -1,38 +1,25 @@
 """领域层测试：状态机转移穷举 + 折算验证向量 + 定价 + tier 归属 + merge。"""
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from app.domain.licensing.license import License
 from app.domain.payments.order import (
-    ALL_STATUSES,
-    CLOSED,
-    EXCEPTION,
-    FULFILLED,
-    PAID,
-    PENDING,
-    REFUND_PENDING,
-    REFUND_PROCESSING,
-    REFUNDED,
-    InvalidTransition,
-    can_transition,
-    next_status,
+    ALL_STATUSES, CLOSED, EXCEPTION, FULFILLED, PAID, PENDING,
+    REFUNDED, REFUND_PENDING, REFUND_PROCESSING,
+    InvalidTransition, can_transition, next_status,
 )
 from app.domain.payments.pricing import (
-    calc_price_fen,
-    gen_order_no,
-    normalize_tier,
-    resolve_effective_tier,
+    calc_price_fen, gen_order_no, normalize_tier, resolve_effective_tier,
 )
 from app.domain.payments.refund import (
-    REASON_BELOW_ONE_FEN,
-    REASON_OVER_ONE_YEAR,
+    REASON_BELOW_ONE_FEN, REASON_OVER_ONE_YEAR,
     calc_refund_fen,
 )
+from app.domain.licensing.license import License
 
-UTC = UTC
+UTC = timezone.utc
 
 
 # ═══ 状态机转移穷举 ═══

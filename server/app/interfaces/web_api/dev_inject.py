@@ -7,8 +7,6 @@ mock 的语义保证：显式设 wxpay/alipay 即下线全部 dev 端点。
 """
 from __future__ import annotations
 
-from datetime import UTC
-
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
@@ -57,17 +55,12 @@ if _MOCK_MODE:  # mock 模式才定义端点（真实网关下 r 为空 router�
             return {"code": 500, "msg": "gateway not initialized"}
         gw.simulate_paid(req.order_no, req.transaction_id, req.payer_openid)
         # 触发发货
+        from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
         from app.application.payments.fulfill_payment import fulfill_payment
-        from app.infrastructure.repositories.payments_repo import (
-            OrderRepo,
-            TradeEventRepo,
-        )
         order = OrderRepo(db).find_by_order_no(req.order_no)
         if not order:
             return {"code": 404, "msg": "order not found"}
-        from app.infrastructure.repositories.factory import (
-            code_repo as _code_repo_factory,
-        )
+        from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
         result = fulfill_payment(
             OrderRepo(db), TradeEventRepo(db), order,
             transaction_id=req.transaction_id or f"mock_tx_{req.order_no}",
@@ -81,11 +74,8 @@ if _MOCK_MODE:  # mock 模式才定义端点（真实网关下 r 为空 router�
         """D2：模拟金额不符（订单进 exception）。"""
         if not _check_admin(request):
             return {"code": 401, "msg": "unauthorized"}
+        from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
         from app.domain.payments.order import Transition
-        from app.infrastructure.repositories.payments_repo import (
-            OrderRepo,
-            TradeEventRepo,
-        )
         t = Transition("pending", "amount_mismatch", "exception", "", "金额不符")
         result = OrderRepo(db).compare_and_transition(req.order_no, t)
         TradeEventRepo(db).append({
@@ -107,10 +97,7 @@ if _MOCK_MODE:  # mock 模式才定义端点（真实网关下 r 为空 router�
         if req.status == "SUCCESS":
             gw.simulate_refund_success(req.order_no)
         from app.application.payments.refund_flow import complete_refund
-        from app.infrastructure.repositories.payments_repo import (
-            OrderRepo,
-            TradeEventRepo,
-        )
+        from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
         if req.status == "SUCCESS":
             result = complete_refund(OrderRepo(db), TradeEventRepo(db), req.order_no)
             return {"code": 0, "data": result}
@@ -133,7 +120,7 @@ if _MOCK_MODE:  # mock 模式才定义端点（真实网关下 r 为空 router�
         """D6：手动触发补偿扫描（R1-R4 等价，演练期专用；正式触发器见 pay-cron 云函数）。"""
         if not _check_admin(request):
             return {"code": 401, "msg": "unauthorized"}
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         from app.application.payments.reconcile import daily_reconcile
         from app.application.payments.refund_flow import cooldown_submit
@@ -156,7 +143,7 @@ if _MOCK_MODE:  # mock 模式才定义端点（真实网关下 r 为空 router�
         closed = scan_timeout_close(order_repo, event_repo, gateway)
         cooldown = [
             cooldown_submit(order_repo, event_repo, gateway, o)
-            for o in order_repo.find_cooldown_expired(datetime.now(UTC))
+            for o in order_repo.find_cooldown_expired(datetime.now(timezone.utc))
         ]
         repaired = scan_paid_unfulfilled(order_repo, event_repo)
         refund_actions = scan_refund_followup(order_repo, event_repo, gateway, notify=notify)

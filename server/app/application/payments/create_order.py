@@ -5,21 +5,14 @@
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.domain.payments.pricing import (
-    AgreementStaleError,
-    PurchaseDisabledError,
-    SkuNotFoundError,
-    calc_price_fen,
-    gen_order_no,
+    AgreementStaleError, PurchaseDisabledError, SkuNotFoundError,
+    calc_price_fen, gen_order_no,
 )
 from app.infrastructure.payments.gateway import PaymentGateway, PaymentResult
-from app.infrastructure.repositories.payments_repo import (
-    OrderRepo,
-    SkuRepo,
-    TradeEventRepo,
-)
+from app.infrastructure.repositories.payments_repo import OrderRepo, SkuRepo, TradeEventRepo
 
 ORDER_TTL_SECONDS = 900  # 15 分钟
 AGREEMENT_VERSION = "v2026.08"
@@ -43,7 +36,7 @@ def create_order(
     Returns:
         {order_no, amount_fen, code_url, status, expires_at, ttl_seconds}
     """
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
 
     # ── 三态开关校验 ──
     if purchase_enabled == "off":

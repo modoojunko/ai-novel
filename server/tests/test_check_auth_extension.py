@@ -13,6 +13,7 @@ from app.models.base import SessionLocal
 from app.models.code import ActivationCodeORM
 from app.models.payments import OrderORM
 from app.models.user import UserORM
+
 from tests.test_device_activation import seed_grant_row, seed_raw_user
 
 

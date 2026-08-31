@@ -4,7 +4,8 @@
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -18,7 +19,7 @@ def _dt(value) -> datetime:
     else:
         dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=UTC)
+        dt = dt.replace(tzinfo=timezone.utc)
     return dt
 
 
@@ -71,9 +72,8 @@ class OrderRepo:
     def find_pending_expirable(self, cutoff: datetime) -> list[dict]:
         """扫描 pending 且超时的订单（T1 关单）。"""
         if isinstance(self._db, Session):
-            from sqlalchemy import and_
-
             from app.models.payments import OrderORM
+            from sqlalchemy import and_
             orms = self._db.query(OrderORM).filter(
                 and_(OrderORM.status == "pending", OrderORM.created_at < cutoff)
             ).all()
@@ -93,9 +93,8 @@ class OrderRepo:
     def find_paid_between(self, start: datetime, end: datetime) -> list[dict]:
         """对账内部账：paid_at 落在 [start, end) 且非 exception 的订单。"""
         if isinstance(self._db, Session):
-            from sqlalchemy import and_
-
             from app.models.payments import OrderORM
+            from sqlalchemy import and_
             orms = self._db.query(OrderORM).filter(
                 and_(
                     OrderORM.paid_at >= start,
@@ -116,9 +115,8 @@ class OrderRepo:
     def find_refund_succeeded_between(self, start: datetime, end: datetime) -> list[dict]:
         """对账内部退款账：refunded_at 落在 [start, end) 且退款成功的订单。"""
         if isinstance(self._db, Session):
-            from sqlalchemy import and_
-
             from app.models.payments import OrderORM
+            from sqlalchemy import and_
             orms = self._db.query(OrderORM).filter(
                 and_(
                     OrderORM.refund_status == "succeeded",
@@ -160,9 +158,8 @@ class OrderRepo:
     def find_cooldown_expired(self, now: datetime) -> list[dict]:
         """扫描冷静期到期的订单（§4.9b 到点提交）。"""
         if isinstance(self._db, Session):
-            from sqlalchemy import and_
-
             from app.models.payments import OrderORM
+            from sqlalchemy import and_
             orms = self._db.query(OrderORM).filter(
                 and_(
                     OrderORM.status == "refund_pending",
@@ -176,9 +173,8 @@ class OrderRepo:
     def attention_flags(self, user_id: int) -> dict:
         """check-auth 账号动态（设计 A4）：退款进行中（含冷静期）/ 有冻结待核对订单。"""
         if isinstance(self._db, Session):
-            from sqlalchemy import and_, or_
-
             from app.models.payments import OrderORM
+            from sqlalchemy import and_, or_
             refund_active = self._db.query(OrderORM.id).filter(
                 and_(
                     OrderORM.user_id == user_id,
@@ -225,9 +221,8 @@ class OrderRepo:
         """
         changes = {"status": transition.to_status, **(extra_changes or {})}
         if isinstance(self._db, Session):
-            from sqlalchemy import and_
-
             from app.models.payments import OrderORM
+            from sqlalchemy import and_, or_
             # 解析 CAS WHERE（"status IN ('pending','closed')" 或 "status = 'pending'"）
             conditions = [OrderORM.order_no == order_no]
             if "IN" in transition.cas_where:
@@ -319,7 +314,7 @@ class SkuRepo:
             rows = (
                 self._db.query(SkuORM, TierORM)
                 .join(TierORM, SkuORM.tier_id == TierORM.id)
-                .filter(SkuORM.on_sale == True, TierORM.status == "live")
+                .filter(SkuORM.on_sale == True, TierORM.status == "live")  # noqa: E712
                 .order_by(SkuORM.sort)
                 .all()
             )
@@ -390,7 +385,6 @@ class ReconciliationReportRepo:
     def find_by_date(self, bill_date: str) -> dict | None:
         if isinstance(self._db, Session):
             from datetime import date
-
             from app.models.payments import ReconciliationReportORM
             orm = self._db.query(ReconciliationReportORM).filter_by(
                 bill_date=date.fromisoformat(bill_date)).first()

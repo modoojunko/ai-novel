@@ -2,6 +2,8 @@ from fastapi import APIRouter
 
 router = APIRouter(tags=["web"])
 
+import app.interfaces.web_api.account  # 副作用注册路由
+import app.interfaces.web_api.devices
 
 # payments + dev_inject + cron 是独立子路由，需 include
 from app.interfaces.web_api.cron import r as cron_router

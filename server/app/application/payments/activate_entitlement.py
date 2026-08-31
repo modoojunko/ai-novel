@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import datetime, date, timedelta, timezone
 
 from app.domain.payments.pricing import NotActivatableError
 from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
@@ -21,7 +21,8 @@ def calc_grant_start(active_codes: list, today: date | None = None) -> date:
             exp_date = exp.date() if isinstance(exp, datetime) else exp
             if isinstance(exp_date, datetime):  # 兜底：带时区等异形
                 exp_date = exp_date.date()
-            max_exp = max(max_exp, exp_date)
+            if exp_date > max_exp:
+                max_exp = exp_date
     return max_exp
 
 
@@ -37,7 +38,7 @@ def activate_entitlement(
     Returns:
         {code_id, grant_start, expires_at, tier}
     """
-    now = datetime.now(UTC).replace(tzinfo=None)  # naive UTC（表列口径）
+    now = datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC（表列口径）
     order = order_repo.find_by_order_no(order_no)
     if not order:
         return {"error": "order_not_found"}

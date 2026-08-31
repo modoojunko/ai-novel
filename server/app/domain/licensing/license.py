@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime
 
+
 # codes 行状态：待激活/排队中/消耗中/退款冻结/已回收
 # merge 只看"已激活族"（active/queued），跳过 revoked/frozen/pending_activation
 _ACTIVE_STATUSES = {"active", "queued", "consuming"}

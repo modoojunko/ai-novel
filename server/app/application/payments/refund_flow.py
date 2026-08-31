@@ -5,19 +5,14 @@
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timedelta, timezone
 
 from app.domain.payments.order import Transition
 from app.domain.payments.pricing import (
-    RefundAlreadyActiveError,
-    calc_cooldown_ends_at,
+    COOLDOWN_SECONDS, RefundAlreadyActiveError, calc_cooldown_ends_at,
 )
 from app.domain.payments.refund import calc_refund_fen
-from app.infrastructure.payments.gateway import (
-    PaymentGateway,
-    RefundGatewayResult,
-    RefundStatus,
-)
+from app.infrastructure.payments.gateway import PaymentGateway, RefundGatewayResult, RefundStatus
 from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
 
@@ -29,7 +24,7 @@ def _naive(value) -> datetime | None:
         value = datetime.fromisoformat(value.replace("Z", "+00:00"))
     if isinstance(value, datetime):
         if value.tzinfo is not None:
-            value = value.astimezone(UTC).replace(tzinfo=None)
+            value = value.astimezone(timezone.utc).replace(tzinfo=None)
         return value
     return None
 

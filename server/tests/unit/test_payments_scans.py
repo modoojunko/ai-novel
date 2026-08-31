@@ -1,7 +1,7 @@
 """扫描族 + 对账 + 计税测试：T3 跟进（重试/异常/半截恢复）+ T4 三键比对 + 月度报表。"""
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
@@ -10,11 +10,7 @@ from app.application.payments.scan_orders import scan_refund_followup
 from app.application.payments.tax_report import monthly_tax_report
 from app.infrastructure.gateway_stub import FakeGateway
 from app.infrastructure.notify import LoggingNotifyService
-from app.infrastructure.payments.gateway import (
-    BillLine,
-    MockPaymentGateway,
-    RefundStatus,
-)
+from app.infrastructure.payments.gateway import BillLine, MockPaymentGateway, RefundStatus
 from app.infrastructure.repositories.payments_repo import (
     OrderRepo,
     ReconciliationReportRepo,
@@ -24,7 +20,7 @@ from app.models.base import SessionLocal
 from app.models.payments import OrderORM, ReconciliationReportORM
 from app.models.user import UserORM
 
-UTC = UTC
+UTC = timezone.utc
 
 
 @pytest.fixture(scope="module", autouse=True)

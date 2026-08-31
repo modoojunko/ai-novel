@@ -5,9 +5,10 @@
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
-from app.domain.payments.order import Transition
+from app.domain.payments.order import Transition, can_transition
 from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
 
@@ -30,7 +31,7 @@ def fulfill_payment(
     Returns:
         更新后的订单 dict。
     """
-    now = paid_at or datetime.now(UTC)
+    now = paid_at or datetime.now(timezone.utc)
     order_no = order["order_no"]
 
     # ── 步骤 1：CAS 确认支付 ──

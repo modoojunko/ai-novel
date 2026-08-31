@@ -6,15 +6,8 @@ orders 含退款列族（退款=订单流程环节，无独立 refunds 表）。
 from __future__ import annotations
 
 from sqlalchemy import (
-    JSON,
-    Boolean,
-    Column,
-    Date,
-    DateTime,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
+    Boolean, Column, Date, DateTime, ForeignKey,
+    Index, Integer, JSON, String, Text,
 )
 
 from app.models.base import Base

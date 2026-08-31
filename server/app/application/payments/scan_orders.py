@@ -5,11 +5,9 @@
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from app.application.payments.fulfill_payment import fulfill_payment
-from app.application.payments.refund_flow import complete_refund
 from app.domain.payments.order import Transition
 from app.infrastructure.payments.gateway import (
     PaymentGateway,
@@ -17,6 +15,9 @@ from app.infrastructure.payments.gateway import (
     RefundStatus,
 )
 from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
+
+from app.application.payments.fulfill_payment import fulfill_payment
+from app.application.payments.refund_flow import complete_refund
 
 
 def scan_timeout_close(
@@ -27,7 +28,7 @@ def scan_timeout_close(
     ttl_seconds: int = 900,
 ) -> list[dict]:
     """T1：扫描超时 pending 单 → 先查单（关单铁律）→ 关单或补发货。"""
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     cutoff = now - timedelta(seconds=ttl_seconds)
     pending_orders = order_repo.find_pending_expirable(cutoff)
     results = []
@@ -106,7 +107,7 @@ def scan_refund_followup(
 
     全部幂等：扫描重放安全（complete_refund 全量可重入）。
     """
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     results: list[dict] = []
 
     # ── processing 订单：查退款结果 / NOT_ENOUGH 重试 ──
@@ -145,7 +146,7 @@ def scan_refund_followup(
         elif query.status == RefundStatus.ABNORMAL:
             # 人工处置通道：告警但不改状态（绝不自动重提）
             _notify(notify, f"退款异常 {order_no}",
-                    "微信退款单状态 ABNORMAL，需人工核实处置。")
+                    f"微信退款单状态 ABNORMAL，需人工核实处置。")
             event_repo.append({
                 "event_key": f"refund:{order_no}:abnormal_notified:{int(now.timestamp())}",
                 "event_type": "refund.abnormal",

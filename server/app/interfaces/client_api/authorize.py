@@ -187,7 +187,8 @@ async def api_check_auth(pc_hash: str = "", db: Db = Depends(get_db)):
                     today0_bj = datetime.now(bj_tz).replace(
                         hour=0, minute=0, second=0, microsecond=0)
                     days = (expires_bj - today0_bj).days
-                    days = max(days, 0)
+                    if days < 0:
+                        days = 0
                     data["days_remaining"] = days
 
             # attention：账号动态（退款进行中含冷静期 / 冻结待核对）
