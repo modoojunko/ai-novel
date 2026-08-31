@@ -53,6 +53,7 @@ export interface OrderDetail {
   amount_fen: number
   created_at: string
   paid_at: string
+  refunded_at?: string
   agreement?: { version: string; agreed_at: string }
   wx_transaction_id?: string
   remaining_pay_seconds?: number | null
@@ -62,7 +63,7 @@ export interface OrderDetail {
     cooldown_remaining_seconds?: number | null
     wx_refund_id?: string
   } | null
-  sku_snapshot?: Record<string, unknown>
+  snapshot?: Record<string, unknown>
 }
 
 export interface RefundPreview {
@@ -95,6 +96,23 @@ export interface ActivateResult {
   tier: string
 }
 
+export interface OrderListItem {
+  order_no: string
+  status: string
+  amount_fen: number
+  snapshot: Record<string, unknown>
+  created_at: string
+  paid_at: string
+  refunded_at: string
+  refund_amount_fen?: number | null
+  remaining_pay_seconds?: number | null
+}
+
+export interface OrderListResult {
+  items: OrderListItem[]
+  total: number
+}
+
 // ── API 调用 ──
 
 export async function apiPaySkus(): Promise<SkusView> {
@@ -113,6 +131,13 @@ export async function apiPayCreateOrder(skuKey: string, agreementVersion: string
 export async function apiPayPendingOrder(): Promise<{ order_no: string; amount_fen: number } | null> {
   const r = await request.get<ApiResponse<{ order_no: string; amount_fen: number } | null>>('/pay/orders/pending')
   return r.data.data ?? null
+}
+
+export async function apiPayOrders(page = 1, pageSize = 50): Promise<OrderListResult> {
+  const r = await request.get<ApiResponse<OrderListResult>>('/pay/orders', {
+    params: { page, page_size: pageSize },
+  })
+  return r.data.data!
 }
 
 export async function apiPayOrderDetail(orderNo: string): Promise<OrderDetail> {
@@ -191,4 +216,57 @@ export function statusLabel(status: string): string {
     exception: '核对中',
   }
   return map[status] || status
+}
+
+/** 后端时间字符串 → 北京时间展示（sqlite 存 naive UTC，补 Z 再转；已是 iso 带时区则原样） */
+export function fmtBj(iso: string, withTime = true): string {
+  if (!iso) return '—'
+  let s = iso
+  if (!/[Zz]|[+-]\d{2}:?\d{2}$/.test(s)) s += 'Z'
+  const d = new Date(s)
+  if (Number.isNaN(d.getTime())) return '—'
+  const opts: Intl.DateTimeFormatOptions = {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    ...(withTime ? { hour: '2-digit', minute: '2-digit', hour12: false } : {}),
+  }
+  const parts = new Intl.DateTimeFormat('zh-CN', opts).formatToParts(d)
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? ''
+  const date = `${get('year')}-${get('month')}-${get('day')}`
+  return withTime ? `${date} ${get('hour')}:${get('minute')}` : date
+}
+
+/** 微信单号脱敏：4200****7721 */
+export function maskWxNo(no: string): string {
+  if (!no) return ''
+  if (no.length <= 8) return no
+  return `${no.slice(0, 4)}****${no.slice(-4)}`
+}
+
+const PERIOD_LABEL: Record<string, string> = { monthly: '包月', quarterly: '包季', yearly: '包年' }
+
+export function periodLabel(period: string): string {
+  return PERIOD_LABEL[period] || period
+}
+
+/** 快照 → 订单标题（PRO · 包季） */
+export function orderTitle(snapshot: Record<string, unknown> | undefined | null): string {
+  if (!snapshot) return '套餐订单'
+  const tier = (snapshot.tier_display as string) || 'PRO'
+  const period = periodLabel((snapshot.period as string) || '')
+  return period ? `${tier} · ${period}` : tier
+}
+
+/** 快照 → 时长标签（90 天） */
+export function periodDaysLabel(snapshot: Record<string, unknown> | undefined | null): string {
+  const days = snapshot?.period_days as number | undefined
+  return days ? `${days} 天` : ''
+}
+
+/** 秒数 → mm:ss */
+export function mmss(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds))
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`
 }

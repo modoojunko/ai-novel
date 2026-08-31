@@ -65,6 +65,21 @@ const routes = [
         component: () => import('@/views/dashboard/MembershipPage.vue'),
       },
       {
+        path: 'orders',
+        name: 'orders',
+        component: () => import('@/views/pay/OrdersPage.vue'),
+      },
+      {
+        path: 'orders/:orderNo',
+        name: 'order-detail',
+        component: () => import('@/views/pay/OrderDetailPage.vue'),
+      },
+      {
+        path: 'orders/:orderNo/refund',
+        name: 'order-refund',
+        component: () => import('@/views/pay/RefundPage.vue'),
+      },
+      {
         path: 'devices',
         name: 'devices',
         component: () => import('@/views/dashboard/DevicesPage.vue'),

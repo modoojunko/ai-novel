@@ -39,8 +39,9 @@ onMounted(async () => {
       </router-link>
       <nav class="nav">
         <router-link to="/dashboard" exact-active-class="on">首页</router-link>
-        <router-link to="/dashboard/license" active-class="on">License</router-link>
-        <router-link to="/dashboard/devices" active-class="on">设备</router-link>
+        <router-link to="/dashboard/membership" active-class="on">我的套餐</router-link>
+        <router-link to="/dashboard/orders" active-class="on">我的订单</router-link>
+        <router-link to="/dashboard/devices" active-class="on">我的设备</router-link>
         <router-link to="/dashboard/account" active-class="on">账户</router-link>
       </nav>
       <div class="spacer" />

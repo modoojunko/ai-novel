@@ -87,7 +87,7 @@ test.describe('界面主题', () => {
     await page.goto('/')
     await page.evaluate((token) => localStorage.setItem('token', token), mockApi.token)
     await page.goto('/dashboard')
-    await page.getByRole('heading', { name: '首页' }).waitFor({ timeout: 15000 })
+    await page.getByRole('heading', { name: /你好/ }).waitFor({ timeout: 15000 })
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'ink')
 
     // 顶栏退出（ui.spec 既有定位口径）

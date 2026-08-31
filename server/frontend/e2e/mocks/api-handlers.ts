@@ -1,6 +1,28 @@
 import type { Page, Route } from '@playwright/test'
 import { createTestUser, createTestDevice, type TestUser, type TestDevice } from './test-data'
 
+/** /api/pay/membership 响应（S端 我的套餐摘要） */
+export interface TestMembership {
+  tier: string
+  remaining_sec: number
+  remaining_desc: string
+  max_expires_at: string | null
+  pending_count: number
+}
+
+/** /api/pay/orders 列表项（S端 我的订单） */
+export interface TestOrder {
+  order_no: string
+  status: string
+  amount_fen: number
+  snapshot: Record<string, unknown>
+  created_at: string
+  paid_at: string
+  refunded_at: string
+  refund_amount_fen?: number | null
+  remaining_pay_seconds?: number | null
+}
+
 /**
  * MockApi — 拦截所有 /api/* 请求并返回模拟数据。
  * 使用精确路径匹配避免干扰 Vite 的模块加载。
@@ -9,6 +31,12 @@ export class MockApi {
   private page: Page
   private currentUser: TestUser | null = null
   private devices: TestDevice[] = []
+  private membership: TestMembership | null = null
+  private orders: TestOrder[] = []
+  /** 退款预览覆写（测拒绝态：below_one_fen / over_one_year / refundable:false） */
+  private refundPreviewOverride: { refundable: boolean; reason: string; refund_fen?: number; remaining_desc?: string } | null = null
+  /** 冷静期剩余秒数（e2e 用短窗口） */
+  private refundCooldown = 300
   /** 会话失效模式：/user/me 返回 HTTP 200 + code 1（与真实后端「用户不存在/未登录」一致） */
   private userMeDead = false
   /** 让接下来 N 次 /user/preferences 失败（测「保存失败→重试→落库」路径） */
@@ -25,6 +53,12 @@ export class MockApi {
     '**/api/license/activate',
     '**/api/device/my',
     '**/api/device/remove',
+    '**/api/pay/membership',
+    // ⚠️ /api/pay 全域拦截：Playwright glob '**/x*y' 形态对带 query/子路径的
+    // URL 匹配不稳（'**/api/pay/orders*' 实测穿透 vite 404），统一收口到
+    // '**/api/pay/**'，具体路径在 handler 内分流；未覆盖的 pay 路径答 code 1。
+    '**/api/pay/**',
+    '**/api/pay/skus',
     '**/api/authorize',
     '**/api/reset_password',
     // ⚠️ 真实调用带 query（?pc_hash=），Playwright glob 匹配完整 URL，须以 * 收尾
@@ -78,6 +112,35 @@ export class MockApi {
   setDeadSession(): void {
     this.currentUser = null
     this.userMeDead = true
+  }
+
+  /** 设置 /api/pay/membership 摘要（S端 首页/我的套餐卡数据源） */
+  setMembership(m: Partial<TestMembership>): void {
+    this.membership = {
+      tier: 'free',
+      remaining_sec: 0,
+      remaining_desc: '0 天',
+      max_expires_at: null,
+      pending_count: 0,
+      ...m,
+    }
+  }
+
+  /** 设置 /api/pay/orders 列表（S端 我的订单/首页横幅数据源） */
+  setOrders(list: TestOrder[]): void {
+    this.orders = list
+  }
+
+  /** 覆写退款预览结果（拒绝态测试） */
+  setRefundPreview(p: { refundable: boolean; reason: string; refund_fen?: number; remaining_desc?: string } | null): void {
+    this.refundPreviewOverride = p
+  }
+
+  private refundStatusOf(orderStatus: string): string {
+    if (orderStatus === 'refund_pending') return 'cooldown'
+    if (orderStatus === 'refund_processing') return 'processing'
+    if (orderStatus === 'refunded') return 'succeeded'
+    return 'none'
   }
 
   /** 让接下来 N 次 /user/preferences 失败（times=0 关闭；mode 见字段注释） */
@@ -221,6 +284,108 @@ export class MockApi {
       const body = route.request().postDataJSON()
       this.devices = this.devices.filter(d => d.id !== body?.id)
       return route.fulfill(json(0, { success: true }))
+    }
+
+    // ── 支付（S端）──
+    if (path === '/api/pay/membership' && method === 'GET') {
+      return route.fulfill(json(0, this.membership ?? {
+        tier: this.currentUser?.tier ?? 'free',
+        remaining_sec: 0,
+        remaining_desc: '0 天',
+        max_expires_at: null,
+        pending_count: 0,
+      }))
+    }
+
+    if (path === '/api/pay/orders' && method === 'GET') {
+      return route.fulfill(json(0, { items: this.orders, total: this.orders.length }))
+    }
+
+    // ── 订单详情 / 退款操作（最小状态机）──
+    if (path === '/api/pay/orders/pending' && method === 'GET') {
+      const pending = this.orders.find((x) => x.status === 'pending')
+      return route.fulfill(json(0, pending
+        ? { order_no: pending.order_no, sku_id: 1, amount_fen: pending.amount_fen }
+        : null))
+    }
+
+    const orderDetailMatch = path.match(/^\/api\/pay\/orders\/([^/]+)$/)
+    if (orderDetailMatch && method === 'GET') {
+      const o = this.orders.find((x) => x.order_no === orderDetailMatch[1])
+      if (!o) return route.fulfill(json(4004, null, { msg: '订单不存在' }))
+      return route.fulfill(json(0, {
+        order_no: o.order_no,
+        status: o.status,
+        amount_fen: o.amount_fen,
+        snapshot: o.snapshot,
+        created_at: o.created_at,
+        paid_at: o.paid_at,
+        refunded_at: o.refunded_at,
+        agreement: { version: 'v2026.08', agreed_at: o.created_at },
+        wx_transaction_id: o.paid_at ? `4200${o.order_no.slice(-8)}` : undefined,
+        remaining_pay_seconds: o.remaining_pay_seconds ?? null,
+        refund: o.refund_amount_fen
+          ? { status: this.refundStatusOf(o.status), amount_fen: o.refund_amount_fen, cooldown_remaining_seconds: this.refundCooldown }
+          : null,
+      }))
+    }
+
+    if (/^\/api\/pay\/orders\/[^/]+\/cancel$/.test(path) && method === 'POST') {
+      const o = this.orders.find((x) => path === `/api/pay/orders/${x.order_no}/cancel`)
+      if (o) o.status = 'closed'
+      return route.fulfill(json(0, { status: 'closed' }))
+    }
+
+    const previewMatch = path.match(/^\/api\/pay\/orders\/([^/]+)\/refund-preview$/)
+    if (previewMatch && method === 'GET') {
+      if (this.refundPreviewOverride) return route.fulfill(json(0, this.refundPreviewOverride))
+      return route.fulfill(json(0, {
+        refundable: true, reason: '',
+        refund_fen: 776, remaining_desc: '9 天 16 小时 48 分',
+      }))
+    }
+
+    if (/^\/api\/pay\/orders\/[^/]+\/refund$/.test(path) && method === 'POST') {
+      const o = this.orders.find((x) => path.startsWith(`/api/pay/orders/${x.order_no}/refund`))
+      if (o) {
+        o.status = 'refund_pending'
+        o.refund_amount_fen = this.refundPreviewOverride?.refund_fen ?? 776
+      }
+      return route.fulfill(json(0, {
+        order_no: o?.order_no ?? '', amount_fen: o?.amount_fen ?? 0,
+        refund_fen: o?.refund_amount_fen ?? 776,
+        status: 'refund_pending', cooldown_remaining_seconds: this.refundCooldown,
+      }))
+    }
+
+    const cancelRefundMatch = path.match(/^\/api\/pay\/orders\/([^/]+)\/refund\/cancel$/)
+    if (cancelRefundMatch && method === 'POST') {
+      const o = this.orders.find((x) => x.order_no === cancelRefundMatch[1])
+      if (o) { o.status = 'fulfilled'; o.refund_amount_fen = null }
+      return route.fulfill(json(0, { grant_restored: true }))
+    }
+
+    if (/^\/api\/pay\/orders\/[^/]+\/query$/.test(path) && method === 'POST') {
+      return route.fulfill(json(0, { hit: false, hint: 'NOTPAY' }))
+    }
+
+    // pay 域内未覆盖的路径 → code 1（绝不穿透 vite proxy，同兜底拦逻辑）
+    if (path.startsWith('/api/pay/')) {
+      return route.fulfill(json(1, 'unmocked pay api'))
+    }
+
+    if (path === '/api/pay/skus' && method === 'GET') {
+      return route.fulfill(json(0, {
+        purchase_enabled: true,
+        agreement_version: 'v2026.08',
+        tiers: [{ key: 'pro', label: 'PRO', is_live: true }],
+        skus: [
+          { sku_key: 'pro_monthly', tier_key: 'pro', period: 'monthly', period_days: 30, base_price_fen: 3000, discount_display: '', price_fen: 3000, device_limit: 3 },
+          { sku_key: 'pro_quarterly', tier_key: 'pro', period: 'quarterly', period_days: 90, base_price_fen: 8000, discount_display: '9 折', price_fen: 7200, device_limit: 3 },
+          { sku_key: 'pro_yearly', tier_key: 'pro', period: 'yearly', period_days: 365, base_price_fen: 29900, discount_display: '8 折', price_fen: 23920, device_limit: 5 },
+        ],
+        popular_sku: 'pro_yearly',
+      }))
     }
 
     // 未匹配 → 让请求正常通过

@@ -120,6 +120,48 @@ async def create_order(req: CreateOrderRequest, request: Request, db: Db = Depen
         return {"code": 4003, "msg": str(e)}
 
 
+@r.get("/orders")
+async def list_orders(request: Request, db: Db = Depends(get_db), page: int = 1, page_size: int = 50):
+    """Z.4 我的订单列表（创建时间倒序；一次拉全量，page/page_size 预留）。"""
+    username = getattr(request.state, "username", "")
+    if not username:
+        return {"code": 4001, "msg": "未登录"}
+
+    from datetime import datetime, timezone
+
+    from app.infrastructure.repositories.factory import user_repo
+    from app.infrastructure.repositories.payments_repo import OrderRepo
+
+    user_id = user_repo(db).get_id(username)
+    if not user_id:
+        return {"code": 4001, "msg": "用户不存在"}
+
+    orders = OrderRepo(db).find_by_user(user_id, limit=page_size, offset=(page - 1) * page_size)
+    now = datetime.now(timezone.utc)
+
+    items = []
+    for o in orders:
+        remaining_pay = None
+        if o.get("status") == "pending" and o.get("created_at"):
+            elapsed = (now - o["created_at"]).total_seconds()
+            remaining_pay = max(0, int(900 - elapsed))
+        rs = o.get("refund_status")
+        refund_amt = o.get("refund_amount_fen") if rs in ("cooldown", "processing", "succeeded") else None
+        items.append({
+            "order_no": o["order_no"],
+            "status": o.get("status"),
+            "amount_fen": o.get("amount_fen"),
+            "snapshot": o.get("sku_snapshot") or {},
+            "created_at": o["created_at"].isoformat() if hasattr(o.get("created_at"), "isoformat") else str(o.get("created_at", "")),
+            "paid_at": o["paid_at"].isoformat() if hasattr(o.get("paid_at"), "isoformat") else str(o.get("paid_at") or ""),
+            "refunded_at": o["refunded_at"].isoformat() if hasattr(o.get("refunded_at"), "isoformat") else str(o.get("refunded_at") or ""),
+            "refund_amount_fen": refund_amt,
+            "remaining_pay_seconds": remaining_pay,
+        })
+
+    return {"code": 0, "data": {"items": items, "total": len(items)}}
+
+
 @r.get("/orders/pending")
 async def get_pending_order(request: Request, db: Db = Depends(get_db)):
     """Z.3 恢复未支付订单。"""
@@ -408,6 +450,7 @@ def _order_to_detail(order: dict) -> dict:
         "amount_fen": order.get("amount_fen"),
         "created_at": order.get("created_at", "").isoformat() if hasattr(order.get("created_at"), "isoformat") else str(order.get("created_at", "")),
         "paid_at": order.get("paid_at", "").isoformat() if hasattr(order.get("paid_at"), "isoformat") else str(order.get("paid_at", "") or ""),
+        "refunded_at": order["refunded_at"].isoformat() if hasattr(order.get("refunded_at"), "isoformat") else str(order.get("refunded_at") or ""),
         "agreement": {"version": order.get("agreement_version"), "agreed_at": str(order.get("agreed_at", ""))},
         "wx_transaction_id": order.get("transaction_id"),
         "remaining_pay_seconds": remaining_pay,
