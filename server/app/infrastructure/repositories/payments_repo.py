@@ -170,6 +170,45 @@ class OrderRepo:
         else:
             return self._db.find("orders", filter={"status": "refund_pending"})
 
+    def attention_flags(self, user_id: int) -> dict:
+        """check-auth 账号动态（设计 A4）：退款进行中（含冷静期）/ 有冻结待核对订单。"""
+        if isinstance(self._db, Session):
+            from app.models.payments import OrderORM
+            from sqlalchemy import and_, or_
+            refund_active = self._db.query(OrderORM.id).filter(
+                and_(
+                    OrderORM.user_id == user_id,
+                    or_(
+                        OrderORM.status == "refund_pending",
+                        OrderORM.refund_status == "processing",
+                    ),
+                )
+            ).first() is not None
+            verify = self._db.query(OrderORM.id).filter(
+                and_(OrderORM.user_id == user_id, OrderORM.status == "exception")
+            ).first() is not None
+            return {"refund_processing": refund_active, "verify_pending": verify}
+        else:
+            processing = self._db.find(
+                "orders",
+                filter={"user_id": user_id, "refund_status": "processing"},
+                limit=1,
+            )
+            cooldown = self._db.find(
+                "orders",
+                filter={"user_id": user_id, "status": "refund_pending"},
+                limit=1,
+            )
+            exception = self._db.find(
+                "orders",
+                filter={"user_id": user_id, "status": "exception"},
+                limit=1,
+            )
+            return {
+                "refund_processing": bool(processing or cooldown),
+                "verify_pending": bool(exception),
+            }
+
     def compare_and_transition(
         self, order_no: str, transition: Transition, extra_changes: dict | None = None,
     ) -> dict | None:

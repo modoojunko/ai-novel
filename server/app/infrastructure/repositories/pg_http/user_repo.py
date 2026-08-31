@@ -27,6 +27,11 @@ class PgHttpUserRepo:
         doc = self.client.find_one(_TABLE, {"username": username})
         return self._to_domain(doc) if doc else None
 
+    def get_id(self, username: str) -> int | None:
+        """username → user_id（代理键解析，与 SqlUserRepo.get_id 对齐）。"""
+        doc = self.client.find_one(_TABLE, {"username": username})
+        return int(doc["id"]) if doc and doc.get("id") is not None else None
+
     def exists(self, username: str) -> bool:
         return self.client.find_one(_TABLE, {"username": username}) is not None
 

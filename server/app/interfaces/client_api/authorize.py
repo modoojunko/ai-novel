@@ -135,18 +135,44 @@ async def api_check_auth(pc_hash: str = "", db: Db = Depends(get_db)):
     try:
         grant = grant_repo(db).get(pc_hash)
         if grant:
+            from datetime import datetime, timedelta, timezone
+
             from app.domain.licensing import License
+            from app.infrastructure.repositories.factory import user_repo
+            from app.infrastructure.repositories.payments_repo import OrderRepo
+
             codes = code_repo(db).find_active_by_username(grant.username)
             license_ = License(username=grant.username).merge(codes)
-            return {
-                "code": 0,
-                "data": {
-                    "token": grant.token,
-                    "username": grant.username,
-                    "tier": license_.effective_tier,
-                    "expires_at": license_.max_expires_at.isoformat() if license_.max_expires_at else "",
-                },
+
+            data = {
+                "token": grant.token,
+                "username": grant.username,
+                "tier": license_.effective_tier,
+                "expires_at": license_.max_expires_at.isoformat() if license_.max_expires_at else "",
             }
+
+            # ── A4 扩展（可选字段，无支付数据时省略）──
+            # days_remaining：北京自然日口径（今日 0 点到 expires_at，floor）；无套餐/免费省略
+            if license_.max_expires_at:
+                tier = license_.effective_tier
+                if tier not in ("none", "free"):
+                    bj_tz = timezone(timedelta(hours=8))
+                    expires_bj = license_.max_expires_at.astimezone(bj_tz)
+                    today0_bj = datetime.now(bj_tz).replace(
+                        hour=0, minute=0, second=0, microsecond=0)
+                    days = (expires_bj - today0_bj).days
+                    if days < 0:
+                        days = 0
+                    data["days_remaining"] = days
+
+            # attention：账号动态（退款进行中含冷静期 / 冻结待核对）
+            uid = user_repo(db).get_id(grant.username)
+            if uid:
+                flags = OrderRepo(db).attention_flags(uid)
+                if flags["refund_processing"] or flags["verify_pending"]:
+                    data["attention"] = flags
+
+            return {"code": 0, "data": data}
         return {"code": 1, "msg": "等待授权"}
     except Exception:
         logger.exception("event=check_auth_error pc_hash=%s", pc_hash)
