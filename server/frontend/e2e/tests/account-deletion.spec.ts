@@ -58,6 +58,9 @@ test.describe('账号自助注销', () => {
     await expect(page.getByRole('heading', { name: '账户设置' })).toBeVisible()
 
     await page.getByRole('button', { name: '注销账号…' }).click()
+    await expect(page.getByText('永久注销本账号')).toBeVisible()
+    await page.waitForTimeout(400) // 等弹层进场动画完成，避免截到半透明中间态
+    await shot(page, '01b-wizard-consequences')
     await page.getByRole('button', { name: '我已了解，继续' }).click()
 
     // 权益处置步：未勾选放弃时「放弃并继续」禁用

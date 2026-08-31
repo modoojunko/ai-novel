@@ -203,3 +203,22 @@ async function submit() {
     </template>
   </AppModal>
 </template>
+
+<style scoped>
+/* 后果清单（原型 .fx 同款）：图标 14px 约束必须显式给出——
+   Ico 未传 size 时 SVG 无宽高属性会撑到默认 300×150（评审反馈的巨叉巨勾） */
+.fx-title { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.fx-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.fx { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; line-height: 1.55; }
+.fx :deep(svg) { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+.fx.lose { color: var(--err); }
+.fx.lose :deep(svg) { color: var(--err); }
+.fx.keep { color: var(--ink); }
+.chk { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; line-height: 1.55; color: var(--warn); cursor: pointer; }
+.chk input { margin-top: 2px; accent-color: var(--warn); width: 14px; height: 14px; flex: none; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 12.5px; text-align: left; }
+.kv span { color: var(--muted); }
+.kv b { font-weight: 500; }
+.asset-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.asset-row { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+</style>
