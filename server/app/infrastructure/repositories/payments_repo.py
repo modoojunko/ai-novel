@@ -4,12 +4,23 @@
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.domain.payments.order import Transition
+
+
+def _dt(value) -> datetime:
+    """pg_http 返回的 ISO 字符串/已解析 datetime 统一为 aware datetime（UTC）。"""
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 class OrderRepo:
@@ -78,6 +89,71 @@ class OrderRepo:
             return [{c.name: getattr(o, c.name) for c in o.__table__.columns} for o in orms]
         else:
             return self._db.find("orders", filter={"status": "paid"})
+
+    def find_paid_between(self, start: datetime, end: datetime) -> list[dict]:
+        """对账内部账：paid_at 落在 [start, end) 且非 exception 的订单。"""
+        if isinstance(self._db, Session):
+            from app.models.payments import OrderORM
+            from sqlalchemy import and_
+            orms = self._db.query(OrderORM).filter(
+                and_(
+                    OrderORM.paid_at >= start,
+                    OrderORM.paid_at < end,
+                    OrderORM.status != "exception",
+                )
+            ).all()
+            return [{c.name: getattr(o, c.name) for c in o.__table__.columns} for o in orms]
+        else:
+            # pg_http 简化：paid 非空行拉回内存按时间窗过滤（Change 1 量级可接受）
+            all_paid = self._db.find("orders", filter={"paid_at": "not_null"})
+            return [
+                r for r in all_paid
+                if r.get("paid_at") and start <= _dt(r["paid_at"]) < end
+                and r.get("status") != "exception"
+            ]
+
+    def find_refund_succeeded_between(self, start: datetime, end: datetime) -> list[dict]:
+        """对账内部退款账：refunded_at 落在 [start, end) 且退款成功的订单。"""
+        if isinstance(self._db, Session):
+            from app.models.payments import OrderORM
+            from sqlalchemy import and_
+            orms = self._db.query(OrderORM).filter(
+                and_(
+                    OrderORM.refund_status == "succeeded",
+                    OrderORM.refunded_at >= start,
+                    OrderORM.refunded_at < end,
+                )
+            ).all()
+            return [{c.name: getattr(o, c.name) for c in o.__table__.columns} for o in orms]
+        else:
+            rows = self._db.find("orders", filter={"refund_status": "succeeded"})
+            return [
+                r for r in rows
+                if r.get("refunded_at") and start <= _dt(r["refunded_at"]) < end
+            ]
+
+    def find_refund_processing(self) -> list[dict]:
+        """T3：退款受理中（提交微信后未终结）的订单。"""
+        if isinstance(self._db, Session):
+            from app.models.payments import OrderORM
+            orms = self._db.query(OrderORM).filter(
+                OrderORM.refund_status == "processing"
+            ).all()
+            return [{c.name: getattr(o, c.name) for c in o.__table__.columns} for o in orms]
+        else:
+            return self._db.find("orders", filter={"refund_status": "processing"})
+
+    def find_refund_half_done(self) -> list[dict]:
+        """扫描 D：退款成功但订单状态未到 refunded（半截恢复）。"""
+        if isinstance(self._db, Session):
+            from app.models.payments import OrderORM
+            orms = self._db.query(OrderORM).filter(
+                OrderORM.refund_status == "succeeded",
+                OrderORM.status != "refunded",
+            ).all()
+            return [{c.name: getattr(o, c.name) for c in o.__table__.columns} for o in orms]
+        else:
+            return self._db.find("orders", filter={"refund_status": "succeeded"})
 
     def find_cooldown_expired(self, now: datetime) -> list[dict]:
         """扫描冷静期到期的订单（§4.9b 到点提交）。"""
@@ -238,3 +314,43 @@ class TierRepo:
             return [{c.name: getattr(o, c.name) for c in o.__table__.columns} for o in orms]
         else:
             return self._db.find("tiers", sort=[("rank", "asc")])
+
+
+class ReconciliationReportRepo:
+    """reconciliation_reports 仓储（按日 UPSERT——对账报告属派生报表，可重算覆盖）。"""
+
+    def __init__(self, db):
+        self._db = db
+
+    def upsert(self, report: dict) -> None:
+        bill_date = report["bill_date"]  # date 对象或 'YYYY-MM-DD'
+        if isinstance(self._db, Session):
+            from datetime import date
+            if isinstance(bill_date, str):
+                bill_date = date.fromisoformat(bill_date)
+            from app.models.payments import ReconciliationReportORM
+            orm = self._db.query(ReconciliationReportORM).filter_by(
+                bill_date=bill_date).first()
+            if orm is None:
+                orm = ReconciliationReportORM(bill_date=bill_date)
+                self._db.add(orm)
+            for k, v in report.items():
+                if k != "bill_date":
+                    setattr(orm, k, v)
+            self._db.flush()
+        else:
+            # pg_http：upsert 语义 = 先删后插（派生报表可重算，无外键挂靠）
+            self._db.delete("reconciliation_reports", {"bill_date": str(bill_date)})
+            self._db.insert("reconciliation_reports", {**report, "bill_date": str(bill_date)})
+
+    def find_by_date(self, bill_date: str) -> dict | None:
+        if isinstance(self._db, Session):
+            from datetime import date
+            from app.models.payments import ReconciliationReportORM
+            orm = self._db.query(ReconciliationReportORM).filter_by(
+                bill_date=date.fromisoformat(bill_date)).first()
+            if not orm:
+                return None
+            return {c.name: getattr(orm, c.name) for c in orm.__table__.columns}
+        else:
+            return self._db.find_one("reconciliation_reports", {"bill_date": bill_date})

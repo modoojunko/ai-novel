@@ -46,6 +46,15 @@ class Settings:
     # ── Admin ──
     ADMIN_TOKEN: str = os.getenv("ADMIN_TOKEN", "admin123")
 
+    # ── 支付运维（设计 G7/B3/演练 A9）──
+    # Server酱 SendKey：资金类告警通道；空 = 降级为仅日志（本地/CI 默认）
+    SERVERCHAN_SENDKEY: str = os.getenv("SERVERCHAN_SENDKEY", "")
+    # 演练白名单：逗号分隔用户名。购买开关=rehearsal 时仅名单内用户可下单，
+    # 且对账/计税报表排除名单用户（演练数据不进资金口径）
+    PAYMENTS_REHEARSAL_USERNAMES: str = os.getenv("PAYMENTS_REHEARSAL_USERNAMES", "")
+    # 月销免税额度标注（分）：月净额低于此值在计税报表标注"未超小规模免税额度"
+    TAX_EXEMPT_THRESHOLD_FEN: int = int(os.getenv("TAX_EXEMPT_THRESHOLD_FEN", "10000000"))
+
     # ── 日志 ──
     LOG_DIR: str = os.getenv("LOG_DIR", str(DB_DIR / "logs"))
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")

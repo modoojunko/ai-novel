@@ -6,9 +6,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from app.domain.payments.order import Transition
-from app.infrastructure.payments.gateway import PaymentGateway, PaymentStatus, RefundStatus
+from app.infrastructure.payments.gateway import (
+    PaymentGateway,
+    PaymentStatus,
+    RefundStatus,
+)
 from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
 from app.application.payments.fulfill_payment import fulfill_payment
@@ -91,16 +96,69 @@ def scan_refund_followup(
     order_repo: OrderRepo,
     event_repo: TradeEventRepo,
     gateway: PaymentGateway,
+    notify: Any = None,
 ) -> list[dict]:
-    """T3：退款跟进（NOT_ENOUGH 重试 + 查退款结果 + 扫描 D 半截恢复）。"""
+    """T3：退款跟进——NOT_ENOUGH 重试 + 查退款结果 + 扫描 D 半截恢复。
+
+    全部幂等：扫描重放安全（complete_refund 全量可重入）。
+    """
     now = datetime.now(timezone.utc)
-    results = []
+    results: list[dict] = []
 
-    # ── 扫描 D：refund_status=succeeded 但 orders.status≠refunded（半截恢复）──
-    # （实际查询需要 find 方法支持，此处用 update_fields 幂等补写）
+    # ── processing 订单：查退款结果 / NOT_ENOUGH 重试 ──
+    for order in order_repo.find_refund_processing():
+        order_no = order["order_no"]
+        # out_refund_no = order_no（设计 §2.5：一单一退，复用同号）
+        query = gateway.query_refund(order_no)
 
-    # ── NOT_ENOUGH 重试 ──
-    # 扫描 refund_status='processing' 且有 refund_accepted_at 的订单
-    # （具体实现取决于仓储层查询能力，此处简化）
+        if query.status == RefundStatus.SUCCESS:
+            complete_refund(order_repo, event_repo, order_no, query.wx_refund_id)
+            results.append({"order_no": order_no, "action": "refund_completed"})
+        elif query.status == RefundStatus.NOT_ENOUGH:
+            # 自动重试：重新提交微信（NOT_ENOUGH=商户未结算资金不足，次日通常恢复）
+            attempts = (order.get("refund_not_enough") or 0) + 1
+            retry = gateway.create_refund(
+                out_refund_no=order_no,
+                out_trade_no=order_no,
+                refund_fen=order["refund_amount_fen"],
+                total_fen=order["amount_fen"],
+                reason=order.get("refund_reason", ""),
+                notify_url="",
+            )
+            if retry.status == RefundStatus.SUCCESS:
+                complete_refund(order_repo, event_repo, order_no, retry.wx_refund_id)
+                results.append({"order_no": order_no, "action": "retry_completed"})
+                continue
+            order_repo.update_fields(order_no, {"refund_not_enough": attempts})
+            event_repo.append({
+                "event_key": f"refund:{order_no}:not_enough_{attempts}",
+                "event_type": "refund.not_enough_retry",
+                "order_no": order_no,
+                "payload": {"attempts": attempts},
+            })
+            results.append({"order_no": order_no, "action": "not_enough_retry",
+                            "attempts": attempts})
+        elif query.status == RefundStatus.ABNORMAL:
+            # 人工处置通道：告警但不改状态（绝不自动重提）
+            _notify(notify, f"退款异常 {order_no}",
+                    f"微信退款单状态 ABNORMAL，需人工核实处置。")
+            event_repo.append({
+                "event_key": f"refund:{order_no}:abnormal_notified:{int(now.timestamp())}",
+                "event_type": "refund.abnormal",
+                "order_no": order_no,
+            })
+            results.append({"order_no": order_no, "action": "abnormal_notified"})
+
+    # ── 扫描 D：refund_status=succeeded 但 status≠refunded（半截恢复）──
+    for order in order_repo.find_refund_half_done():
+        order_no = order["order_no"]
+        complete_refund(order_repo, event_repo, order_no,
+                        order.get("refund_wx_id") or "")
+        results.append({"order_no": order_no, "action": "half_done_repaired"})
 
     return results
+
+
+def _notify(notify: Any, title: str, markdown: str) -> None:
+    if notify is not None:
+        notify.send(title, markdown)
