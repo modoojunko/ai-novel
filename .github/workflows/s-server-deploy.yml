@@ -71,6 +71,17 @@ jobs:
           }
           EOF
 
+      # 生产 schema 门禁（design D5）：代码上线而 DDL 漏执行的漂移在发布前拦截。
+      # 判定逻辑与后端启动自检同源（app/infrastructure/pg_schema.py）。
+      # 探测失败按 fail-closed 中止（防网络抖动放行），re-run 即可重试。
+      - name: 生产 schema 门禁（缺表/列即中止部署）
+        run: |
+          pip3 install --quiet httpx
+          python3 server/scripts/pg_gate.py
+        env:
+          TCB_PG_ENV_ID: ${{ vars.TCB_ENV_ID }}
+          TCB_PG_API_KEY: ${{ secrets.TCB_API_KEY }}
+
       - name: 部署后端（novel-s-server）
         # printf 回答灰度提问（No=部署成功后自动切换流量）；--wait 等待构建完成
         run: printf 'n\n' | tcb cloudrun deploy --service-name novel-s-server --source ./server --env-id ${{ vars.TCB_ENV_ID }} --force --wait
