@@ -36,10 +36,12 @@ def resolve_refund_basis(code_repo, order: dict, now: datetime) -> tuple:
 
     - 台账 active 行有 grant_start/expires_at → 按秒折算；
     - 未激活（无 active 行）→ grant_start=None → 域函数走全额退；
-    - pg_http 行的时间字段是 ISO 字符串，统一 parse_dt 归一。
+    - pg_http 行的时间字段是 ISO 字符串，统一 parse_dt 归一；
+    - 入参 now 若带 tzinfo 归一为 naive（域函数混比 aware/naive 会 TypeError）。
     """
     from app.infrastructure.repositories.pg_http.client import parse_dt
 
+    now = _naive(now) or now
     grant_start = expires_at = None
     order_id = order.get("id") or order.get("order_no")
     if code_repo is not None and order.get("id") is not None:
@@ -51,6 +53,7 @@ def resolve_refund_basis(code_repo, order: dict, now: datetime) -> tuple:
     paid_at = order.get("paid_at") or now
     if isinstance(paid_at, str):
         paid_at = parse_dt(paid_at)
+    paid_at = _naive(paid_at) or paid_at
     return grant_start, expires_at, paid_at
 
 
@@ -69,7 +72,7 @@ def request_refund(
     Returns:
         {order_no, amount_fen, refund_fen, status, cooldown_remaining_seconds}
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()  # naive UTC（表列/域口径一致，避免 aware/naive 混比）
     order_no = order["order_no"]
 
     # 前置校验
@@ -142,7 +145,7 @@ def cancel_refund(
     order: dict,
 ) -> dict:
     """冷静期取消：CAS refund_pending→fulfilled（先到者赢，与到点提交竞态）。"""
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()  # naive UTC（表列/域口径一致，避免 aware/naive 混比）
     order_no = order["order_no"]
 
     if order["status"] != "refund_pending":
@@ -181,7 +184,7 @@ def cooldown_submit(
     order: dict,
 ) -> dict:
     """冷静期到点：CAS refund_pending→refund_processing，然后提交微信。"""
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()  # naive UTC（表列/域口径一致，避免 aware/naive 混比）
     order_no = order["order_no"]
 
     if order["status"] != "refund_pending":
@@ -251,7 +254,7 @@ def complete_refund(
     if not order:
         return {"error": "not_found"}
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()  # naive UTC（表列/域口径一致，避免 aware/naive 混比）
 
     # 步骤 1：refund_status→succeeded（幂等：已 succeeded→继续）
     if order.get("refund_status") != "succeeded":

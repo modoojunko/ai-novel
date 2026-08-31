@@ -275,7 +275,7 @@ async def refund_preview(order_no: str, request: Request, db: Db = Depends(get_d
     from app.infrastructure.repositories.factory import code_repo as _code_repo_factory, user_repo
     from app.domain.payments.refund import calc_refund_fen
     from app.application.payments.refund_flow import resolve_refund_basis
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     order = OrderRepo(db).find_by_order_no(order_no)
     user_id = user_repo(db).get_id(username)
@@ -286,7 +286,7 @@ async def refund_preview(order_no: str, request: Request, db: Db = Depends(get_d
         reason = "in_progress" if "refund" in order["status"] else "not_paid"
         return {"code": 0, "data": {"refundable": False, "reason": reason}}
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()  # naive UTC（折算域口径）
     snapshot = order.get("sku_snapshot") or {}
     total_sec = snapshot.get("period_days", 30) * 86400
     grant_start, expires, paid_at = resolve_refund_basis(
