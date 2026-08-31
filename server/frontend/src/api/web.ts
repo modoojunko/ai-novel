@@ -41,12 +41,6 @@ export function apiSetSecurity(security_question: string, security_answer: strin
   return request.put('/user/security', { security_question, security_answer }).then(r => r.data)
 }
 
-// ── License ──
-
-export function apiActivateCode(code: string): Promise<ApiResponse<{ new_expires_at: string }>> {
-  return request.post('/license/activate', { code }).then(r => r.data)
-}
-
 // ── 设备 ──
 
 export interface DeviceItem {

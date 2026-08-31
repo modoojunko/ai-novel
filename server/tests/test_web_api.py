@@ -90,47 +90,17 @@ class TestUserMe:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# 3. 激活码 /api/license/activate
+# 3. 激活码 /api/license/activate【已下线——8.3 拆旧激活码入口，购买走 /api/pay/orders】
 # ═══════════════════════════════════════════════════════════════════
 
 
 class TestLicenseActivate:
-    def test_flow(self, client, web_user, gen_code):
+    def test_endpoint_retired(self, client, web_user, gen_code):
+        """激活码 web 端点已下线（s-pay-foundation 8.3）：路由 404，激活码通道仅存
+        管理端出码（/api/generate_code）+ 支付激活（application.payments.activate_entitlement）。"""
         code = gen_code("yearly")[0]
         r = client.post("/api/license/activate", json={"code": code}, headers=_bearer(web_user["token"]))
-        assert r.json()["code"] == 0, r.text
-        me = client.get("/api/user/me", headers=_bearer(web_user["token"])).json()
-        assert me["data"]["tier"] == "pro"  # tier 归一化：yearly→pro
-        assert me["data"]["is_valid"] is True
-
-    def test_wrong_code(self, client, web_user):
-        r = client.post("/api/license/activate", json={"code": "AC-NO-SUCH-CODE"}, headers=_bearer(web_user["token"]))
-        assert r.json()["code"] == 1
-        assert "无效" in r.json()["msg"]
-
-    def test_used_code(self, client, web_user, gen_code):
-        code = gen_code("monthly")[0]
-        client.post("/api/license/activate", json={"code": code}, headers=_bearer(web_user["token"]))
-        r = client.post("/api/license/activate", json={"code": code}, headers=_bearer(web_user["token"]))
-        assert r.json()["code"] == 1
-        assert "已被使用" in r.json()["msg"]
-
-    def test_no_auth(self, client, gen_code):
-        code = gen_code("monthly")[0]
-        r = client.post("/api/license/activate", json={"code": code})
-        assert r.json()["code"] == 1
-
-    def test_stack_renew(self, client, web_user, gen_code):
-        """叠加续期：先年费再季费 → 到期日在年费基础上 +90 天。"""
-        client.post("/api/license/activate", json={"code": gen_code("yearly")[0]}, headers=_bearer(web_user["token"]))
-        me1 = client.get("/api/user/me", headers=_bearer(web_user["token"])).json()
-        exp1 = date.fromisoformat(me1["data"]["expires_at"][:10])
-
-        client.post("/api/license/activate", json={"code": gen_code("quarterly")[0]}, headers=_bearer(web_user["token"]))
-        me2 = client.get("/api/user/me", headers=_bearer(web_user["token"])).json()
-        exp2 = date.fromisoformat(me2["data"]["expires_at"][:10])
-
-        assert (exp2 - exp1).days >= 85, f"叠加失败: {exp1} → {exp2}"
+        assert r.status_code == 404
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -160,15 +130,13 @@ class TestAdminCodes:
         assert r.json()["code"] == 1
 
     def test_query_codes_by_user(self, client, admin_token, web_user, gen_code):
+        """管理端按用户查码（出码通道保留；激活改走支付流程，未激活码不归属用户）。"""
         code = gen_code("monthly")[0]
-        client.post("/api/license/activate", json={"code": code}, headers=_bearer(web_user["token"]))
         r = client.post("/api/query_codes", json={"admin_token": admin_token, "username": web_user["username"]})
         d = r.json()
         assert d["code"] == 0, d
         rows = {c["code_id"]: c for c in d["data"]["codes"]}
-        assert code in rows
-        assert rows[code]["status"] == "active"
-        assert rows[code]["user_id"] is not None  # 代理键已绑定
+        assert code not in rows  # 未激活（无支付激活），码不归属用户
 
     def test_query_bad_token(self, client):
         r = client.post("/api/query_codes", json={"admin_token": "wrong-admin-token"})
@@ -383,13 +351,11 @@ class TestFullJourney:
         me = client.get("/api/user/me", headers=_bearer(token)).json()
         assert me["data"]["tier"] == "trial"
 
-        # 2) 激活季费 → tier 变 quarterly（到期日更远）
-        code = client.post(
-            "/api/generate_code", json={"admin_token": admin_token, "tier": "quarterly", "count": 1}
-        ).json()["data"]["codes"][0]
-        client.post("/api/license/activate", json={"code": code}, headers=_bearer(token))
+        # 2) 激活码 web 端点已下线（8.3）：购买激活走 /api/pay/orders（见 test_payments_api）
+        r_gone = client.post("/api/license/activate", json={"code": "AC-ANY"}, headers=_bearer(token))
+        assert r_gone.status_code == 404
         me2 = client.get("/api/user/me", headers=_bearer(token)).json()
-        assert me2["data"]["tier"] == "pro"  # tier 归一化：quarterly→pro
+        assert me2["data"]["tier"] == "trial"  # 未购买维持 trial
 
         # 3) 改密码 → 新密码可登录
         client.put(

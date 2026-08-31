@@ -18,6 +18,21 @@ from app.interfaces.deps import Db, get_db
 r = APIRouter(prefix="/api/pay", tags=["payments"])
 
 
+def _current_username(request: Request) -> str:
+    """从 Authorization JWT 解析 username（无无效令牌时返回空串，由端点返回 4001）。
+
+    端点统一走此 helper：request.state.username 无中间件回填（历史断点），
+    JWT sub = username（deps.get_current_user 同一口径）。
+    """
+    from app.infrastructure.security.jwt import verify_jwt
+
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return ""
+    payload = verify_jwt(auth.removeprefix("Bearer "))
+    return payload.get("sub", "") if payload else ""
+
+
 # ── DTO ──
 
 class CreateOrderRequest(BaseModel):
@@ -81,7 +96,7 @@ async def get_skus(request: Request, db: Db = Depends(get_db)):
 @r.post("/orders")
 async def create_order(req: CreateOrderRequest, request: Request, db: Db = Depends(get_db)):
     """Z.3 下单（冻结快照+统一下单）。"""
-    username = getattr(request.state, "username", "")
+    username = _current_username(request)
     if not username:
         return {"code": 4001, "msg": "未登录"}
 
@@ -98,6 +113,12 @@ async def create_order(req: CreateOrderRequest, request: Request, db: Db = Depen
 
     gateway = getattr(request.app.state, "payment_gateway", MockPaymentGateway())
 
+    # 三态开关 + 演练名单（global_config 单源；缺省 off=安全关闭）
+    from app.infrastructure.repositories.factory import config_repo as _config_repo_factory
+    cfg = _config_repo_factory(db)
+    purchase_enabled = cfg.get("payments.purchase.enabled") or "off"
+    rehearsal_usernames = [u.strip() for u in (cfg.get("payments.rehearsal.usernames") or "").split(",") if u.strip()]
+
     try:
         result = _create(
             order_repo=OrderRepo(db),
@@ -107,6 +128,8 @@ async def create_order(req: CreateOrderRequest, request: Request, db: Db = Depen
             user_id=user_id,
             sku_key=req.sku_key,
             agreement_version=req.agreement_version,
+            purchase_enabled=purchase_enabled,
+            rehearsal_usernames=rehearsal_usernames,
             caller_username=username,
         )
         return {"code": 0, "data": result}
@@ -123,7 +146,7 @@ async def create_order(req: CreateOrderRequest, request: Request, db: Db = Depen
 @r.get("/orders")
 async def list_orders(request: Request, db: Db = Depends(get_db), page: int = 1, page_size: int = 50):
     """Z.4 我的订单列表（创建时间倒序；一次拉全量，page/page_size 预留）。"""
-    username = getattr(request.state, "username", "")
+    username = _current_username(request)
     if not username:
         return {"code": 4001, "msg": "未登录"}
 
@@ -165,7 +188,7 @@ async def list_orders(request: Request, db: Db = Depends(get_db), page: int = 1,
 @r.get("/orders/pending")
 async def get_pending_order(request: Request, db: Db = Depends(get_db)):
     """Z.3 恢复未支付订单。"""
-    username = getattr(request.state, "username", "")
+    username = _current_username(request)
     if not username:
         return {"code": 4001, "msg": "未登录"}
 
@@ -186,7 +209,7 @@ async def get_pending_order(request: Request, db: Db = Depends(get_db)):
 @r.get("/orders/{order_no}")
 async def get_order(order_no: str, request: Request, db: Db = Depends(get_db)):
     """Z.5 订单详情（全量：状态/时间线/单号/退款进度）。"""
-    username = getattr(request.state, "username", "")
+    username = _current_username(request)
     if not username:
         return {"code": 4001, "msg": "未登录"}
 
@@ -208,7 +231,7 @@ async def get_order(order_no: str, request: Request, db: Db = Depends(get_db)):
 @r.post("/orders/{order_no}/query")
 async def query_order(order_no: str, request: Request, db: Db = Depends(get_db)):
     """手动查单（"我已支付帮我查"）。"""
-    username = getattr(request.state, "username", "")
+    username = _current_username(request)
 
     from app.infrastructure.repositories.payments_repo import OrderRepo
     from app.infrastructure.repositories.factory import user_repo
@@ -244,7 +267,7 @@ async def query_order(order_no: str, request: Request, db: Db = Depends(get_db))
 @r.get("/orders/{order_no}/refund-preview")
 async def refund_preview(order_no: str, request: Request, db: Db = Depends(get_db)):
     """退款预览（折算金额）。"""
-    username = getattr(request.state, "username", "")
+    username = _current_username(request)
 
     from app.infrastructure.repositories.payments_repo import OrderRepo
     from app.infrastructure.repositories.factory import user_repo
@@ -290,7 +313,7 @@ async def refund_preview(order_no: str, request: Request, db: Db = Depends(get_d
 @r.post("/orders/{order_no}/refund")
 async def request_refund(order_no: str, req: RefundRequest, request: Request, db: Db = Depends(get_db)):
     """确认退款（进入冷静期）。"""
-    username = getattr(request.state, "username", "")
+    username = _current_username(request)
 
     from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
     from app.infrastructure.repositories.factory import user_repo
@@ -319,7 +342,7 @@ async def request_refund(order_no: str, req: RefundRequest, request: Request, db
 @r.post("/orders/{order_no}/refund/cancel")
 async def cancel_refund(order_no: str, request: Request, db: Db = Depends(get_db)):
     """冷静期取消退款。"""
-    username = getattr(request.state, "username", "")
+    username = _current_username(request)
 
     from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
     from app.infrastructure.repositories.factory import user_repo
@@ -341,7 +364,7 @@ async def cancel_refund(order_no: str, request: Request, db: Db = Depends(get_db
 @r.post("/orders/{order_no}/cancel")
 async def cancel_order(order_no: str, request: Request, db: Db = Depends(get_db)):
     """取消订单（用户主动）。"""
-    username = getattr(request.state, "username", "")
+    username = _current_username(request)
 
     from app.infrastructure.repositories.payments_repo import OrderRepo
     from app.domain.payments.order import Transition
@@ -365,7 +388,7 @@ async def cancel_order(order_no: str, request: Request, db: Db = Depends(get_db)
 @r.get("/membership")
 async def get_membership(request: Request, db: Db = Depends(get_db)):
     """Z.6 我的套餐总览。"""
-    username = getattr(request.state, "username", "")
+    username = _current_username(request)
     if not username:
         return {"code": 4001, "msg": "未登录"}
     # 简化实现：从 codes 表聚合
@@ -394,7 +417,7 @@ async def get_membership(request: Request, db: Db = Depends(get_db)):
 @r.post("/grants/activate")
 async def activate_grant(req: ActivateRequest, request: Request, db: Db = Depends(get_db)):
     """激活（到货-激活两段式第二段）。"""
-    username = getattr(request.state, "username", "")
+    username = _current_username(request)
     if not username:
         return {"code": 4001, "msg": "未登录"}
 

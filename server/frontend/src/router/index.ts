@@ -56,9 +56,9 @@ const routes = [
         component: () => import('@/views/dashboard/DashboardHome.vue'),
       },
       {
+        // 激活码入口已拆除（8.3）——老链接重定向到我的套餐
         path: 'license',
-        name: 'license',
-        component: () => import('@/views/dashboard/LicensePage.vue'),
+        redirect: { name: 'membership' },
       },
       {
         path: 'membership',

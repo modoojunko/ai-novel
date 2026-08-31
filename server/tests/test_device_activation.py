@@ -287,15 +287,28 @@ class TestDevicesCurrentAPI:
         assert data["device_count"] == 1
         assert data["active_limit"] == 1
 
-    def test_limit_exceeded(self, client, web_user, gen_code):
-        """pro（限额 5，归一化后 monthly→pro）第 6 台设备 → limit_exceeded。"""
-        code = gen_code("monthly")[0]
-        r = client.post(
-            "/api/license/activate",
-            json={"code": code},
-            headers={"Authorization": f"Bearer {web_user['token']}"},
-        )
-        assert r.json()["code"] == 0
+    def test_limit_exceeded(self, client, web_user):
+        """pro（限额 5，归一化后 monthly→pro）第 6 台设备 → limit_exceeded。
+
+        激活码 web 端点已下线（8.3）：直接播种已激活码行使账号达到 pro 档。
+        """
+        from app.models.code import ActivationCodeORM
+
+        s = SessionLocal()
+        try:
+            u = s.query(UserORM.id).filter(UserORM.username == web_user["username"]).first()
+            s.add(ActivationCodeORM(
+                code_id="CODE-LIMITEX-1",
+                tier="monthly",
+                duration_days=30,
+                status="active",
+                user_id=u[0],
+                activated_at=datetime.now() - timedelta(days=1),
+                expires_at=datetime.now() + timedelta(days=29),
+            ))
+            s.commit()
+        finally:
+            s.close()
 
         # seed 6 台（pro limit=5），FP-0 最旧 → 排序后第 6 位，不在 top-5 内
         for i, days in enumerate((6.0, 5.0, 4.0, 3.0, 2.0, 1.0)):

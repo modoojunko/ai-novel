@@ -56,7 +56,6 @@ export class MockApi {
     '**/api/user/password',
     '**/api/user/security',
     '**/api/user/preferences',
-    '**/api/license/activate',
     '**/api/device/my',
     '**/api/device/remove',
     '**/api/authorize',
@@ -281,16 +280,6 @@ export class MockApi {
 
     if (path === '/api/user/security' && method === 'PUT') {
       return route.fulfill(json(0, { success: true }))
-    }
-
-    if (path === '/api/license/activate' && method === 'POST') {
-      const body = route.request().postDataJSON()
-      if (!body?.code || body.code.length < 10) {
-        return route.fulfill(json(1, '无效的激活码'))
-      }
-      return route.fulfill(json(0, {
-        new_expires_at: new Date(Date.now() + 365 * 86400000).toISOString(),
-      }))
     }
 
     if (path === '/api/device/my' && method === 'GET') {
