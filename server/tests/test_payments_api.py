@@ -4,7 +4,7 @@
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -119,9 +119,8 @@ class TestCreateOrder:
 
     def test_rehearsal_allows_listed_user(self, client, db_session, _catalog, _switch_rehearsal):
         """名单内用户可下单（演练全链入口）。"""
-        from app.models.user import UserORM
         s = db_session
-        uid = f"rh{datetime.now(timezone.utc).timestamp():.0f}"
+        uid = f"rh{datetime.now(UTC).timestamp():.0f}"
         password = "".join(("Pa", "ss-live-", "42"))
         r = client.post("/api/web/register", json={
             "username": uid, "password": password,

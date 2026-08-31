@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import date, datetime, timedelta, timezone
-
-from app.config import settings
-from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
+from datetime import UTC, datetime
 
 from app.application.payments.reconcile import BEIJING_TZ, rehearsal_user_ids
+from app.config import settings
+from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
 
 def monthly_tax_report(
@@ -34,8 +33,8 @@ def monthly_tax_report(
         end_bj = datetime(year + 1, 1, 1, tzinfo=BEIJING_TZ)
     else:
         end_bj = datetime(year, mon + 1, 1, tzinfo=BEIJING_TZ)
-    start = start_bj.astimezone(timezone.utc)
-    end = end_bj.astimezone(timezone.utc)
+    start = start_bj.astimezone(UTC)
+    end = end_bj.astimezone(UTC)
 
     exclude_ids = rehearsal_user_ids(db)
 
@@ -75,7 +74,7 @@ def monthly_tax_report(
         exempt_note = "未超小规模免税额度"
 
     event_repo.append({
-        "event_key": f"report.monthly:{month}:{int(datetime.now(timezone.utc).timestamp())}",
+        "event_key": f"report.monthly:{month}:{int(datetime.now(UTC).timestamp())}",
         "event_type": "report.monthly_exported",
         "operator": "admin",
         "payload": {"month": month, "gross_fen": gross_fen,

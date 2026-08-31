@@ -5,12 +5,18 @@ Change 1 用 MockPaymentGateway；Change 2 替换真实网关。
 """
 from __future__ import annotations
 
+from datetime import UTC
+
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from app.domain.payments.pricing import (
-    AgreementStaleError, DomainError, PurchaseDisabledError,
-    RefundAlreadyActiveError, RefundTooSmallError, RefundWindowExceeded,
+    AgreementStaleError,
+    DomainError,
+    PurchaseDisabledError,
+    RefundAlreadyActiveError,
+    RefundTooSmallError,
+    RefundWindowExceeded,
     SkuNotFoundError,
 )
 from app.interfaces.deps import Db, get_db
@@ -101,10 +107,14 @@ async def create_order(req: CreateOrderRequest, request: Request, db: Db = Depen
         return {"code": 4001, "msg": "未登录"}
 
 
-    from app.infrastructure.repositories.payments_repo import OrderRepo, SkuRepo, TradeEventRepo
-    from app.infrastructure.repositories.factory import user_repo
     from app.application.payments.create_order import create_order as _create
     from app.infrastructure.payments.gateway import MockPaymentGateway
+    from app.infrastructure.repositories.factory import user_repo
+    from app.infrastructure.repositories.payments_repo import (
+        OrderRepo,
+        SkuRepo,
+        TradeEventRepo,
+    )
 
     user_repo = user_repo(db)
     user_id = user_repo.get_id(username)
@@ -114,7 +124,9 @@ async def create_order(req: CreateOrderRequest, request: Request, db: Db = Depen
     gateway = getattr(request.app.state, "payment_gateway", MockPaymentGateway())
 
     # 三态开关 + 演练名单（global_config 单源；缺省 off=安全关闭）
-    from app.infrastructure.repositories.factory import config_repo as _config_repo_factory
+    from app.infrastructure.repositories.factory import (
+        config_repo as _config_repo_factory,
+    )
     cfg = _config_repo_factory(db)
     purchase_enabled = cfg.get("payments.purchase.enabled") or "off"
     rehearsal_usernames = [u.strip() for u in (cfg.get("payments.rehearsal.usernames") or "").split(",") if u.strip()]
@@ -150,7 +162,7 @@ async def list_orders(request: Request, db: Db = Depends(get_db), page: int = 1,
     if not username:
         return {"code": 4001, "msg": "未登录"}
 
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from app.infrastructure.repositories.factory import user_repo
     from app.infrastructure.repositories.payments_repo import OrderRepo
@@ -160,7 +172,7 @@ async def list_orders(request: Request, db: Db = Depends(get_db), page: int = 1,
         return {"code": 4001, "msg": "用户不存在"}
 
     orders = OrderRepo(db).find_by_user(user_id, limit=page_size, offset=(page - 1) * page_size)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     items = []
     for o in orders:
@@ -192,8 +204,8 @@ async def get_pending_order(request: Request, db: Db = Depends(get_db)):
     if not username:
         return {"code": 4001, "msg": "未登录"}
 
-    from app.infrastructure.repositories.payments_repo import OrderRepo
     from app.infrastructure.repositories.factory import user_repo
+    from app.infrastructure.repositories.payments_repo import OrderRepo
     user_id = user_repo(db).get_id(username)
     orders = OrderRepo(db).find_by_user(user_id, limit=1)
     pending = next((o for o in orders if o.get("status") == "pending" and o.get("code_url")), None)
@@ -213,8 +225,8 @@ async def get_order(order_no: str, request: Request, db: Db = Depends(get_db)):
     if not username:
         return {"code": 4001, "msg": "未登录"}
 
-    from app.infrastructure.repositories.payments_repo import OrderRepo
     from app.infrastructure.repositories.factory import user_repo
+    from app.infrastructure.repositories.payments_repo import OrderRepo
 
     order = OrderRepo(db).find_by_order_no(order_no)
     if not order:
@@ -233,11 +245,10 @@ async def query_order(order_no: str, request: Request, db: Db = Depends(get_db))
     """手动查单（"我已支付帮我查"）。"""
     username = _current_username(request)
 
-    from app.infrastructure.repositories.payments_repo import OrderRepo
-    from app.infrastructure.repositories.factory import user_repo
-    from app.infrastructure.payments.gateway import MockPaymentGateway, PaymentStatus
     from app.application.payments.fulfill_payment import fulfill_payment
-    from app.infrastructure.repositories.payments_repo import TradeEventRepo
+    from app.infrastructure.payments.gateway import MockPaymentGateway, PaymentStatus
+    from app.infrastructure.repositories.factory import user_repo
+    from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
     order = OrderRepo(db).find_by_order_no(order_no)
     user_id = user_repo(db).get_id(username)
@@ -255,7 +266,9 @@ async def query_order(order_no: str, request: Request, db: Db = Depends(get_db))
     }.get(result.status, "DEGRADED")
 
     if result.status == PaymentStatus.SUCCESS and order["status"] in ("pending", "paid"):
-        from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
+        from app.infrastructure.repositories.factory import (
+            code_repo as _code_repo_factory,
+        )
         fulfill_payment(
             OrderRepo(db), TradeEventRepo(db), order,
             transaction_id=result.transaction_id,
@@ -271,11 +284,13 @@ async def refund_preview(order_no: str, request: Request, db: Db = Depends(get_d
     """退款预览（折算金额）。基准=台账行（未激活全额退）。"""
     username = _current_username(request)
 
-    from app.infrastructure.repositories.payments_repo import OrderRepo
-    from app.infrastructure.repositories.factory import code_repo as _code_repo_factory, user_repo
-    from app.domain.payments.refund import calc_refund_fen
-    from app.application.payments.refund_flow import resolve_refund_basis
     from datetime import datetime
+
+    from app.application.payments.refund_flow import resolve_refund_basis
+    from app.domain.payments.refund import calc_refund_fen
+    from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
+    from app.infrastructure.repositories.factory import user_repo
+    from app.infrastructure.repositories.payments_repo import OrderRepo
 
     order = OrderRepo(db).find_by_order_no(order_no)
     user_id = user_repo(db).get_id(username)
@@ -320,9 +335,10 @@ async def request_refund(order_no: str, req: RefundRequest, request: Request, db
     """确认退款（进入冷静期）。"""
     username = _current_username(request)
 
-    from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
-    from app.infrastructure.repositories.factory import code_repo as _code_repo_factory, user_repo
     from app.application.payments.refund_flow import request_refund as _refund
+    from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
+    from app.infrastructure.repositories.factory import user_repo
+    from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
     order = OrderRepo(db).find_by_order_no(order_no)
     user_id = user_repo(db).get_id(username)
@@ -350,9 +366,9 @@ async def cancel_refund(order_no: str, request: Request, db: Db = Depends(get_db
     """冷静期取消退款。"""
     username = _current_username(request)
 
-    from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
-    from app.infrastructure.repositories.factory import user_repo
     from app.application.payments.refund_flow import cancel_refund as _cancel
+    from app.infrastructure.repositories.factory import user_repo
+    from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
     order = OrderRepo(db).find_by_order_no(order_no)
     user_id = user_repo(db).get_id(username)
@@ -372,9 +388,9 @@ async def cancel_order(order_no: str, request: Request, db: Db = Depends(get_db)
     """取消订单（用户主动）。"""
     username = _current_username(request)
 
-    from app.infrastructure.repositories.payments_repo import OrderRepo
     from app.domain.payments.order import Transition
     from app.infrastructure.repositories.factory import user_repo
+    from app.infrastructure.repositories.payments_repo import OrderRepo
 
     order = OrderRepo(db).find_by_order_no(order_no)
     user_id = user_repo(db).get_id(username)
@@ -399,8 +415,8 @@ async def get_membership(request: Request, db: Db = Depends(get_db)):
         return {"code": 4001, "msg": "未登录"}
     # 简化实现：从 codes 表聚合
 
-    from app.infrastructure.repositories.factory import code_repo
     from app.domain.licensing.license import License
+    from app.infrastructure.repositories.factory import code_repo
 
     codes = code_repo(db).find_active_by_username(username)
     lic = License(username=username).merge(codes)
@@ -426,9 +442,10 @@ async def activate_grant(req: ActivateRequest, request: Request, db: Db = Depend
     if not username:
         return {"code": 4001, "msg": "未登录"}
 
-    from app.infrastructure.repositories.factory import code_repo as _code_repo_factory, user_repo
-    from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
     from app.application.payments.activate_entitlement import activate_entitlement
+    from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
+    from app.infrastructure.repositories.factory import user_repo
+    from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
     user_id = user_repo(db).get_id(username)
     try:
@@ -447,8 +464,8 @@ async def activate_grant(req: ActivateRequest, request: Request, db: Db = Depend
 
 def _order_to_detail(order: dict) -> dict:
     """订单 dict → 附录 Z.5 OrderDetailView。"""
-    from datetime import datetime, timezone
-    now = datetime.now(timezone.utc)
+    from datetime import datetime
+    now = datetime.now(UTC)
 
     remaining_pay = None
     if order.get("status") == "pending" and order.get("created_at"):

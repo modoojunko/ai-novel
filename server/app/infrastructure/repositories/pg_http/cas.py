@@ -6,8 +6,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import httpx
-
 from app.infrastructure.repositories.pg_http.client import jsonable
 
 
