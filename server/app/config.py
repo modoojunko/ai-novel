@@ -47,6 +47,9 @@ class Settings:
     ADMIN_TOKEN: str = os.getenv("ADMIN_TOKEN", "admin123")
 
     # ── 支付运维（设计 G7/B3/演练 A9）──
+    # 支付网关切换：mock（默认/空串，Change 1 全链替身+dev 注入端点注册）|
+    # wxpay|alipay（Change 2，dev 注入端点自动消失）
+    PAYMENTS_GATEWAY: str = os.getenv("PAYMENTS_GATEWAY", "mock") or "mock"
     # Server酱 SendKey：资金类告警通道；空 = 降级为仅日志（本地/CI 默认）
     SERVERCHAN_SENDKEY: str = os.getenv("SERVERCHAN_SENDKEY", "")
     # 定时扫描端点（R1-R4）令牌：pay-cron 云函数以 X-Cron-Token 头携带；空 = 端点全拒

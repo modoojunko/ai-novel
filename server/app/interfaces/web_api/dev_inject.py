@@ -1,8 +1,9 @@
-"""dev 注入端点（D1-D5）：仅在 mock 模式注册，X-Admin-Token 鉴权。
+"""dev 注入端点（D1-D6）：仅在 mock 网关模式注册，X-Admin-Token 鉴权。
 
 设计依据：backend-detail-design.md §6.5。
 Change 1 全链路演练的核心工具——模拟微信回调/查单/退款结果。
-生产模式（PAYMENTS_GATEWAY != 'mock'）永不注册路由。
+PAYMENTS_GATEWAY != mock（真实网关）时路由不存在——config 层空串回落
+mock 的语义保证：显式设 wxpay/alipay 即下线全部 dev 端点。
 """
 from __future__ import annotations
 
@@ -12,11 +13,9 @@ from pydantic import BaseModel
 from app.config import settings
 from app.interfaces.deps import get_db
 
-# 仅 mock 模式注册
-if settings.DB_BACKEND == "sqlite" or True:  # Change 1 全部走 mock
-    r = APIRouter(prefix="/api/dev/pay", tags=["dev-only"])
-else:
-    r = APIRouter()  # 空路由（生产不注册）
+_MOCK_MODE = settings.PAYMENTS_GATEWAY == "mock"
+
+r = APIRouter(prefix="/api/dev/pay", tags=["dev-only"]) if _MOCK_MODE else APIRouter()
 
 
 ADMIN_TOKEN = settings.ADMIN_TOKEN
@@ -44,7 +43,7 @@ class InjectRefundRequest(BaseModel):
     status: str = "SUCCESS"  # SUCCESS / NOT_ENOUGH / ABNORMAL
 
 
-if hasattr(r, "routes"):  # mock 模式才有路由
+if _MOCK_MODE:  # mock 模式才定义端点（真实网关下 r 为空 router，路由不存在）
 
     @r.post("/inject-payment")
     async def inject_payment(req: InjectPaymentRequest, request: Request, db=Depends(get_db)):
