@@ -13,6 +13,7 @@ from app.domain.payments.pricing import (
     RefundAlreadyActiveError, RefundTooSmallError, RefundWindowExceeded,
     SkuNotFoundError,
 )
+from app.interfaces.deps import Db, get_db
 
 r = APIRouter(prefix="/api/pay", tags=["payments"])
 
@@ -35,9 +36,8 @@ class ActivateRequest(BaseModel):
 # ── 端点 ──
 
 @r.get("/skus")
-async def get_skus(request: Request):
+async def get_skus(request: Request, db: Db = Depends(get_db)):
     """Z.2 公开端点：商品目录（登录时含 current 态）。"""
-    db = request.app.state.db
     from app.infrastructure.repositories.payments_repo import SkuRepo, TierRepo
     sku_repo = SkuRepo(db)
     tier_repo = TierRepo(db)
@@ -79,13 +79,13 @@ async def get_skus(request: Request):
 
 
 @r.post("/orders")
-async def create_order(req: CreateOrderRequest, request: Request):
+async def create_order(req: CreateOrderRequest, request: Request, db: Db = Depends(get_db)):
     """Z.3 下单（冻结快照+统一下单）。"""
     username = getattr(request.state, "username", "")
     if not username:
         return {"code": 4001, "msg": "未登录"}
 
-    db = request.app.state.db
+
     from app.infrastructure.repositories.payments_repo import OrderRepo, SkuRepo, TradeEventRepo
     from app.infrastructure.repositories.sql.user_repo import SqlUserRepo
     from app.application.payments.create_order import create_order as _create
@@ -121,12 +121,12 @@ async def create_order(req: CreateOrderRequest, request: Request):
 
 
 @r.get("/orders/pending")
-async def get_pending_order(request: Request):
+async def get_pending_order(request: Request, db: Db = Depends(get_db)):
     """Z.3 恢复未支付订单。"""
     username = getattr(request.state, "username", "")
     if not username:
         return {"code": 4001, "msg": "未登录"}
-    db = request.app.state.db
+
     from app.infrastructure.repositories.payments_repo import OrderRepo
     from app.infrastructure.repositories.sql.user_repo import SqlUserRepo
     user_id = SqlUserRepo(db).get_id(username)
@@ -142,12 +142,12 @@ async def get_pending_order(request: Request):
 
 
 @r.get("/orders/{order_no}")
-async def get_order(order_no: str, request: Request):
+async def get_order(order_no: str, request: Request, db: Db = Depends(get_db)):
     """Z.5 订单详情（全量：状态/时间线/单号/退款进度）。"""
     username = getattr(request.state, "username", "")
     if not username:
         return {"code": 4001, "msg": "未登录"}
-    db = request.app.state.db
+
     from app.infrastructure.repositories.payments_repo import OrderRepo
     from app.infrastructure.repositories.sql.user_repo import SqlUserRepo
 
@@ -164,10 +164,10 @@ async def get_order(order_no: str, request: Request):
 
 
 @r.post("/orders/{order_no}/query")
-async def query_order(order_no: str, request: Request):
+async def query_order(order_no: str, request: Request, db: Db = Depends(get_db)):
     """手动查单（"我已支付帮我查"）。"""
     username = getattr(request.state, "username", "")
-    db = request.app.state.db
+
     from app.infrastructure.repositories.payments_repo import OrderRepo
     from app.infrastructure.repositories.sql.user_repo import SqlUserRepo
     from app.infrastructure.payments.gateway import MockPaymentGateway, PaymentStatus
@@ -200,10 +200,10 @@ async def query_order(order_no: str, request: Request):
 
 
 @r.get("/orders/{order_no}/refund-preview")
-async def refund_preview(order_no: str, request: Request):
+async def refund_preview(order_no: str, request: Request, db: Db = Depends(get_db)):
     """退款预览（折算金额）。"""
     username = getattr(request.state, "username", "")
-    db = request.app.state.db
+
     from app.infrastructure.repositories.payments_repo import OrderRepo
     from app.infrastructure.repositories.sql.user_repo import SqlUserRepo
     from app.domain.payments.refund import calc_refund_fen
@@ -246,10 +246,10 @@ async def refund_preview(order_no: str, request: Request):
 
 
 @r.post("/orders/{order_no}/refund")
-async def request_refund(order_no: str, req: RefundRequest, request: Request):
+async def request_refund(order_no: str, req: RefundRequest, request: Request, db: Db = Depends(get_db)):
     """确认退款（进入冷静期）。"""
     username = getattr(request.state, "username", "")
-    db = request.app.state.db
+
     from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
     from app.infrastructure.repositories.sql.user_repo import SqlUserRepo
     from app.application.payments.refund_flow import request_refund as _refund
@@ -275,10 +275,10 @@ async def request_refund(order_no: str, req: RefundRequest, request: Request):
 
 
 @r.post("/orders/{order_no}/refund/cancel")
-async def cancel_refund(order_no: str, request: Request):
+async def cancel_refund(order_no: str, request: Request, db: Db = Depends(get_db)):
     """冷静期取消退款。"""
     username = getattr(request.state, "username", "")
-    db = request.app.state.db
+
     from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
     from app.infrastructure.repositories.sql.user_repo import SqlUserRepo
     from app.application.payments.refund_flow import cancel_refund as _cancel
@@ -297,10 +297,10 @@ async def cancel_refund(order_no: str, request: Request):
 
 
 @r.post("/orders/{order_no}/cancel")
-async def cancel_order(order_no: str, request: Request):
+async def cancel_order(order_no: str, request: Request, db: Db = Depends(get_db)):
     """取消订单（用户主动）。"""
     username = getattr(request.state, "username", "")
-    db = request.app.state.db
+
     from app.infrastructure.repositories.payments_repo import OrderRepo
     from app.domain.payments.order import Transition
     from app.infrastructure.repositories.sql.user_repo import SqlUserRepo
@@ -321,13 +321,13 @@ async def cancel_order(order_no: str, request: Request):
 
 
 @r.get("/membership")
-async def get_membership(request: Request):
+async def get_membership(request: Request, db: Db = Depends(get_db)):
     """Z.6 我的套餐总览。"""
     username = getattr(request.state, "username", "")
     if not username:
         return {"code": 4001, "msg": "未登录"}
     # 简化实现：从 codes 表聚合
-    db = request.app.state.db
+
     from app.infrastructure.repositories.sql.code_repo import SqlCodeRepo
     from app.domain.licensing.license import License
 
@@ -350,12 +350,12 @@ async def get_membership(request: Request):
 
 
 @r.post("/grants/activate")
-async def activate_grant(req: ActivateRequest, request: Request):
+async def activate_grant(req: ActivateRequest, request: Request, db: Db = Depends(get_db)):
     """激活（到货-激活两段式第二段）。"""
     username = getattr(request.state, "username", "")
     if not username:
         return {"code": 4001, "msg": "未登录"}
-    db = request.app.state.db
+
     from app.infrastructure.repositories.sql.user_repo import SqlUserRepo
     from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
     from app.infrastructure.repositories.sql.code_repo import SqlCodeRepo

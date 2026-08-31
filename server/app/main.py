@@ -74,6 +74,11 @@ def on_startup():
     logger = logging.getLogger("app")
     logger.info("event=app.start db_backend=%s db_path=%s", settings.DB_BACKEND, settings.DB_PATH)
 
+    # 初始化支付网关（Change 1 全部走 Mock；Change 2 按 PAYMENTS_GATEWAY 切换）
+    from app.infrastructure.payments.gateway import MockPaymentGateway
+    app.state.payment_gateway = MockPaymentGateway()
+    logger.info("event=payments.gateway type=mock")
+
     if settings.DB_BACKEND == "pg_http":
         # CloudBase PG 表结构由管理端 MCP applyMigration 预建，应用启动不迁移
         logger.info("event=app.started version=%s db_backend=pg_http", "2.1.0")
