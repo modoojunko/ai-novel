@@ -8,6 +8,8 @@ from typing import Any
 
 import httpx
 
+from app.infrastructure.repositories.pg_http.client import jsonable
+
 
 class CASLost(Exception):
     """CAS 竞态：WHERE 条件不匹配，0 行被更新。"""
@@ -54,7 +56,7 @@ def extend_pg_rest_client(client: PgRestClient) -> None:
         resp = client._client.patch(
             f"{client._endpoint}/{table}",
             params=client._build_params(merged_filter),
-            json=body,
+            json=jsonable(body),
             headers={"Prefer": "return=representation"},
         )
         resp.raise_for_status()
@@ -65,7 +67,7 @@ def extend_pg_rest_client(client: PgRestClient) -> None:
         """INSERT，撞唯一约束返回 False（不抛异常）。"""
         resp = client._client.post(
             f"{client._endpoint}/{table}",
-            json=doc,
+            json=jsonable(doc),
         )
         if resp.status_code in (400, 409):
             # PostgREST 唯一约束错误（PGRST 系列 4xx）
@@ -77,7 +79,7 @@ def extend_pg_rest_client(client: PgRestClient) -> None:
         """INSERT 并返回插入的行（Prefer: return=representation）。"""
         resp = client._client.post(
             f"{client._endpoint}/{table}",
-            json=doc,
+            json=jsonable(doc),
             headers={"Prefer": "return=representation"},
         )
         resp.raise_for_status()
