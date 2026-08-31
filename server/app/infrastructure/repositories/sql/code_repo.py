@@ -35,6 +35,7 @@ class SqlCodeRepo:
             created_at=row.created_at,
             created_by=row.created_by or "",
             refund_requested_at=row.refund_requested_at,
+            grant_start=row.grant_start,
         )
 
     def get(self, code_id: str) -> ActivationCode | None:

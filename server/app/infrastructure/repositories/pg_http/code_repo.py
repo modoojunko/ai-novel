@@ -44,6 +44,7 @@ class PgHttpCodeRepo:
             created_at=parse_dt(doc.get("created_at")),
             created_by=doc.get("created_by", "") or "",
             refund_requested_at=parse_dt(doc.get("refund_requested_at")),
+            grant_start=parse_dt(doc.get("grant_start")),
         )
 
     def get(self, code_id: str) -> ActivationCode | None:

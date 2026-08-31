@@ -268,13 +268,14 @@ async def query_order(order_no: str, request: Request, db: Db = Depends(get_db))
 
 @r.get("/orders/{order_no}/refund-preview")
 async def refund_preview(order_no: str, request: Request, db: Db = Depends(get_db)):
-    """退款预览（折算金额）。"""
+    """退款预览（折算金额）。基准=台账行（未激活全额退）。"""
     username = _current_username(request)
 
     from app.infrastructure.repositories.payments_repo import OrderRepo
-    from app.infrastructure.repositories.factory import user_repo
+    from app.infrastructure.repositories.factory import code_repo as _code_repo_factory, user_repo
     from app.domain.payments.refund import calc_refund_fen
-    from datetime import datetime, timezone, timedelta
+    from app.application.payments.refund_flow import resolve_refund_basis
+    from datetime import datetime, timezone
 
     order = OrderRepo(db).find_by_order_no(order_no)
     user_id = user_repo(db).get_id(username)
@@ -288,8 +289,10 @@ async def refund_preview(order_no: str, request: Request, db: Db = Depends(get_d
     now = datetime.now(timezone.utc)
     snapshot = order.get("sku_snapshot") or {}
     total_sec = snapshot.get("period_days", 30) * 86400
-    grant_start = order.get("grant_start")  # 从 codes 行读
-    expires = order.get("paid_at", now) + timedelta(days=snapshot.get("period_days", 30))
+    grant_start, expires, paid_at = resolve_refund_basis(
+        _code_repo_factory(db), order, now)
+    if expires is None:
+        expires = now  # 全额分支占位
 
     quote = calc_refund_fen(
         amount_fen=order["amount_fen"],
@@ -297,7 +300,7 @@ async def refund_preview(order_no: str, request: Request, db: Db = Depends(get_d
         expires_at=expires,
         grant_start=grant_start,
         refund_at=now,
-        paid_at=order.get("paid_at", now),
+        paid_at=paid_at,
     )
 
     if not quote.refundable:
@@ -318,7 +321,7 @@ async def request_refund(order_no: str, req: RefundRequest, request: Request, db
     username = _current_username(request)
 
     from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
-    from app.infrastructure.repositories.factory import user_repo
+    from app.infrastructure.repositories.factory import code_repo as _code_repo_factory, user_repo
     from app.application.payments.refund_flow import request_refund as _refund
 
     order = OrderRepo(db).find_by_order_no(order_no)
@@ -327,7 +330,8 @@ async def request_refund(order_no: str, req: RefundRequest, request: Request, db
         return {"code": 4004, "msg": "订单不存在"}
 
     try:
-        result = _refund(OrderRepo(db), TradeEventRepo(db), order, user_id, req.reason)
+        result = _refund(OrderRepo(db), TradeEventRepo(db), _code_repo_factory(db),
+                         order, user_id, req.reason)
         if "error" in result:
             return {"code": 4008 if result["error"] == "below_one_fen" else 4009,
                     "msg": result["error"]}

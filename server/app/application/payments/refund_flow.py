@@ -16,11 +16,50 @@ from app.infrastructure.payments.gateway import PaymentGateway, RefundGatewayRes
 from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
 
+def _naive(value) -> datetime | None:
+    """pg_http 行时间字段（ISO 字符串）/ datetime → naive UTC datetime。"""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if isinstance(value, datetime):
+        if value.tzinfo is not None:
+            value = value.astimezone(timezone.utc).replace(tzinfo=None)
+        return value
+    return None
+
+
+# ═══ 取数辅助（preview / request 共用）═══
+
+def resolve_refund_basis(code_repo, order: dict, now: datetime) -> tuple:
+    """折算基准三元组 (grant_start, expires_at, paid_at)，全部 naive UTC datetime。
+
+    - 台账 active 行有 grant_start/expires_at → 按秒折算；
+    - 未激活（无 active 行）→ grant_start=None → 域函数走全额退；
+    - pg_http 行的时间字段是 ISO 字符串，统一 parse_dt 归一。
+    """
+    from app.infrastructure.repositories.pg_http.client import parse_dt
+
+    grant_start = expires_at = None
+    order_id = order.get("id") or order.get("order_no")
+    if code_repo is not None and order.get("id") is not None:
+        for r in code_repo.find_by_order(order_id):
+            if r.status == "active" and r.grant_start and r.expires_at:
+                grant_start = r.grant_start if isinstance(r.grant_start, datetime) else parse_dt(r.grant_start)
+                expires_at = r.expires_at if isinstance(r.expires_at, datetime) else parse_dt(r.expires_at)
+                break
+    paid_at = order.get("paid_at") or now
+    if isinstance(paid_at, str):
+        paid_at = parse_dt(paid_at)
+    return grant_start, expires_at, paid_at
+
+
 # ═══ request_refund（确认退款——进入冷静期）═══
 
 def request_refund(
     order_repo: OrderRepo,
     event_repo: TradeEventRepo,
+    code_repo,
     order: dict,
     user_id: int,
     reason: str = "",
@@ -34,27 +73,27 @@ def request_refund(
     order_no = order["order_no"]
 
     # 前置校验
+    cooldown_left = _naive(order.get("cooldown_ends_at"))
     if order["status"] not in ("fulfilled",):
         if order["status"] in ("refund_pending", "refund_processing"):
-            remaining = max(0, int((order.get("cooldown_ends_at") - now).total_seconds())) if order.get("cooldown_ends_at") else 0
+            remaining = max(0, int((cooldown_left - now.replace(tzinfo=None)).total_seconds())) if cooldown_left else 0
             raise RefundAlreadyActiveError(cooldown_remaining=remaining)
         return {"error": "invalid_state", "status": order["status"]}
 
-    # 折算（服务端算，金额此刻锁定）
+    # 折算（服务端算，金额此刻锁定）。基准来自台账行：未激活 → grant_start=None → 全额退。
     snapshot = order.get("sku_snapshot") or {}
     total_sec = snapshot.get("period_days", 30) * 86400
-    grant_start = order.get("grant_start")  # 从 codes 行读（此处简化，调用方应传入）
-    expires_at = order.get("grant_expires") or (order.get("paid_at") + timedelta(days=snapshot.get("period_days", 30)))
+    grant_start, expires_at, paid_at = resolve_refund_basis(code_repo, order, now)
+    if expires_at is None:
+        expires_at = now  # 未激活/无到期信息 → 全额分支，占位不参与计算
 
-    # 简化版折算（实际从 codes 行获取 grant_start/expires_at）
-    paid_at = order.get("paid_at") or now
     quote = calc_refund_fen(
         amount_fen=order["amount_fen"],
         total_sec=total_sec,
-        expires_at=expires_at if isinstance(expires_at, datetime) else now + timedelta(days=snapshot.get("period_days", 30)),
-        grant_start=grant_start if isinstance(grant_start, datetime) else None,
+        expires_at=expires_at,
+        grant_start=grant_start,
         refund_at=now,
-        paid_at=paid_at if isinstance(paid_at, datetime) else now,
+        paid_at=paid_at,
     )
     if not quote.refundable:
         return {"error": quote.reason, "status": order["status"]}
@@ -73,7 +112,7 @@ def request_refund(
     if updated is None:
         current = order_repo.find_by_order_no(order_no)
         if current and current["status"] in ("refund_pending", "refund_processing"):
-            rem = max(0, int((current.get("cooldown_ends_at") or now) - now)) if current.get("cooldown_ends_at") else 0
+            rem = max(0, int((_naive(current.get("cooldown_ends_at")) or now.replace(tzinfo=None)) - now.replace(tzinfo=None))) if current.get("cooldown_ends_at") else 0
             raise RefundAlreadyActiveError(cooldown_remaining=rem)
         return current or {"error": "cas_lost"}
 
@@ -109,8 +148,9 @@ def cancel_refund(
     if order["status"] != "refund_pending":
         return {"error": "not_in_cooldown", "status": order["status"]}
 
-    cooldown_end = order.get("cooldown_ends_at")
-    if cooldown_end and cooldown_end <= now:
+    cooldown_end = _naive(order.get("cooldown_ends_at"))
+    now_naive = now.replace(tzinfo=None)
+    if cooldown_end and cooldown_end <= now_naive:
         return {"error": "cooldown_expired", "status": order["status"]}
 
     # CAS 竞态：先 CAS 赢单者赢
