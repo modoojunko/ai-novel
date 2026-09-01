@@ -13,7 +13,7 @@ from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventR
 
 def calc_grant_start(active_codes: list, today: date | None = None) -> date:
     """计算激活起点 = max(现有 active 行最远到期日, 今天)。复用 licensing 顺延。"""
-    t = today or date.today()
+    t = today or datetime.now(UTC).date()
     max_exp = t
     for code in active_codes:
         exp = getattr(code, "expires_at", None)

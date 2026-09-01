@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, datetime
 
 # codes 行状态：待激活/排队中/消耗中/退款冻结/已回收
 # merge 只看"已激活族"（active/queued），跳过 revoked/frozen/pending_activation
@@ -19,7 +19,7 @@ class License:
         """License 是否在有效期内（按日期比较，忽略时间）。"""
         if self.max_expires_at is None:
             return False
-        return self.max_expires_at.date() >= date.today()
+        return self.max_expires_at.date() >= datetime.now(UTC).date()
 
     def merge(self, codes: list) -> License:
         """从 codes 列表计算到期日和 tier。

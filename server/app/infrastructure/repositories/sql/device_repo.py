@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -70,7 +70,7 @@ class SqlDeviceRepo:
             DeviceRegistryORM.user_id == uid,
             DeviceRegistryORM.fingerprint == device.fingerprint,
         ).first()
-        now = datetime.now()
+        now = datetime.now(UTC).replace(tzinfo=None)
         if existing:
             existing.hostname = device.hostname
             existing.os = device.os

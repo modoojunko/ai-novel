@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from app.domain.licensing import ActivationCode
 from app.infrastructure.repositories.pg_http.client import (
@@ -90,7 +90,7 @@ class PgHttpCodeRepo:
         self.client.update(_TABLE, {"code_id": code_id}, {
             "status": "active",
             "user_id": uid,
-            "activated_at": to_iso(datetime.now()),
+            "activated_at": to_iso(datetime.now(UTC).replace(tzinfo=None)),
             "expires_at": to_iso(datetime.combine(expires_at, datetime.min.time())),
         })
 
