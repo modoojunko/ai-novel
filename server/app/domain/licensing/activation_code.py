@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 
 @dataclass
@@ -29,4 +29,4 @@ class ActivationCode:
         self.status = "active"
         self.user_id = username
         self.expires_at = expire_date
-        self.activated_at = datetime.now()
+        self.activated_at = datetime.now(UTC).replace(tzinfo=None)

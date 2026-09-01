@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from app.config import settings
 
@@ -26,5 +26,5 @@ def get_display_name(tier: str) -> str:
 def calc_expires_at(tier: str, base: date | None = None) -> date:
     """根据套餐类型，计算到期日（从 base 或今天起算）。返回 date 类型。"""
     days = get_duration_days(tier)
-    start = base or date.today()
+    start = base or datetime.now(UTC).date()
     return start + timedelta(days=days)

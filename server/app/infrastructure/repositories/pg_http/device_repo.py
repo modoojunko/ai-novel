@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from app.domain.devices import DeviceRegistry
 from app.infrastructure.repositories.pg_http.client import (
@@ -42,7 +42,7 @@ class PgHttpDeviceRepo:
         return [self._to_domain(d) for d in docs]
 
     def upsert(self, device: DeviceRegistry) -> DeviceRegistry:
-        now = datetime.now()
+        now = datetime.now(UTC).replace(tzinfo=None)
         existing = self.client.find_one(_TABLE, {
             "user_id": device.user_id, "fingerprint": device.fingerprint,
         })

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from app.domain.identity import User
 from app.domain.licensing import ActivationCode
@@ -38,7 +38,7 @@ def register_user(
 
     # 送 7 天试用 —— 与创建用户在同一事务中
     trial_code_id = f"TRIAL-{uuid.uuid4().hex[:8].upper()}"
-    today = date.today()
+    today = datetime.now(UTC).date()  # UTC 日期（存储 naive UTC 口径，不依赖容器 TZ）
     expires = today + timedelta(days=7)
     trial = ActivationCode(
         code_id=trial_code_id,
@@ -48,7 +48,7 @@ def register_user(
         user_id=user_id,  # 代理键 int
         expires_at=None,
         activated_at=None,
-        created_at=datetime.now(),
+        created_at=datetime.now(UTC).replace(tzinfo=None),
         created_by="system",
     )
     code_repo.create(trial)

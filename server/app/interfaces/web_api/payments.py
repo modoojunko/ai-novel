@@ -421,10 +421,11 @@ async def get_membership(request: Request, db: Db = Depends(get_db)):
     codes = code_repo(db).find_active_by_username(username)
     lic = License(username=username).merge(codes)
 
-    from datetime import datetime
+    from datetime import UTC, datetime
+    now = datetime.now(UTC).replace(tzinfo=None)  # naive UTC（表列口径，不依赖容器 TZ）
     remaining = 0
     if lic.max_expires_at:
-        remaining = max(0, int((lic.max_expires_at - datetime.now()).total_seconds()))
+        remaining = max(0, int((lic.max_expires_at - now).total_seconds()))
 
     return {"code": 0, "data": {
         "tier": lic.effective_tier,

@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy.orm import Session
 
@@ -100,7 +100,7 @@ class SqlCodeRepo:
         self.db.query(ActivationCodeORM).filter(ActivationCodeORM.code_id == code_id).update({
             "status": "active",
             "user_id": uid,
-            "activated_at": datetime.now(),
+            "activated_at": datetime.now(UTC).replace(tzinfo=None),
             "expires_at": datetime.combine(expires_at, datetime.min.time()),
         })
 

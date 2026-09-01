@@ -6,6 +6,13 @@
 
 AI Novel（爱小说）—— 基于 C/S 架构的 AI 辅助长篇小说创作平台。单用户桌面应用，用户在本地创建和管理小说项目，按照六阶段工作流（init → settings → outline → prompt → write → archive）与 AI 协作创作，按 Token 用量计费。
 
+## 时区口径（2026-09-01 拍板）
+
+- **存储与后端计算永远是 naive UTC**：取当前时刻用 `datetime.now(UTC).replace(tzinfo=None)`，取当前日期用 `datetime.now(UTC).date()`；禁止裸 `datetime.now()` / `date.today()`（隐式依赖容器时区，实测切换 TZ 即偏 8 小时）。
+- **上海时区只发生在前端展示**：`server/frontend/src/api/pay.ts` 的 `fmtBj` 是唯一转换点（无 offset 字符串按 UTC 解析 → `Asia/Shanghai` 格式化），后端不出上海时间字符串。
+- **容器 TZ / PG 数据库时区 / PostgREST 连接时区不作为口径依据**：不得通过改环境配置"统一时区"；orders 等表的 `created_at` 由应用显式传 UTC 值，不依赖 DB DEFAULT `now()`。
+- TZ 抗性测试：`server/tests/test_timezone_discipline.py`（进程切 Asia/Shanghai 断言会员剩余/注册写入不偏移）。
+
 ## 工作原则
 
 减少常见 LLM 编码错误的行为准则。按需与项目特定指令合并使用。
