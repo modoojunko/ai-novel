@@ -68,6 +68,19 @@ class TestPgRestClient:
         client = make_client(handler)
         assert client.find("codes", {"expires_at": None}) == []
 
+    def test_error_carries_gateway_body(self):
+        """4xx 异常消息必须带网关错误码/消息（2026-08-31 复盘：排障免直连）。"""
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                400, json={"code": "DATABASE_22P02", "message": "invalid input syntax for type bigint"}
+            )
+
+        client = make_client(handler)
+        with pytest.raises(httpx.HTTPStatusError) as ei:
+            client.find("device_registry", {"user_id": "modoojunko"})
+        assert "DATABASE_22P02" in str(ei.value)
+        assert "invalid input syntax" in str(ei.value)
+
     def test_insert_sends_null_for_none_fields(self):
         def handler(request: httpx.Request) -> httpx.Response:
             assert request.method == "POST"

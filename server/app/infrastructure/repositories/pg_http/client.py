@@ -60,6 +60,29 @@ class PgRestClient:
             transport=transport,  # 测试注入 MockTransport
         )
 
+    def _raise(self, resp: httpx.Response) -> None:
+        """raise_for_status 增强：异常消息带上网关错误码与消息（2026-08-31 复盘改进）。
+
+        网关 4xx/5xx 的响应体（如 DATABASE_22P02 invalid input syntax）以前被
+        raise_for_status 丢弃，排障只能绕过服务直连网关复现；现在随异常透出，
+        日志里即可见真实错误。
+        """
+        if resp.is_success:
+            return
+        try:
+            body = resp.json()
+        except ValueError:
+            body = None
+        detail = ""
+        if isinstance(body, dict) and (body.get("code") or body.get("message")):
+            detail = f" | body={body.get('code', '')}: {body.get('message', '')}"
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise httpx.HTTPStatusError(
+                f"{exc}{detail}", request=exc.request, response=exc.response
+            ) from exc
+
     def find(
         self,
         table: str,
@@ -75,7 +98,7 @@ class PgRestClient:
             f"{self._endpoint}/{table}",
             params=params,
         )
-        resp.raise_for_status()
+        self._raise(resp)
         return resp.json()
 
     def find_one(
@@ -91,7 +114,7 @@ class PgRestClient:
         # None → JSON null：PostgREST 省略字段会应用列 DEFAULT（如 ''），
         # 显式 null 才能写 NULL。需要数据库默认值的列（如 created_at）由调用方不传键。
         resp = self._client.post(f"{self._endpoint}/{table}", json=jsonable(doc))
-        resp.raise_for_status()
+        self._raise(resp)
 
     def update(self, table: str, filter: dict, changes: dict) -> None:
         body = jsonable({k: v for k, v in changes.items() if v is not None})
@@ -100,7 +123,7 @@ class PgRestClient:
             params=self._build_params(filter),
             json=body,
         )
-        resp.raise_for_status()
+        self._raise(resp)
 
     def update_cas(self, table: str, filter: dict, changes: dict) -> int:
         """条件更新并返回受影响行数（account-deletion 的 CAS 基元，design A1 方案②）。
@@ -116,7 +139,7 @@ class PgRestClient:
             json=body,
             headers={"Prefer": "return=representation"},
         )
-        resp.raise_for_status()
+        self._raise(resp)
         return len(resp.json()) if resp.content else 0
 
     def delete(self, table: str, filter: dict) -> int:
@@ -127,7 +150,7 @@ class PgRestClient:
             params=self._build_params(filter),
             headers={"Prefer": "return=representation"},
         )
-        resp.raise_for_status()
+        self._raise(resp)
         return len(resp.json()) if resp.content else 0
 
     def commit(self) -> None:
