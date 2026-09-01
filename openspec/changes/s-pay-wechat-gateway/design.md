@@ -17,7 +17,7 @@
 | create_payment | POST /v3/pay/transactions/native | 请求带 `time_expire`（RFC3339）与本地 15 分钟 TTL 对齐——微信侧原生截断支付窗口，消除「本地已过期、关单未执行前用户仍可付款」竞态；`code_url` 直传；业务错误（NO_AUTH/参数错）→ `PaymentResult(success=False, error_kind=…)`；超时 → prepay failed |
 | query_payment | GET /v3/pay/transactions/out-trade-no | trade_state 归一：SUCCESS→SUCCESS、NOTPAY→NOTPAY、CLOSED→CLOSED、REFUND→REFUND（转入退款，显式归一防对账误判 UNKNOWN）、REVOKED/PAYERROR→PAYERROR、其他→UNKNOWN；带回 transaction_id/payer_openid |
 | close_payment | POST …/close | **先查单确认未付再关单**（官方建议，查询接口使用时机明文「调用关单或撤销接口之前，需确认支付状态」）；关单成功→success；**403 `ORDERPAID`（订单已支付，无法关闭）→ already_paid=True**（官方原话「请当作已支付的正常交易」）；**订单已关闭类返回（V2 ORDERCLOSED，V3 同语义）→ 幂等成功**，重试场景不告警。边界：**下单后 5 分钟内不可关单**（官方最短间隔）——TTL 15 分钟天然满足，若未来调短 TTL 必须保持 ≥5min；RESOURCE_EXISTS 不是关单错误码 |
-| create_refund | POST /v3/refund/domestic/refunds | SUCCESS/PROCESSING→受理；带 wx_refund_id。错误语义（官方 403/429 区分）：`NOT_ENOUGH`=**商户账户余额不足，不随时间自愈**→转人工告警、T3 不自动重试空转；`FREQUENCY_LIMITED`（受理中，429）→按官方建议**原退款单号**间隔重试（勿换单号）；`NOT_ENOUGH` 之外资金类错误同转告警 |
+| create_refund | POST /v3/refund/domestic/refunds | SUCCESS/PROCESSING→**受理**（受理≠成功，结果以查询/回调推进）；带 wx_refund_id。错误分类：`NOT_ENOUGH`（账户余额不足，不自愈）→转人工告警、T3 不自动重试空转；`FREQUENCY_LIMITED`（受理中）与 `ORDER_NOT_READY`（订单处理中）→按官方建议**原退款单号**间隔重试（勿换单号）；`USER_ACCOUNT_ABNORMAL`（用户账号注销）→转人工告警；其余资金类错误同转告警 |
 | query_refund | GET /v3/refund/domestic/refunds/{no} | 状态归一到 RefundStatus（SUCCESS/PROCESSING/CLOSED/ABNORMAL 四态全覆盖） |
 | download_bill | GET /v3/bill/tradebill（**单数**）→ download_url → GET 下载 | **两张账单分下**：`bill_type=ALL`（支付流水）+ `bill_type=REFUND`（退款流水）——退款明细不混在 ALL 里；CSV **逗号分隔**、每字段前置 `` ` `` 反引号（防科学计数法，解析时剥掉）；**金额列单位为元（2 位小数）→ 归一时 ×100 转分**；download_url 仅 **5 分钟有效**需即取即下；下载后 SHA1 与申请接口返回的 hash_digest 比对（官方建议，防传输损坏）；账单次日 10 点后生成、仅近三个月可取 |
 
@@ -64,3 +64,4 @@
 - **探测噪声**：`WECHATPAY/SIGNTEST/` 前缀签名为微信官方验签探测，拒绝但豁免告警
 - **关单时序**：下单后 5 分钟内微信拒绝关单（官方最短间隔）——本地 TTL（15 分钟）与 T1 扫描周期不得低于该值；重复关单/已关闭订单再关单为幂等操作，不告警
 - **官方合规**：notify_url 须 https 外网可达全路径且无查询参数；回调应答预算 5 秒；接口限频（下单/关单 429 退避、退款失败仅 6QPS、退款查询 1 分钟起步衰减）；账单仅近三个月、次日 10 点后生成
+- **退款运维**：商户平台「退款 IP 白名单」保持**关闭**（云托管出口 IP 动态，开启即全拒；报 `NOAUTH` 异常 IP 先查此开关）；V3 退款无需 V2 那种双向证书，复用商户私钥签名
