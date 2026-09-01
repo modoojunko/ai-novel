@@ -7,5 +7,5 @@
 ## 2. 验证与入库
 
 - [x] 2.1 ruff 全绿；验收=对四个改动文件零告警
-- [ ] 2.2 全量 pytest：等主工作区并发会话的迁移链收敛（alembic multi-head 修复）后重跑；验收=全量绿
-- [ ] 2.3 PR 合入后部署 run 门禁实战 `tables=11`：验收=run 日志贴 PR
+- [x] 2.2 全量 pytest：等主工作区并发会话的迁移链收敛（alembic multi-head 修复）后重跑；验收=全量绿
+- [x] 2.3 PR 合入后部署 run 门禁实战 `tables=11`：验收=run 日志贴 PR
