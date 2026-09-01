@@ -16,9 +16,9 @@ test.describe('认证流程', () => {
       await page.getByLabel('确认密码').fill('Pass123!')
       await page.locator('select').first().selectOption('你的宠物名字是？')
       await page.getByLabel('密保答案').fill('Fluffy')
-      // legal-four-docs：注册页双勾选（四件套 + 隐私政策）后方可提交
-      await page.getByRole('checkbox').nth(0).check()
-      await page.getByRole('checkbox').nth(1).check()
+      // 法律文件双勾选（legal-four-docs）为提交前置，不勾按钮保持 disabled
+      await page.locator('label.agr-chk', { hasText: '《用户服务协议》' }).locator('input').check()
+      await page.locator('label.agr-chk', { hasText: '《隐私政策》' }).locator('input').check()
       await page.locator('button:has-text("注册")').click()
       await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 })
     })

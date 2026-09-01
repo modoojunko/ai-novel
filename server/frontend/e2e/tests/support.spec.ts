@@ -2,7 +2,7 @@ import { test, expect } from '../fixtures'
 
 // 客服页 /support（contact-support-page）：免登录可访 + 核心内容 + 落地页页脚入口。
 // 时限/邮箱口径断言与 constants/support.ts、docs/legal 四件套一致，改口径须同批改这里。
-const EMAIL = 'alexee_zhu@163.com'
+const EMAIL = 'support@xingweitouzi.cn'
 const TOPIC_TITLES = ['退款与订单问题', '发票申请', '注销账号', '账号安全', '个人信息权利', '一般使用问题']
 
 test.describe('客服页', () => {
