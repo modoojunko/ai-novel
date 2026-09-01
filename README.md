@@ -158,4 +158,4 @@ GNU GPLv3。详见 [LICENSE](LICENSE)。
 
 ## 联系方式
 
-商务咨询：**alexee_zhu@foxmail.com**
+商务咨询：**support@xingweitouzi.cn**
