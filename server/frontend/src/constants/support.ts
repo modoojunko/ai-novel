@@ -1,9 +1,10 @@
 /**
  * 客服联系单一事实源：邮箱与时限承诺数字与 docs/legal 四件套逐字一致
  * （付费须知 §十一 = 48 小时一般回复；隐私政策 §四 = 15 个工作日个保权利响应）。
- * 协议改版须同批修改此处；升级独立客服邮箱时只改 SUPPORT_EMAIL。
+ * 协议改版须同批修改此处；客服邮箱另硬编码在 public/legal 三页、docs/legal 四件套
+ * 与 e2e support.spec.ts，换邮箱须同批全改。
  */
-export const SUPPORT_EMAIL = 'alexee_zhu@163.com'
+export const SUPPORT_EMAIL = 'support@xingweitouzi.cn'
 
 /** 一般客服咨询的回复时限（小时），口径=付费须知 §十一（退款申诉/处置申诉同此口径） */
 export const SUPPORT_REPLY_HOURS = 48
