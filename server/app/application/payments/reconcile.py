@@ -8,7 +8,7 @@ mock 网关 → 记 skipped 结束（Change 1）；mismatch/error → NotifyServ
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta, timezone
 from typing import Any
 
 from app.config import settings
@@ -28,7 +28,7 @@ def _bill_window(bill_date: str) -> tuple[datetime, datetime]:
     """北京时间自然日 → UTC [start, end) 区间（库内时间为 UTC）。"""
     d = date.fromisoformat(bill_date)
     start_bj = datetime(d.year, d.month, d.day, tzinfo=BEIJING_TZ)
-    return start_bj.astimezone(timezone.utc), (start_bj + timedelta(days=1)).astimezone(timezone.utc)
+    return start_bj.astimezone(UTC), (start_bj + timedelta(days=1)).astimezone(UTC)
 
 
 def rehearsal_user_ids(db) -> set[int]:
@@ -177,7 +177,7 @@ def _with_retry(fn, attempts: int = 3):
 
 
 def _now_stamp() -> int:
-    return int(datetime.now(timezone.utc).timestamp())
+    return int(datetime.now(UTC).timestamp())
 
 
 def _notify(notify: Any, title: str, markdown: str) -> None:

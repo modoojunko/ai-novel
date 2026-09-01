@@ -19,6 +19,7 @@ class User:
     deletion_requested_at: datetime | None = None
     deletion_deadline: datetime | None = None
     deletion_waive_assets: bool = False
+    agreement_version: str = ""  # 注册时勾选的法律文件版本（legal-four-docs）
 
     def is_active(self) -> bool:
         return self.status == "active"

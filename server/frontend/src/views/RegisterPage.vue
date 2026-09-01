@@ -16,6 +16,8 @@ const password = ref('')
 const confirmPassword = ref('')
 const securityQuestion = ref('')
 const securityAnswer = ref('')
+const agreeTerms = ref(false)
+const agreePrivacy = ref(false)
 const errorMsg = ref('')
 
 const passwordError = computed(() => {
@@ -35,6 +37,8 @@ const canSubmit = computed(() => {
     && confirmPassword.value === password.value
     && securityQuestion.value
     && securityAnswer.value
+    && agreeTerms.value
+    && agreePrivacy.value
     && !session.isLoading
 })
 
@@ -127,6 +131,24 @@ async function handleRegister() {
         placeholder="请输入答案"
       />
 
+      <!-- 法律文件双勾选（legal-four-docs）：注册即同意，未勾选不可提交 -->
+      <div class="legal-checks">
+        <label class="agr-chk">
+          <input v-model="agreeTerms" type="checkbox" />
+          <span>我已阅读并同意
+            <a href="/legal/user-agreement.html" target="_blank" class="lnk">《用户服务协议》</a>、
+            <a href="/legal/payment-notice.html" class="lnk">《付费须知》</a>、
+            <a href="/legal/refund-policy.html" class="lnk">《退款政策》</a>
+          </span>
+        </label>
+        <label class="agr-chk">
+          <input v-model="agreePrivacy" type="checkbox" />
+          <span>我已阅读并同意
+            <a href="/legal/privacy-policy.html" target="_blank" class="lnk">《隐私政策》</a>
+          </span>
+        </label>
+      </div>
+
       <AppButton
         variant="primary"
         size="lg"
@@ -157,4 +179,8 @@ h1 { font-family: var(--font-display); font-size: 28px; font-weight: 600; margin
 .grp-sub { font-family: var(--font-body); font-size: 12.5px; font-weight: 400; color: var(--muted); }
 .form-area .btn { margin-top: 8px; }
 .foot-lnk { font-size: 13px; color: var(--muted); margin: 16px 0 0; }
+.legal-checks { text-align: left; margin: 14px 0 4px; display: flex; flex-direction: column; gap: 8px; }
+.agr-chk { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; line-height: 1.55; cursor: pointer; }
+.agr-chk input { margin-top: 2px; accent-color: var(--accent); width: 14px; height: 14px; flex: none; }
+.agr-chk a { color: var(--accent); }
 </style>

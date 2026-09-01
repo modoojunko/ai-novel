@@ -22,3 +22,5 @@ class UserORM(Base):
     deletion_requested_at = Column(DateTime, nullable=True)
     deletion_deadline   = Column(DateTime, nullable=True)
     deletion_waive_assets = Column(Boolean, default=False, server_default="0")
+    # 注册协议版本留痕（legal-four-docs）：注册时勾选的协议版本
+    agreement_version = Column(String(32), default="", server_default="")

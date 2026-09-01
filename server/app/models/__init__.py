@@ -4,7 +4,6 @@ from app.models.code import ActivationCodeORM
 from app.models.config import GlobalConfigORM
 from app.models.device import DeviceRegistryORM
 from app.models.grant import DeviceGrantORM
-from app.models.user import UserORM
 from app.models.payments import (
     InvoiceORM,
     OrderORM,
@@ -13,6 +12,7 @@ from app.models.payments import (
     TierORM,
     TradeEventORM,
 )
+from app.models.user import UserORM
 
 __all__ = [
     "ActivationCodeORM",
@@ -20,11 +20,11 @@ __all__ = [
     "DeviceGrantORM",
     "DeviceRegistryORM",
     "GlobalConfigORM",
-    "UserORM",
     "InvoiceORM",
     "OrderORM",
     "ReconciliationReportORM",
     "SkuORM",
     "TierORM",
     "TradeEventORM",
+    "UserORM",
 ]
