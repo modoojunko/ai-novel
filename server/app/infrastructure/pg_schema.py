@@ -36,6 +36,7 @@ REQUIRED: dict[str, tuple[tuple[str, str], ...]] = {
         ("order_id", "typed"), ("grant_start", "typed"), ("status_detail", "text"),
         ("activated_at", "typed"), ("expires_at", "typed"),
         ("created_at", "typed"), ("created_by", "text"), ("refund_requested_at", "typed"),
+        ("source", "text"),
     ),
     "device_registry": (
         ("id", "text"), ("user_id", "text"), ("fingerprint", "text"),
