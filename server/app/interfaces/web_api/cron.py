@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Header, Request
 
@@ -48,8 +48,9 @@ async def cron_scan_orders(
 
     # 冷静期到点：CAS 赢的才提交（与用户取消竞态，先到者赢）
     submitted = 0
-    for order in order_repo.find_cooldown_expired(datetime.now(UTC)):
-        result = cooldown_submit(order_repo, event_repo, gateway, order)
+    for order in order_repo.find_cooldown_expired(datetime.now(timezone.utc)):
+        result = cooldown_submit(order_repo, event_repo, gateway, order,
+                                 code_repo=_code_repo_factory(db))
         if result.get("status") == "refund_processing" or result.get("skipped"):
             submitted += 1
 
@@ -67,8 +68,9 @@ async def cron_scan_repairs(
         return deny
 
     from app.application.payments.scan_orders import scan_paid_unfulfilled
-    from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
     from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
+
+    from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
     repaired = scan_paid_unfulfilled(OrderRepo(db), TradeEventRepo(db), _code_repo_factory(db))
     logger.info("event=cron.r2 repaired=%d", len(repaired))
     return {"code": 0, "data": {"repaired": len(repaired)}}
@@ -84,11 +86,13 @@ async def cron_scan_refunds(
         return deny
 
     from app.application.payments.scan_orders import scan_refund_followup
+    from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
     from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
     gateway = request.app.state.payment_gateway
     notify = getattr(request.app.state, "notify_service", None)
-    actions = scan_refund_followup(OrderRepo(db), TradeEventRepo(db), gateway, notify=notify)
+    actions = scan_refund_followup(OrderRepo(db), TradeEventRepo(db), gateway, notify=notify,
+                                   code_repo=_code_repo_factory(db))
     logger.info("event=cron.r3 actions=%d", len(actions))
     return {"code": 0, "data": {"actions": len(actions)}}
 

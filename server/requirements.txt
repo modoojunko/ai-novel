@@ -13,3 +13,6 @@ httpx>=0.27.0
 alembic>=1.13.0
 # PostgreSQL 驱动（生产 DATABASE_URL 指向 CloudBase PG；本地 SQLite 无需）
 psycopg2-binary>=2.9.0
+# 微信支付 APIv3 社区 SDK（minibear2021/wechatpayv3，社区推荐非官方出品；
+# 2.0.3 支持公钥模式 public_key/public_key_id 初始化，2026-09 供应链审计过）
+wechatpayv3==2.0.3

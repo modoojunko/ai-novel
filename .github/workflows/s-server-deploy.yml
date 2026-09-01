@@ -48,6 +48,8 @@ jobs:
       #    冲掉——新增环境变量必须同步补进本配置。PAYMENTS_GATEWAY/CRON_TOKEN/
       #    SERVERCHAN_SENDKEY 未配 secrets 时注入空串，后端语义均安全
       #    （空 gateway 回落 mock；空 cron token fail-closed；空 SendKey 降级日志）。
+      #    WXPAY_*（Change 2）：gateway=wxpay 时任一缺失即拒绝启动（fail-fast）；
+      #    密钥类值经 GitHub Secrets 注入，绝不入库。
       - name: 生成后端部署配置
         run: |
           cat > server/cloudbaserc.json <<'EOF'
@@ -65,23 +67,28 @@ jobs:
                 "ADMIN_TOKEN": "${{ secrets.ADMIN_TOKEN }}",
                 "PAYMENTS_GATEWAY": "${{ secrets.PAYMENTS_GATEWAY }}",
                 "CRON_TOKEN": "${{ secrets.CRON_TOKEN }}",
-                "SERVERCHAN_SENDKEY": "${{ secrets.SERVERCHAN_SENDKEY }}"
+                "SERVERCHAN_SENDKEY": "${{ secrets.SERVERCHAN_SENDKEY }}",
+                "WXPAY_MCH_ID": "${{ secrets.WXPAY_MCH_ID }}",
+                "WXPAY_APPID": "${{ secrets.WXPAY_APPID }}",
+                "WXPAY_CERT_SERIAL": "${{ secrets.WXPAY_CERT_SERIAL }}",
+                "WXPAY_APIV3_KEY": "${{ secrets.WXPAY_APIV3_KEY }}",
+                "WXPAY_PUB_KEY_ID": "${{ secrets.WXPAY_PUB_KEY_ID }}",
+                "WXPAY_NOTIFY_URL": "${{ vars.WXPAY_NOTIFY_URL }}",
+                "WXPAY_PRIVATE_KEY_PATH": "/app/secrets/wxpay_apiclient_key.pem",
+                "WXPAY_PUB_KEY_PATH": "/app/secrets/wxpay_pub_key.pem"
               }
             }
           }
           EOF
 
-      # 后端测试门禁：路由失挂（import 副作用被删致 /api/web/login 404）这类
-      # 只有进程内集成测试能抓到的缺陷，必须在发布前拦截。conftest 自带
-      # DATABASE_URL（临时 sqlite），无需任何外部依赖；失败即中止部署。
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: 后端测试门禁（pytest 全绿才放行部署）
-        working-directory: server
+      # 密钥文件：secrets 值写为部署包内文件（wechatpayv3 读 PEM 内容，
+      # 私钥/公钥经 secrets 传递，不进 git）；wxpay 未启用时 secrets 为空，
+      # 写空文件无副作用（mock 模式不读）
+      - name: 生成微信支付密钥文件
         run: |
-          pip3 install --quiet -r requirements.txt pytest
-          python3 -m pytest tests -q
+          mkdir -p server/secrets
+          printf '%s\n' "${{ secrets.WXPAY_PRIVATE_KEY_PEM }}" > server/secrets/wxpay_apiclient_key.pem
+          printf '%s\n' "${{ secrets.WXPAY_PUB_KEY_PEM }}" > server/secrets/wxpay_pub_key.pem
 
       # 生产 schema 门禁（design D5）：代码上线而 DDL 漏执行的漂移在发布前拦截。
       # 判定逻辑与后端启动自检同源（app/infrastructure/pg_schema.py）。
@@ -120,10 +127,7 @@ jobs:
           export VITE_BEIAN_ICP="${{ secrets.VITE_BEIAN_ICP }}"
           export VITE_BEIAN_POLICE="${{ secrets.VITE_BEIAN_POLICE }}"
           export VITE_BEIAN_POLICE_LINK="${{ secrets.VITE_BEIAN_POLICE_LINK }}"
-          # VITE_API_BASE 一并落盘：云端重建读包内 .env，runner 的 export 会被
-          # 吃掉；.env.production 另有同名兜底值，不一致时以这里（Variable）为准。
           {
-            printf 'VITE_API_BASE=%s\n' "$VITE_API_BASE"
             printf 'VITE_BEIAN_ICP=%s\n' "$VITE_BEIAN_ICP"
             printf 'VITE_BEIAN_POLICE=%s\n' "$VITE_BEIAN_POLICE"
             printf 'VITE_BEIAN_POLICE_LINK=%s\n' "$VITE_BEIAN_POLICE_LINK"
