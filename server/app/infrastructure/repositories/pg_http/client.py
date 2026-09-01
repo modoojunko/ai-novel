@@ -207,6 +207,23 @@ class PgRestClient:
         )
         return resp.status_code, self._error_code(resp)
 
+    def describe(self) -> dict | None:
+        """网关根 OpenAPI（GET 端点根路径）→ swagger definitions。
+
+        返回 {表名: {列名: {default/format/maxLength/...}}}；端点不可得（非 200
+        或非 JSON）返回 None，由调用方按探测失败降级。供 pg_schema 默认值对拍
+        使用（design D8）；实测 default 字段与库内 server_default 一致。
+        """
+        resp = self._client.get(f"{self._endpoint}/")
+        if resp.status_code != 200:
+            return None
+        try:
+            body = resp.json()
+        except ValueError:
+            return None
+        defs = body.get("definitions") if isinstance(body, dict) else None
+        return defs if isinstance(defs, dict) else None
+
     @staticmethod
     def _build_params(
         filter: dict | None,
