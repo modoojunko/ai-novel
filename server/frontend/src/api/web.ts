@@ -29,6 +29,9 @@ export function apiUserMe(): Promise<ApiResponse<{
   expires_at: string
   is_valid: boolean
   theme: string
+  // account-blocks-unify：密保只回问题文本（答案从不下发）；注册时间 YYYY-MM-DD
+  security_question?: string
+  registered_at?: string
 }>> {
   return request.get('/user/me').then(r => r.data)
 }

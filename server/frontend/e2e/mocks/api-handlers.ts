@@ -345,6 +345,9 @@ export class MockApi {
         expires_at: this.currentUser.expires_at,
         is_valid: this.currentUser.is_valid,
         theme: this.currentUser.theme,
+        // account-blocks-unify：密保问题文本 + 注册时间（答案从不下发）
+        security_question: this.currentUser.security_question || '',
+        registered_at: this.currentUser.registered_at || '',
       }))
     }
 
@@ -380,6 +383,11 @@ export class MockApi {
     }
 
     if (path === '/api/user/security' && method === 'PUT') {
+      // account-blocks-unify：保存后回写会话内的问题文本（行状态联动）
+      if (this.currentUser) {
+        const body = route.request().postDataJSON() as { security_question?: string }
+        this.currentUser.security_question = body.security_question || ''
+      }
       return route.fulfill(json(0, { success: true }))
     }
 

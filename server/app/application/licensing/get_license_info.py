@@ -20,5 +20,8 @@ def get_license_info(user_repo: UserRepo, code_repo: CodeRepo, username: str) ->
             "expires_at": license_.max_expires_at.isoformat() if license_.max_expires_at else "",
             "is_valid": license_.is_valid(),
             "theme": stored_to_wire(user.theme),
+            # account-blocks-unify：密保只回问题文本，答案哈希任何接口不出门
+            "security_question": user.security_question or "",
+            "registered_at": user.created_at.strftime("%Y-%m-%d") if user.created_at else "",
         },
     }

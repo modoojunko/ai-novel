@@ -21,6 +21,9 @@ export const useSessionStore = defineStore('session', () => {
   const isLoading = ref<boolean>(false)
   const userFetched = ref<boolean>(false)
   const theme = ref<string>(DEFAULT_THEME_KEY)
+  // account-blocks-unify：密保只暴露问题文本（答案后端从不下发）；registered_at = YYYY-MM-DD
+  const securityQuestion = ref<string>('')
+  const registeredAt = ref<string>('')
 
   // ── Getters ──
   const isLoggedIn = computed(() => !!token.value)
@@ -162,6 +165,8 @@ export const useSessionStore = defineStore('session', () => {
         tier.value = res.data.tier || 'none'
         expiresAt.value = res.data.expires_at || ''
         isValid.value = !!res.data.is_valid
+        securityQuestion.value = res.data.security_question || ''
+        registeredAt.value = res.data.registered_at || ''
         if (res.data.theme !== undefined) recordTheme(res.data.theme)
       }
     } catch (e: any) {
@@ -201,6 +206,8 @@ export const useSessionStore = defineStore('session', () => {
     tier.value = 'none'
     expiresAt.value = ''
     isValid.value = false
+    securityQuestion.value = ''
+    registeredAt.value = ''
     userFetched.value = false
     applyTheme(DEFAULT_THEME_KEY)
     localStorage.removeItem('token')
@@ -208,6 +215,7 @@ export const useSessionStore = defineStore('session', () => {
 
   return {
     token, username, tier, tierDisplay, expiresAt, isValid, isLoading, userFetched, theme,
+    securityQuestion, registeredAt,
     isLoggedIn, hasLicense,
     login, register, fetchUserInfo, logout, applyTheme, recordTheme, saveTheme,
   }
