@@ -46,7 +46,7 @@ class NotifyService:
                 return ok
             finally:
                 conn.close()
-        except Exception as e:  # noqa: BLE001——告警通道永不向上抛
+        except Exception as e:  # noqa: BLE001
             logger.warning("event=notify.fail error=%s title=%s", e, title)
             return False
 
