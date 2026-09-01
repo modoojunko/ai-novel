@@ -14,7 +14,7 @@ import sqlalchemy as sa
 BIGPK = sa.BigInteger().with_variant(sa.Integer(), "sqlite")
 
 revision = 'a001_users_surrogate'
-down_revision = 'c3a51e09d7e2'
+down_revision = 'a1b2c3d4e5f6'
 branch_labels = None
 depends_on = None
 
