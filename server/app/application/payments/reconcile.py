@@ -133,7 +133,7 @@ def daily_reconcile(
     internal_pay_fen = sum(o["amount_fen"] for o in pays)
     wx_pay_fen = sum(ln.amount_fen for ln in trade_lines if ln.status == "SUCCESS")
     internal_refund_fen = sum(o.get("refund_amount_fen") or 0 for o in refunds)
-    wx_refund_fen = sum(ln.amount_fen for ln in trade_lines if ln.status == "REFUND")
+    _wx_refund_fen = sum(ln.amount_fen for ln in trade_lines if ln.status == "REFUND")
 
     status = "mismatch" if mismatches else "balanced"
     report_repo.upsert({
