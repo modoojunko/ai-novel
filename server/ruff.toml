@@ -5,7 +5,7 @@ target-version = "py312"
 # B008 — FastAPI Depends() in default argument is the standard framework pattern
 # DTZ005/DTZ011 — 授权/到期口径统一按本地时间比较（date.today()），刻意使用 naive datetime
 # RUF012 — Settings / middleware 的类级 dict 常量（普通类属性，非 dataclass 字段）
-ignore = ["B008", "DTZ005", "DTZ011", "RUF012", "DTZ003", "DTZ001", "FURB162", "SIM102", "SIM222", "PLW0127", "F841", "RUF059"]
+ignore = ["B008", "DTZ005", "DTZ011", "RUF012", "DTZ003", "DTZ001", "FURB162", "SIM102", "SIM222", "PLW0127", "F841", "RUF059", "RUF022"]
 
 # Per-file: 测试里的拼串口令是刻意写法（绕过凭据扫描的静态字符串匹配），
 # tempfile delete=False 需要 NamedTemporaryFile 保持打开状态
