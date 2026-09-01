@@ -178,12 +178,13 @@ curl https://<cloudrun-domain>/api/web/register -X POST -H 'Content-Type: applic
 
 ## S端 前端部署（CloudBase 静态托管，成本≈0）
 
-管理门户（Vue SPA）发布到静态托管（体验版套餐含免费额度），API 直连云托管后端域名（静态托管无反代，靠 CORS——后端 `allow_origins=["*"]` 已放开）。
+管理门户（Vue SPA）发布到静态托管（体验版套餐含免费额度），线上与 API **同源**：统一域名 www 下 `/api` 由网关按路径分流到云托管后端（免 CORS；直连云托管域名也通，后端有前缀归一化兼容层）。
 
 ```bash
 cd server/frontend
-# 构建时注入后端 API 地址（不注入则回退 /api，适配本地 docker-compose nginx 反代）
-VITE_API_BASE=https://<cloudrun-domain>/api npm run build
+# 构建时注入 API 地址（不注入则回退 /api；生产基址单源 = GitHub Variable TCB_BACKEND_DOMAIN，
+# 见 server/frontend/.env.production 与 s-server-deploy.yml「构建前端」）
+VITE_API_BASE=https://www.awesomenovel.com/api npm run build
 # 用 CloudBase MCP manageApps 部署（framework=static, installCmd="", buildCmd="", buildPath=dist）
 # 或 tcb CLI 等价命令；独立子域名：<serviceName>-<envId>.webapps.tcloudbase.com
 ```

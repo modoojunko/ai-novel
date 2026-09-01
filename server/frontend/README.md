@@ -33,9 +33,11 @@ CI（`server-frontend-ci.yml`、`s-server-deploy.yml`、`docker-build-ci.yml`）
 ## API 地址配置
 
 - 开发环境：`.env.development` → `VITE_API_BASE=/api`，由 Vite dev proxy 转发到本地后端（127.0.0.1:19000）。
-- 生产环境：`.env.production` **硬编码**了 CloudBase 云端地址（`https://novel-s-server-…sh.run.tcloudbase.com/api`）。
-  背景：CI 里用环境变量注入 `VITE_API_BASE` 曾失效，导致注册/登录全部打向静态托管的 `/api`（PR #146 已修复）。
-  这是有意为之的兜底，改动部署域名时需同步更新该文件并保持与 `s-server-deploy.yml` 一致。
+- 生产环境：统一域名 www，前端与 API **同源**（`/api` 由网关按路径分流到云托管后端，免 CORS）。
+  单一事实源是 GitHub Variable `TCB_BACKEND_DOMAIN`：CI 构建时烘焙进 `.env.production.local`
+  （云端重建读包内 .env 文件、读不到 runner 环境）；`.env.production` 里的同键值是云端重建的兜底，
+  改域名时两处同步。历史：只靠环境变量注入曾失效打向静态托管 `/api`（PR #146），
+  兜底曾写死云托管临时域名（2026-09 归位统一域名）。
 
 ## 开发
 
