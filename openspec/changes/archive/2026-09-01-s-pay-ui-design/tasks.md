@@ -41,5 +41,5 @@
 
 - [x] 3.1 自查门禁：文案 §13 对照（动词按钮/补救带出口/无内部术语/无"激活"字样于收银台）、词汇对照（无 .b/.strip/success/danger、无新造类）。验证：逐项清单勾选结果记入本任务下方
   - 证据：违禁词扫描全 0：激活/回调/状态机/success/danger/class=b/strip/裸 hex/emoji（3 处内部键 success→paid 后归零）；12 张状态截图入 evidence/ 自检通过
-- [ ] 3.2 用户评审：三个原型交付过目，收集修改意见回改。验证：用户确认或修改清单清零
-- [ ] 3.3 按归档流程收尾（validate → 归档 PR，勿 git add openspec/ 整目录）。验证：archive 后 `openspec validate --all` 全绿
+- [x] 3.2 用户评审：三个原型交付过目，收集修改意见回改。验证：用户确认或修改清单清零
+- [x] 3.3 按归档流程收尾（validate → 归档 PR，勿 git add openspec/ 整目录）。验证：archive 后 `openspec validate --all` 全绿
