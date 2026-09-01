@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import Depends
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
 from app.application.identity.deletion_service import (
@@ -44,7 +44,10 @@ from app.interfaces.dto import (
 
 logger = logging.getLogger("api.web.account")
 
-from app.interfaces.web_api.router import router as r
+# 持有自己的 APIRouter，由 web_api/router.py 显式 include。
+# 勿改回「from router import r 装饰器注册」的副作用写法：那依赖 import 副作用，
+# ruff 会把"未使用"的模块 import 当死代码删掉，路由随之失挂（线上登录 404 事故）。
+r = APIRouter(tags=["web"])
 
 
 @r.post("/api/web/login")

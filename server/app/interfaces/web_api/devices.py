@@ -1,14 +1,16 @@
 """门户设备 API：device/my, device/remove。"""
 from __future__ import annotations
 
-from fastapi import Depends
+from fastapi import APIRouter, Depends
 
 from app.application.devices.list_devices import list_devices
 from app.application.devices.remove_device import remove_device
 from app.infrastructure.repositories.factory import code_repo, device_repo
 from app.interfaces.deps import Db, get_current_user_or_none, get_db
 from app.interfaces.dto import DeviceRemoveRequest, fail
-from app.interfaces.web_api.router import router as r
+
+# 持有自己的 APIRouter，由 web_api/router.py 显式 include（理由同 account.py）。
+r = APIRouter(tags=["web"])
 
 
 @r.get("/api/device/my")

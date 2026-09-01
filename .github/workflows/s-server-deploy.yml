@@ -71,6 +71,18 @@ jobs:
           }
           EOF
 
+      # 后端测试门禁：路由失挂（import 副作用被删致 /api/web/login 404）这类
+      # 只有进程内集成测试能抓到的缺陷，必须在发布前拦截。conftest 自带
+      # DATABASE_URL（临时 sqlite），无需任何外部依赖；失败即中止部署。
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 后端测试门禁（pytest 全绿才放行部署）
+        working-directory: server
+        run: |
+          pip3 install --quiet -r requirements.txt pytest
+          python3 -m pytest tests -q
+
       # 生产 schema 门禁（design D5）：代码上线而 DDL 漏执行的漂移在发布前拦截。
       # 判定逻辑与后端启动自检同源（app/infrastructure/pg_schema.py）。
       # 探测失败按 fail-closed 中止（防网络抖动放行），re-run 即可重试。
@@ -108,7 +120,10 @@ jobs:
           export VITE_BEIAN_ICP="${{ secrets.VITE_BEIAN_ICP }}"
           export VITE_BEIAN_POLICE="${{ secrets.VITE_BEIAN_POLICE }}"
           export VITE_BEIAN_POLICE_LINK="${{ secrets.VITE_BEIAN_POLICE_LINK }}"
+          # VITE_API_BASE 一并落盘：云端重建读包内 .env，runner 的 export 会被
+          # 吃掉；.env.production 另有同名兜底值，不一致时以这里（Variable）为准。
           {
+            printf 'VITE_API_BASE=%s\n' "$VITE_API_BASE"
             printf 'VITE_BEIAN_ICP=%s\n' "$VITE_BEIAN_ICP"
             printf 'VITE_BEIAN_POLICE=%s\n' "$VITE_BEIAN_POLICE"
             printf 'VITE_BEIAN_POLICE_LINK=%s\n' "$VITE_BEIAN_POLICE_LINK"
