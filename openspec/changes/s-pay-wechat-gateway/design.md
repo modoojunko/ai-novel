@@ -25,7 +25,7 @@
 
 ### 2.1 前端二维码本地渲染（安全红线）
 
-`code_url` 即支付凭证，**禁止交给任何第三方服务生成二维码**。现状 CashierPage 把 code_url 拼进 `api.qrserver.com` 的图片 URL——等于把支付指令发给第三方（可被记录/关联，返回图片可被篡改换码）。本 change 一并改为本地渲染：前端引入 `qrcode`（npm）绘制 canvas，删除 qrserver 外呼。此为 P1 验收项。
+`code_url` 即支付凭证，**禁止交给任何第三方服务生成二维码**。现状 CashierPage 把 code_url 拼进 `api.qrserver.com` 的图片 URL——等于把支付指令发给第三方（可被记录/关联，返回图片可被篡改换码）。本 change 一并改为本地渲染：前端引入 `qrcode`（npm）绘制 canvas，删除 qrserver 外呼。官方开发指引明示「请商户调用第三方库将 code_url 生成二维码图片」——本地库渲染即合规路径。此为 P1 验收项。
 
 ## 3. 回调端点
 
