@@ -130,6 +130,7 @@ def request_refund(
         "order_no": order_no,
         "payload": {"refund_fen": quote.refund_fen, "reason": reason,
                      "remaining_desc": quote.remaining_desc},
+        "created_at": now,
     })
 
     remaining = int((cooldown_end - now).total_seconds())
@@ -175,6 +176,7 @@ def cancel_refund(
         "event_type": "refund.canceled",
         "order_no": order_no,
         "payload": {"previous_refund_fen": order.get("refund_amount_fen")},
+        "created_at": now,
     })
 
     return {"order_no": order_no, "status": "fulfilled", "grant_restored": True}

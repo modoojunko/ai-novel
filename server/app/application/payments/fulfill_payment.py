@@ -58,6 +58,7 @@ def fulfill_payment(
             "event_type": "order.revived",
             "order_no": order_no,
             "payload": {"transaction_id": transaction_id},
+            "created_at": now,
         })
 
     event_repo.append({
@@ -65,6 +66,7 @@ def fulfill_payment(
         "event_type": "order.paid",
         "order_no": order_no,
         "payload": {"transaction_id": transaction_id, "paid_at": now.isoformat()},
+        "created_at": now,
     })
 
     # ── 步骤 2：幂等发货（插 codes 台账行，到货-激活两段式第一段）──
@@ -86,6 +88,7 @@ def fulfill_payment(
         "event_type": "codes.granted",
         "order_no": order_no,
         "payload": {"code_id": code_id, "tier": codes_doc_tier(snapshot), "created": created},
+        "created_at": now,
     })
 
     # ── 步骤 3：CAS paid→fulfilled ──
@@ -106,6 +109,7 @@ def fulfill_payment(
         "event_type": "order.fulfilled",
         "order_no": order_no,
         "payload": {"code_id": code_id},
+        "created_at": now,
     })
 
     return fulfilled

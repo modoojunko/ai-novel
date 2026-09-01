@@ -79,6 +79,7 @@ def activate_entitlement(
             "expires_at": expires_at.isoformat(),
             "tier": tier,
         },
+        "created_at": now,
     })
 
     return {
