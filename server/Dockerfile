@@ -19,6 +19,10 @@ COPY app/ ./app/
 COPY alembic/ ./alembic/
 COPY alembic.ini .
 
+# 微信支付密钥文件（CI/staging 步骤写入 secrets/，内容经 GitHub Secrets 注入，
+# 不入 git；wxpay 模式启动时按 WXPAY_*_PATH 读取，mock 模式不读）
+COPY secrets/ ./secrets/
+
 # 数据目录（docker-compose 会 bind mount 覆盖）
 RUN mkdir -p /app/data
 

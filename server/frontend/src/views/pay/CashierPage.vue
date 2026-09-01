@@ -4,7 +4,7 @@
  * 选套餐、协议弹窗、扫码支付、八态分支。
  * 设计事实源：docs/design-s/prototypes/cashier.html（选型 A）
  */
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   apiPaySkus, apiPayCreateOrder, apiPayQueryOrder, apiPayCancelOrder,
@@ -173,6 +173,24 @@ function formatCountdown(sec: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+// ── 二维码本地渲染（安全红线）──
+// code_url 即支付凭证，官方指引明示「调用第三方库生成二维码」——本地 canvas
+// 绘制，禁止外发给第三方二维码服务（可被记录/篡改换码）
+import QRCode from 'qrcode'
+
+const qrCanvas = ref<HTMLCanvasElement | null>(null)
+
+async function renderQr(): Promise<void> {
+  const url = order.value?.code_url
+  if (!url || !qrCanvas.value) return
+  await nextTick()
+  try {
+    await QRCode.toCanvas(qrCanvas.value, url, { width: 180, margin: 1 })
+  } catch { /* 渲染失败保留占位提示 */ }
+}
+
+watch(() => [payState.value, order.value?.code_url], () => { void renderQr() })
+
 // ── 生命周期 ──
 onMounted(loadSkus)
 onUnmounted(() => { stopPolling(); stopCountdown() })
@@ -290,8 +308,8 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
           <span>请使用微信扫描二维码完成支付。<b>{{ selectedPrice }}</b> 支付成功后套餐立即到货。</span>
         </div>
         <div class="pay-qr-box">
-          <img v-if="order.code_url" :src="`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(order.code_url)}`" alt="微信支付二维码" />
-          <div v-else class="pay-qr-placeholder">二维码生成中…</div>
+          <canvas v-show="order.code_url" ref="qrCanvas" aria-label="微信支付二维码"></canvas>
+          <div v-if="!order.code_url" class="pay-qr-placeholder">二维码生成中…</div>
         </div>
         <div class="pay-countdown">二维码有效期剩 <span class="num">{{ formatCountdown(countdownSec) }}</span></div>
         <button class="btn btn-ghost" @click="cancelOrder">取消支付</button>

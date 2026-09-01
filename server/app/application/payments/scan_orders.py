@@ -5,11 +5,9 @@
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from app.application.payments.fulfill_payment import fulfill_payment
-from app.application.payments.refund_flow import complete_refund
 from app.domain.payments.order import Transition
 from app.infrastructure.payments.gateway import (
     PaymentGateway,
@@ -17,6 +15,9 @@ from app.infrastructure.payments.gateway import (
     RefundStatus,
 )
 from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
+
+from app.application.payments.fulfill_payment import fulfill_payment
+from app.application.payments.refund_flow import complete_refund
 
 
 def scan_timeout_close(
@@ -27,7 +28,7 @@ def scan_timeout_close(
     ttl_seconds: int = 900,
 ) -> list[dict]:
     """T1：扫描超时 pending 单 → 先查单（关单铁律）→ 关单或补发货。"""
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     cutoff = now - timedelta(seconds=ttl_seconds)
     pending_orders = order_repo.find_pending_expirable(cutoff)
     results = []
@@ -101,12 +102,13 @@ def scan_refund_followup(
     event_repo: TradeEventRepo,
     gateway: PaymentGateway,
     notify: Any = None,
+    code_repo=None,
 ) -> list[dict]:
     """T3：退款跟进——NOT_ENOUGH 重试 + 查退款结果 + 扫描 D 半截恢复。
 
     全部幂等：扫描重放安全（complete_refund 全量可重入）。
     """
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     results: list[dict] = []
 
     # ── processing 订单：查退款结果 / NOT_ENOUGH 重试 ──
@@ -116,8 +118,20 @@ def scan_refund_followup(
         query = gateway.query_refund(order_no)
 
         if query.status == RefundStatus.SUCCESS:
-            complete_refund(order_repo, event_repo, order_no, query.wx_refund_id)
+            complete_refund(order_repo, event_repo, order_no, query.wx_refund_id,
+                            code_repo=code_repo)
             results.append({"order_no": order_no, "action": "refund_completed"})
+        elif getattr(query, "error_kind", "") == "not_found":
+            # 受理丢失：refund_processing 但微信侧查无此退款单（申请可能未受理成功）
+            # ——告警转人工核查商户平台，勿当处理中干等
+            _notify(notify, f"退款受理丢失 {order_no}",
+                    "微信侧查无此退款单，可能申请未受理成功，请人工核查商户平台。")
+            event_repo.append({
+                "event_key": f"refund:{order_no}:receipt_lost:{int(now.timestamp())}",
+                "event_type": "refund.receipt_lost",
+                "order_no": order_no,
+            })
+            results.append({"order_no": order_no, "action": "refund_not_found_alerted"})
         elif query.status == RefundStatus.NOT_ENOUGH:
             # 自动重试：重新提交微信（NOT_ENOUGH=商户未结算资金不足，次日通常恢复）
             attempts = (order.get("refund_not_enough") or 0) + 1
@@ -130,7 +144,8 @@ def scan_refund_followup(
                 notify_url="",
             )
             if retry.status == RefundStatus.SUCCESS:
-                complete_refund(order_repo, event_repo, order_no, retry.wx_refund_id)
+                complete_refund(order_repo, event_repo, order_no, retry.wx_refund_id,
+                                code_repo=code_repo)
                 results.append({"order_no": order_no, "action": "retry_completed"})
                 continue
             order_repo.update_fields(order_no, {"refund_not_enough": attempts})
@@ -145,7 +160,7 @@ def scan_refund_followup(
         elif query.status == RefundStatus.ABNORMAL:
             # 人工处置通道：告警但不改状态（绝不自动重提）
             _notify(notify, f"退款异常 {order_no}",
-                    "微信退款单状态 ABNORMAL，需人工核实处置。")
+                    f"微信退款单状态 ABNORMAL，需人工核实处置。")
             event_repo.append({
                 "event_key": f"refund:{order_no}:abnormal_notified:{int(now.timestamp())}",
                 "event_type": "refund.abnormal",
@@ -157,7 +172,7 @@ def scan_refund_followup(
     for order in order_repo.find_refund_half_done():
         order_no = order["order_no"]
         complete_refund(order_repo, event_repo, order_no,
-                        order.get("refund_wx_id") or "")
+                        order.get("refund_wx_id") or "", code_repo=code_repo)
         results.append({"order_no": order_no, "action": "half_done_repaired"})
 
     return results

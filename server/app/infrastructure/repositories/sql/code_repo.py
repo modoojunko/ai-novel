@@ -36,7 +36,6 @@ class SqlCodeRepo:
             created_by=row.created_by or "",
             refund_requested_at=row.refund_requested_at,
             grant_start=row.grant_start,
-            order_id=row.order_id,
         )
 
     def get(self, code_id: str) -> ActivationCode | None:
@@ -113,6 +112,16 @@ class SqlCodeRepo:
             ActivationCodeORM.user_id == uid,
             ActivationCodeORM.status.in_(["unused", "active"]),
         ).update({"status": "revoked"}, synchronize_session=False)
+        self.db.commit()
+        return result
+
+    def revoke_unconsumed_for_order(self, order_no: str) -> int:
+        """退款收回：该订单未激活台账行置 revoked；已激活行不动（部分退款
+        按秒折算，用户保留剩余权益）。发货幂等键 code_id=O-{order_no}。"""
+        result = self.db.query(ActivationCodeORM).filter(
+            ActivationCodeORM.code_id == f"O-{order_no}",
+            ActivationCodeORM.status.in_(["unused", "pending_activation"]),
+        ).update({"status": "revoked", "status_detail": "revoked"}, synchronize_session=False)
         self.db.commit()
         return result
 

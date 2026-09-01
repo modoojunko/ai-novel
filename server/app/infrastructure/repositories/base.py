@@ -65,6 +65,10 @@ class CodeRepo(Protocol):
     def find_by_order(self, order_id: int) -> list[ActivationCode]:
         """按订单查台账行（激活入口）。"""
         ...
+    def revoke_unconsumed_for_order(self, order_no: str) -> int:
+        """退款收回：该订单未激活台账行（发货键 O-{order_no}，unused/pending_activation）
+        置 revoked；已激活行不动——部分退款按秒折算，用户保留剩余权益。返回行数。"""
+        ...
     def find_active_by_user_id(self, user_id: int) -> list[ActivationCode]:
         """已激活行（顺延起点计算）。"""
         ...

@@ -5,19 +5,14 @@
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timedelta, timezone
 
 from app.domain.payments.order import Transition
 from app.domain.payments.pricing import (
-    RefundAlreadyActiveError,
-    calc_cooldown_ends_at,
+    COOLDOWN_SECONDS, RefundAlreadyActiveError, calc_cooldown_ends_at,
 )
 from app.domain.payments.refund import calc_refund_fen
-from app.infrastructure.payments.gateway import (
-    PaymentGateway,
-    RefundGatewayResult,
-    RefundStatus,
-)
+from app.infrastructure.payments.gateway import PaymentGateway, RefundGatewayResult, RefundStatus
 from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
 
@@ -29,7 +24,7 @@ def _naive(value) -> datetime | None:
         value = datetime.fromisoformat(value.replace("Z", "+00:00"))
     if isinstance(value, datetime):
         if value.tzinfo is not None:
-            value = value.astimezone(UTC).replace(tzinfo=None)
+            value = value.astimezone(timezone.utc).replace(tzinfo=None)
         return value
     return None
 
@@ -187,6 +182,7 @@ def cooldown_submit(
     event_repo: TradeEventRepo,
     gateway: PaymentGateway,
     order: dict,
+    code_repo=None,
 ) -> dict:
     """冷静期到点：CAS refund_pending→refund_processing，然后提交微信。"""
     now = datetime.utcnow()  # naive UTC（表列/域口径一致，避免 aware/naive 混比）
@@ -230,8 +226,9 @@ def cooldown_submit(
             "order_no": order_no,
         })
     elif result.status == RefundStatus.SUCCESS:
-        # 直接进 complete_refund
-        return complete_refund(order_repo, event_repo, order_no, result.wx_refund_id)
+        # 直接受理成功（受理即终态）→ complete_refund（含台账收回）
+        return complete_refund(order_repo, event_repo, order_no, result.wx_refund_id,
+                               code_repo=code_repo)
     else:
         event_repo.append({
             "event_key": f"refund:{order_no}:accepted",
@@ -250,6 +247,7 @@ def complete_refund(
     event_repo: TradeEventRepo,
     order_no: str,
     wx_refund_id: str = "",
+    code_repo=None,
 ) -> dict:
     """退款成功：标记 succeeded + 回收权益 + 订单→refunded。
 
@@ -281,6 +279,15 @@ def complete_refund(
             "status": "refunded",
             "refunded_at": now,
         })
-        # codes 行回收由调用方（code_repo.revoke）完成
+        # 步骤 3：未激活台账行收回（不做这步用户可拿退款单激活权益=白嫖；
+        # 已激活行不动——部分退款按秒折算，用户保留剩余权益）
+        if code_repo is not None:
+            revoked = code_repo.revoke_unconsumed_for_order(order_no)
+            if revoked:
+                event_repo.append({
+                    "event_key": f"codes:O-{order_no}:revoked",
+                    "event_type": "codes.revoked",
+                    "order_no": order_no,
+                })
 
     return {"order_no": order_no, "status": "refunded"}

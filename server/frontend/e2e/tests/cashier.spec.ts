@@ -34,7 +34,8 @@ test.describe('收银台', () => {
     await enterWaiting(page)
     await expect(page.getByText(/SE2ENEWORDER0001/)).toBeVisible()
     await expect(page.getByText(/二维码有效期剩/)).toBeVisible()
-    await expect(page.getByAltText('微信支付二维码')).toBeVisible()
+    // 二维码本地 canvas 渲染（aria-label 定位；code_url 不外发第三方服务）
+    await expect(page.getByLabel('微信支付二维码')).toBeVisible()
   })
 
   test('支付成功 → 已到货待激活', async ({ page, mockApi }) => {

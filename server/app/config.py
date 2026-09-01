@@ -60,6 +60,80 @@ class Settings:
     # 月销免税额度标注（分）：月净额低于此值在计税报表标注"未超小规模免税额度"
     TAX_EXEMPT_THRESHOLD_FEN: int = int(os.getenv("TAX_EXEMPT_THRESHOLD_FEN", "10000000"))
 
+    # ── 微信支付 APIv3（PAYMENTS_GATEWAY=wxpay 时全部必需，Change 2）──
+    WXPAY_MCH_ID: str = os.getenv("WXPAY_MCH_ID", "")
+    WXPAY_APPID: str = os.getenv("WXPAY_APPID", "")
+    WXPAY_CERT_SERIAL: str = os.getenv("WXPAY_CERT_SERIAL", "")
+    WXPAY_PRIVATE_KEY_PATH: str = os.getenv("WXPAY_PRIVATE_KEY_PATH", "")
+    WXPAY_APIV3_KEY: str = os.getenv("WXPAY_APIV3_KEY", "")
+    WXPAY_PUB_KEY_ID: str = os.getenv("WXPAY_PUB_KEY_ID", "")
+    WXPAY_PUB_KEY_PATH: str = os.getenv("WXPAY_PUB_KEY_PATH", "")
+    WXPAY_NOTIFY_URL: str = os.getenv("WXPAY_NOTIFY_URL", "")
+
+    # 微信回调地址硬性校验（官方要求：https 全路径、无查询参数、外网可达）
+    _WXPAY_INTERNAL_HOST_SUFFIXES = (".local", ".internal", ".lan")
+
+    def wxpay_config_errors(self) -> list[str]:
+        """校验 WXPAY_* 配置齐备性与语义合法性，返回问题清单（空=可启动）。
+
+        main.py 注入 wxpay 网关前调用；非空即 RuntimeError 列出全部问题，
+        绝不允许缺配置静默回落 Mock 收真实付款。
+        """
+        errors: list[str] = []
+        required = (
+            "WXPAY_MCH_ID", "WXPAY_APPID", "WXPAY_CERT_SERIAL",
+            "WXPAY_PRIVATE_KEY_PATH", "WXPAY_APIV3_KEY",
+            "WXPAY_PUB_KEY_ID", "WXPAY_PUB_KEY_PATH", "WXPAY_NOTIFY_URL",
+        )
+        for key in required:
+            if not getattr(self, key):
+                errors.append(f"{key} 未配置")
+        if errors:
+            return errors  # 缺项时不再做语义校验，避免连环噪音
+
+        # APIv3 密钥固定 32 位（微信商户平台生成规则）
+        if len(self.WXPAY_APIV3_KEY) != 32:
+            errors.append(f"WXPAY_APIV3_KEY 长度应为 32 位，实际 {len(self.WXPAY_APIV3_KEY)}")
+        # 微信支付公钥 ID 固定前缀（公钥模式标识，区别于平台证书序列号）
+        if not self.WXPAY_PUB_KEY_ID.startswith("PUB_KEY_ID_"):
+            errors.append("WXPAY_PUB_KEY_ID 应以 PUB_KEY_ID_ 开头（公钥模式）")
+        # 密钥文件必须存在（可解析性在网关构造时校验）
+        for path_key in ("WXPAY_PRIVATE_KEY_PATH", "WXPAY_PUB_KEY_PATH"):
+            path_value = getattr(self, path_key)
+            if not Path(path_value).is_file():
+                errors.append(f"{path_key} 文件不存在: {path_value}")
+
+        errors.extend(self._notify_url_errors(self.WXPAY_NOTIFY_URL))
+        return errors
+
+    @classmethod
+    def _notify_url_errors(cls, url: str) -> list[str]:
+        """notify_url 官方硬性要求：https 全路径、不带参数、非本地/内网地址。"""
+        errors: list[str] = []
+        if not url.startswith("https://"):
+            errors.append("WXPAY_NOTIFY_URL 必须以 https:// 开头（公网域名强制 https）")
+            return errors
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        if parsed.query:
+            errors.append("WXPAY_NOTIFY_URL 不能携带查询参数")
+        if parsed.params or parsed.fragment:
+            errors.append("WXPAY_NOTIFY_URL 必须是直接可访问的完整路径")
+        host = (parsed.hostname or "").lower()
+        if not host:
+            errors.append("WXPAY_NOTIFY_URL 缺少主机名")
+        elif host == "localhost" or host.endswith(cls._WXPAY_INTERNAL_HOST_SUFFIXES):
+            errors.append(f"WXPAY_NOTIFY_URL 不能指向本地/内网域名: {host}")
+        else:
+            import ipaddress
+            try:
+                ip = ipaddress.ip_address(host)
+                if ip.is_loopback or ip.is_private or ip.is_reserved or ip.is_link_local:
+                    errors.append(f"WXPAY_NOTIFY_URL 不能指向内网/保留 IP: {host}")
+            except ValueError:
+                pass  # 公网域名，合法
+        return errors
+
     # ── 日志 ──
     LOG_DIR: str = os.getenv("LOG_DIR", str(DB_DIR / "logs"))
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")

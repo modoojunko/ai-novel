@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Protocol, runtime_checkable
 
@@ -15,6 +16,7 @@ class PaymentStatus(str, Enum):
     SUCCESS = "SUCCESS"
     NOTPAY = "NOTPAY"
     CLOSED = "CLOSED"
+    REFUND = "REFUND"        # 转入退款（微信 trade_state 枚举，显式归一防对账误判）
     PAYERROR = "PAYERROR"  # 用户余额不足/取消等
     UNKNOWN = "UNKNOWN"
 
@@ -22,8 +24,8 @@ class PaymentStatus(str, Enum):
 class RefundStatus(str, Enum):
     SUCCESS = "SUCCESS"
     PROCESSING = "PROCESSING"
-    NOT_ENOUGH = "NOT_ENOUGH"  # 商户未结算资金不足
-    ABNORMAL = "ABNORMAL"
+    NOT_ENOUGH = "NOT_ENOUGH"  # 商户账户余额不足（不自愈，官方语义）
+    ABNORMAL = "ABNORMAL"      # 终态异常（原路退卡失败），官方指定商户平台人工处置
     CLOSED = "CLOSED"
     UNKNOWN = "UNKNOWN"
 
@@ -53,16 +55,25 @@ class CloseResult:
 
 @dataclass
 class RefundGatewayResult:
-    """create_refund 归一化返回。"""
+    """create_refund 归一化返回。
+
+    error_kind（受理失败时的分类，空串=受理成功）：
+    retryable=原退款单号间隔重试；manual=告警转人工不自动重试；
+    network/unknown=网络或未归类异常。
+    """
     status: RefundStatus
     wx_refund_id: str = ""
+    error_kind: str = ""
+    error_code: str = ""
 
 
 @dataclass
 class RefundQueryResult:
-    """query_refund 归一化返回。"""
+    """query_refund 归一化返回。error_kind=not_found 表示微信侧查无此退款单
+    （受理丢失信号，调用方应告警而非当作处理中干等）。"""
     status: RefundStatus
     wx_refund_id: str = ""
+    error_kind: str = ""
 
 
 @dataclass
