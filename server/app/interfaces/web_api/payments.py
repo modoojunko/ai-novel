@@ -462,14 +462,24 @@ async def activate_grant(req: ActivateRequest, request: Request, db: Db = Depend
 
 # ── 辅助 ──
 
+def _naive_utc(value) -> datetime:
+    """订单行时间列 → naive UTC：pg_http 是 ISO 字符串、sqlite 是 naive、aware 剥 tz。
+
+    payments 域统一 naive 口径（表列/域函数一致，混比 aware/naive 会 TypeError）。
+    """
+    from app.infrastructure.repositories.pg_http.client import parse_dt
+
+    dt = value if isinstance(value, datetime) else parse_dt(value)
+    return dt.astimezone(UTC).replace(tzinfo=None) if dt.tzinfo else dt
+
+
 def _order_to_detail(order: dict) -> dict:
     """订单 dict → 附录 Z.5 OrderDetailView。"""
-    from datetime import datetime
-    now = datetime.now(UTC)
+    now = datetime.now(UTC).replace(tzinfo=None)  # naive UTC（折算域口径，同 refund-preview）
 
     remaining_pay = None
     if order.get("status") == "pending" and order.get("created_at"):
-        elapsed = (now - order["created_at"]).total_seconds()
+        elapsed = (now - _naive_utc(order["created_at"])).total_seconds()
         remaining_pay = max(0, int(900 - elapsed))  # 15 分钟 TTL
 
     refund = None
@@ -477,7 +487,7 @@ def _order_to_detail(order: dict) -> dict:
     if rs and rs != "none":
         cooldown = None
         if rs == "cooldown" and order.get("cooldown_ends_at"):
-            cooldown = max(0, int((order["cooldown_ends_at"] - now).total_seconds()))
+            cooldown = max(0, int((_naive_utc(order["cooldown_ends_at"]) - now).total_seconds()))
         refund = {
             "status": rs,
             "amount_fen": order.get("refund_amount_fen"),

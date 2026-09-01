@@ -221,3 +221,54 @@ class TestFulfillActivateFlow:
         # membership 汇总出现 pro
         r = client.get("/api/pay/membership", headers=auth)
         assert r.json()["data"]["tier"] == "pro"
+
+
+class TestOrderDetail:
+    """W4 订单详情（Z.5）：pending 倒计时 + 时间列三形态归一。
+
+    回归背景（2026-09-01 线上）：pg_http 行 created_at 是 ISO 字符串，
+    _order_to_detail 直接做 datetime-str 减法 → 订单详情 500。
+    """
+
+    def _switch_on(self, db_session):
+        from app.models.config import GlobalConfigORM
+        db_session.merge(GlobalConfigORM(key="payments.purchase.enabled", value="on"))
+        db_session.commit()
+
+    def test_pending_detail_countdown(self, client, web_user, _catalog, db_session):
+        """sqlite e2e：下单后 GET 详情，pending 订单带支付倒计时。"""
+        self._switch_on(db_session)
+        auth = _auth(web_user)
+        r = client.post("/api/pay/orders", headers=auth, json={
+            "sku_key": "pro_yearly", "agreement_version": AGREEMENT_VERSION})
+        order_no = r.json()["data"]["order_no"]
+
+        r = client.get(f"/api/pay/orders/{order_no}", headers=auth)
+        body = r.json()
+        assert body["code"] == 0, body
+        assert body["data"]["status"] == "pending"
+        assert 0 < body["data"]["remaining_pay_seconds"] <= 900
+
+    @pytest.mark.parametrize("form", ["pg_http_str", "sqlite_naive", "aware"])
+    def test_row_datetime_forms(self, form):
+        """订单行时间列三种形态（ISO 字符串/naive/aware）下倒计时均可计算。"""
+        from datetime import UTC, timedelta
+
+        from app.interfaces.web_api.payments import _order_to_detail
+
+        created = datetime.now(UTC) - timedelta(seconds=100)
+        cooldown_ends = datetime.now(UTC) + timedelta(seconds=120)
+        if form == "pg_http_str":
+            created_at, cooldown_ends_at = created.isoformat(), cooldown_ends.isoformat()
+        elif form == "sqlite_naive":
+            created_at, cooldown_ends_at = created.replace(tzinfo=None), cooldown_ends.replace(tzinfo=None)
+        else:
+            created_at, cooldown_ends_at = created, cooldown_ends
+
+        order = {
+            "order_no": "S-TEST", "status": "pending", "created_at": created_at,
+            "refund_status": "cooldown", "cooldown_ends_at": cooldown_ends_at,
+        }
+        detail = _order_to_detail(order)
+        assert 700 < detail["remaining_pay_seconds"] <= 800  # 900 - ~100s
+        assert 0 < detail["refund"]["cooldown_remaining_seconds"] <= 180
