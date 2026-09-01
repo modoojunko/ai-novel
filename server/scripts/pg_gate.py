@@ -27,17 +27,22 @@ def main() -> int:
 
     endpoint = f"https://{env_id}.api.tcloudbasegateway.com/v1/rdb/rest"
     client = PgRestClient(endpoint, api_key, timeout=15.0)
-    missing, probe_failed = probe_all(client)
+    missing, probe_failed, mismatch = probe_all(client)
 
     if probe_failed:
         print("pg_gate: 探测失败（网络/网关，fail-closed，可 re-run 重试）:")
         for item in probe_failed:
             print(f"  - {item}")
         return 3
-    if missing:
-        print("pg_gate: 生产 PG schema 缺失，本次部署中止。缺失清单（可直接作为 MCP DDL 依据）:")
-        for item in missing:
-            print(f"  - {item}")
+    if missing or mismatch:
+        if missing:
+            print("pg_gate: 生产 PG schema 缺失，本次部署中止。缺失清单（可直接作为 MCP DDL 依据）:")
+            for item in missing:
+                print(f"  - {item}")
+        if mismatch:
+            print("pg_gate: server_default 漂移，本次部署中止。修复形态=ALTER COLUMN SET DEFAULT / 回填:")
+            for item in mismatch:
+                print(f"  - {item}")
         return 1
     print(
         f"pg_gate: schema ok tables={len(REQUIRED)} "
