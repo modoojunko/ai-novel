@@ -70,7 +70,7 @@ async def get_skus(request: Request, db: Db = Depends(get_db)):
     from app.infrastructure.repositories.factory import config_repo
     cfg = config_repo(db)
     enabled = cfg.get("payments.purchase.enabled") or "off"
-    rehearsal_list = (cfg.get("payments.rehearsal.usernames") or "").split(",")
+    _rehearsal_list = (cfg.get("payments.rehearsal.usernames") or "").split(",")
 
     # 构建响应（附录 Z.4 SkusView）
     from app.domain.payments.pricing import calc_discount_display

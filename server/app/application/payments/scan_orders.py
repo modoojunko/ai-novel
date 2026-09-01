@@ -39,7 +39,7 @@ def scan_timeout_close(
         query = gateway.query_payment(order_no)
         if query.status == PaymentStatus.SUCCESS:
             # 迟付——补发货（复活路径）
-            result = fulfill_payment(
+            _ = fulfill_payment(
                 order_repo, event_repo, order,
                 transaction_id=query.transaction_id,
                 payer_openid=query.payer_openid,
@@ -53,7 +53,7 @@ def scan_timeout_close(
             if close.already_paid:
                 # 竞态：关单时发现已付
                 query2 = gateway.query_payment(order_no)
-                result = fulfill_payment(
+                _ = fulfill_payment(
                     order_repo, event_repo, order,
                     transaction_id=query2.transaction_id,
                     paid_at=now,
@@ -85,7 +85,7 @@ def scan_paid_unfulfilled(
     results = []
 
     for order in paid_orders:
-        result = fulfill_payment(
+        _ = fulfill_payment(
             order_repo, event_repo, order,
             transaction_id=order.get("transaction_id", ""),
             paid_at=order.get("paid_at"),
