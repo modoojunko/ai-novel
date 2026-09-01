@@ -34,4 +34,4 @@
 ## 6. 收尾
 
 - [x] 6.1 全套门禁：后端 pytest 全量（258 绿）+ S端 e2e（130 绿）+ tsc/vue-tsc（4.4 前端改动含在内）；openspec validate 全绿
-- [ ] 6.2 归档流程（sync specs→PR→归档；勿 git add openspec/ 整目录）
+- [x] 6.2 归档流程（sync specs→PR→归档；勿 git add openspec/ 整目录）
