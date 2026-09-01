@@ -222,6 +222,18 @@ async function submitRevoke() {
 .page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .err-box { text-align: center; padding: 48px 0; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 12px; }
 
+/* 设置页布局工具（原型 account-settings.html 同款；scoped 定义——pay 页/向导已有各自的
+   scoped .kv/.rule-note，收全局会漏染列间距，review P2 修复裁定：跟随 DeletionWizard 先例组件内自治） */
+.kv { display: grid; grid-template-columns: 96px 1fr; gap: 8px 12px; font-size: 13px; margin: 6px 0; }
+.kv span { color: var(--muted); }
+.kv b { font-weight: 500; }
+.rule-note { font-size: 12.5px; color: var(--muted); line-height: 1.7; }
+.set-rows { display: grid; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 2px; border-top: 1px solid var(--border); }
+.set-row:first-child { border-top: 0; }
+.set-row .t { font-size: 13.5px; font-weight: 500; }
+.set-row .d { font-size: 12.5px; color: var(--muted); margin-top: 2px; max-width: 520px; }
+
 /* 危险区（B4，GitHub Danger Zone 模式）：红发丝线框恢复视觉一致，
    描边按钮 = 唯一警示色（安静不诱导）；48px 间距与上方常规项拉开隔离距离 */
 .danger-zone { margin-top: 28px; }

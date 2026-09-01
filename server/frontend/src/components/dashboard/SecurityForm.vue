@@ -127,6 +127,8 @@ async function submit() {
 </template>
 
 <style scoped>
+/* scoped：全局 .rule-note 会漏染 pay 页同名 scoped 类（review P2），组件内自治 */
+.rule-note { font-size: 12.5px; color: var(--muted); line-height: 1.7; }
 .field { display: grid; gap: 6px; margin-bottom: 14px; }
 .field label { font-size: 12.5px; color: var(--muted); }
 </style>
