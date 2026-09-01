@@ -8,7 +8,7 @@
 ## 2. WechatPayGateway 适配层
 
 - [ ] 2.1 实现 create_payment（Native 下单，带 time_expire 对齐本地 TTL）/query_payment（含 REFUND 显式归一）/close_payment（先查单确认未付再关单；403 ORDERPAID→already_paid；已关闭类返回→幂等成功不告警；TTL≥关单最短间隔 5min）。验证：httpx MockTransport 契约测试
-- [ ] 2.2 实现 create_refund/query_refund 归一：NOT_ENOUGH（账户余额不足）/USER_ACCOUNT_ABNORMAL（用户注销）→转告警不自动重试；FREQUENCY_LIMITED（受理中）/ORDER_NOT_READY（处理中）→原退款单号间隔重试；RefundStatus 四态全覆盖。验证：契约测试错误分类
+- [ ] 2.2 实现 create_refund（请求带 notify_url 开通退款回调）/query_refund 归一：NOT_ENOUGH（账户余额不足）/USER_ACCOUNT_ABNORMAL（用户注销）→转告警不自动重试；FREQUENCY_LIMITED（受理中）/ORDER_NOT_READY（处理中）→原退款单号间隔重试；RefundStatus 四态全覆盖。验证：契约测试错误分类
 - [ ] 2.3 实现 download_bill：tradebill 接口 bill_type=ALL 与 REFUND 两张分下；CSV 逗号分隔+剥反引号前缀；金额元→分换算；download_url 5 分钟时效即取即下；SHA1 与 hash_digest 比对。验证：固定样例账单解析单测（含退款账单与元转分）
 - [ ] 2.4 错误归一层 `_map_error`：SDK 异常→领域结果，不穿透应用层；批量扫描限速退避参数（退款失败 6QPS 口径）。验证：异常注入测试
 
