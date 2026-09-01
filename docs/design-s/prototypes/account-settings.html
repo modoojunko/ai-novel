@@ -6,7 +6,7 @@
 <title>爱小说 · 我的账户（原型 · 默认/撤销期）</title>
 <style>
 /* ═══ 内联样式：与 server/frontend/src/design/base.css 逐字同源段（tokens/btn/appbar/main/page-head/pill/panel/notice/scrim-modal）
-   + S端 本地段（notice 四语气 / btn-lg / btn-danger）+ 原型专用布局工具（kv / stage-account / rule-note / set-row / field / 危险区间距 / spec 标注 / toast），
+   + S端 本地段（notice 四语气 / btn-lg / btn-danger）+ 原型专用布局工具（kv / stage-account / rule-note / set-row / field(含 select) / swatches / 危险区间距 / spec 标注 / toast），
    同族于 console.html 与 account-deletion.html；布局工具不做视觉决策，色/圆角/字体全走令牌 ═══ */
 :root {
   --bg:      oklch(98% 0.004 240);
@@ -55,7 +55,7 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 .lnk { color: var(--accent); cursor: pointer; background: none; border: 0; padding: 0; font: inherit; }
 .lnk:hover { color: var(--accent-strong); text-decoration: underline; }
 .lnk-danger { color: var(--err); }
-.btn-outline-danger { background: var(--surface); color: var(--err); border: 1px solid color-mix(in oklch, var(--err) 45%, var(--border)); font-weight: 500; }
+.btn-outline-danger { background: var(--surface); color: var(--err); border: 1px solid color-mix(in oklch, var(--err) 45%, var(--border)); font-weight: 500; white-space: nowrap; }
 .btn-outline-danger:hover:not(:disabled) { background: var(--err-soft); border-color: var(--err); }
 .lnk-danger:hover { color: color-mix(in oklch, var(--err) 85%, var(--fg)); text-decoration: underline; }
 .appbar { height: 48px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
@@ -122,13 +122,25 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 .dz-box { background: var(--surface); border: 1px solid color-mix(in oklch, var(--err) 35%, var(--border)); border-radius: var(--radius-lg); }
 .dz-box .set-row { padding: 14px 20px; }
 
-/* 修改密码弹层表单（S1） */
+/* 弹层表单（S1 修改密码 / S1b 密保设置，同构） */
 .field { display: grid; gap: 6px; margin-top: 4px; }
 .field label { font-size: 12.5px; color: var(--muted); }
 .field input { height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius); font: inherit; font-size: 14px; background: var(--surface); color: var(--fg); }
 .field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 12%, transparent); }
+.field select { height: 36px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius); font: inherit; font-size: 14px; background: var(--surface); color: var(--fg); }
+.field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 12%, transparent); }
 .field .hint { font-size: 12px; color: var(--muted); line-height: 1.6; }
 .f-err { font-size: 12px; color: var(--err); }
+
+/* 界面主题 swatches（B3b 补录；词汇与 ThemeForm.vue 同源，色值 = constants/themes.ts 实际值） */
+.swatches { display: flex; flex-wrap: wrap; gap: 12px; }
+.sw { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 6px 8px; border-radius: 10px; border: 1px solid transparent; cursor: pointer; }
+.sw:hover { border-color: var(--border); }
+.sw.on { border-color: var(--accent); background: var(--accent-soft); }
+.sw .dot { width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center; box-shadow: inset 0 0 0 2px color-mix(in oklch, white 18%, transparent); }
+.sw .dot svg { width: 14px; height: 14px; color: var(--on-accent); }
+.sw .lb { font-size: 12px; color: var(--muted); }
+.sw.on .lb { color: var(--accent-strong); font-weight: 500; }
 
 /* spec 标注（评审用，非基线元素）：标注块归属 IA·B1–B5（account-settings-design.md §2） */
 .spec-tag { display: inline-flex; align-items: center; font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); border: 1px dashed var(--border); border-radius: 6px; padding: 1px 7px; background: var(--surface); white-space: nowrap; }
@@ -190,21 +202,35 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
         <p class="rule-note" style="margin-top:8px">本站账号只由「用户名 + 密码」组成，没有绑定邮箱或手机号。<b>请牢记你的密码</b>——忘记密码可在登录页「忘记密码找回」恢复。</p>
       </section>
 
-      <!-- B3 安全（secondary）：修改密码 → 退出登录（US-1.1 顺序，2026-08-30 用户裁定移除"我的设备"入口行——
-           设备有独立导航页，账户页 OWN 边界=身份+安全+危险区+退出；注销的设备波及面由向导后果清单告知）；
+      <!-- B3 安全（secondary）：**行 + 弹层统一口径**（2026-09-01 改版：页面本体零裸表单，安全动作=展示行[当前状态+动词按钮]→弹层编辑）。
+           行序：修改密码 → 密保设置 → 退出登录（凭据 → 找回 → 会话，破坏性递减）；
+           密保行 d 实时显示当前问题文本（答案哈希存储永不回显；实现依赖 user/me 增补 security_question，现仅有 PUT 写接口）；
            退出登录无确认（低破坏、可逆，与首页卡同款 lnk 行为一致，T4-7） -->
       <section class="panel" aria-labelledby="b3h" style="margin-top:14px">
-        <div class="panel-h"><h2 id="b3h">安全</h2><span class="spec-tag">IA·B3 · US-1.1 顺序</span></div>
+        <div class="panel-h"><h2 id="b3h">安全</h2><span class="spec-tag">IA·B3 · 行+弹层统一</span></div>
         <div class="set-rows">
           <div class="set-row">
             <div><div class="t">修改密码</div><div class="d">定期更换，客户端与网页端同时生效</div></div>
             <button class="btn btn-secondary btn-sm js-open-pw" type="button">修改密码</button>
           </div>
           <div class="set-row">
+            <div><div class="t">密保设置</div><div class="d js-sec-status">已设置：你的第一本书是？</div></div>
+            <button class="btn btn-secondary btn-sm js-open-sec" type="button">修改密保</button>
+          </div>
+          <div class="set-row">
             <div><div class="t">退出登录</div><div class="d">仅退出当前浏览器会话，不影响其他设备</div></div>
             <a class="lnk" href="#" style="font-size:12.5px">退出登录</a>
           </div>
         </div>
+      </section>
+
+      <!-- B3b 界面主题（偏好，非安全）：即点即存不设编辑档——零破坏、可逆、即时可见，与密码/密保的弹层编辑区分是刻意的响度匹配（破坏性才配闸门）。
+           本块为补录：实现 #221 已上线而原型此前未覆盖，正是"各块设计不一致"的盲区来源；
+           swatch 色值 = constants/themes.ts 实际值 -->
+      <section class="panel" aria-labelledby="b3bh" style="margin-top:14px">
+        <div class="panel-h"><h2 id="b3bh">界面主题</h2><span class="spec-tag">IA·B3b 偏好 · 即点即存</span></div>
+        <p class="rule-note" style="margin:0 0 12px">选择控制台的强调色，立即生效并同步到你的账号。</p>
+        <div class="swatches"></div>
       </section>
 
       <!-- B4 危险区（danger zone，IA §3.3）：隔离=48px 间距折叠线以下；弱化=全组唯一警示色 lnk-danger（无大标题/无 pill 标注/无图标/无 notice/btn-danger 留在向导内）；距离=动线终点，上方无任何文案预告。
@@ -264,19 +290,30 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
         <p class="rule-note" style="margin-top:8px">本站账号只由「用户名 + 密码」组成，没有绑定邮箱或手机号。<b>请牢记你的密码</b>——忘记密码可在登录页「忘记密码找回」恢复。</p>
       </section>
 
-      <!-- B3 不变，撤销期内均可用 -->
+      <!-- B3 不变（组名随 08-30 修订统一为「安全」，S3 旧稿残留"安全与设备"一并修正），撤销期内均可用 -->
       <section class="panel" aria-labelledby="b3h2" style="margin-top:14px">
-        <div class="panel-h"><h2 id="b3h2">安全与设备</h2><span class="spec-tag">IA·B3 不变 · 均可用</span></div>
+        <div class="panel-h"><h2 id="b3h2">安全</h2><span class="spec-tag">IA·B3 不变 · 均可用</span></div>
         <div class="set-rows">
           <div class="set-row">
             <div><div class="t">修改密码</div><div class="d">定期更换，客户端与网页端同时生效</div></div>
             <button class="btn btn-secondary btn-sm js-open-pw" type="button">修改密码</button>
           </div>
           <div class="set-row">
+            <div><div class="t">密保设置</div><div class="d js-sec-status">已设置：你的第一本书是？</div></div>
+            <button class="btn btn-secondary btn-sm js-open-sec" type="button">修改密保</button>
+          </div>
+          <div class="set-row">
             <div><div class="t">退出登录</div><div class="d">仅退出当前浏览器会话，不影响其他设备</div></div>
             <a class="lnk" href="#" style="font-size:12.5px">退出登录</a>
           </div>
         </div>
+      </section>
+
+      <!-- B3b 不变，撤销期内均可用 -->
+      <section class="panel" aria-labelledby="b3bh2" style="margin-top:14px">
+        <div class="panel-h"><h2 id="b3bh2">界面主题</h2><span class="spec-tag">IA·B3b 不变 · 均可用</span></div>
+        <p class="rule-note" style="margin:0 0 12px">选择控制台的强调色，立即生效并同步到你的账号。</p>
+        <div class="swatches"></div>
       </section>
 
       <!-- B4 变体：入口行 → warn 状态行（撤销期升响度是正当的：用户的当前任务就是撤销）；
@@ -336,6 +373,42 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
   </div>
 </div>
 
+<!-- S1b 密保设置弹层（与 S1 同构：行入口 → 弹层编辑 → 成功 toast；答案哈希存储、界面永不回显旧答案——所以表单只有"新答案"一个答案字段；
+     预选当前问题便于确认改的是哪条密保；实现依赖 user/me 增补 security_question，现有后端仅 PUT /user/security 无读接口） -->
+<div class="scrim" id="secScrim" hidden></div>
+<div class="modal" id="secModal" role="dialog" aria-modal="true" aria-labelledby="secTitle" hidden>
+  <div class="mcard">
+    <div class="mcard-head"><span class="mh" id="secTitle">密保设置</span></div>
+    <div class="mcard-body">
+      <p class="rule-note" style="margin:0 0 12px">密保用于忘记密码时验证身份。答案加密保存、不再显示；保存新密保会覆盖旧密保。</p>
+      <div class="field">
+        <label for="secQ">密保问题</label>
+        <select id="secQ">
+          <option value="">请选择密保问题</option>
+          <option value="你的第一本书是？">你的第一本书是？</option>
+          <option value="你的宠物名字是？">你的宠物名字是？</option>
+          <option value="你的出生城市是？">你的出生城市是？</option>
+          <option value="你最喜欢的老师是？">你最喜欢的老师是？</option>
+          <option value="__custom__">自定义问题</option>
+        </select>
+      </div>
+      <div class="field" id="secCustomWrap" hidden>
+        <label for="secCustom">自定义问题</label>
+        <input type="text" id="secCustom" placeholder="输入你的密保问题" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="secA">密保答案</label>
+        <input type="text" id="secA" placeholder="输入新答案，保存后覆盖旧答案" autocomplete="off">
+        <span class="f-err" id="secErr" hidden></span>
+      </div>
+    </div>
+    <div class="mcard-foot">
+      <button class="btn btn-secondary" id="secCancel" type="button">取消</button>
+      <button class="btn btn-primary" id="secSubmit" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
 <!-- S3 撤销密码弹层（态⑦同构）：文案与 account-deletion.html 态⑦逐字一致；完整撤销流（态⑦→⑧）见该原型 -->
 <div class="scrim" id="rvScrim" hidden></div>
 <div class="modal" id="rvModal" role="dialog" aria-modal="true" aria-labelledby="rvTitle" hidden>
@@ -372,6 +445,8 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 const MOCK = {
   user: "testuser",
   registeredAt: "2026-08-15",
+  securityQuestion: "你的第一本书是？",
+  theme: "teal",
   devices: { used: 2, limit: 5 },
   remainDays: 12,
   deadline: "2026-09-13",
@@ -449,6 +524,83 @@ document.getElementById("pwSubmit").addEventListener("click", () => {
   ["curPwd", "newPwd", "newPwd2"].forEach((id) => (document.getElementById(id).value = ""));
   closeModal(pwScrim, pwModal);
   showToast("密码已修改");
+});
+
+/* B3b 界面主题（补录）：swatch 色值 = constants/themes.ts 实际值；点击即切换选中（原型本地演示；
+   实现走 session.saveTheme 即点即存，失败时 ThemeForm 已有重试口径） */
+const THEMES = [
+  { key: "teal", label: "默认", color: "oklch(48% 0.11 170)" },
+  { key: "ink", label: "玄墨", color: "oklch(37% 0.01 250)" },
+  { key: "bamboo", label: "竹青", color: "oklch(60% 0.076 152)" },
+  { key: "rouge", label: "胭脂", color: "oklch(58% 0.11 8)" },
+  { key: "wisteria", label: "紫藤", color: "oklch(58% 0.084 296)" },
+  { key: "celadon", label: "青瓷", color: "oklch(65% 0.066 184)" },
+];
+const CHECK = '<svg viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+document.querySelectorAll(".swatches").forEach((wrap) => {
+  THEMES.forEach((t) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.title = t.label;
+    b.innerHTML = `<span class="dot" style="background:${t.color}"></span><span class="lb">${t.label}</span>`;
+    const paint = () => {
+      wrap.querySelectorAll(".sw").forEach((el) => { el.classList.remove("on"); el.querySelector(".dot").innerHTML = ""; });
+      b.classList.add("on");
+      b.querySelector(".dot").innerHTML = CHECK;
+    };
+    if (t.key === MOCK.theme) paint();
+    b.addEventListener("click", () => { MOCK.theme = t.key; paint(); });
+    b.classList.add("sw");
+    wrap.appendChild(b);
+  });
+});
+
+/* S1b 密保设置（行+弹层统一口径）：按钮文案随状态（未设置=「设置密保」/已设置=「修改密保」），
+   行 d 实时显示当前问题文本（答案永不回显）；成功 → 更新行状态 + toast「密保已更新」+ 关弹层，
+   失败 → 弹层内 .f-err 不关弹层可重试；自定义问题切换联动同实现侧 SecurityForm */
+const secScrim = document.getElementById("secScrim");
+const secModal = document.getElementById("secModal");
+const secQ = document.getElementById("secQ");
+const secCustomWrap = document.getElementById("secCustomWrap");
+const secCustom = document.getElementById("secCustom");
+const secA = document.getElementById("secA");
+const secErr = document.getElementById("secErr");
+bindModal(secScrim, secModal);
+
+function renderSecRow() {
+  document.querySelectorAll(".js-sec-status").forEach((el) => {
+    el.textContent = MOCK.securityQuestion ? `已设置：${MOCK.securityQuestion}` : "未设置——忘记密码时将无法自助验证身份";
+  });
+  document.querySelectorAll(".js-open-sec").forEach((btn) => {
+    btn.textContent = MOCK.securityQuestion ? "修改密保" : "设置密保";
+  });
+}
+renderSecRow();
+
+document.querySelectorAll(".js-open-sec").forEach((btn) =>
+  btn.addEventListener("click", () => {
+    secErr.hidden = true; secA.value = ""; secCustom.value = "";
+    const q = MOCK.securityQuestion;
+    const preset = q && [...secQ.options].some((o) => o.value === q);
+    secQ.value = preset ? q : (q ? "__custom__" : "");
+    secCustomWrap.hidden = secQ.value !== "__custom__";
+    if (q && !preset) secCustom.value = q;
+    openModal(secScrim, secModal, secQ);
+  }));
+secQ.addEventListener("change", () => { secCustomWrap.hidden = secQ.value !== "__custom__"; });
+document.getElementById("secCancel").addEventListener("click", () => closeModal(secScrim, secModal));
+document.getElementById("secSubmit").addEventListener("click", () => {
+  const q = secQ.value === "__custom__" ? secCustom.value.trim() : secQ.value;
+  const a = secA.value.trim();
+  let msg = "";
+  if (!q) msg = "请选择或填写密保问题。";
+  else if (!a) msg = "请输入密保答案。";
+  if (msg) { secErr.textContent = msg; secErr.hidden = false; return; }
+  secErr.hidden = true;
+  MOCK.securityQuestion = q;
+  renderSecRow();
+  closeModal(secScrim, secModal);
+  showToast("密保已更新");
 });
 
 /* S2 注销向导出口（IA §5 S2）：入口保持安静可达；向导弹层本体 = account-deletion.html 态②③④，本页不内嵌（避免双源漂移） */

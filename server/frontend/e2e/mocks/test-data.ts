@@ -14,6 +14,7 @@ export function createTestUser(overrides: Partial<TestUser> = {}): TestUser {
     theme: 'teal',
     security_question: '你的宠物名字是？',
     security_answer: 'Fluffy',
+    registered_at: '2026-08-15',
     ...overrides,
   }
 }
@@ -28,6 +29,7 @@ export interface TestUser {
   theme: string
   security_question?: string
   security_answer?: string
+  registered_at?: string
 }
 
 /** 测试设备数据 */

@@ -82,6 +82,15 @@ class TestUserMe:
         assert d["data"]["tier"] == "trial"
         assert d["data"]["is_valid"] is True
 
+    def test_me_security_question_visible_answer_not(self, client, web_user):
+        """account-blocks-unify：user/me 回密保问题文本与注册时间，答案任何形式不出门。"""
+        d = client.get("/api/user/me", headers=_bearer(web_user["token"])).json()
+        assert d["data"]["security_question"] == "q?"  # web_user fixture 注册时的问题
+        assert d["data"]["registered_at"]  # 日期非空（YYYY-MM-DD 口径，形如 2026-09-01）
+        assert len(d["data"]["registered_at"]) == 10
+        assert "security_answer" not in d["data"]
+        assert "security_answer_hash" not in d["data"]
+
     def test_no_token(self, client):
         assert client.get("/api/user/me").json()["code"] == 1
 
