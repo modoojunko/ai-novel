@@ -137,8 +137,8 @@ async function handleRegister() {
           <input v-model="agreeTerms" type="checkbox" />
           <span>我已阅读并同意
             <a href="/legal/user-agreement.html" target="_blank" class="lnk">《用户服务协议》</a>、
-            <a href="/legal/payment-notice.html" class="lnk">《付费须知》</a>、
-            <a href="/legal/refund-policy.html" class="lnk">《退款政策》</a>
+            <a href="/legal/payment-notice.html" target="_blank" class="lnk">《付费须知》</a>、
+            <a href="/legal/refund-policy.html" target="_blank" class="lnk">《退款政策》</a>
           </span>
         </label>
         <label class="agr-chk">

@@ -13,6 +13,7 @@ import {
 } from '@/api/pay'
 import Ico from '@/components/ui/Ico.vue'
 import AppModal from '@/components/ui/AppModal.vue'
+import SiteBeianBar from '@/components/site/SiteBeianBar.vue'
 import { P } from '@/components/ui/icons'
 
 const router = useRouter()
@@ -298,7 +299,7 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
         </button>
       </div>
       <div v-if="selectedSku" class="pay-agree-hint">
-        点击去支付后，将确认<a class="lnk" @click.prevent="showTerms = true">《购买协议》</a>与<a class="lnk" @click.prevent="showTerms = true">《退款政策》</a>要点
+        点击去支付后，将确认<a class="lnk" @click.prevent="showTerms = true">《付费须知》</a>与<a class="lnk" @click.prevent="showTerms = true">《退款政策》</a>要点
       </div>
     </template>
 
@@ -375,28 +376,37 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
     <!-- ═══ 协议确认弹窗 ═══ -->
     <!-- 必须走 AppModal：base.css 对 .scrim/.mcard 是两段式 .show 进出场（默认 opacity:0），
          手写 v-if 弹窗不带 .show 会整体隐形，且 fixed 遮罩仍拦截点击 → 页面假死 -->
-    <AppModal v-model:open="showTerms" title="确认购买协议">
+    <AppModal v-model:open="showTerms" title="确认购买">
       <ul class="pay-terms">
         <li>一次性买断时长，<b>到期不自动扣款</b></li>
         <li>套餐支付成功即到货，<b>点激活才开始计时</b>；未激活可全额退</li>
         <li>退款<b>按剩余时长计算、原路退回</b>，不影响其他套餐</li>
         <li>本单：<b>{{ selectedSku ? `${periodLabel(selectedSku.period)}（${selectedSku.period_days} 天）· ${selectedPrice}` : '' }}</b></li>
       </ul>
+      <p class="pay-terms-full">
+        全文：<a class="lnk" href="/legal/payment-notice.html" target="_blank" rel="noopener">《付费须知》</a><template v-if="skusData?.agreement_version">（{{ skusData.agreement_version }}）</template>
+        ·
+        <a class="lnk" href="/legal/refund-policy.html" target="_blank" rel="noopener">《退款政策》</a><template v-if="skusData?.agreement_version">（{{ skusData.agreement_version }}）</template>
+      </p>
       <label class="pay-agree">
         <input v-model="termsRead" type="checkbox" />
-        <span>我已阅读并同意《购买协议》与《退款政策》：按剩余时长折算退款、原路退回</span>
+        <span>我已阅读并同意<a class="lnk" href="/legal/payment-notice.html" target="_blank" rel="noopener" @click.stop>《付费须知》</a>与<a class="lnk" href="/legal/refund-policy.html" target="_blank" rel="noopener" @click.stop>《退款政策》</a>：按剩余时长折算退款、原路退回</span>
       </label>
       <template #footer>
         <button class="btn btn-secondary" @click="showTerms = false">再想想</button>
         <button class="btn btn-primary" :disabled="!termsRead" @click="confirmPay">阅读并同意，去支付</button>
       </template>
     </AppModal>
+
+    <!-- 全站备案条：购买页独立布局的法律文件兜底入口（弹窗之外也能到达四份全文） -->
+    <SiteBeianBar class="pay-beian" />
   </div>
 </template>
 
 <style scoped>
 /* 布局类（令牌走 base.css var）——对应原型 cashier.html 选型 A */
-.pay-page { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 48px 24px 80px; background: var(--bg); }
+.pay-page { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 48px 24px 0; background: var(--bg); }
+.pay-beian { margin-top: auto; width: 100%; }
 .pay-brand { display: flex; align-items: center; gap: 9px; font-family: var(--font-display); font-size: 17px; font-weight: 600; }
 .logo-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-family: var(--font-display); font-size: 15px; }
 .pay-brand-name { color: var(--fg); }
@@ -453,6 +463,7 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
 .pay-terms { margin: 8px 0; padding-left: 18px; display: grid; gap: 5px; font-size: 12.5px; color: var(--muted); list-style: none; }
 .pay-terms li::before { content: ''; display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: middle; }
 .pay-terms b { color: var(--fg); }
+.pay-terms-full { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
 .pay-agree { display: flex; gap: 8px; align-items: flex-start; margin: 12px 0 0; font-size: 12.5px; color: var(--fg); cursor: pointer; }
 .pay-agree input { margin-top: 3px; accent-color: var(--accent); width: 14px; height: 14px; flex: none; }
 

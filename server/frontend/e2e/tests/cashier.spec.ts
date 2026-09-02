@@ -38,6 +38,24 @@ test.describe('收银台', () => {
     await expect(page.getByLabel('微信支付二维码')).toBeVisible()
   })
 
+  test('协议弹窗提供全文直达链接（勾选前可读、新标签、无幽灵文书名）', async ({ page }) => {
+    await gotoPay(page)
+    await page.getByRole('button', { name: '去支付' }).click()
+    const modal = page.locator('.mcard')
+    await expect(modal).toBeVisible({ timeout: 10000 })
+    // 勾选前即可见全文入口；href 指向真实法律文档（只验属性不触发导航）。
+    // 全文行与勾选行各有两链接，按容器分域避免 strict mode 撞多元素
+    const fullRow = modal.locator('.pay-terms-full')
+    await expect(fullRow.locator('a[href="/legal/payment-notice.html"][target="_blank"]')).toBeVisible()
+    await expect(fullRow.locator('a[href="/legal/refund-policy.html"][target="_blank"]')).toBeVisible()
+    await expect(modal.locator('.pay-agree a[href="/legal/payment-notice.html"][target="_blank"]')).toBeVisible()
+    await expect(modal.locator('.pay-agree a[href="/legal/refund-policy.html"][target="_blank"]')).toBeVisible()
+    // 标题不引用文书名；全文行版本号跟接口单源（mock 返回 v2026.08）
+    await expect(modal.getByText('确认购买', { exact: true })).toBeVisible()
+    await expect(fullRow).toContainText('《付费须知》（v2026.08）')
+    await expect(fullRow).toContainText('《退款政策》（v2026.08）')
+  })
+
   test('支付成功 → 已到货待激活', async ({ page, mockApi }) => {
     mockApi.setPayHint('SUCCESS')
     await gotoPay(page)
