@@ -182,15 +182,17 @@ import QRCode from 'qrcode'
 const qrCanvas = ref<HTMLCanvasElement | null>(null)
 
 async function renderQr(): Promise<void> {
+  // 先等 DOM：watcher 默认 pre-flush（渲染前触发），此时 waiting 分支的 canvas 尚未挂载，
+  // 守卫必须放在 nextTick 之后（否则 qrCanvas 恒为 null，二维码永远画不出来）
+  await nextTick()
   const url = order.value?.code_url
   if (!url || !qrCanvas.value) return
-  await nextTick()
   try {
     await QRCode.toCanvas(qrCanvas.value, url, { width: 180, margin: 1 })
   } catch { /* 渲染失败保留占位提示 */ }
 }
 
-watch(() => [payState.value, order.value?.code_url], () => { void renderQr() })
+watch(() => [payState.value, order.value?.code_url], () => { void renderQr() }, { flush: 'post' })
 
 // ── 生命周期 ──
 onMounted(loadSkus)
