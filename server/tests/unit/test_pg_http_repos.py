@@ -220,7 +220,10 @@ class TestPgHttpCodeRepo:
         def handler(request: httpx.Request) -> httpx.Response:
             body = request.read().decode()
             assert '"code_id":"AC-2"' in body
-            assert "created_at" not in body  # 时间戳走 DB DEFAULT
+            # s-pay-post-purchase-completion：created_at 显式 naive UTC，不再走 DB DEFAULT
+            # （列默认 now() 在上海时区会话求值 → 上海本地时间裸值被按 UTC 读，快 8h）
+            assert '"created_at":"' in body
+            assert "+00:00" not in body.split('"created_at":"')[1].split('"')[0]
             assert '"user_id":null' in body  # 空值 → null（FK 不触发检查）
             return httpx.Response(201)
 

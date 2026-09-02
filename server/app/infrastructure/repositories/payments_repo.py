@@ -50,6 +50,17 @@ class OrderRepo:
         else:
             return self._db.find_one("orders", {"order_no": order_no})
 
+    def find_by_ids(self, ids: list) -> list[dict]:
+        """按代理 id 批量取（membership 明细 order_no 映射用）。"""
+        if not ids:
+            return []
+        if isinstance(self._db, Session):
+            from app.models.payments import OrderORM
+            orms = self._db.query(OrderORM).filter(OrderORM.id.in_(list(ids))).all()
+            return [{c.name: getattr(o, c.name) for c in o.__table__.columns} for o in orms]
+        else:
+            return self._db.find("orders", filter={"id": f"in.({','.join(str(i) for i in ids)})"})
+
     def find_by_user(self, user_id: int, limit: int = 50, offset: int = 0) -> list[dict]:
         if isinstance(self._db, Session):
             from app.models.payments import OrderORM

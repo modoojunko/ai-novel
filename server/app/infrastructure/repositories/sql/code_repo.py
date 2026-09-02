@@ -18,6 +18,13 @@ class SqlCodeRepo:
     def __init__(self, db: Session):
         self.db = db
 
+    @staticmethod
+    def _created_at(now=None):
+        """台账行 created_at 显式 naive UTC（与 pg_http 同口径，禁用列默认的时区漂移）。"""
+        if now is None:
+            now = datetime.now(UTC)
+        return now.astimezone(UTC).replace(tzinfo=None) if now.tzinfo else now
+
     def _resolve_user_id(self, username: str) -> int | None:
         row = self.db.query(UserORM.id).filter(UserORM.username == username).first()
         return row[0] if row else None
@@ -36,6 +43,8 @@ class SqlCodeRepo:
             created_by=row.created_by or "",
             refund_requested_at=row.refund_requested_at,
             grant_start=row.grant_start,
+            order_id=row.order_id,
+            source=row.source or "admin",
         )
 
     def get(self, code_id: str) -> ActivationCode | None:
@@ -91,6 +100,7 @@ class SqlCodeRepo:
             status=code.status,
             user_id=uid,  # int 或 None（未绑定码）
             created_by=code.created_by,
+            created_at=self._created_at(),
         )
         self.db.add(row)
 
@@ -172,6 +182,7 @@ class SqlCodeRepo:
             source="order",
             order_id=order_id,
             created_by="payment",
+            created_at=self._created_at(now),
         ))
         self.db.commit()
         return True

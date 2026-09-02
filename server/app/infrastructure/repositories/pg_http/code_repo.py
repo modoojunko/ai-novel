@@ -22,6 +22,15 @@ class PgHttpCodeRepo:
     def __init__(self, client: PgRestClient):
         self.client = client
 
+    @staticmethod
+    def _created_at(now=None) -> str:
+        """台账行 created_at 显式 naive UTC（s-payments 写入口径）——
+        列默认 now() 在上海时区会话求值会落成上海本地时间裸值被按 UTC 读，禁用。"""
+        if now is None:
+            now = datetime.now(UTC)
+        dt = now.astimezone(UTC).replace(tzinfo=None) if now.tzinfo else now
+        return dt.isoformat()
+
     def _resolve_user_id(self, username_or_id) -> int | None:
         """接受 username(str) 或 user_id(int)，返回 user_id(int)。"""
         if isinstance(username_or_id, int):
@@ -45,6 +54,8 @@ class PgHttpCodeRepo:
             created_by=doc.get("created_by", "") or "",
             refund_requested_at=parse_dt(doc.get("refund_requested_at")),
             grant_start=parse_dt(doc.get("grant_start")),
+            order_id=doc.get("order_id"),
+            source=doc.get("source", "admin") or "admin",
         )
 
     def get(self, code_id: str) -> ActivationCode | None:
@@ -82,6 +93,7 @@ class PgHttpCodeRepo:
             "status": code.status,
             "user_id": uid,
             "created_by": code.created_by,
+            "created_at": self._created_at(),
         })
 
     def activate(self, code_id: str, username_or_id, expires_at: date) -> None:
@@ -155,6 +167,7 @@ class PgHttpCodeRepo:
             "source": "order",
             "order_id": order_id,
             "created_by": "payment",
+            "created_at": self._created_at(now),
         })
 
     def find_by_order(self, order_id: int) -> list[ActivationCode]:

@@ -254,7 +254,20 @@ async def get_order(order_no: str, request: Request, db: Db = Depends(get_db)):
     if order.get("user_id") != user_id:
         return {"code": 4004, "msg": "订单不存在"}
 
-    return {"code": 0, "data": _order_to_detail(order)}
+    # 台账快照（到货行激活标注用）；order_id 空时不兜底（order_no 非 int 键查空无意义）
+    from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
+
+    codes = _code_repo_factory(db).find_by_order(order.get("id")) if order.get("id") else []
+    grant = None
+    if codes:
+        c = codes[0]
+        grant = {
+            "status": c.status,
+            "activated_at": _iso_or_empty(c.activated_at),
+            "expires_at": _iso_or_empty(c.expires_at),
+        }
+
+    return {"code": 0, "data": _order_to_detail(order, grant=grant)}
 
 
 @r.post("/orders/{order_no}/query")
@@ -426,17 +439,40 @@ async def cancel_order(order_no: str, request: Request, db: Db = Depends(get_db)
 
 @r.get("/membership")
 async def get_membership(request: Request, db: Db = Depends(get_db)):
-    """Z.6 我的套餐总览。"""
+    """Z.6 我的套餐总览：档位头汇总（含手工码）+ 订单来源套餐明细。"""
     username = _current_username(request)
     if not username:
         return {"code": 4001, "msg": "未登录"}
-    # 简化实现：从 codes 表聚合
 
     from app.domain.licensing.license import License
     from app.infrastructure.repositories.factory import code_repo
+    from app.infrastructure.repositories.payments_repo import OrderRepo
 
-    codes = code_repo(db).find_active_by_username(username)
-    lic = License(username=username).merge(codes)
+    all_codes = code_repo(db).find_all_by_username(username)
+    # 汇总口径保持原状（原 find_active_by_username 只喂 active 行）：unused 手工码
+    # 不参与档位归属（merge 跳过清单不含 unused，直接喂会抬高档位头）；明细仍全量
+    lic = License(username=username).merge([c for c in all_codes if c.status != "unused"])
+
+    # 明细：仅订单来源台账行（手工码不进明细，design D2）；order_no 供激活接口定位
+    grants_src = [c for c in all_codes if getattr(c, "source", "admin") == "order"]
+    orders_by_id = {}
+    if grants_src:
+        order_ids = {c.order_id for c in grants_src if c.order_id}
+        if order_ids:
+            orders_by_id = {o["id"]: o.get("order_no", "") for o in OrderRepo(db).find_by_ids(order_ids)}
+
+    _status_order = {"pending_activation": 0, "active": 1, "revoked": 2}
+    grants_src.sort(key=lambda c: (_status_order.get(c.status, 9), -(c.created_at.timestamp() if c.created_at else 0)))
+    grants = [{
+        "code_id": c.code_id,
+        "order_no": orders_by_id.get(c.order_id, ""),
+        "tier": c.tier,
+        "duration_days": c.duration_days,
+        "status": c.status,
+        "activated_at": _iso_or_empty(c.activated_at),
+        "expires_at": _iso_or_empty(c.expires_at),
+        "grant_start": _iso_or_empty(c.grant_start),
+    } for c in grants_src]
 
     from datetime import UTC, datetime
     now = datetime.now(UTC).replace(tzinfo=None)  # naive UTC（表列口径，不依赖容器 TZ）
@@ -449,7 +485,8 @@ async def get_membership(request: Request, db: Db = Depends(get_db)):
         "remaining_sec": remaining,
         "remaining_desc": f"{remaining // 86400} 天",
         "max_expires_at": lic.max_expires_at.isoformat() if lic.max_expires_at else None,
-        "pending_count": 0,  # 待激活数量（从 codes pending_activation 统计）
+        "pending_count": sum(1 for g in grants if g["status"] == "pending_activation"),
+        "grants": grants,
     }}
 
 
@@ -491,7 +528,13 @@ def _naive_utc(value) -> datetime:
     return dt.astimezone(UTC).replace(tzinfo=None) if dt.tzinfo else dt
 
 
-def _order_to_detail(order: dict) -> dict:
+def _iso_or_empty(value) -> str:
+    """时间列 → ISO 字符串（None→""；pg_http ISO 字符串/sqlite naive/aware 三形态归一）。"""
+    dt = _naive_utc(value) if value else None
+    return dt.isoformat() if dt else ""
+
+
+def _order_to_detail(order: dict, grant: dict | None = None) -> dict:
     """订单 dict → 附录 Z.5 OrderDetailView。"""
     now = datetime.now(UTC).replace(tzinfo=None)  # naive UTC（折算域口径，同 refund-preview）
 
@@ -520,9 +563,12 @@ def _order_to_detail(order: dict) -> dict:
         "sku_key": str(order.get("sku_id", "")),
         "snapshot": snapshot,
         "amount_fen": order.get("amount_fen"),
-        "created_at": order.get("created_at", "").isoformat() if hasattr(order.get("created_at"), "isoformat") else str(order.get("created_at", "")),
-        "paid_at": order.get("paid_at", "").isoformat() if hasattr(order.get("paid_at"), "isoformat") else str(order.get("paid_at", "") or ""),
-        "refunded_at": order["refunded_at"].isoformat() if hasattr(order.get("refunded_at"), "isoformat") else str(order.get("refunded_at") or ""),
+        "created_at": _iso_or_empty(order.get("created_at")),
+        "paid_at": _iso_or_empty(order.get("paid_at")),
+        "fulfilled_at": _iso_or_empty(order.get("fulfilled_at")),
+        "refund_requested_at": _iso_or_empty(order.get("refund_requested_at")),
+        "refunded_at": _iso_or_empty(order.get("refunded_at")),
+        "grant": grant,
         "agreement": {"version": order.get("agreement_version"), "agreed_at": str(order.get("agreed_at", ""))},
         "wx_transaction_id": order.get("transaction_id"),
         "remaining_pay_seconds": remaining_pay,

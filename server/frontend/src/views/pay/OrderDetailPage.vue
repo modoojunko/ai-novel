@@ -93,7 +93,20 @@ const stateNotice = computed(() => {
   }
 })
 
-// ── 时间线（由状态机字段推导，前端渲染）──
+// ── 时间线（数据来自订单/台账明确字段；到货当且仅当 fulfilled_at 非空，不以支付时间冒充）──
+function daysLeft(expiresIso: string): number {
+  if (!expiresIso) return 0
+  let s = expiresIso
+  if (!/[Zz]|[+-]\d{2}:?\d{2}$/.test(s)) s += 'Z' // naive UTC 补 Z（同 fmtBj 口径）
+  return Math.max(0, Math.ceil((Date.parse(s) - Date.now()) / 86400000))
+}
+
+function estFromSeconds(seconds?: number | null): string {
+  // 进行中环节预计时刻：剩余秒数 → 北京时间展示
+  if (!seconds || seconds <= 0) return ''
+  return fmtBj(new Date(Date.now() + seconds * 1000).toISOString())
+}
+
 const steps = computed(() => {
   const o = order.value
   if (!o) return []
@@ -102,25 +115,41 @@ const steps = computed(() => {
     rows.push({ title: '超时关闭', when: '—', done: true, now: false })
     return rows
   }
-  if (o.paid_at) rows.push({ title: '支付成功', when: fmtBj(o.paid_at), done: true, now: false })
-  else rows.push({ title: '等待支付', when: '', done: false, now: true })
 
+  if (o.paid_at) {
+    rows.push({ title: '支付成功', when: fmtBj(o.paid_at), done: true, now: false })
+  } else {
+    const est = estFromSeconds(o.remaining_pay_seconds)
+    rows.push({ title: '等待支付', when: est ? `订单 ${est} 过期` : '', done: false, now: true })
+  }
   if (state.value === 'pending') return rows
 
-  const arrived = ['paid', 'fulfilled'].includes(state.value)
-  rows.push({ title: '套餐到货', when: arrived ? fmtBj(o.paid_at) : '—', done: !arrived, now: arrived })
+  // 套餐到货：fulfilled_at 非空才显示实际时间；已支付未到货（半截态）按进行中处理
+  const g = o.grant
+  if (o.fulfilled_at) {
+    let title = '套餐到货'
+    if (g?.status === 'active') title = `套餐到货（已激活，计时中）· 剩余 ${daysLeft(g.expires_at)} 天`
+    else if (g?.status === 'pending_activation') title = '套餐到货（待激活，未计时）'
+    else if (g?.status === 'revoked') title = '套餐到货（已收回）'
+    rows.push({ title, when: fmtBj(o.fulfilled_at), done: true, now: false })
+  } else if (state.value !== 'exception') {
+    rows.push({ title: '套餐到货', when: '预计数分钟内', done: false, now: true })
+  }
 
   const refundStatus = o.refund?.status
+  if (o.refund_requested_at) {
+    rows.push({ title: '申请退款', when: fmtBj(o.refund_requested_at), done: true, now: false })
+  }
   if (refundStatus && refundStatus !== 'none') {
     if (state.value === 'refund_pending')
-      rows.push({ title: '退款确认（冷静期）', when: '', done: false, now: true })
+      rows.push({ title: '退款确认（冷静期）', when: estFromSeconds(o.refund?.cooldown_remaining_seconds), done: false, now: true })
     else if (state.value === 'refund_processing')
-      rows.push({ title: '退款原路退回中', when: '', done: false, now: true })
+      rows.push({ title: '退款原路退回中', when: '预计 3 天内到账', done: false, now: true })
     else if (state.value === 'refunded')
       rows.push({ title: '退款完成（原路退回）', when: fmtBj(o.refunded_at || ''), done: true, now: false })
     else if (refundStatus === 'canceled')
       rows.push({ title: '退款已取消（恢复使用）', when: '', done: true, now: false })
-  } else if (state.value !== 'exception') {
+  } else if (state.value !== 'exception' && state.value !== 'refunded') {
     rows.push({ title: '使用中', when: '', done: false, now: true })
   }
   return rows
