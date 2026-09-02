@@ -39,6 +39,28 @@ CI（`server-frontend-ci.yml`、`s-server-deploy.yml`、`docker-build-ci.yml`）
   改域名时两处同步。历史：只靠环境变量注入曾失效打向静态托管 `/api`（PR #146），
   兜底曾写死云托管临时域名（2026-09 归位统一域名）。
 
+## 运行时站点配置（site-config.json）
+
+`public/site-config.json` 随构建产物发布到静态托管根目录，是部署级配置的**运行时换发点**：
+**只改这一个文件重新上传（控制台静态托管或 `tcb hosting deploy`）即全站生效，免重新构建前端**，本机部署也因此不依赖 GitHub Secrets。
+
+```json
+{
+  "apiBase": "https://www.awesomenovel.com/api",
+  "beianIcp": "琼ICP备2026012341号",
+  "beianPolice": "",
+  "beianPoliceLink": ""
+}
+```
+
+- 字段级优先级：本文件非空值 > 构建期 env 烘焙（`.env.production[.local]`）> 内置默认（`/api`、空号）；
+  字段空串或缺省 = 回落构建期值，不是清空
+- 应用挂载前加载（`src/lib/site-config.ts`）：生产构建才请求；3s 超时、`no-store`、
+  任何失败一律回落构建期值，不阻塞渲染；**dev/e2e 不加载**，本地行为不变
+- 换备案号：优先只改本文件上传；同时更新 Secret `VITE_BEIAN_ICP` 保持两层一致
+  （`npm run probe:beian` 会在两层漂移时拦截部署）
+- 备案号为法定公开信息，入库无泄露面；源码内仍禁硬编码号码
+
 ## 开发
 
 ```bash
