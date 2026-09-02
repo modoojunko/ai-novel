@@ -318,7 +318,8 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
         <button class="btn btn-ghost" @click="cancelOrder">取消支付</button>
       </div>
       <p class="pay-query-hint">
-        已扫码付款但页面没变化？<a class="lnk" @click.prevent="manualQuery">我已支付，帮我查一下到账</a>
+        <template v-if="queryHint === 'notpay'">查过了：微信侧<b>尚未收到这笔订单的付款</b>——刚付款请等几秒再点一次；未付款则继续扫码。</template>
+        <template v-else>已扫码付款但页面没变化？<a class="lnk" @click.prevent="manualQuery">我已支付，帮我查一下到账</a></template>
       </p>
     </template>
 
