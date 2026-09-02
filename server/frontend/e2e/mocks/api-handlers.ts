@@ -198,6 +198,11 @@ export class MockApi {
     this.refundPreviewOverride = p
   }
 
+  /** 覆写冷静期剩余秒数（0 = 已归零仍 refund_pending 的过渡窗口） */
+  setRefundCooldown(seconds: number): void {
+    this.refundCooldown = seconds
+  }
+
   /** 让接下来 N 次下单失败 */
   failCreateOrder(times = 1): void {
     this.createOrderFailCount = times

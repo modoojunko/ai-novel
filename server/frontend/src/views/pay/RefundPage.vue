@@ -25,16 +25,19 @@ const confirmOpen = ref(false)
 const busy = ref(false)
 const err = ref('')
 
-// confirm 弹窗关闭后进入的状态面：processing | refunded
-const phase = ref<'preview' | 'processing' | 'refunded'>('preview')
+// confirm 弹窗关闭后进入的状态面：inflow（冷静期直入）| processing | refunded
+const phase = ref<'preview' | 'inflow' | 'processing' | 'refunded'>('preview')
 const refundFen = ref(0)
 
 onMounted(async () => {
   const orderNo = String(route.params.orderNo)
   try {
     order.value = await apiPayOrderDetail(orderNo)
-    // 已在退款流程中的订单 → 直接给终态视图（数据同源，processing 可再次进入）
-    if (order.value.status === 'refund_processing') {
+    // 已在退款流程中的订单 → 直接给对应状态视图（数据同源，processing 可再次进入）
+    if (order.value.status === 'refund_pending') {
+      // 冷静期中/已结束：不呈现金额预览与再次确认入口（取消唯一入口在订单详情页）
+      phase.value = 'inflow'
+    } else if (order.value.status === 'refund_processing') {
       refundFen.value = order.value.refund?.amount_fen ?? 0
       phase.value = 'processing'
     } else if (order.value.status === 'refunded') {
@@ -72,8 +75,25 @@ async function doConfirm() {
     <div v-if="loading" class="loading">加载中…</div>
 
     <template v-else-if="order">
+      <!-- ═══ 态二·前段 inflow（冷静期直入：退款已在流程中，无再次提交入口）═══ -->
+      <template v-if="phase === 'inflow'">
+        <div class="page-head">
+          <h1>退款流程进行中</h1>
+          <span class="pill-status pill-warn">退款中</span>
+        </div>
+        <div class="panel center">
+          <div class="done-mark warn"><Ico :d="P.spinner" :size="34" /></div>
+          <div class="serif">退款已进入流程，套餐已停止使用</div>
+          <p>冷静期结束后退款将自动提交，原路退回您的微信，一般数分钟至 3 个工作日到账。冷静期倒计时与取消退款入口在订单详情页。</p>
+          <div class="ops-row center">
+            <button class="btn btn-primary" @click="router.push(`/dashboard/orders/${order.order_no}`)">查看订单详情</button>
+            <button class="btn btn-secondary" @click="router.push('/dashboard/orders')">返回我的订单</button>
+          </div>
+        </div>
+      </template>
+
       <!-- ═══ 态三 processing ═══ -->
-      <template v-if="phase === 'processing'">
+      <template v-else-if="phase === 'processing'">
         <div class="page-head">
           <h1>退款处理中</h1>
           <span class="pill-status pill-warn">退款中</span>
@@ -219,6 +239,7 @@ hr { border: none; border-top: 1px dashed var(--border); margin: 16px 0; }
 .refund-hero .u { font-size: 12.5px; color: var(--muted); }
 .rule-note { font-size: 12px; color: var(--muted); line-height: 1.7; margin: 12px 0 0; }
 .ops-row { display: flex; align-items: center; gap: 16px; margin-top: 18px; }
+.ops-row.center { justify-content: center; }
 .btn.lg { width: 100%; padding: 11px 0; font-size: 15px; }
 .lnk { color: var(--accent, var(--fg)); cursor: pointer; font-size: 12.5px; white-space: nowrap; }
 .tail { text-align: center; margin-top: 16px; }
