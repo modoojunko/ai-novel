@@ -39,6 +39,15 @@ const request: AxiosInstance = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+/**
+ * 启动期覆盖 API 基址（site-config.json 运行时层，见 lib/site-config.ts）。
+ * axios 每次请求才读 defaults.baseURL，且本函数只在 main.ts bootstrap 挂载前
+ * 调用一次——不存在在途请求，改写即对后续全部请求生效。
+ */
+export function setApiBase(raw: string): void {
+  request.defaults.baseURL = normalizeApiBase(raw)
+}
+
 // ── 请求拦截器：自动注入 Authorization ──
 request.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
