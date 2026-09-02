@@ -76,16 +76,13 @@ function switchTab(key: OrderTabKey): void {
   router.replace({ query: { ...route.query, tab: key === DEFAULT_ORDER_TAB ? undefined : key } })
 }
 
-// 浏览器回退/前进改 query → 还原 tab 并刷新列表
+// 浏览器回退/前进改 query → 只还原 tab；刷新统一由 watch(activeTab) 触发（避免双请求）
 watch(() => route.query.tab, (v) => {
   const key = orderTabFromQuery(v)
-  if (key !== activeTab.value) {
-    activeTab.value = key
-    fetchPage(true)
-  }
+  if (key !== activeTab.value) activeTab.value = key
 })
 
-// 切 tab 本身的刷新走 switchTab 里的 activeTab 变化
+// 切 tab（switchTab）与 URL 还原两条路径的刷新都收敛到这里
 watch(activeTab, () => fetchPage(true))
 
 onMounted(() => fetchPage(true))
