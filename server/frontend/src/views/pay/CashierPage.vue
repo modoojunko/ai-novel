@@ -12,6 +12,7 @@ import {
   type SkusView, type SkuItem, type CreateOrderResult,
 } from '@/api/pay'
 import Ico from '@/components/ui/Ico.vue'
+import AppModal from '@/components/ui/AppModal.vue'
 import { P } from '@/components/ui/icons'
 
 const router = useRouter()
@@ -369,30 +370,24 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
     </template>
 
     <!-- ═══ 协议确认弹窗 ═══ -->
-    <Teleport to="body">
-      <div v-if="showTerms" class="scrim" @click.self="showTerms = false" />
-      <div v-if="showTerms" class="modal">
-        <div class="mcard">
-          <div class="mcard-head">确认购买协议</div>
-          <div class="mcard-body">
-            <ul class="pay-terms">
-              <li>一次性买断时长，<b>到期不自动扣款</b></li>
-              <li>套餐支付成功即到货，<b>点激活才开始计时</b>；未激活可全额退</li>
-              <li>退款<b>按剩余时长计算、原路退回</b>，不影响其他套餐</li>
-              <li>本单：<b>{{ selectedSku ? `${periodLabel(selectedSku.period)}（${selectedSku.period_days} 天）· ${selectedPrice}` : '' }}</b></li>
-            </ul>
-            <label class="pay-agree">
-              <input v-model="termsRead" type="checkbox" />
-              <span>我已阅读并同意《购买协议》与《退款政策》：按剩余时长折算退款、原路退回</span>
-            </label>
-          </div>
-          <div class="mcard-foot">
-            <button class="btn btn-secondary" @click="showTerms = false">再想想</button>
-            <button class="btn btn-primary" :disabled="!termsRead" @click="confirmPay">阅读并同意，去支付</button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <!-- 必须走 AppModal：base.css 对 .scrim/.mcard 是两段式 .show 进出场（默认 opacity:0），
+         手写 v-if 弹窗不带 .show 会整体隐形，且 fixed 遮罩仍拦截点击 → 页面假死 -->
+    <AppModal v-model:open="showTerms" title="确认购买协议">
+      <ul class="pay-terms">
+        <li>一次性买断时长，<b>到期不自动扣款</b></li>
+        <li>套餐支付成功即到货，<b>点激活才开始计时</b>；未激活可全额退</li>
+        <li>退款<b>按剩余时长计算、原路退回</b>，不影响其他套餐</li>
+        <li>本单：<b>{{ selectedSku ? `${periodLabel(selectedSku.period)}（${selectedSku.period_days} 天）· ${selectedPrice}` : '' }}</b></li>
+      </ul>
+      <label class="pay-agree">
+        <input v-model="termsRead" type="checkbox" />
+        <span>我已阅读并同意《购买协议》与《退款政策》：按剩余时长折算退款、原路退回</span>
+      </label>
+      <template #footer>
+        <button class="btn btn-secondary" @click="showTerms = false">再想想</button>
+        <button class="btn btn-primary" :disabled="!termsRead" @click="confirmPay">阅读并同意，去支付</button>
+      </template>
+    </AppModal>
   </div>
 </template>
 
@@ -457,14 +452,6 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
 .pay-terms b { color: var(--fg); }
 .pay-agree { display: flex; gap: 8px; align-items: flex-start; margin: 12px 0 0; font-size: 12.5px; color: var(--fg); cursor: pointer; }
 .pay-agree input { margin-top: 3px; accent-color: var(--accent); width: 14px; height: 14px; flex: none; }
-
-/* 弹窗（沿用 base.css .scrim/.modal/.mcard 家族） */
-.scrim { position: fixed; inset: 0; background: color-mix(in oklch, var(--fg) 28%, transparent); z-index: 40; }
-.modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; }
-.mcard { width: min(430px, 92vw); background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); }
-.mcard-head { padding: 18px 22px 0; font-family: var(--font-display); font-size: 17px; font-weight: 600; }
-.mcard-body { padding: 14px 22px 4px; font-size: 13px; }
-.mcard-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px 18px; }
 
 /* 响应式 */
 @media (max-width: 768px) {

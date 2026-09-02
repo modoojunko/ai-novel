@@ -7,6 +7,7 @@
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Ico from '@/components/ui/Ico.vue'
+import AppModal from '@/components/ui/AppModal.vue'
 import { P } from '@/components/ui/icons'
 import {
   apiPayOrderDetail, apiPayRefundPreview, apiPayRequestRefund,
@@ -171,22 +172,25 @@ async function doConfirm() {
       </template>
 
       <!-- ═══ 态二 confirm 弹窗 ═══ -->
-      <div v-if="confirmOpen" class="scrim" @click.self="!busy && (confirmOpen = false)">
-        <div class="modal" role="dialog" aria-modal="true" aria-label="确认退款">
-          <div class="m-title">确认退款</div>
-          <div class="kv">
-            <span class="k">订单号</span><span class="v num">{{ order.order_no }}</span>
-            <span class="k">实付金额</span><span class="v num">{{ fenToYuan(order.amount_fen) }}</span>
-            <span class="k">剩余时长</span><span class="v">{{ preview?.remaining_desc }}</span>
-            <span class="k">退款金额</span><span class="v num hl">{{ fenToYuan(preview?.refund_fen ?? 0) }}</span>
-          </div>
-          <p class="rule-note">提交后：对应套餐立即停止使用；退款原路退回您的微信，一般数分钟至 3 个工作日到账。</p>
-          <div class="m-foot">
-            <button class="btn btn-secondary" :disabled="busy" @click="confirmOpen = false">再想想</button>
-            <button class="btn btn-primary" :disabled="busy" @click="doConfirm">{{ busy ? '提交中…' : '确认退款' }}</button>
-          </div>
+      <!-- 必须走 AppModal：手写 .scrim 遮罩被 base.css 两段式 .show 体系判为 opacity:0，
+           整个弹窗（含子树）隐形且遮罩拦截点击 → 页面假死；busy 提交中禁止一切关闭途径 -->
+      <AppModal
+        :open="confirmOpen"
+        title="确认退款"
+        @update:open="(v: boolean) => { if (!busy) confirmOpen = v }"
+      >
+        <div class="kv">
+          <span class="k">订单号</span><span class="v num">{{ order.order_no }}</span>
+          <span class="k">实付金额</span><span class="v num">{{ fenToYuan(order.amount_fen) }}</span>
+          <span class="k">剩余时长</span><span class="v">{{ preview?.remaining_desc }}</span>
+          <span class="k">退款金额</span><span class="v num hl">{{ fenToYuan(preview?.refund_fen ?? 0) }}</span>
         </div>
-      </div>
+        <p class="rule-note">提交后：对应套餐立即停止使用；退款原路退回您的微信，一般数分钟至 3 个工作日到账。</p>
+        <template #footer>
+          <button class="btn btn-secondary" :disabled="busy" @click="confirmOpen = false">再想想</button>
+          <button class="btn btn-primary" :disabled="busy" @click="doConfirm">{{ busy ? '提交中…' : '确认退款' }}</button>
+        </template>
+      </AppModal>
 
       <div v-if="err" class="toast" role="status">{{ err }}</div>
     </template>
@@ -229,10 +233,5 @@ hr { border: none; border-top: 1px dashed var(--border); margin: 16px 0; }
 .serif { font-family: var(--font-display); font-size: 20px; font-weight: 600; }
 .panel.center p { font-size: 13px; color: var(--muted); margin: 10px 0 0; }
 .panel.center .btn { margin-top: 20px; }
-/* 弹窗 */
-.scrim { position: fixed; inset: 0; background: color-mix(in oklch, var(--fg) 42%, transparent); display: flex; align-items: center; justify-content: center; z-index: 60; }
-.modal { background: var(--surface); border-radius: var(--radius-lg); padding: 22px 24px; width: min(420px, calc(100vw - 48px)); }
-.m-title { font-family: var(--font-display); font-weight: 600; font-size: 16px; margin-bottom: 14px; }
-.m-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 .toast { position: fixed; left: 50%; bottom: 36px; transform: translateX(-50%); background: var(--fg); color: var(--surface); border-radius: 8px; padding: 8px 18px; font-size: 13px; z-index: 70; }
 </style>
