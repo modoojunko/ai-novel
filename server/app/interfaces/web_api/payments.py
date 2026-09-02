@@ -449,7 +449,9 @@ async def get_membership(request: Request, db: Db = Depends(get_db)):
     from app.infrastructure.repositories.payments_repo import OrderRepo
 
     all_codes = code_repo(db).find_all_by_username(username)
-    lic = License(username=username).merge(all_codes)  # 汇总口径不变（含手工码）
+    # 汇总口径保持原状（原 find_active_by_username 只喂 active 行）：unused 手工码
+    # 不参与档位归属（merge 跳过清单不含 unused，直接喂会抬高档位头）；明细仍全量
+    lic = License(username=username).merge([c for c in all_codes if c.status != "unused"])
 
     # 明细：仅订单来源台账行（手工码不进明细，design D2）；order_no 供激活接口定位
     grants_src = [c for c in all_codes if getattr(c, "source", "admin") == "order"]

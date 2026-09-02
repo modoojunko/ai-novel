@@ -268,6 +268,35 @@ class TestMembershipGrants:
         assert len(d["grants"]) == 1 and d["grants"][0]["status"] == "revoked"
         assert d["pending_count"] == 0
 
+    def test_unused_manual_code_does_not_inflate_tier(self, client, web_user, _catalog, db_session, admin_token):
+        """unused 手工码不参与档位归属（merge 输入保持原 active 口径）：
+        active pro + 未激活手工 max 码 → 档位头仍为 pro，max 码只不进明细。"""
+        self._switch_on(db_session)
+        auth = _auth(web_user)
+        r = client.post("/api/pay/orders", headers=auth, json={
+            "sku_key": "pro_yearly", "agreement_version": AGREEMENT_VERSION})
+        order_no = r.json()["data"]["order_no"]
+        r = client.post("/api/dev/pay/inject-payment", headers={"X-Admin-Token": admin_token},
+                        json={"order_no": order_no})
+        assert r.json()["code"] == 0, r.text
+        # 激活 pro（成为 active）+ 手工发一张未激活 max 码
+        r = client.post("/api/pay/grants/activate", headers=auth, json={"order_no": order_no})
+        assert r.json()["code"] == 0, r.text
+
+        from app.models.code import ActivationCodeORM
+        from app.models.user import UserORM
+        s = db_session
+        uid = s.query(UserORM).filter_by(username=web_user["username"]).one().id
+        s.add(ActivationCodeORM(
+            code_id="AC-MANUAL-MAX-TEST", tier="max", duration_days=365, status="unused",
+            user_id=uid, created_by="admin",
+        ))
+        s.commit()
+
+        d = client.get("/api/pay/membership", headers=auth).json()["data"]
+        assert d["tier"] == "pro"  # 未激活的 max 码不抬档
+        assert all(g["code_id"] != "AC-MANUAL-MAX-TEST" for g in d["grants"])  # 手工码不进明细
+
     def test_grant_created_at_matches_paid_at(self, client, web_user, _catalog, db_session, admin_token):
         """台账行 created_at 显式 UTC 口径：与订单 paid_at 秒级同（回归：列默认快 8h）。"""
         self._switch_on(db_session)
