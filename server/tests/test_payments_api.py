@@ -176,6 +176,66 @@ class TestListOrders:
         assert r.json()["code"] == 4001
 
 
+def _seed_order(db_session, web_user: dict, order_no: str, status: str, created_at: datetime) -> None:
+    """直接播种订单行（列表筛选/分页测试用；绕过购买开关）。"""
+    from app.infrastructure.repositories.factory import user_repo
+    from app.models.payments import OrderORM
+    s = db_session
+    uid = user_repo(s).get_id(web_user["username"])
+    s.add(OrderORM(
+        order_no=order_no, user_id=uid, sku_id=1, sku_snapshot={"tier_key": "pro"},
+        amount_fen=7200, status=status, agreement_version=AGREEMENT_VERSION,
+        agreed_at=created_at, created_at=created_at,
+    ))
+    s.commit()
+
+
+class TestListOrdersFilter:
+    """orders-status-tabs：status 白名单筛选 + 真分页 + total 全量计数口径。"""
+
+    @pytest.fixture
+    def _five_orders(self, client, web_user, db_session):
+        from uuid import uuid4
+        tag = uuid4().hex[:6].upper()  # 库为会话级共享，单号带随机段防跨用例撞唯一约束
+        for i, st in enumerate(["pending", "paid", "fulfilled", "refunded", "closed"]):
+            _seed_order(db_session, web_user, f"S-FILTER-{tag}-{i:02d}", st,
+                        datetime(2026, 9, 1, 10, i, 0))
+        yield
+
+    def test_no_param_returns_all_with_total(self, client, web_user, _five_orders):
+        r = client.get("/api/pay/orders", headers=_auth(web_user))
+        body = r.json()["data"]
+        assert body["total"] == 5
+        assert [o["status"] for o in body["items"]] == [
+            "closed", "refunded", "fulfilled", "paid", "pending"]  # 创建时间倒序
+
+    def test_status_filter_whitelist(self, client, web_user, _five_orders):
+        r = client.get("/api/pay/orders?status=paid,fulfilled", headers=_auth(web_user))
+        body = r.json()["data"]
+        assert body["total"] == 2
+        assert {o["status"] for o in body["items"]} == {"paid", "fulfilled"}
+
+    def test_unknown_value_mixed_is_ignored(self, client, web_user, _five_orders):
+        r = client.get("/api/pay/orders?status=paid,foo", headers=_auth(web_user))
+        body = r.json()["data"]
+        assert body["total"] == 1
+        assert body["items"][0]["status"] == "paid"
+
+    def test_all_unknown_returns_empty_not_error(self, client, web_user, _five_orders):
+        r = client.get("/api/pay/orders?status=foo,bar", headers=_auth(web_user))
+        body = r.json()
+        assert body["code"] == 0
+        assert body["data"] == {"items": [], "total": 0}
+
+    def test_pagination_slice_keeps_total(self, client, web_user, _five_orders):
+        r = client.get("/api/pay/orders?page=2&page_size=2", headers=_auth(web_user))
+        body = r.json()["data"]
+        assert body["total"] == 5
+        assert len(body["items"]) == 2
+        # 第 2 页 = 倒序第 3、4 条（fulfilled 10:02 / paid 10:01），无重复
+        assert {o["status"] for o in body["items"]} == {"fulfilled", "paid"}
+
+
 class TestFulfillActivateFlow:
     """到货-激活两段式全链（sqlite 端到端）：下单→D1 注入支付→查单发货→激活。"""
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>爱小说 · 我的订单（原型 · 六状态+空态）</title>
+<title>爱小说 · 我的订单（原型 · tab 分版+空态）</title>
 <style>
 /* ═══ 内联样式：与 server/frontend/src/design/base.css 逐字同源段，来源行号见 ADJUSTMENTS.md ═══ */
 :root {
@@ -78,6 +78,10 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 .empty p { margin: 8px 0 0; font-size: 13.5px; }
 .empty svg { width: 26px; height: 26px; margin: 0 auto 10px; color: var(--muted); }
 .empty .btn { margin-top: 16px; }
+.seg { display: inline-flex; align-items: center; background: var(--fg-soft); border-radius: 9px; padding: 2px; }
+.seg button { height: 24px; padding: 0 9px; border-radius: 7px; font-size: 12px; color: var(--muted); }
+.seg button:hover { color: var(--fg); }
+.seg button.on { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px color-mix(in oklch, var(--fg) 8%, transparent); font-weight: 500; }
 
 /* ─── 原型专用：布局工具 + 业务组合 ─── */
 .order-row { display: grid; grid-template-columns: minmax(0, 1fr) 148px 64px; gap: 16px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); }
@@ -92,6 +96,9 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 .order-amt .r { font-size: 12px; color: var(--muted); }
 .summary { display: flex; gap: 22px; font-size: 12.5px; color: var(--muted); margin-bottom: 14px; flex-wrap: wrap; }
 .summary b { color: var(--fg); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.seg-row { margin-bottom: 16px; }
+.list-tail { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 14px; }
+.list-tail .cnt { font-size: 12.5px; color: var(--muted); }
 .switcher { position: fixed; top: 12px; right: 12px; z-index: 90; display: flex; gap: 4px; padding: 5px; background: var(--fg); border-radius: 9px; box-shadow: var(--shadow-card); }
 .switcher button { font-size: 11.5px; color: oklch(100% 0 0 / 70%); padding: 4px 9px; border-radius: 6px; }
 .switcher button.on { background: oklch(100% 0 0 / 16%); color: oklch(100% 0 0); font-weight: 500; }
@@ -100,7 +107,9 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 <body>
 
 <div class="switcher" id="switcher">
-  <button data-state="list" class="on">六状态</button>
+  <button data-state="list" class="on">分版列表</button>
+  <button data-state="emptyCat">某类空</button>
+  <button data-state="many">长列表</button>
   <button data-state="empty">空态</button>
 </div>
 
@@ -124,15 +133,25 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
     <div class="page-head">
       <div>
         <h1>我的订单</h1>
-        <div class="sub">全部订单（含等待支付、退款中、已过期等各类状态）都在这里，可对任一订单单独申请退款；点订单查看详情与全部操作。</div>
+        <div class="sub">订单按状态分版：全部、待支付、已完成、退款、已过期；点订单查看详情与全部操作，可对任一订单单独申请退款。</div>
       </div>
       <a class="btn btn-primary" href="#">购买或续费</a>
+    </div>
+
+    <div class="seg-row">
+      <div class="seg" id="order-tabs" role="tablist" aria-label="订单状态分版">
+        <button data-filter="all">全部</button>
+        <button data-filter="pending" class="on">待支付</button>
+        <button data-filter="done">已完成</button>
+        <button data-filter="refund">退款</button>
+        <button data-filter="closed">已过期</button>
+      </div>
     </div>
 
     <div class="panel" style="padding: 6px 0">
 
       <!-- 已支付：可退款（权益状态不进订单） -->
-      <div class="order-row">
+      <div class="order-row" data-group="done">
         <div class="order-main">
           <div class="order-title"><b>PRO · 包季</b><span class="pill pill-tag">90 天</span></div>
           <div class="order-sub">
@@ -147,7 +166,7 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
       </div>
 
       <!-- 等待支付：不展示退款 -->
-      <div class="order-row">
+      <div class="order-row" data-group="pending">
         <div class="order-main">
           <div class="order-title"><b>PRO · 包月</b><span class="pill pill-tag">30 天</span></div>
           <div class="order-sub">
@@ -163,7 +182,7 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
       </div>
 
       <!-- 已支付（第二笔）：同样只有交易信息 -->
-      <div class="order-row">
+      <div class="order-row" data-group="done">
         <div class="order-main">
           <div class="order-title"><b>PRO · 包年</b><span class="pill pill-tag">365 天</span></div>
           <div class="order-sub">
@@ -179,7 +198,7 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
       </div>
 
       <!-- 退款中 -->
-      <div class="order-row">
+      <div class="order-row" data-group="refund">
         <div class="order-main">
           <div class="order-title"><b>PRO · 包月</b><span class="pill pill-tag">30 天</span></div>
           <div class="order-sub">
@@ -196,7 +215,7 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
       </div>
 
       <!-- 已退款 -->
-      <div class="order-row">
+      <div class="order-row" data-group="refund">
         <div class="order-main">
           <div class="order-title"><b>PRO · 包月</b><span class="pill pill-tag">30 天</span></div>
           <div class="order-sub">
@@ -212,7 +231,7 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
       </div>
 
       <!-- 已关闭 -->
-      <div class="order-row">
+      <div class="order-row" data-group="closed">
         <div class="order-main">
           <div class="order-title"><b>PRO · 包年</b><span class="pill pill-tag">365 天</span></div>
           <div class="order-sub">
@@ -228,7 +247,7 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
       </div>
 
       <!-- 已冻结（异常单）：不暴露内部术语，只有联系客服出口 -->
-      <div class="order-row">
+      <div class="order-row" data-group="all">
         <div class="order-main">
           <div class="order-title"><b>PRO · 包月</b><span class="pill pill-tag">30 天</span></div>
           <div class="order-sub">
@@ -248,6 +267,61 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
     <div class="notice info" style="margin-top:16px">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
       <span>退款按<b>剩余时长折算、原路退回</b>；退某一单不影响其他套餐的起止时间。见<a class="lnk" href="#">退款政策</a>。</span>
+    </div>
+  </section>
+
+  <!-- ═══ 某类空（tab 分版下该状态无订单） ═══ -->
+  <section data-stage="emptyCat" hidden>
+    <div class="page-head">
+      <div>
+        <h1>我的订单</h1>
+        <div class="sub">订单按状态分版：全部、待支付、已完成、退款、已过期；点订单查看详情与全部操作，可对任一订单单独申请退款。</div>
+      </div>
+      <a class="btn btn-primary" href="#">购买或续费</a>
+    </div>
+
+    <div class="seg-row">
+      <div class="seg" role="tablist" aria-label="订单状态分版">
+        <button>全部</button>
+        <button>待支付</button>
+        <button class="on">已完成</button>
+        <button>退款</button>
+        <button>已过期</button>
+      </div>
+    </div>
+
+    <div class="panel" style="padding: 6px 0">
+      <div style="padding: 40px 16px; text-align: center; font-size: 13.5px; color: var(--muted)">
+        没有已完成的订单<br><button class="lnk" id="back-to-all">切回全部查看</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 长列表（太多订单：「加载更多」提案态） ═══ -->
+  <section data-stage="many" hidden>
+    <div class="page-head">
+      <div>
+        <h1>我的订单</h1>
+        <div class="sub">订单按状态分版：全部、待支付、已完成、退款、已过期；点订单查看详情与全部操作，可对任一订单单独申请退款。</div>
+      </div>
+      <a class="btn btn-primary" href="#">购买或续费</a>
+    </div>
+
+    <div class="seg-row">
+      <div class="seg" id="many-tabs" role="tablist" aria-label="订单状态分版">
+        <button data-filter="all" class="on">全部</button>
+        <button data-filter="pending">待支付</button>
+        <button data-filter="done">已完成</button>
+        <button data-filter="refund">退款</button>
+        <button data-filter="closed">已过期</button>
+      </div>
+    </div>
+
+    <div class="panel" id="many-panel" style="padding: 6px 0"></div>
+
+    <div class="list-tail">
+      <span class="cnt">已显示 18 笔 · 共 132 笔</span>
+      <button class="btn btn-secondary">加载更多</button>
     </div>
   </section>
 
@@ -280,6 +354,67 @@ switcher.addEventListener("click", (e) => {
   switcher.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === btn));
   stages.forEach((s) => (s.hidden = s.dataset.stage !== btn.dataset.state));
 });
+
+/* tab 分版过滤（评审演示：前端对已载列表真过滤，后端 GET /pay/orders 契约不变；「核对中」罕见态仅入全部） */
+function bindTabs(tabsEl, rows) {
+  tabsEl.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-filter]");
+    if (!btn) return;
+    tabsEl.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === btn));
+    const f = btn.dataset.filter;
+    rows.forEach((r) => (r.hidden = f !== "all" && r.dataset.group !== f));
+  });
+  return (f) => tabsEl.querySelector(`[data-filter="${f}"]`).click();
+}
+const listTabs = document.getElementById("order-tabs");
+const listTabTo = bindTabs(listTabs, document.querySelectorAll('[data-stage="list"] .order-row'));
+
+/* 长列表 MOCK（评审演示 18 行静态数据；「加载更多」=提案机制，原型不实现真分页。vStyle: muted=灰 / strike=划线灰；r=预计退提示） */
+const MOCK_MANY = [
+  { g:"pending", t:"PRO · 包月", d:"30 天",  no:"S20260828-9Q2M", sub:"今天 15:40 创建 · 二维码有效期剩 06:12", amt:"¥24.00",  pill:["pill-status pill-warn","等待支付"], vStyle:"",            r:"" },
+  { g:"done",    t:"PRO · 包季", d:"90 天",  no:"S20260828-7F3K", sub:"2026-08-28 14:22 支付",                 amt:"¥72.00",  pill:["pill-status pill-ok","已支付"],    vStyle:"",            r:"" },
+  { g:"done",    t:"PRO · 包月", d:"30 天",  no:"S20260821-M2R6", sub:"2026-08-21 09:03 支付",                 amt:"¥24.00",  pill:["pill-status pill-ok","已支付"],    vStyle:"",            r:"" },
+  { g:"refund",  t:"PRO · 包月", d:"30 天",  no:"S20260819-T8W3", sub:"2026-08-19 支付",                       amt:"¥24.00",  pill:["pill-status pill-warn","退款中"],  vStyle:"",            r:"预计退 ¥21.60" },
+  { g:"done",    t:"PRO · 包季", d:"90 天",  no:"S20260812-K5P1", sub:"2026-08-12 18:40 支付",                 amt:"¥72.00",  pill:["pill-status pill-ok","已支付"],    vStyle:"",            r:"" },
+  { g:"closed",  t:"PRO · 包年", d:"365 天", no:"S20260809-B6X0", sub:"2026-08-09 创建 · 超时未支付，已自动过期", amt:"¥292.00", pill:["pill-tag","已过期"],               vStyle:"color: var(--muted)", r:"" },
+  { g:"done",    t:"PRO · 包月", d:"30 天",  no:"S20260802-N7Q4", sub:"2026-08-02 11:15 支付",                 amt:"¥24.00",  pill:["pill-status pill-ok","已支付"],    vStyle:"",            r:"" },
+  { g:"refund",  t:"PRO · 包季", d:"90 天",  no:"S20260730-C3V9", sub:"2026-07-30 支付",                       amt:"¥72.00",  pill:["pill-status pill-warn","退款中"],  vStyle:"",            r:"预计退 ¥65.30" },
+  { g:"done",    t:"PRO · 包月", d:"30 天",  no:"S20260725-H9K2", sub:"2026-07-25 20:08 支付",                 amt:"¥24.00",  pill:["pill-status pill-ok","已支付"],    vStyle:"",            r:"" },
+  { g:"refund",  t:"PRO · 包月", d:"30 天",  no:"S20260705-K1N9", sub:"2026-07-05 支付 · 2026-07-12 退款 ¥19.20", amt:"¥24.00", pill:["pill-tag","已退款"],              vStyle:"text-decoration: line-through; color: var(--muted)", r:"" },
+  { g:"done",    t:"PRO · 包年", d:"365 天", no:"S20260628-D4F8", sub:"2026-06-28 08:52 支付",                 amt:"¥292.00", pill:["pill-status pill-ok","已支付"],    vStyle:"",            r:"" },
+  { g:"closed",  t:"PRO · 包月", d:"30 天",  no:"S20260620-J6M3", sub:"2026-06-20 创建 · 已取消支付",           amt:"¥24.00",  pill:["pill-tag","已过期"],               vStyle:"color: var(--muted)", r:"" },
+  { g:"done",    t:"PRO · 包季", d:"90 天",  no:"S20260614-R2X7", sub:"2026-06-14 13:27 支付",                 amt:"¥72.00",  pill:["pill-status pill-ok","已支付"],    vStyle:"",            r:"" },
+  { g:"done",    t:"PRO · 包月", d:"30 天",  no:"S20260608-V8B5", sub:"2026-06-08 16:44 支付",                 amt:"¥24.00",  pill:["pill-status pill-ok","已支付"],    vStyle:"",            r:"" },
+  { g:"done",    t:"PRO · 包月", d:"30 天",  no:"S20260601-L5N8", sub:"2026-06-01 10:31 支付",                 amt:"¥24.00",  pill:["pill-status pill-ok","已支付"],    vStyle:"",            r:"" },
+  { g:"closed",  t:"PRO · 包季", d:"90 天",  no:"S20260522-P7C2", sub:"2026-05-22 创建 · 超时未支付，已自动过期", amt:"¥72.00", pill:["pill-tag","已过期"],               vStyle:"color: var(--muted)", r:"" },
+  { g:"done",    t:"PRO · 包年", d:"365 天", no:"S20260510-G3H6", sub:"2026-05-10 19:55 支付",                 amt:"¥292.00", pill:["pill-status pill-ok","已支付"],    vStyle:"",            r:"" },
+  { g:"done",    t:"PRO · 包月", d:"30 天",  no:"S20260429-Q9T4", sub:"2026-04-29 07:20 支付",                 amt:"¥24.00",  pill:["pill-status pill-ok","已支付"],    vStyle:"",            r:"" },
+];
+const manyPanel = document.getElementById("many-panel");
+manyPanel.innerHTML = MOCK_MANY.map((o) => `
+  <div class="order-row" data-group="${o.g}">
+    <div class="order-main">
+      <div class="order-title"><b>${o.t}</b><span class="pill pill-tag">${o.d}</span></div>
+      <div class="order-sub"><span>订单号 <span class="num">${o.no}</span></span><span>${o.sub}</span></div>
+    </div>
+    <div class="order-amt">
+      <span class="v"${o.vStyle ? ` style="${o.vStyle}"` : ""}>${o.amt}</span>
+      <span class="pill ${o.pill[0]}">${o.pill[1]}</span>
+      ${o.r ? `<span class="r">${o.r}</span>` : ""}
+    </div>
+    <a class="lnk" href="#">详情 ›</a>
+  </div>`).join("");
+const manyTabTo = bindTabs(document.getElementById("many-tabs"), manyPanel.querySelectorAll(".order-row"));
+
+/* 某类空「切回全部查看」：回分版列表并选「全部」（评审演示） */
+document.getElementById("back-to-all").addEventListener("click", () => {
+  switcher.querySelector('[data-state="list"]').click();
+  listTabTo("all");
+});
+
+/* 默认版=待支付（用户评审裁定 09-02）：进页即筛，该类无单则走某类空态；长列表演示态默认「全部」 */
+listTabTo("pending");
+manyTabTo("all");
 </script>
 </body>
 </html>

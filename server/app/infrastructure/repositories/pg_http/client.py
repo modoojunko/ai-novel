@@ -90,16 +90,39 @@ class PgRestClient:
         sort: list[tuple[str, str]] | None = None,
         limit: int | None = None,
         select: str | None = None,
+        offset: int | None = None,
     ) -> list[dict]:
         params = self._build_params(filter, sort, limit)
         if select:
             params["select"] = select
+        if offset is not None:
+            params["offset"] = str(offset)
         resp = self._client.get(
             f"{self._endpoint}/{table}",
             params=params,
         )
         self._raise(resp)
         return resp.json()
+
+    def count(self, table: str, filter: dict | None = None) -> int:
+        """精确计数（Prefer: count=exact → Content-Range 尾段，如 `0-0/45`）。
+
+        网关不回 Content-Range 时降级为全行拉回 len() 计数——个人订单量级
+        可接受（与订单列表 offset 分页的规模假设一致）。
+        """
+        resp = self._client.get(
+            f"{self._endpoint}/{table}",
+            params=self._build_params(filter, limit=1),
+            headers={"Prefer": "count=exact"},
+        )
+        self._raise(resp)
+        cr = resp.headers.get("content-range", "")
+        if "/" in cr:
+            try:
+                return int(cr.rsplit("/", 1)[1])
+            except ValueError:
+                pass
+        return len(self.find(table, filter))
 
     def find_one(
         self,
