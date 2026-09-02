@@ -35,6 +35,8 @@ test.describe('退款流', () => {
     await expect(page.getByText(/按剩余时长计算退款，精确到秒/)).toBeVisible()
     await expect(page.getByRole('button', { name: '确认退款金额，继续' })).toBeVisible()
     await expect(page.getByText('先不退了')).toBeVisible()
+    // 全文尾链直达退款政策文档（而非客服页），新标签不丢当前页状态
+    await expect(page.locator('a[href="/legal/refund-policy.html"][target="_blank"]')).toBeVisible()
   })
 
   test('态二 confirm → 态三 processing', async ({ page, mockApi }) => {

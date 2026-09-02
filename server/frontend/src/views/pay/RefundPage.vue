@@ -167,7 +167,7 @@ async function doConfirm() {
               <a class="lnk" @click.prevent="router.push(`/dashboard/orders/${order.order_no}`)">先不退了</a>
             </div>
           </div>
-          <div class="tail"><a class="lnk" href="/support" @click.prevent="router.push('/support')">看看退款政策全文</a></div>
+          <div class="tail"><a class="lnk" href="/legal/refund-policy.html" target="_blank" rel="noopener">看看退款政策全文</a></div>
         </template>
       </template>
 

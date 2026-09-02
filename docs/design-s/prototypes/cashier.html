@@ -176,7 +176,7 @@ h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.01em; margin: 30px 0 6
         <div class="pay"><span class="save" id="selSave">已省 73 元</span><div class="now" id="selPrice">¥292.00</div></div>
         <button class="cta" id="payBtn">去支付</button>
       </div>
-      <div class="agree">点击去支付后，将确认<a class="lnk" href="#">《购买协议》</a>与<a class="lnk" href="#">《退款政策》</a>要点（v2026.08）</div>
+      <div class="agree">点击去支付后，将确认<a class="lnk" href="#">《付费须知》</a>与<a class="lnk" href="#">《退款政策》</a>要点（v2026.08）</div>
 
       <div class="foot">
         <span>全部写作功能</span>·<span>时长可囤，激活才开始计时</span>·<span>原路退款</span>
@@ -379,64 +379,32 @@ h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.01em; margin: 30px 0 6
 
 </main>
 
-<!-- 协议确认弹窗：确认视图 + 全文阅读视图；同意动作留痕（agreement_version + agreed_at + terms_agreed 事件） -->
+<!-- 协议确认弹窗：要点摘要 + 全文直达链接（新标签打开正式法律文档页）；同意动作留痕（agreement_version + agreed_at + terms_agreed 事件）。
+     全文不再内嵌弹窗视图——正式文本以 /legal/*.html 静态页为唯一事实源，SPA 内不复制第二份 -->
 <div class="scrim" id="scrim" hidden></div>
 <div class="modal" id="termsModal" hidden>
   <div class="mcard">
-    <div id="paneConfirm">
-      <div class="mcard-head">确认购买协议</div>
-      <div class="mcard-body">
-        <p style="margin:0 0 4px">请阅读并确认以下要点：</p>
-        <ul class="terms">
-          <li>一次性买断时长，<b>到期不自动扣款</b></li>
-          <li>套餐支付成功即到货，<b>点激活才开始计时</b>；未激活可全额退</li>
-          <li>退款<b>按剩余时长计算、原路退回</b>，不影响其他套餐</li>
-          <li>本单：<b id="mOrder">PRO · 包年（365 天）· ¥292.00</b></li>
-        </ul>
-        <p style="margin:8px 0 0; font-size:12px; color:var(--muted)">全文：<button class="lnk" data-doc="agreement">《购买协议》（v2026.08）</button> · <button class="lnk" data-doc="refund">《退款政策》（v2026.08）</button></p>
-        <label class="terms-agree"><input type="checkbox" id="termsCheck">
-          <span>我已阅读并同意<button class="lnk" data-doc="agreement">《购买协议》</button>与<button class="lnk" data-doc="refund">《退款政策》</button>：按剩余时长折算退款、原路退回</span></label>
-      </div>
-      <div class="mcard-foot">
-        <button class="btn btn-secondary" id="termsCancel">再想想</button>
-        <button class="btn btn-primary" id="termsOk" style="height:40px; padding:0 18px" disabled>阅读并同意，去支付</button>
-      </div>
+    <div class="mcard-head">确认购买</div>
+    <div class="mcard-body">
+      <p style="margin:0 0 4px">请阅读并确认以下要点：</p>
+      <ul class="terms">
+        <li>一次性买断时长，<b>到期不自动扣款</b></li>
+        <li>套餐支付成功即到货，<b>点激活才开始计时</b>；未激活可全额退</li>
+        <li>退款<b>按剩余时长计算、原路退回</b>，不影响其他套餐的起止时间。</li>
+        <li>本单：<b id="mOrder">PRO · 包年（365 天）· ¥292.00</b></li>
+      </ul>
+      <p style="margin:8px 0 0; font-size:12px; color:var(--muted)">全文：<a class="lnk" href="/legal/payment-notice.html" target="_blank">《付费须知》（v2026.08）</a> · <a class="lnk" href="/legal/refund-policy.html" target="_blank">《退款政策》（v2026.08）</a></p>
+      <label class="terms-agree"><input type="checkbox" id="termsCheck">
+        <span>我已阅读并同意<a class="lnk" href="/legal/payment-notice.html" target="_blank">《付费须知》</a>与<a class="lnk" href="/legal/refund-policy.html" target="_blank">《退款政策》</a>：按剩余时长折算退款、原路退回</span></label>
     </div>
-    <div id="paneDoc" hidden>
-      <div class="mcard-head" style="display:flex; align-items:center; justify-content:space-between">
-        <span id="docTitle">购买协议</span>
-        <button class="lnk" id="docBack" style="font-size:12.5px">‹ 返回确认</button>
-      </div>
-      <div class="mcard-body"><div class="doc-body" id="docBody"></div></div>
+    <div class="mcard-foot">
+      <button class="btn btn-secondary" id="termsCancel">再想想</button>
+      <button class="btn btn-primary" id="termsOk" style="height:40px; padding:0 18px" disabled>阅读并同意，去支付</button>
     </div>
   </div>
 </div>
 
-<!-- 协议全文模板（示例要点稿，正式文本由运营/法务定稿后替换并升版本号） -->
-<template id="doc-agreement">
-  <h4>购买协议（示例要点稿）</h4>
-  <ol>
-    <li>本服务为「爱小说」会员套餐，按一次性买断时长方式提供（包月/包季/包年），到期后<b>不自动续费、不自动扣款</b>。</li>
-    <li>套餐支付成功后即时到账；到货后需在「我的套餐」中点「激活」开始计时，时长接在当前有效到期日之后。</li>
-    <li>套餐权益以购买页展示为准；设备数量按所购档位确定（包月/包季 3 台，包年 5 台）。</li>
-    <li>价格以下单时页面展示并锁定的金额为准，此后调价不影响已下单订单。</li>
-    <li>本服务为数字化商品，支付成功即完成交付。</li>
-    <li>本协议适用中华人民共和国法律；如有争议请先联系客服协商处理。</li>
-  </ol>
-  <p class="v">版本 v2026.08 · 生效日期 2026-08-01</p>
-</template>
-<template id="doc-refund">
-  <h4>退款政策（示例要点稿）</h4>
-  <ol>
-    <li><b>未激活的套餐</b>：可随时全额退款。</li>
-    <li><b>已激活套餐</b>：按退款确认时刻的剩余时长计算退款，精确到秒，金额四舍五入到分，原路退回。</li>
-    <li>退款确认后套餐立即停止使用；退款一般数分钟至 3 个工作日到账。</li>
-    <li>在线退款通道受理期为支付后 1 年内，超期请联系客服。</li>
-    <li>重复支付的多余订单无条件全额退款。</li>
-    <li>每笔订单可单独申请退款，不影响其他套餐的起止时间。</li>
-  </ol>
-  <p class="v">版本 v2026.08 · 生效日期 2026-08-01</p>
-</template>
+<!-- 协议全文已以 /legal/*.html 静态页为准（legal-four-docs v2026.08），原型不再内嵌示例稿 -->
 
 <script>
 /* MOCK 常量区：tier × period 二维配置驱动（新增套餐=加配置行）。
@@ -508,10 +476,9 @@ $("tierTabs").addEventListener("click", (e) => {
   $("maxPanel").hidden = live;
 });
 
-const showPane = (confirm) => { $("paneConfirm").hidden = !confirm; $("paneDoc").hidden = confirm; };
 const openTerms = (show) => {
   $("scrim").hidden = !show; $("termsModal").hidden = !show;
-  if (show) { showPane(true); $("termsCheck").checked = false; $("termsOk").disabled = true; }
+  if (show) { $("termsCheck").checked = false; $("termsOk").disabled = true; }
 };
 $("payBtn").addEventListener("click", () => {
   const sku = MOCK.skus[tier + "-" + period];
@@ -519,16 +486,6 @@ $("payBtn").addEventListener("click", () => {
   openTerms(true);
 });
 $("termsCancel").addEventListener("click", () => openTerms(false));
-document.querySelectorAll("[data-doc]").forEach((b) =>
-  b.addEventListener("click", (e) => {
-    e.preventDefault(); e.stopPropagation();
-    const id = b.dataset.doc;
-    $("docTitle").textContent = id === "agreement" ? "购买协议" : "退款政策";
-    $("docBody").innerHTML = document.getElementById("doc-" + id).innerHTML;
-    showPane(false);
-  })
-);
-$("docBack").addEventListener("click", () => showPane(true));
 $("termsCheck").addEventListener("change", () => ($("termsOk").disabled = !$("termsCheck").checked));
 $("termsOk").addEventListener("click", () => { openTerms(false); $("switcher").querySelector('[data-state="waiting"]').click(); });
 $("failRetry").addEventListener("click", () => $("switcher").querySelector('[data-state="waiting"]').click());
