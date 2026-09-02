@@ -106,7 +106,8 @@ class OrderRepo:
             return [{c.name: getattr(o, c.name) for c in o.__table__.columns} for o in orms]
         else:
             # pg_http 简化：paid 非空行拉回内存按时间窗过滤（Change 1 量级可接受）
-            all_paid = self._db.find("orders", filter={"paid_at": "not_null"})
+            # PostgREST 的 IS NOT NULL 语法是 not.is.null（not_null 会被当 eq 字面量解析成 timestamp 比较而 400）
+            all_paid = self._db.find("orders", filter={"paid_at": "not.is.null"})
             return [
                 r for r in all_paid
                 if r.get("paid_at") and start <= _dt(r["paid_at"]) < end
