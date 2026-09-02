@@ -72,7 +72,7 @@ def create_order(
         "device_limit": sku.get("device_limit", 1),
     }
 
-    # ── pending 复用（同 SKU 未过期单） ──
+    # ── pending 复用（同 SKU 未过期单；过期单不复用——T1 降频后关闭有延迟，复用会让用户扫到死码） ──
     existing_pending = order_repo.find_by_user(user_id, limit=5)
     for order in existing_pending:
         if (order.get("status") == "pending"
@@ -84,6 +84,10 @@ def create_order(
             if isinstance(created, str):
                 from app.infrastructure.repositories.pg_http.client import parse_dt
                 created = parse_dt(created)
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=UTC)
+            if now >= created + timedelta(seconds=ORDER_TTL_SECONDS):
+                continue  # 已过期：不复用（T1 会关单；此处直接新建新单保 UX）
             # 复用已有 pending 单（返回其二维码）
             return {
                 "order_no": order["order_no"],

@@ -9,11 +9,14 @@ https 协议 + 解析目标主机全部 IP 并阻断私网/环回/链路本地�
     TARGET_BASE  S端服务公网基址（https://host[:port]/前缀）
     CRON_TOKEN   与 S端 settings.CRON_TOKEN 一致（X-Cron-Token 头）
 
-触发器（部署时经 MCP manageFunctions createFunctionTrigger 注册）：
-    r1-scan-orders      */2 * * * * * *   → POST /api/cron/scan-orders
-    r2-scan-repairs     */2 * * * * * *   → POST /api/cron/scan-repairs
-    r3-scan-refunds     */5 * * * * * *   → POST /api/cron/scan-refunds
-    r4-daily-reconcile  0 0 23 * * * *    → POST /api/cron/daily-reconcile（UTC 23:00 = 北京 07:00）
+触发器（部署时经 MCP manageFunctions createFunctionTrigger 注册；SCF timer cron 为
+北京时区；频率 09-02 由 2 分钟级降为 10 分钟级——容器 MinNum=0 省成本，且
+create_order/get_pending 已自带过期防死码判断，关单延迟不影响 UX）：
+    r1-scan-orders      0 */10 * * * * *  → POST /api/cron/scan-orders（T1 关单+R1 退款提交）
+    r2-scan-repairs     0 7,37 * * * * *  → POST /api/cron/scan-repairs
+    r3-scan-refunds     0 13,43 * * * * * → POST /api/cron/scan-refunds
+    r4-daily-reconcile  0 30 10 * * * *   → POST /api/cron/daily-reconcile（北京 10:30：
+                          微信账单 10 点后才生成，设计稿的 07:00 会天天报账单未就绪）
 """
 import http.client
 import ipaddress

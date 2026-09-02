@@ -5,7 +5,7 @@ Change 1 用 MockPaymentGateway；Change 2 替换真实网关。
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -207,9 +207,25 @@ async def get_pending_order(request: Request, db: Db = Depends(get_db)):
 
     from app.infrastructure.repositories.factory import user_repo
     from app.infrastructure.repositories.payments_repo import OrderRepo
+    from app.application.payments.create_order import ORDER_TTL_SECONDS
     user_id = user_repo(db).get_id(username)
     orders = OrderRepo(db).find_by_user(user_id, limit=1)
-    pending = next((o for o in orders if o.get("status") == "pending" and o.get("code_url")), None)
+
+    def _alive(o: dict) -> bool:
+        """pending 单是否仍在支付有效期内（过期单不恢复——防死码，同 create_order 复用口径）。"""
+        if o.get("status") != "pending" or not o.get("code_url"):
+            return False
+        created = o.get("created_at")
+        if isinstance(created, str):
+            from app.infrastructure.repositories.pg_http.client import parse_dt
+            created = parse_dt(created)
+        if created is None:
+            return False
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=UTC)
+        return datetime.now(UTC) < created + timedelta(seconds=ORDER_TTL_SECONDS)
+
+    pending = next((o for o in orders if _alive(o)), None)
     if pending:
         return {"code": 0, "data": {
             "order_no": pending["order_no"],
