@@ -172,13 +172,14 @@ async def list_orders(request: Request, db: Db = Depends(get_db), page: int = 1,
         return {"code": 4001, "msg": "用户不存在"}
 
     orders = OrderRepo(db).find_by_user(user_id, limit=page_size, offset=(page - 1) * page_size)
-    now = datetime.now(UTC)
+    now = datetime.now(UTC).replace(tzinfo=None)  # naive UTC（与表列口径一致，同 _order_to_detail）
 
     items = []
     for o in orders:
         remaining_pay = None
         if o.get("status") == "pending" and o.get("created_at"):
-            elapsed = (now - o["created_at"]).total_seconds()
+            # pg_http 行的 created_at 是 ISO 字符串，直接相减 TypeError（#265 同款，_naive_utc 归一）
+            elapsed = (now - _naive_utc(o["created_at"])).total_seconds()
             remaining_pay = max(0, int(900 - elapsed))
         rs = o.get("refund_status")
         refund_amt = o.get("refund_amount_fen") if rs in ("cooldown", "processing", "succeeded") else None
