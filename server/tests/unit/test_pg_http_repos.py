@@ -404,3 +404,79 @@ class TestPostgrestDialectContract:
         client = make_client(handler)
         client.find("users", {"deletion_status": "正常"})
         assert "deletion_status=eq.正常" in unquote(str(requests[0].url))
+
+    def test_find_carries_offset_param(self):
+        """orders-status-tabs：offset 分页参数进 query（pg_http 侧原漏传）。"""
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.params["offset"] == "30"
+            assert request.url.params["limit"] == "20"
+            return _ok([])
+
+        make_client(handler).find("orders", {"user_id": "eq.7"}, limit=20, offset=30)
+
+    def test_count_parses_content_range_tail(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.headers["Prefer"] == "count=exact"
+            assert request.url.params["limit"] == "1"
+            return httpx.Response(200, json=[{"id": 1}], headers={"Content-Range": "0-0/45"})
+
+        assert make_client(handler).count("orders") == 45
+
+    def test_count_accepts_star_range_and_filters(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.params["status"] == "eq.paid"
+            return httpx.Response(200, json=[], headers={"Content-Range": "*/7"})
+
+        assert make_client(handler).count("orders", {"status": "paid"}) == 7
+
+    def test_count_falls_back_to_len_without_content_range(self):
+        """网关不回 Content-Range → 降级全行拉回计数（个人量级可接受）。"""
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.headers.get("Prefer") == "count=exact":
+                return httpx.Response(200, json=[{"id": 1}])
+            return _ok([{"id": 1}, {"id": 2}, {"id": 3}])
+
+        assert make_client(handler).count("orders") == 3
+
+
+# ══════════════════════════════════════════════════════════════════
+# OrderRepo（pg_http 分支）：orders-status-tabs 筛选/计数契约
+# ══════════════════════════════════════════════════════════════════
+
+class TestPgHttpOrderRepo:
+    def test_find_by_user_builds_in_filter_sort_offset(self):
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return _ok([])
+
+        from app.infrastructure.repositories.payments_repo import OrderRepo
+        OrderRepo(make_client(handler)).find_by_user(
+            7, statuses=["paid", "fulfilled"], limit=20, offset=40,
+        )
+        url = unquote(str(requests[0].url))
+        assert "user_id=eq.7" in url
+        assert "status=in.(paid,fulfilled)" in url
+        assert "eq.in." not in url
+        assert "order=created_at.desc" in url
+        assert "limit=20" in url
+        assert "offset=40" in url
+
+    def test_find_by_user_without_statuses_omits_status(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert "status" not in request.url.params
+            return _ok([])
+
+        from app.infrastructure.repositories.payments_repo import OrderRepo
+        OrderRepo(make_client(handler)).find_by_user(7)
+
+    def test_count_by_user_same_filter(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.headers["Prefer"] == "count=exact"
+            assert "user_id=eq.7" in unquote(str(request.url))
+            assert "status=in.(paid,fulfilled)" in unquote(str(request.url))
+            return httpx.Response(200, json=[{"id": 1}], headers={"Content-Range": "*/2"})
+
+        from app.infrastructure.repositories.payments_repo import OrderRepo
+        assert OrderRepo(make_client(handler)).count_by_user(7, statuses=["paid", "fulfilled"]) == 2

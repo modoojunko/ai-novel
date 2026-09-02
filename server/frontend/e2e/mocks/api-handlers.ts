@@ -518,7 +518,18 @@ export class MockApi {
     }
 
     if (path === '/api/pay/orders' && method === 'GET') {
-      return route.fulfill(json(0, { items: this.orders, total: this.orders.length }))
+      // orders-status-tabs：与真实契约同款——status 逗号白名单筛选 + 真分页 + total 筛选全量计数
+      const statusQ = url.searchParams.get('status')
+      const allowed = ['pending', 'paid', 'fulfilled', 'refund_pending', 'refund_processing', 'refunded', 'closed', 'exception']
+      let list = this.orders
+      if (statusQ !== null) {
+        const want = statusQ.split(',').map((s) => s.trim()).filter((s) => allowed.includes(s))
+        list = want.length ? list.filter((o) => want.includes(o.status)) : []
+      }
+      const page = Math.max(1, Number(url.searchParams.get('page') ?? '1') || 1)
+      const size = Math.min(100, Math.max(1, Number(url.searchParams.get('page_size') ?? '20') || 20))
+      const items = list.slice((page - 1) * size, page * size)
+      return route.fulfill(json(0, { items, total: list.length }))
     }
 
     // ── 订单详情 / 退款操作（最小状态机）──

@@ -155,9 +155,20 @@ async def create_order(req: CreateOrderRequest, request: Request, db: Db = Depen
         return {"code": 4003, "msg": str(e)}
 
 
+# 订单列表 status 参数白名单（orders-status-tabs：tab 归组映射在前端，接口保持"哑"）
+_LIST_ORDER_STATUSES = {
+    "pending", "paid", "fulfilled", "refund_pending",
+    "refund_processing", "refunded", "closed", "exception",
+}
+
+
 @r.get("/orders")
-async def list_orders(request: Request, db: Db = Depends(get_db), page: int = 1, page_size: int = 50):
-    """Z.4 我的订单列表（创建时间倒序；一次拉全量，page/page_size 预留）。"""
+async def list_orders(
+    request: Request, db: Db = Depends(get_db),
+    page: int = 1, page_size: int = 20, status: str = "",
+):
+    """Z.4 我的订单列表（创建时间倒序；status=逗号分隔状态白名单筛选，
+    total=筛选全量计数，page/page_size 真分页——tab 分版 + 加载更多契约）。"""
     username = _current_username(request)
     if not username:
         return {"code": 4001, "msg": "未登录"}
@@ -171,7 +182,18 @@ async def list_orders(request: Request, db: Db = Depends(get_db), page: int = 1,
     if not user_id:
         return {"code": 4001, "msg": "用户不存在"}
 
-    orders = OrderRepo(db).find_by_user(user_id, limit=page_size, offset=(page - 1) * page_size)
+    # 未知值忽略；全部未知 → 空列表而非报错（契约 scenario）
+    requested = [s.strip() for s in (status or "").split(",") if s.strip()]
+    if requested and all(s not in _LIST_ORDER_STATUSES for s in requested):
+        return {"code": 0, "data": {"items": [], "total": 0}}
+    statuses = [s for s in requested if s in _LIST_ORDER_STATUSES] or None
+
+    page = max(1, page)
+    page_size = min(max(1, page_size), 100)
+
+    repo = OrderRepo(db)
+    total = repo.count_by_user(user_id, statuses)
+    orders = repo.find_by_user(user_id, statuses=statuses, limit=page_size, offset=(page - 1) * page_size)
     now = datetime.now(UTC).replace(tzinfo=None)  # naive UTC（与表列口径一致，同 _order_to_detail）
 
     items = []
@@ -195,7 +217,7 @@ async def list_orders(request: Request, db: Db = Depends(get_db), page: int = 1,
             "remaining_pay_seconds": remaining_pay,
         })
 
-    return {"code": 0, "data": {"items": items, "total": len(items)}}
+    return {"code": 0, "data": {"items": items, "total": total}}
 
 
 @r.get("/orders/pending")

@@ -61,23 +61,46 @@ class OrderRepo:
         else:
             return self._db.find("orders", filter={"id": f"in.({','.join(str(i) for i in ids)})"})
 
-    def find_by_user(self, user_id: int, limit: int = 50, offset: int = 0) -> list[dict]:
+    def find_by_user(
+        self, user_id: int, statuses: list[str] | None = None,
+        limit: int = 50, offset: int = 0,
+    ) -> list[dict]:
+        """statuses=状态白名单（None/空=全部；订单列表 tab 筛选用）。"""
         if isinstance(self._db, Session):
             from app.models.payments import OrderORM
+            q = self._db.query(OrderORM).filter_by(user_id=user_id)
+            if statuses:
+                q = q.filter(OrderORM.status.in_(statuses))
             orms = (
-                self._db.query(OrderORM)
-                .filter_by(user_id=user_id)
-                .order_by(OrderORM.created_at.desc())
+                q.order_by(OrderORM.created_at.desc())
                 .offset(offset).limit(limit).all()
             )
             return [{c.name: getattr(o, c.name) for c in o.__table__.columns} for o in orms]
         else:
+            filt: dict = {"user_id": user_id}
+            if statuses:
+                filt["status"] = f"in.({','.join(statuses)})"
             return self._db.find(
                 "orders",
-                filter={"user_id": user_id},
+                filter=filt,
                 sort=[("created_at", "desc")],
                 limit=limit,
+                offset=offset,
             )
+
+    def count_by_user(self, user_id: int, statuses: list[str] | None = None) -> int:
+        """订单列表 total 口径：与 find_by_user 同筛选（statuses=None=全部）。"""
+        if isinstance(self._db, Session):
+            from app.models.payments import OrderORM
+            q = self._db.query(OrderORM).filter_by(user_id=user_id)
+            if statuses:
+                q = q.filter(OrderORM.status.in_(statuses))
+            return q.count()
+        else:
+            filt: dict = {"user_id": user_id}
+            if statuses:
+                filt["status"] = f"in.({','.join(statuses)})"
+            return self._db.count("orders", filter=filt)
 
     def find_pending_expirable(self, cutoff: datetime) -> list[dict]:
         """扫描 pending 且超时的订单（T1 关单）。"""

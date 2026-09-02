@@ -136,6 +136,26 @@ export interface OrderListResult {
   total: number
 }
 
+// ── 订单列表五版 tab（orders-status-tabs：归组映射单源，接口只收原始状态白名单）──
+
+export const ORDER_TABS = [
+  { key: 'all', label: '全部', statuses: null },
+  { key: 'pending', label: '待支付', statuses: ['pending'] },
+  { key: 'done', label: '已完成', statuses: ['paid', 'fulfilled'] },
+  { key: 'refund', label: '退款', statuses: ['refund_pending', 'refund_processing', 'refunded'] },
+  { key: 'closed', label: '已过期', statuses: ['closed'] },
+] as const
+
+export type OrderTabKey = (typeof ORDER_TABS)[number]['key']
+
+/** 默认版=待支付（用户裁定 09-02：进页即聚焦未支付订单） */
+export const DEFAULT_ORDER_TAB: OrderTabKey = 'pending'
+
+/** ?tab= 参数 → 合法组名（非法/缺省回落默认版） */
+export function orderTabFromQuery(v: unknown): OrderTabKey {
+  return ORDER_TABS.some((t) => t.key === v) ? (v as OrderTabKey) : DEFAULT_ORDER_TAB
+}
+
 // ── API 调用 ──
 
 export async function apiPaySkus(): Promise<SkusView> {
@@ -156,10 +176,10 @@ export async function apiPayPendingOrder(): Promise<{ order_no: string; amount_f
   return r.data.data ?? null
 }
 
-export async function apiPayOrders(page = 1, pageSize = 50): Promise<OrderListResult> {
-  const r = await request.get<ApiResponse<OrderListResult>>('/pay/orders', {
-    params: { page, page_size: pageSize },
-  })
+export async function apiPayOrders(page = 1, pageSize = 50, statuses?: readonly string[] | null): Promise<OrderListResult> {
+  const params: Record<string, unknown> = { page, page_size: pageSize }
+  if (statuses?.length) params.status = statuses.join(',')
+  const r = await request.get<ApiResponse<OrderListResult>>('/pay/orders', { params })
   return r.data.data!
 }
 
