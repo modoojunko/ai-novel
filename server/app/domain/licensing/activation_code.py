@@ -19,6 +19,7 @@ class ActivationCode:
     refund_requested_at: datetime | None = None  # 账号注销联动：权益级退款申请时刻
     grant_start: datetime | None = None  # s-pay-foundation：激活计时起点（未激活=None）
     order_id: int | None = None  # s-pay-foundation：来源订单（None=管理端手动激活，无退款路径）
+    source: str = "admin"  # s-pay-foundation：台账行来源（admin=手工发放 | order=支付发货）
 
     def can_activate(self) -> bool:
         """状态机：只有 unused 的码可以被激活。"""

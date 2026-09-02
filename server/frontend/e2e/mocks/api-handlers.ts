@@ -1,13 +1,26 @@
 import type { Page, Route } from '@playwright/test'
 import { createTestUser, createTestDevice, type TestUser, type TestDevice } from './test-data'
 
-/** /api/pay/membership 响应（S端 我的套餐摘要） */
+/** /api/pay/membership 明细行（订单来源台账行） */
+export interface TestMembershipGrant {
+  code_id: string
+  order_no: string
+  tier: string
+  duration_days: number
+  status: string
+  activated_at: string
+  expires_at: string
+  grant_start: string
+}
+
+/** /api/pay/membership 响应（S端 我的套餐摘要 + 明细） */
 export interface TestMembership {
   tier: string
   remaining_sec: number
   remaining_desc: string
   max_expires_at: string | null
   pending_count: number
+  grants?: TestMembershipGrant[]
 }
 
 /** /api/pay/orders 列表项（S端 我的订单） */
@@ -21,6 +34,10 @@ export interface TestOrder {
   refunded_at: string
   refund_amount_fen?: number | null
   remaining_pay_seconds?: number | null
+  fulfilled_at?: string
+  refund_requested_at?: string
+  /** 权益台账快照（订单详情/激活流转）；缺省由 paid_at 推导 pending_activation */
+  grant?: { status: string; activated_at: string; expires_at: string } | null
 }
 
 /**
@@ -37,6 +54,8 @@ export class MockApi {
   private refundPreviewOverride: { refundable: boolean; reason: string; refund_fen?: number; remaining_desc?: string } | null = null
   /** 冷静期剩余秒数（e2e 用短窗口） */
   private refundCooldown = 300
+  /** 激活失败模式（测不可激活错误出路；触发一次后自动复位 none） */
+  private activateFailMode: 'none' | 'not_fulfilled' | 'not_activatable' = 'none'
   /** 下单连续失败次数（failCreate 态测试） */
   private createOrderFailCount = 0
   /** 查单 hint（SUCCESS 转成功态；NOTPAY/PAYERROR/CLOSED） */
@@ -163,7 +182,15 @@ export class MockApi {
 
   /** 设置 /api/pay/orders 列表（S端 我的订单/首页横幅数据源） */
   setOrders(list: TestOrder[]): void {
-    this.orders = list
+    // grant 快照归一：已支付未显式给 grant 的按状态推导（refunded→revoked，其余→pending_activation）
+    this.orders = list.map((o) => ({
+      ...o,
+      grant: o.grant !== undefined
+        ? o.grant
+        : (o.paid_at
+            ? (o.status === 'refunded' ? { status: 'revoked', activated_at: '', expires_at: '' } : { status: 'pending_activation', activated_at: '', expires_at: '' })
+            : null),
+    }))
   }
 
   /** 覆写退款预览结果（拒绝态测试） */
@@ -179,6 +206,37 @@ export class MockApi {
   /** 设置查单结果 hint（收银台轮询/手动查单） */
   setPayHint(hint: 'SUCCESS' | 'NOTPAY' | 'PAYERROR' | 'CLOSED'): void {
     this.payHint = hint
+  }
+
+  /** 设置下一次激活失败（not_fulfilled=订单非到货态 / not_activatable=已激活或已收回） */
+  failActivate(mode: 'not_fulfilled' | 'not_activatable'): void {
+    this.activateFailMode = mode
+  }
+
+  /** 由 orders 的 grant 快照同步 membership 摘要（激活流转后明细/计数保持一致） */
+  private syncMembershipFromGrants(): void {
+    const grants: TestMembershipGrant[] = this.orders
+      .filter((o) => o.grant && o.grant.status !== 'none')
+      .map((o) => ({
+        code_id: `O-${o.order_no}`,
+        order_no: o.order_no,
+        tier: (o.snapshot?.tier_key as string) ?? 'pro',
+        duration_days: (o.snapshot?.period_days as number) ?? 30,
+        status: o.grant!.status,
+        activated_at: o.grant!.activated_at,
+        expires_at: o.grant!.expires_at,
+        grant_start: o.grant!.activated_at,
+      }))
+    if (!this.membership) this.membership = { tier: 'free', remaining_sec: 0, remaining_desc: '0 天', max_expires_at: null, pending_count: 0, grants: [] }
+    this.membership.grants = grants
+    this.membership.pending_count = grants.filter((g) => g.status === 'pending_activation').length
+    const active = grants.find((g) => g.status === 'active')
+    if (active) {
+      this.membership.tier = 'pro'
+      this.membership.max_expires_at = active.expires_at
+      this.membership.remaining_sec = Math.max(0, Math.round((Date.parse(active.expires_at + 'Z') - Date.now()) / 1000))
+      this.membership.remaining_desc = `${Math.max(0, Math.round(this.membership.remaining_sec / 86400))} 天`
+    }
   }
 
   /** 设置购买开关（off = 收银台「登录后继续购买」态） */
@@ -423,12 +481,39 @@ export class MockApi {
     }
 
     if (path === '/api/pay/membership' && method === 'GET') {
+      if (!this.membership && this.orders.some((o) => o.grant)) this.syncMembershipFromGrants()
       return route.fulfill(json(0, this.membership ?? {
         tier: this.currentUser?.tier ?? 'free',
         remaining_sec: 0,
         remaining_desc: '0 天',
         max_expires_at: null,
         pending_count: 0,
+        grants: [] as TestMembershipGrant[],
+      }))
+    }
+
+    // ── 激活（到货-激活两段式第二段；明细待激活行入口）──
+    if (path === '/api/pay/grants/activate' && method === 'POST') {
+      const body = route.request().postDataJSON()
+      if (this.activateFailMode !== 'none') {
+        const m = this.activateFailMode
+        this.activateFailMode = 'none'
+        const msg = m === 'not_fulfilled' ? 'not_fulfilled' : 'Code is not in pending_activation state'
+        return route.fulfill(json(4004, null, { msg }))
+      }
+      const o = this.orders.find((x) => x.order_no === body?.order_no)
+      if (!o || o.grant?.status === 'revoked') {
+        return route.fulfill(json(4004, null, { msg: 'Code is not in pending_activation state' }))
+      }
+      const days = (o.snapshot?.period_days as number) ?? 30
+      const expires = new Date(Date.now() + days * 86400000).toISOString().slice(0, 19)
+      o.grant = { status: 'active', activated_at: new Date().toISOString().slice(0, 19), expires_at: expires }
+      this.syncMembershipFromGrants()
+      return route.fulfill(json(0, {
+        code_id: `O-${o.order_no}`,
+        grant_start: new Date().toISOString().slice(0, 19),
+        expires_at: expires,
+        tier: (o.snapshot?.tier_key as string) ?? 'pro',
       }))
     }
 
@@ -455,7 +540,14 @@ export class MockApi {
         snapshot: o.snapshot,
         created_at: o.created_at,
         paid_at: o.paid_at,
+        fulfilled_at: o.fulfilled_at ?? (o.paid_at || ''),
+        refund_requested_at: o.refund_requested_at ?? (o.refund_amount_fen ? (o.refunded_at || o.paid_at) : ''),
         refunded_at: o.refunded_at,
+        grant: o.grant !== undefined
+          ? o.grant
+          : (o.status === 'refunded'
+              ? { status: 'revoked', activated_at: '', expires_at: '' }
+              : (o.paid_at ? { status: 'pending_activation', activated_at: '', expires_at: '' } : null)),
         agreement: { version: 'v2026.08', agreed_at: o.created_at },
         wx_transaction_id: o.paid_at ? `4200${o.order_no.slice(-8)}` : undefined,
         remaining_pay_seconds: o.remaining_pay_seconds ?? null,

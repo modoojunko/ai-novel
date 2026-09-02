@@ -94,3 +94,48 @@ test.describe('订单详情六态', () => {
     await expect(page.getByRole('button', { name: '复制完整单号' })).toBeVisible()
   })
 })
+
+test.describe('订单流程时间线（s-pay-post-purchase-completion）', () => {
+  test.beforeEach(async ({ mockApi }) => {
+    mockApi.registerUser()
+  })
+
+  test('已退款单到货时间可见且非 —（09-02 线上回归）', async ({ page, mockApi }) => {
+    mockApi.setOrders([order({
+      status: 'refunded',
+      refunded_at: '2026-08-31T02:00:00Z',
+      refund_requested_at: '2026-08-30T06:54:00Z',
+      refund_amount_fen: 776,
+    })])
+    await gotoDetail(page)
+    await expect(page.getByText('套餐到货（已收回）')).toBeVisible({ timeout: 10000 })
+    const row = page.locator('.tl-row', { hasText: '套餐到货' })
+    await expect(row.locator('.when')).toContainText('2026-08-30')
+    // 申请退款环节留痕 + 退款完成行并存
+    await expect(page.getByText('申请退款', { exact: true })).toBeVisible()
+    await expect(page.getByText('退款完成（原路退回）')).toBeVisible()
+  })
+
+  test('待激活单到货行标注', async ({ page, mockApi }) => {
+    mockApi.setOrders([order()])
+    await gotoDetail(page)
+    await expect(page.getByText('套餐到货（待激活，未计时）')).toBeVisible({ timeout: 10000 })
+  })
+
+  test('已激活单到货行显示剩余天数', async ({ page, mockApi }) => {
+    mockApi.setOrders([order({
+      grant: { status: 'active', activated_at: '2026-08-30T06:30:00', expires_at: '2026-11-28T00:00:00' },
+    })])
+    await gotoDetail(page)
+    await expect(page.getByText(/套餐到货（已激活，计时中）· 剩余 \d+ 天/)).toBeVisible({ timeout: 10000 })
+  })
+
+  test('半截发货态不以支付时间冒充到货', async ({ page, mockApi }) => {
+    mockApi.setOrders([order({ status: 'paid', fulfilled_at: '' })])
+    await gotoDetail(page)
+    const row = page.locator('.tl-row', { hasText: '套餐到货' })
+    await expect(row).toBeVisible({ timeout: 10000 })
+    await expect(row.locator('.when')).toContainText('预计')
+    await expect(row.locator('.when')).not.toContainText('2026-')
+  })
+})

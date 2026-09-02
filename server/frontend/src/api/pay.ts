@@ -53,7 +53,10 @@ export interface OrderDetail {
   amount_fen: number
   created_at: string
   paid_at: string
+  fulfilled_at?: string
+  refund_requested_at?: string
   refunded_at?: string
+  grant?: OrderGrant | null
   agreement?: { version: string; agreed_at: string }
   wx_transaction_id?: string
   remaining_pay_seconds?: number | null
@@ -81,12 +84,32 @@ export interface RefundResult {
   cooldown_remaining_seconds: number
 }
 
+/** 订单关联的权益台账快照（到货行激活标注用；pending 态=null） */
+export interface OrderGrant {
+  status: string // pending_activation | active | revoked
+  activated_at: string
+  expires_at: string
+}
+
+/** 我的套餐明细行（订单来源台账行；手工码不进明细） */
+export interface MembershipGrant {
+  code_id: string
+  order_no: string
+  tier: string
+  duration_days: number
+  status: string // pending_activation | active | revoked
+  activated_at: string
+  expires_at: string
+  grant_start: string
+}
+
 export interface MembershipView {
   tier: string
   remaining_sec: number
   remaining_desc: string
   max_expires_at: string | null
   pending_count: number
+  grants?: MembershipGrant[] // 旧后端无此字段 → undefined，消费侧 ?? [] 兜底
 }
 
 export interface ActivateResult {

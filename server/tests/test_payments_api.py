@@ -221,6 +221,74 @@ class TestFulfillActivateFlow:
         # membership 汇总出现 pro
         r = client.get("/api/pay/membership", headers=auth)
         assert r.json()["data"]["tier"] == "pro"
+        # 订单详情 grant 快照折出已激活
+        r = client.get(f"/api/pay/orders/{order_no}", headers=auth)
+        grant = r.json()["data"]["grant"]
+        assert grant["status"] == "active"
+        assert grant["activated_at"] != "" and grant["expires_at"] != ""
+
+
+class TestMembershipGrants:
+    """Z.6 我的套餐明细（订单来源台账行）：手工码排除 + order_no 映射 + created_at 同口径。"""
+
+    def _switch_on(self, db_session):
+        from app.models.config import GlobalConfigORM
+        db_session.merge(GlobalConfigORM(key="payments.purchase.enabled", value="on"))
+        db_session.commit()
+
+    def test_grants_listing_and_manual_code_excluded(self, client, web_user, _catalog, db_session, admin_token):
+        self._switch_on(db_session)
+        auth = _auth(web_user)
+        r = client.post("/api/pay/orders", headers=auth, json={
+            "sku_key": "pro_yearly", "agreement_version": AGREEMENT_VERSION})
+        order_no = r.json()["data"]["order_no"]
+        r = client.post("/api/dev/pay/inject-payment", headers={"X-Admin-Token": admin_token},
+                        json={"order_no": order_no})
+        assert r.json()["code"] == 0, r.text
+
+        r = client.get("/api/pay/membership", headers=auth)
+        d = r.json()["data"]
+        # 注册即送的 trial 属手工来源（source=admin），不进明细；明细只有订单台账行
+        assert len(d["grants"]) == 1
+        g = d["grants"][0]
+        assert g["order_no"] == order_no
+        assert g["status"] == "pending_activation"
+        assert d["pending_count"] == 1
+
+        # 模拟退款收回 → 已收回灰显仍在明细、待激活计数归零
+        from app.models.code import ActivationCodeORM
+        from app.models.user import UserORM
+        s = db_session
+        uid = s.query(UserORM).filter_by(username=web_user["username"]).one().id
+        row = s.query(ActivationCodeORM).filter_by(code_id=f"O-{order_no}").one()
+        row.status = "revoked"
+        s.commit()
+
+        d = client.get("/api/pay/membership", headers=auth).json()["data"]
+        assert len(d["grants"]) == 1 and d["grants"][0]["status"] == "revoked"
+        assert d["pending_count"] == 0
+
+    def test_grant_created_at_matches_paid_at(self, client, web_user, _catalog, db_session, admin_token):
+        """台账行 created_at 显式 UTC 口径：与订单 paid_at 秒级同（回归：列默认快 8h）。"""
+        self._switch_on(db_session)
+        auth = _auth(web_user)
+        r = client.post("/api/pay/orders", headers=auth, json={
+            "sku_key": "pro_yearly", "agreement_version": AGREEMENT_VERSION})
+        order_no = r.json()["data"]["order_no"]
+        r = client.post("/api/dev/pay/inject-payment", headers={"X-Admin-Token": admin_token},
+                        json={"order_no": order_no})
+        assert r.json()["code"] == 0, r.text
+
+        from datetime import UTC, datetime
+
+        from app.models.code import ActivationCodeORM
+        from app.models.payments import OrderORM
+        s = db_session
+        o = s.query(OrderORM).filter_by(order_no=order_no).one()
+        c = s.query(ActivationCodeORM).filter_by(code_id=f"O-{order_no}").one()
+        paid = o.paid_at if o.paid_at.tzinfo is None else o.paid_at.astimezone(UTC).replace(tzinfo=None)
+        created = c.created_at if c.created_at.tzinfo is None else c.created_at.astimezone(UTC).replace(tzinfo=None)
+        assert abs((created - paid).total_seconds()) < 60
 
 
 class TestOrderDetail:
@@ -248,6 +316,45 @@ class TestOrderDetail:
         assert body["code"] == 0, body
         assert body["data"]["status"] == "pending"
         assert 0 < body["data"]["remaining_pay_seconds"] <= 900
+        # 未到货：grant 快照为空，到货/退款时间列为空串
+        assert body["data"]["grant"] is None
+        assert body["data"]["fulfilled_at"] == ""
+        assert body["data"]["refund_requested_at"] == ""
+
+    def test_refunded_detail_shows_arrival_and_grant(self, client, web_user, _catalog, db_session, admin_token):
+        """已退款单详情：fulfilled_at/refund_requested_at 有值、grant 折出已收回（时间线 '—' 回归）。"""
+        self._switch_on(db_session)
+        auth = _auth(web_user)
+        r = client.post("/api/pay/orders", headers=auth, json={
+            "sku_key": "pro_yearly", "agreement_version": AGREEMENT_VERSION})
+        order_no = r.json()["data"]["order_no"]
+        r = client.post("/api/dev/pay/inject-payment", headers={"X-Admin-Token": admin_token},
+                        json={"order_no": order_no})
+        assert r.json()["code"] == 0, r.text
+
+        # 模拟退款完成（未激活全额退路径：台账行 pending_activation→revoked）
+        from app.models.code import ActivationCodeORM
+        from app.models.payments import OrderORM
+        s = db_session
+        now = datetime.now(UTC).replace(tzinfo=None)
+        o = s.query(OrderORM).filter_by(order_no=order_no).one()
+        o.status = "refunded"
+        o.refund_status = "succeeded"
+        o.refund_requested_at = now
+        o.refunded_at = now
+        o.refund_amount_fen = o.amount_fen
+        c = s.query(ActivationCodeORM).filter_by(code_id=f"O-{order_no}").one()
+        c.status = "revoked"
+        s.commit()
+
+        r = client.get(f"/api/pay/orders/{order_no}", headers=auth)
+        assert r.json()["code"] == 0, r.text
+        d = r.json()["data"]
+        assert d["fulfilled_at"] != ""
+        assert d["refund_requested_at"] != ""
+        assert d["refunded_at"] != ""
+        assert d["grant"]["status"] == "revoked"
+        assert d["grant"]["activated_at"] == ""
 
     @pytest.mark.parametrize("form", ["pg_http_str", "sqlite_naive", "aware"])
     def test_row_datetime_forms(self, form):
