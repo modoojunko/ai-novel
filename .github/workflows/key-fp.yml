@@ -6,10 +6,10 @@ jobs:
   fp:
     runs-on: ubuntu-latest
     steps:
-      - name: print masked fingerprint of TCB_PG_API_KEY
+      - name: print masked fingerprints
         run: |
-          K="${{ secrets.TCB_PG_API_KEY }}"
-          echo "len=${#K}"
-          echo "head=${K:0:24}"
-          echo "tail=${K: -16}"
+          K="${{ secrets.TCB_API_KEY }}"
+          echo "TCB_API_KEY: len=${#K}"
+          echo "TCB_API_KEY: head=${K:0:24}"
+          echo "TCB_API_KEY: tail=${K: -16}"
           echo "env_id=${{ vars.TCB_ENV_ID }}"
