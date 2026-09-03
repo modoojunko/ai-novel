@@ -532,7 +532,7 @@ DevicesPage（/dashboard/devices）
 
 ## 4. API 层
 
-> **⚠️ 契约以 `backend-detail-design.md` 附录 Z（联合契约唯一版本）为准**——已对齐：错误码=数字码+前端映射、refund-preview=GET kebab、激活=grants/activate{order_no}、微信单号=完整值+前端脱敏渲染、license 路径、pending 恢复端点、refund/cancel 新增。本节字段名不一致处以附录 Z 为准。
+> **⚠️ 契约以 `backend-detail-design.md` 附录 Z（联合契约唯一版本）为准**——已对齐：错误码=数字码+前端映射、refund-preview=GET kebab、激活=codes/activate{order_no}、微信单号=完整值+前端脱敏渲染、license 路径、pending 恢复端点、refund/cancel 新增。本节字段名不一致处以附录 Z 为准。
 
 ### 4.1 模块清单：`src/api/pay.ts`（函数签名）
 
@@ -570,7 +570,7 @@ export function apiPayCancelRefund(orderNo: string): Promise<ApiResponse<void>>
 export function apiPayLicense(): Promise<ApiResponse<LicenseSummary>>
 // GET /pay/license：summary + grants + notices
 export function apiPayActivateGrant(payload: { order_no: string }): Promise<ApiResponse<{ grant_start: string; grant_end: string }>>
-// POST /pay/grants/activate：立即激活（到货页/待激活区块共用）
+// POST /pay/codes/activate：立即激活（到货页/待激活区块共用）
 ```
 
 ### 4.2 DTO（前端视角的最小集）
@@ -967,7 +967,7 @@ export const usePayStore = defineStore('pay', () => {
 `e2e/mocks/api-handlers.ts` 的 `MockApi.routes` 追加（注意 Playwright 后注册优先，兜底 `/api/` 谓词拦截已在，漏出即 code 1）：
 
 ```
-'**/api/pay/skus'           '**/api/pay/license'      '**/api/pay/grants/activate'
+'**/api/pay/skus'           '**/api/pay/license'      '**/api/pay/codes/activate'
 '**/api/pay/orders'         '**/api/pay/orders/pending'  '**/api/pay/orders/*'
 '**/api/pay/orders/*/query' '**/api/pay/orders/*/cancel'
 '**/api/pay/orders/*/refund-preview'  '**/api/pay/orders/*/refund'  '**/api/pay/orders/*/refund/cancel'
@@ -992,7 +992,7 @@ export const usePayStore = defineStore('pay', () => {
 | `pay-orders.spec.ts` | 六状态行渲染（pill 类/金额/副行文案逐一断言）、空态、行点击进详情、pending 行倒计时文案 |
 | `pay-order-detail.spec.ts` | 六态（mock 详情返回驱动）：状态 pill/notice 文案、kv 隐藏字段矩阵（expired 无支付时间/协议行/起止/微信单号）、时间线节点与打勾态、ops 按状态聚合（paid=申请退款+去我的套餐、waiting=继续支付+取消订单…）、微信单号复制（grant clipboard 权限，断言剪贴板值=完整单号+按钮文案变「已复制」）、waiting「继续支付」跳 `/pay/order/:no` |
 | `pay-refund.spec.ts` | preview 数字与后端 fixture 一致；确认弹层 kv 与 rule 文案；确认后 processing 态；refunded 态；拒绝两类（reject-fen/reject-window 文案）；「先不退了」返回 |
-| `pay-license.spec.ts` | 付费态：hero 汇总、时间线三行（past/now/future 与 pill）+ frozen 行（pill-warn 退款冻结）、待激活区块「立即激活」→ grants/activate 请求 + 刷新；免费态：试用 hero+对比文案 |
+| `pay-license.spec.ts` | 付费态：hero 汇总、时间线三行（past/now/future 与 pill）+ frozen 行（pill-warn 退款冻结）、待激活区块「立即激活」→ codes/activate 请求 + 刷新；免费态：试用 hero+对比文案 |
 | `guards.spec.ts`（扩展） | `/dashboard/orders`、`/dashboard/license` 未登录跳 login；`/dashboard/license` redirect license；`/pay` 未登录**不**跳转（渲染登录卡）；`/pay/order/:no` 未登录同上 |
 | `dashboard-home.spec.ts`（更新） | 新首页：横幅两态、四卡、导航 5 项、激活码入口不存在（断言「激活新码」count=0）；devices.spec.ts 更新解绑弹窗用例 |
 

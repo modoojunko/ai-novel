@@ -1,4 +1,4 @@
-"""门户设备 API：device/my, device/remove。"""
+"""门户设备 API：devices/my, devices/remove（复数对齐 client 面；旧单数路径为过渡别名）。"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
@@ -13,15 +13,17 @@ from app.interfaces.dto import DeviceRemoveRequest, fail
 r = APIRouter(tags=["web"])
 
 
-@r.get("/api/device/my")
-async def api_device_my(db: Db = Depends(get_db), username: str = Depends(get_current_user_or_none)):
+@r.get("/api/devices/my")
+@r.get("/api/device/my")  # 过渡别名：线上前端 bundle grep '/api/device/my'=0 后删除（s-api-naming-convergence 5.4）
+async def api_devices_my(db: Db = Depends(get_db), username: str = Depends(get_current_user_or_none)):
     if not username:
         return fail(code=1, msg="未登录")
     return list_devices(device_repo(db), code_repo(db), username)
 
 
-@r.post("/api/device/remove")
-async def api_device_remove(req: DeviceRemoveRequest, db: Db = Depends(get_db), username: str = Depends(get_current_user_or_none)):
+@r.post("/api/devices/remove")
+@r.post("/api/device/remove")  # 过渡别名：线上前端 bundle grep '/api/device/remove'=0 后删除（s-api-naming-convergence 5.4）
+async def api_devices_remove(req: DeviceRemoveRequest, db: Db = Depends(get_db), username: str = Depends(get_current_user_or_none)):
     if not username:
         return fail(code=1, msg="未登录")
     result = remove_device(device_repo(db), username, req.id)

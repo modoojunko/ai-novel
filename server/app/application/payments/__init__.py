@@ -1,5 +1,5 @@
 """payments 应用层用例包。"""
-from app.application.payments.activate_entitlement import activate_entitlement
+from app.application.payments.activate_code import activate_code
 from app.application.payments.create_order import create_order
 from app.application.payments.fulfill_payment import fulfill_payment
 from app.application.payments.refund_flow import (
@@ -15,7 +15,7 @@ from app.application.payments.scan_orders import (
 )
 
 __all__ = [
-    "activate_entitlement",
+    "activate_code",
     "cancel_refund",
     "complete_refund",
     "cooldown_submit",

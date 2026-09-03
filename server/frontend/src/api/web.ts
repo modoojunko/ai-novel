@@ -110,9 +110,9 @@ export interface DeviceItem {
 }
 
 export function apiDeviceMy(): Promise<ApiResponse<DeviceItem[]>> {
-  return request.get('/device/my').then(r => r.data)
+  return request.get('/devices/my').then(r => r.data)
 }
 
 export function apiDeviceRemove(id: string): Promise<ApiResponse> {
-  return request.post('/device/remove', { id }).then(r => r.data)
+  return request.post('/devices/remove', { id }).then(r => r.data)
 }

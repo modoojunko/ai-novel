@@ -83,8 +83,8 @@ python app/main.py
 | PUT | `/api/user/password` | 修改密码 |
 | PUT | `/api/user/security` | 修改密保 |
 | POST | `/api/license/activate` | 激活码激活/续费 |
-| GET | `/api/device/my` | 设备列表（含激活状态） |
-| POST | `/api/device/remove` | 移除设备 |
+| GET | `/api/devices/my` | 设备列表（含激活状态） |
+| POST | `/api/devices/remove` | 移除设备 |
 
 ### Admin API（运营管理）
 

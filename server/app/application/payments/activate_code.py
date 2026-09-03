@@ -1,4 +1,4 @@
-"""activate_entitlement：到货-激活两段式的第二段。
+"""activate_code：到货-激活两段式的第二段。
 
 设计依据：backend-detail-design.md §4.12。
 激活起点顺延：max(现有 active 行最远到期日, 今天)——囤套餐不计时、接续消耗。
@@ -25,7 +25,7 @@ def calc_grant_start(active_codes: list, today: date | None = None) -> date:
     return max_exp
 
 
-def activate_entitlement(
+def activate_code(
     order_repo: OrderRepo,
     event_repo: TradeEventRepo,
     code_repo,  # CodeRepo（licensing 域，注入）

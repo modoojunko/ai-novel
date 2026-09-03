@@ -218,7 +218,7 @@ export async function apiPayLicense(): Promise<LicenseView> {
 }
 
 export async function apiPayActivate(orderNo: string): Promise<ActivateResult> {
-  const r = await request.post<ApiResponse<ActivateResult>>('/pay/grants/activate', { order_no: orderNo })
+  const r = await request.post<ApiResponse<ActivateResult>>('/pay/codes/activate', { order_no: orderNo })
   return r.data.data!
 }
 

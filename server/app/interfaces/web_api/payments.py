@@ -512,21 +512,22 @@ async def get_license(request: Request, db: Db = Depends(get_db)):
     }}
 
 
-@r.post("/grants/activate")
-async def activate_grant(req: ActivateRequest, request: Request, db: Db = Depends(get_db)):
+@r.post("/codes/activate")
+@r.post("/grants/activate")  # 过渡别名：线上前端 bundle grep '/pay/grants/activate'=0 后删除（s-api-naming-convergence 5.4）
+async def activate(req: ActivateRequest, request: Request, db: Db = Depends(get_db)):
     """激活（到货-激活两段式第二段）。"""
     username = _current_username(request)
     if not username:
         return {"code": 4001, "msg": "未登录"}
 
-    from app.application.payments.activate_entitlement import activate_entitlement
+    from app.application.payments.activate_code import activate_code
     from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
     from app.infrastructure.repositories.factory import user_repo
     from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
     user_id = user_repo(db).get_id(username)
     try:
-        result = activate_entitlement(
+        result = activate_code(
             OrderRepo(db), TradeEventRepo(db), _code_repo_factory(db),
             req.order_no, user_id,
         )
