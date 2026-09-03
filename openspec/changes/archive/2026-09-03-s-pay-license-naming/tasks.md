@@ -24,8 +24,8 @@
 
 - [x] 5.1 门禁全跑并记录结论：`npx vue-tsc --noEmit` → **exit 0**；后端全量 `pytest -q` → **291 passed (8.42s)**；`npm run design:lint` → **存量红 1 项**：`src/constants/site-beian.ts:1 [emoji]`（主目录同报，与本改动无关，本次零视觉/样式文件改动）；`ruff check` 改动 py 文件 → 2 处（payments.py I001 / test F401）**主目录同报存量**，非本次引入
 - [x] 5.2 残余 grep 验收：全 worktree grep（排除 node_modules/.venv/.git/.mimosa/openspec 归档）→ 代码残余=payments.py 别名 decorator 一行 + router redirect 规则 + license-redirect.spec 旧路径断言（测试对象即旧路径）+ 别名一致性测试，docs/design-s 残余=过渡说明与历史台账；符合"仅剩后端过渡别名一处"的 spec 口径（redirect 与别名测试为该口径的必要伴随）
-- [ ] 5.3 上线验证三连（合并 → 后端自动部署 → 前端 novel-s-web 上传后）：`GET /api/pay/license` 200、`GET /api/pay/membership` 200 且返回体与前者一致、浏览器访问 `/dashboard/membership` 落到 `/dashboard/license` 且页面渲染正常；验证=三连实测结果记录
-- [ ] 5.4 收尾小 PR：线上前端 bundle `grep '/pay/membership'`=0 判据成立后，删 payments.py 别名 decorator → 全量 pytest 绿 → 合并部署后复验 `GET /api/pay/license` 200；验证=线上两路径终态（/license 200、/membership 404）
+- [x] 5.3 上线验证三连（合并 → 后端自动部署 → 前端 novel-s-web 上传后）：`GET /api/pay/license` 200、`GET /api/pay/membership` 200 且返回体与前者一致、浏览器访问 `/dashboard/membership` 落到 `/dashboard/license` 且页面渲染正常；实测：✅ GET /api/pay/license 200（未登录口径）；✅ 窗口期 GET /api/pay/membership 200 与前者同口径；✅ 浏览器实测 /dashboard/membership → 路由重定向 → /login?redirect=/dashboard/license（未登录守卫携带的已是新路径，登录后直落新页）
+- [x] 5.4 收尾小 PR：线上前端 bundle `grep '/pay/membership'`=0 判据成立后，删 payments.py 别名 decorator → 全量 pytest 绿 → 合并部署后复验 `GET /api/pay/license` 200；实测（PR #286 合并部署后）：✅ 线上 bundle /pay/membership=0（pay.MR9HuHMb.js/LicensePage.BAssANc1.js/DashboardLayout 均实测）；✅ 终态 GET /api/pay/license 200、GET /api/pay/membership 404
 
 ## 6. 归档
 
