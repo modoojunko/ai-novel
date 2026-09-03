@@ -20,27 +20,55 @@ const err = ref('')
 
 // ── 冷静期倒计时（refund_pending）──
 const cooldownLeft = ref(0)
+const cooldownSeen = ref(false) // 倒计时已初始化过（区分「尚未加载」与「已归零」）
 let timer: number | undefined
+let pollTimer: number | undefined
+
+// 冷静期已结束但状态尚未流转（定时任务提交前存在最长一个班次的窗口）→ 过渡展示态
+const cooldownElapsed = computed(() =>
+  state.value === 'refund_pending' && cooldownSeen.value && cooldownLeft.value <= 0,
+)
 
 function startCooldown(seconds: number | null | undefined) {
+  cooldownSeen.value = true
   if (!seconds || seconds <= 0) return
   cooldownLeft.value = seconds
   timer = window.setInterval(() => {
     cooldownLeft.value -= 1
     if (cooldownLeft.value <= 0) {
       window.clearInterval(timer)
-      reload() // 归零 → 转 processing
+      reload() // 归零 → 立即查一次；未流转则进入轮询
     }
   }, 1000)
 }
 
-onBeforeUnmount(() => window.clearInterval(timer))
+function startPolling() {
+  if (pollTimer !== undefined) return
+  pollTimer = window.setInterval(async () => {
+    try {
+      const fresh = await apiPayOrderDetail(String(route.params.orderNo))
+      if (fresh.status !== 'refund_pending') {
+        order.value = fresh
+        window.clearInterval(pollTimer)
+        pollTimer = undefined
+      }
+    } catch {
+      // 网络抖动：保留当前过渡态，等下一轮
+    }
+  }, 30_000)
+}
+
+onBeforeUnmount(() => {
+  window.clearInterval(timer)
+  window.clearInterval(pollTimer)
+})
 
 async function reload() {
   try {
     order.value = await apiPayOrderDetail(String(route.params.orderNo))
     if (order.value.status === 'refund_pending' && order.value.refund) {
       startCooldown(order.value.refund.cooldown_remaining_seconds)
+      if (cooldownLeft.value <= 0) startPolling() // 冷静期已过、任务尚未提交 → 轮询跟随流转
     }
   } catch (e) {
     err.value = e instanceof Error ? e.message : '加载失败'
@@ -57,11 +85,15 @@ const state = computed(() => order.value?.status ?? '')
 const snapshot = computed(() => order.value?.snapshot ?? null)
 const amount = computed(() => (order.value ? fenToYuan(order.value.amount_fen) : ''))
 
+// 过渡展示态下 pill 同步为「退款中」（冷静期已结束，不再标注冷静期；statusLabel 保持共享单源不分叉）
+const pillLabel = computed(() => (cooldownElapsed.value ? '退款中' : statusLabel(state.value)))
+
 const stateNoticeKind = computed(() => {
   switch (state.value) {
     case 'paid': case 'fulfilled': return 'info'
     case 'pending': return 'warn'
-    case 'refund_pending': case 'refund_processing': return 'warn'
+    case 'refund_pending': return cooldownElapsed.value ? 'info' : 'warn'
+    case 'refund_processing': return 'warn'
     case 'refunded': case 'closed': return 'info'
     case 'exception': return 'err'
     default: return 'info'
@@ -77,6 +109,8 @@ const stateNotice = computed(() => {
     case 'pending':
       return `订单 15 分钟内有效，超时自动过期。二维码请在等待支付页查看。`
     case 'refund_pending': {
+      if (cooldownElapsed.value)
+        return `冷静期已结束，退款流程已启动，不能再取消。款项将原路退回您的微信，一般数分钟至 3 个工作日到账。`
       const m = Math.floor(cooldownLeft.value / 60)
       const s = cooldownLeft.value % 60
       return `退款将在 ${m} 分 ${String(s).padStart(2, '0')} 秒后提交（套餐已停止使用）。冷静期内可取消恢复使用。`
@@ -142,7 +176,9 @@ const steps = computed(() => {
   }
   if (refundStatus && refundStatus !== 'none') {
     if (state.value === 'refund_pending')
-      rows.push({ title: '退款确认（冷静期）', when: estFromSeconds(o.refund?.cooldown_remaining_seconds), done: false, now: true })
+      rows.push(cooldownElapsed.value
+        ? { title: '退款已确认，提交微信中', when: '—', done: false, now: true }
+        : { title: '退款确认（冷静期）', when: estFromSeconds(o.refund?.cooldown_remaining_seconds), done: false, now: true })
     else if (state.value === 'refund_processing')
       rows.push({ title: '退款原路退回中', when: '预计 3 天内到账', done: false, now: true })
     else if (state.value === 'refunded')
@@ -190,6 +226,8 @@ async function doCancelRefund() {
     await apiPayCancelRefund(order.value.order_no)
     flash('已取消退款，恢复使用')
     window.clearInterval(timer)
+    window.clearInterval(pollTimer)
+    pollTimer = undefined
     await reload()
   } catch (e) {
     flash(e instanceof Error ? e.message : '操作失败')
@@ -223,7 +261,7 @@ async function copyNo() {
           <button class="back" @click="router.push('/dashboard/orders')">‹ 我的订单</button>
           <h1>订单详情</h1>
         </div>
-        <span :class="statusPillClass(state)">{{ statusLabel(state) }}</span>
+        <span :class="statusPillClass(state)">{{ pillLabel }}</span>
       </div>
 
       <!-- 状态说明条 -->
@@ -287,7 +325,8 @@ async function copyNo() {
           <button class="btn btn-primary" @click="router.push('/pay')">继续支付</button>
         </template>
         <template v-else-if="state === 'refund_pending'">
-          <button class="btn btn-primary" :disabled="busy" @click="doCancelRefund">取消退款</button>
+          <button v-if="!cooldownElapsed" class="btn btn-primary" :disabled="busy" @click="doCancelRefund">取消退款</button>
+          <button class="btn btn-secondary" @click="router.push('/dashboard/orders')">返回我的订单</button>
         </template>
         <template v-else-if="state === 'refunded'">
           <button class="btn btn-secondary" @click="router.push('/pay')">再来一单</button>

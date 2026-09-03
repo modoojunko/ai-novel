@@ -95,6 +95,59 @@ test.describe('订单详情六态', () => {
   })
 })
 
+test.describe('冷静期已结束过渡态（refund-cooldown-end-status）', () => {
+  test.beforeEach(async ({ mockApi }) => {
+    mockApi.registerUser()
+  })
+
+  test('倒计时归零仍 refund_pending：不可取消口径 + 出口（含首载即归零不闪倒计时）', async ({ page, mockApi }) => {
+    mockApi.setRefundCooldown(0)
+    mockApi.setOrders([order({ status: 'refund_pending', refund_amount_fen: 776 })])
+    await gotoDetail(page)
+    // 过渡态文案直接出现（不闪现倒计时）
+    await expect(page.getByText(/冷静期已结束，退款流程已启动，不能再取消/)).toBeVisible({ timeout: 10000 })
+    // 页头 pill 同步为「退款中」，不再标注冷静期
+    await expect(page.locator('.page-head .pill-status')).toHaveText('退款中')
+    await expect(page.getByText('退款中·冷静期')).toHaveCount(0)
+    // 不再出现「可取消」措辞与取消入口
+    await expect(page.getByText(/可取消/)).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '取消退款' })).toHaveCount(0)
+    // 出口与时间线收口
+    await expect(page.getByRole('button', { name: '返回我的订单' })).toBeVisible()
+    await expect(page.getByText('退款已确认，提交微信中')).toBeVisible()
+  })
+
+  test('归零后拉到流转态：过渡态消失转退款受理视图', async ({ page, mockApi }) => {
+    mockApi.setRefundCooldown(1)
+    mockApi.setOrders([order({ status: 'refund_pending', refund_amount_fen: 776 })])
+    await gotoDetail(page)
+    await expect(page.getByText(/退款将在 0 分 0[01] 秒后提交/)).toBeVisible({ timeout: 10000 })
+    // 归零触发 reload 前，mock 侧订单已被定时任务流转
+    mockApi.setOrders([order({ status: 'refund_processing', refund_amount_fen: 776 })])
+    await expect(page.getByText(/退款已受理，原路退回中/)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('button', { name: '取消退款' })).toHaveCount(0)
+  })
+})
+
+test.describe('退款页对退款流程中订单直入（refund-cooldown-end-status）', () => {
+  test.beforeEach(async ({ mockApi }) => {
+    mockApi.registerUser()
+  })
+
+  test('refund_pending 打开退款页：无金额预览与确认入口', async ({ page, mockApi }) => {
+    mockApi.setRefundCooldown(120)
+    mockApi.setOrders([order({ status: 'refund_pending', refund_amount_fen: 776 })])
+    await page.goto('/')
+    await page.evaluate(() => localStorage.setItem('token', 'e2e-token'))
+    await page.goto('/dashboard/orders/S20260830143000ABC123/refund')
+    await expect(page.getByText('退款流程进行中')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/退款已进入流程/)).toBeVisible()
+    await expect(page.getByRole('button', { name: '确认退款' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '查看订单详情' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '返回我的订单' })).toBeVisible()
+  })
+})
+
 test.describe('订单流程时间线（s-pay-post-purchase-completion）', () => {
   test.beforeEach(async ({ mockApi }) => {
     mockApi.registerUser()

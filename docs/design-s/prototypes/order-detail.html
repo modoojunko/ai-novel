@@ -109,6 +109,8 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 <div class="switcher" id="switcher">
   <button data-state="paid" class="on">已支付</button>
   <button data-state="waiting">等待支付</button>
+  <button data-state="refundCooldown">冷静期中</button>
+  <button data-state="refundCooldownEnd">冷静期已结束</button>
   <button data-state="refunding">退款中</button>
   <button data-state="refunded">已退款</button>
   <button data-state="expired">已过期</button>
@@ -238,6 +240,34 @@ const STATES = {
       ["支付成功后套餐到货，激活开始计时", "订单 15:55 过期", "todo"],
     ],
     ops: [["继续支付", "btn-primary"], ["取消订单", "btn-ghost"]],
+  },
+  refundCooldown: {
+    pill: ["pill-status pill-warn", "退款中"],
+    notice: ["warn", "退款将在 <b>04:37</b> 后提交（套餐已停止使用）。冷静期内可取消恢复使用。"],
+    hide: [], payT: true,
+    steps: [
+      ["下单", "2026-08-28 14:20", "done"],
+      ["支付成功 ¥72.00", "2026-08-28 14:22", "done"],
+      ["套餐到货", "2026-08-28 14:22", "done"],
+      ["申请退款（折算 ¥7.76），套餐已停止使用", "2026-09-01 18:30", "done"],
+      ["退款确认（冷静期）", "预计 2026-09-01 18:35 提交", "now"],
+      ["微信原路退回（预计 3 天内到账）", "—", "todo"],
+    ],
+    ops: [["取消退款", "btn-primary"]],
+  },
+  refundCooldownEnd: {
+    pill: ["pill-status pill-warn", "退款中"],
+    notice: ["info", "冷静期已结束，退款流程已启动，<b>不能再取消</b>。款项将原路退回您的微信，一般数分钟至 3 个工作日到账。"],
+    hide: [], payT: true,
+    steps: [
+      ["下单", "2026-08-28 14:20", "done"],
+      ["支付成功 ¥72.00", "2026-08-28 14:22", "done"],
+      ["套餐到货", "2026-08-28 14:22", "done"],
+      ["申请退款（折算 ¥7.76），套餐已停止使用", "2026-09-01 18:30", "done"],
+      ["退款已确认，提交微信中", "—", "now"],
+      ["微信原路退回（预计 3 天内到账）", "—", "todo"],
+    ],
+    ops: [["返回我的订单", "btn-secondary"]],
   },
   refunding: {
     pill: ["pill-status pill-warn", "退款中"],
