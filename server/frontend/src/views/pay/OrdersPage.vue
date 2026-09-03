@@ -19,6 +19,8 @@ const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
 const loadingMore = ref(false)
+/** 切版/刷新中（有旧数据时的局部加载态：旧列表置灰，不整页白屏） */
+const refreshing = ref(false)
 const items = ref<OrderListItem[]>([])
 const total = ref(0)
 const activeTab = ref<OrderTabKey>(orderTabFromQuery(route.query.tab))
@@ -34,37 +36,38 @@ const hasMore = computed(() => items.value.length < total.value)
 async function fetchPage(reset: boolean): Promise<void> {
   const token = ++tabToken
   if (reset) {
-    loading.value = true
-    items.value = []
-    total.value = 0
+    // 切版/刷新不清空旧列表（orders-page-latency）：置灰局部加载；仅首进无数据才整页 loading
+    if (items.value.length > 0) refreshing.value = true
+    else loading.value = true
   } else {
     loadingMore.value = true
   }
   const page = reset ? 1 : Math.floor(items.value.length / PAGE_SIZE) + 1
+  const statuses = statusList.value ?? undefined
   try {
-    const res = await apiPayOrders(page, PAGE_SIZE, statusList.value ?? undefined)
+    // 探测与主请求并行（改前 total=0 时串行两连发）；「全部」tab total 即账号全量免探测
+    const [res, probe] = await Promise.all([
+      apiPayOrders(page, PAGE_SIZE, statuses),
+      reset && statuses ? apiPayOrders(1, 1) : Promise.resolve(null),
+    ])
     if (token !== tabToken) return
     total.value = res.total
     if (reset) {
       items.value = res.items
-      // 该类为空时探测账号是否完全无订单（区分整页空态与 tab 空态）
-      if (res.total === 0) {
-        const probe = await apiPayOrders(1, 1)
-        if (token !== tabToken) return
-        pageEmpty.value = probe.total === 0
-      } else {
-        pageEmpty.value = false
-      }
+      // 整页空态判定口径不变：过滤 tab 看账号全量探测，「全部」tab 看自身 total
+      pageEmpty.value = (probe ? probe.total : res.total) === 0
     } else {
       const seen = new Set(items.value.map((o) => o.order_no))
       items.value = [...items.value, ...res.items.filter((o) => !seen.has(o.order_no))]
     }
   } catch (e) {
+    // 失败保留旧列表原样，MUST NOT 误显示空态
     console.error('orders load failed:', e)
   } finally {
     if (token === tabToken) {
       loading.value = false
       loadingMore.value = false
+      refreshing.value = false
     }
   }
 }
@@ -136,7 +139,7 @@ function orderSub(o: OrderListItem): string {
 
       <!-- 列表 -->
       <template v-else>
-        <div class="panel">
+        <div class="panel" :class="{ refreshing }">
           <div
             v-for="o in items" :key="o.order_no"
             class="order-row" role="link" tabindex="0"
@@ -159,7 +162,7 @@ function orderSub(o: OrderListItem): string {
           </div>
         </div>
         <div class="list-tail">
-          <span class="cnt">已显示 {{ items.length }} 笔 · 共 {{ total }} 笔</span>
+          <span class="cnt">{{ refreshing ? '加载中…' : `已显示 ${items.length} 笔 · 共 ${total} 笔` }}</span>
           <button v-if="hasMore" class="btn btn-secondary" :disabled="loadingMore" @click="fetchPage(false)">
             {{ loadingMore ? '加载中…' : '加载更多' }}
           </button>
@@ -179,7 +182,8 @@ function orderSub(o: OrderListItem): string {
 .page-head .sub { font-size: 13px; color: var(--muted); margin-top: 6px; max-width: 560px; }
 .loading { padding: 60px; text-align: center; color: var(--muted); }
 .seg-row { margin-bottom: 16px; }
-.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 6px 0; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 6px 0; transition: opacity .15s; }
+.panel.refreshing { opacity: .5; pointer-events: none; }
 .tab-empty { padding: 40px 16px; text-align: center; color: var(--muted); font-size: 13.5px; }
 .tab-empty p { margin: 0 0 6px; }
 .order-row {

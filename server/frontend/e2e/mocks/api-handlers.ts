@@ -50,6 +50,8 @@ export class MockApi {
   private devices: TestDevice[] = []
   private license: TestLicense | null = null
   private orders: TestOrder[] = []
+  /** orders 列表 GET 门控（orders-page-latency：延迟/失败，测切版保留旧列表、失败不误报空态） */
+  private ordersGate: { delayMs?: number; fail?: boolean } | null = null
   /** 退款预览覆写（测拒绝态：below_one_fen / over_one_year / refundable:false） */
   private refundPreviewOverride: { refundable: boolean; reason: string; refund_fen?: number; remaining_desc?: string } | null = null
   /** 冷静期剩余秒数（e2e 用短窗口） */
@@ -91,8 +93,8 @@ export class MockApi {
     '**/api/user/deletion/refund-request',
     '**/api/user/deletion',
     '**/api/user/deletion/revoke',
-    '**/api/devices/my',
-    '**/api/devices/remove',
+    '**/api/device/my',
+    '**/api/device/remove',
     '**/api/authorize',
     '**/api/reset_password',
     // ⚠️ 真实调用带 query（?pc_hash=），Playwright glob 匹配完整 URL，须以 * 收尾
@@ -110,6 +112,7 @@ export class MockApi {
     this.userMeDead = false
     this.preferencesFailCount = 0
     this.skusOverride = null
+    this.ordersGate = null
     this.deletionPending = false
     this.deletionDaysLeft = 15
     this.deletionDeadline = '2026-09-14'
@@ -191,6 +194,11 @@ export class MockApi {
             ? (o.status === 'refunded' ? { status: 'revoked', activated_at: '', expires_at: '' } : { status: 'pending_activation', activated_at: '', expires_at: '' })
             : null),
     }))
+  }
+
+  /** orders 列表 GET 门控（延迟/失败；null 解除） */
+  setOrdersGate(gate: { delayMs?: number; fail?: boolean } | null): void {
+    this.ordersGate = gate
   }
 
   /** 覆写退款预览结果（拒绝态测试） */
@@ -454,7 +462,7 @@ export class MockApi {
       return route.fulfill(json(0, { success: true }))
     }
 
-    if (path === '/api/devices/my' && method === 'GET') {
+    if (path === '/api/device/my' && method === 'GET') {
       const activatedCount = this.devices.filter(d => d.activated).length
       return route.fulfill(json(0, this.devices, {
         total_count: this.devices.length,
@@ -463,7 +471,7 @@ export class MockApi {
       }))
     }
 
-    if (path === '/api/devices/remove' && method === 'POST') {
+    if (path === '/api/device/remove' && method === 'POST') {
       const body = route.request().postDataJSON()
       this.devices = this.devices.filter(d => d.id !== body?.id)
       return route.fulfill(json(0, { success: true }))
@@ -498,7 +506,7 @@ export class MockApi {
     }
 
     // ── 激活（到货-激活两段式第二段；明细待激活行入口）──
-    if (path === '/api/pay/codes/activate' && method === 'POST') {
+    if (path === '/api/pay/grants/activate' && method === 'POST') {
       const body = route.request().postDataJSON()
       if (this.activateFailMode !== 'none') {
         const m = this.activateFailMode
@@ -523,6 +531,8 @@ export class MockApi {
     }
 
     if (path === '/api/pay/orders' && method === 'GET') {
+      if (this.ordersGate?.fail) return route.abort('connectionrefused')
+      if (this.ordersGate?.delayMs) await new Promise((r) => setTimeout(r, this.ordersGate.delayMs))
       // orders-status-tabs：与真实契约同款——status 逗号白名单筛选 + 真分页 + total 筛选全量计数
       const statusQ = url.searchParams.get('status')
       const allowed = ['pending', 'paid', 'fulfilled', 'refund_pending', 'refund_processing', 'refunded', 'closed', 'exception']

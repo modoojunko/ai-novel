@@ -138,6 +138,49 @@ test.describe('我的订单', () => {
     await expect(page).toHaveURL(/\/dashboard\/orders\/S-PENDING-1/)
   })
 
+  test('切版等待期旧列表保留置灰，不白屏（orders-page-latency）', async ({ page, mockApi }) => {
+    mockApi.registerUser()
+    mockApi.setOrders([
+      paidOrder({ order_no: 'S-PAID-1' }),
+      paidOrder({ order_no: 'S-REFUND-1', status: 'refunded', refunded_at: '2026-08-31T02:00:00Z', refund_amount_fen: 776 }),
+    ])
+    await gotoOrders(page)
+    await expect(page.getByText('没有待支付的订单')).toBeVisible({ timeout: 10000 })
+    await tabButton(page, '全部').click()
+    await expect(page.getByText('S-PAID-1')).toBeVisible({ timeout: 10000 }) // 先等全部版渲染完
+    // 请求在途（mock 延迟 1.5s）：旧内容不被清空、面板置灰、尾块加载指示
+    mockApi.setOrdersGate({ delayMs: 1500 })
+    await tabButton(page, '退款').click()
+    await expect(page.locator('.panel.refreshing')).toBeVisible()
+    await expect(page.getByText('S-PAID-1')).toBeVisible() // 旧列表仍在
+    await expect(page.getByText('加载中…').first()).toBeVisible()
+    // 响应到达：整批替换为退款版
+    mockApi.setOrdersGate(null)
+    await expect(page.getByText('S-REFUND-1')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('.panel.refreshing')).toHaveCount(0)
+    await expect(page.getByText('S-PAID-1')).toHaveCount(0)
+  })
+
+  test('切版请求失败保留旧列表，不误报空态（orders-page-latency）', async ({ page, mockApi }) => {
+    mockApi.registerUser()
+    mockApi.setOrders([
+      paidOrder({ order_no: 'S-PAID-1' }),
+      paidOrder({ order_no: 'S-REFUND-1', status: 'refunded', refunded_at: '2026-08-31T02:00:00Z', refund_amount_fen: 776 }),
+    ])
+    await gotoOrders(page)
+    await expect(page.getByText('没有待支付的订单')).toBeVisible({ timeout: 10000 })
+    await tabButton(page, '全部').click()
+    await expect(page.getByText('S-PAID-1').first()).toBeVisible({ timeout: 10000 })
+    mockApi.setOrdersGate({ fail: true })
+    await tabButton(page, '退款').click()
+    // 失败后旧列表原样保留；不出现「没有退款的订单」误导空态
+    await expect(page.getByText('S-PAID-1').first()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('没有退款的订单')).toHaveCount(0)
+    mockApi.setOrdersGate(null)
+    await tabButton(page, '退款').click()
+    await expect(page.getByText('S-REFUND-1')).toBeVisible({ timeout: 10000 }) // 恢复后可重试成功
+  })
+
   test('列表尾退款口径说明', async ({ page, mockApi }) => {
     mockApi.registerUser()
     mockApi.setOrders([paidOrder()])
