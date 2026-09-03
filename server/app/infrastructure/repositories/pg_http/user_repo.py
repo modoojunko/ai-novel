@@ -1,6 +1,8 @@
 """CloudBase PG HTTP API 用户仓储。"""
 from __future__ import annotations
 
+import time
+
 from app.domain.identity import User
 from app.domain.identity.deletion import (
     DELETION_STATUS_DELETED,
@@ -10,6 +12,19 @@ from app.domain.identity.deletion import (
 from app.infrastructure.repositories.pg_http.client import PgRestClient, parse_dt
 
 _TABLE = "users"
+
+# get_id 进程内 TTL 缓存（orders-page-latency）：username→user_id 每请求都要解析，
+# pg_http 每解析一趟 HTTPS 往返。只缓存命中（None 不缓存，"用户不存在"即时可见）；
+# 软标记删号不物理删行，缓存不改变 get_id 语义；账号生命周期事件（注销/改名）走
+# invalidate_id 主动失效，最坏 TTL 窗口内自愈。容量超限整体清空（个人站点量级）。
+_ID_CACHE_TTL_SECONDS = 300.0
+_ID_CACHE_MAX_ENTRIES = 512
+_id_cache: dict[str, tuple[int, float]] = {}
+
+
+def invalidate_id(username: str) -> None:
+    """按用户名主动丢弃 user_id 解析缓存（账号注销/改名等生命周期事件接线用）。"""
+    _id_cache.pop(username, None)
 
 
 class PgHttpUserRepo:
@@ -37,9 +52,24 @@ class PgHttpUserRepo:
         return self._to_domain(doc) if doc else None
 
     def get_id(self, username: str) -> int | None:
-        """username → user_id（代理键解析，与 SqlUserRepo.get_id 对齐）。"""
+        """username → user_id（代理键解析，与 SqlUserRepo.get_id 对齐）。
+
+        命中进程内 TTL 缓存时免 DB 往返；缓存对调用方透明（命中/回源结果一致）。
+        """
+        now = time.monotonic()
+        hit = _id_cache.get(username)
+        if hit is not None and now - hit[1] < _ID_CACHE_TTL_SECONDS:
+            return hit[0]
+        if hit is not None:
+            _id_cache.pop(username, None)
         doc = self.client.find_one(_TABLE, {"username": username})
-        return int(doc["id"]) if doc and doc.get("id") is not None else None
+        if doc is None or doc.get("id") is None:
+            return None
+        uid = int(doc["id"])
+        if len(_id_cache) >= _ID_CACHE_MAX_ENTRIES:
+            _id_cache.clear()
+        _id_cache[username] = (uid, now)
+        return uid
 
     def exists(self, username: str) -> bool:
         return self.client.find_one(_TABLE, {"username": username}) is not None
@@ -53,6 +83,7 @@ class PgHttpUserRepo:
             "security_answer_hash": user.security_answer_hash,
             "status": user.status,
         })
+        invalidate_id(user.username)  # 同名注销后重注册：旧 id 缓存条目作废
         return user
 
     def update_password(self, username: str, new_password_hash: str) -> None:

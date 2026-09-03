@@ -91,7 +91,14 @@ class PgRestClient:
         limit: int | None = None,
         select: str | None = None,
         offset: int | None = None,
-    ) -> list[dict]:
+        want_count: bool = False,
+    ) -> list[dict] | tuple[list[dict], int | None]:
+        """want_count=True 时同请求附带 Prefer: count=exact，返回 (rows, total)。
+
+        total 取 Content-Range 尾段（如 `0-19/45` → 45）；网关不回该头时
+        total=None，由调用方决定是否回退单独计数（orders-page-latency：
+        订单列表 total+当前页单往返取得）。
+        """
         params = self._build_params(filter, sort, limit)
         if select:
             params["select"] = select
@@ -100,9 +107,19 @@ class PgRestClient:
         resp = self._client.get(
             f"{self._endpoint}/{table}",
             params=params,
+            headers={"Prefer": "count=exact"} if want_count else None,
         )
         self._raise(resp)
-        return resp.json()
+        rows = resp.json()
+        if not want_count:
+            return rows
+        cr = resp.headers.get("content-range", "")
+        if "/" in cr:
+            try:
+                return rows, int(cr.rsplit("/", 1)[1])
+            except ValueError:
+                pass
+        return rows, None
 
     def count(self, table: str, filter: dict | None = None) -> int:
         """精确计数（Prefer: count=exact → Content-Range 尾段，如 `0-0/45`）。

@@ -102,6 +102,44 @@ class OrderRepo:
                 filt["status"] = f"in.({','.join(statuses)})"
             return self._db.count("orders", filter=filt)
 
+    def find_by_user_page(
+        self, user_id: int, statuses: list[str] | None = None,
+        limit: int = 20, offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        """订单列表单往返取数（orders-page-latency）：(当前页行, total)。
+
+        筛选/排序/分页窗口与 find_by_user + count_by_user 分步调用完全同口径。
+        pg_http：count 与取行合并为一次请求（Prefer: count=exact）；
+        网关不回 Content-Range 时降级为单独计数（语义不变，多一趟往返）。
+        sqlite：一次查询自计数+切片（个人订单量级，与 count() 降级同款假设）。
+        """
+        if isinstance(self._db, Session):
+            from app.models.payments import OrderORM
+            q = self._db.query(OrderORM).filter_by(user_id=user_id)
+            if statuses:
+                q = q.filter(OrderORM.status.in_(statuses))
+            rows = q.order_by(OrderORM.created_at.desc()).all()
+            return (
+                [{c.name: getattr(o, c.name) for c in o.__table__.columns}
+                 for o in rows[offset:offset + limit]],
+                len(rows),
+            )
+        else:
+            filt: dict = {"user_id": user_id}
+            if statuses:
+                filt["status"] = f"in.({','.join(statuses)})"
+            rows, total = self._db.find(
+                "orders",
+                filter=filt,
+                sort=[("created_at", "desc")],
+                limit=limit,
+                offset=offset,
+                want_count=True,
+            )
+            if total is None:
+                total = self._db.count("orders", filter=filt)
+            return rows, total
+
     def find_pending_expirable(self, cutoff: datetime) -> list[dict]:
         """扫描 pending 且超时的订单（T1 关单）。"""
         if isinstance(self._db, Session):

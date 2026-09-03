@@ -480,3 +480,157 @@ class TestPgHttpOrderRepo:
 
         from app.infrastructure.repositories.payments_repo import OrderRepo
         assert OrderRepo(make_client(handler)).count_by_user(7, statuses=["paid", "fulfilled"]) == 2
+
+
+# ══════════════════════════════════════════════════════════════════
+# find(want_count=True) + find_by_user_page：单往返取数（orders-page-latency）
+# ══════════════════════════════════════════════════════════════════
+
+class TestFindWantCount:
+    def test_parses_total_from_content_range(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.headers["Prefer"] == "count=exact"
+            return httpx.Response(200, json=[{"id": 1}], headers={"Content-Range": "0-0/45"})
+
+        rows, total = make_client(handler).find("orders", limit=1, want_count=True)
+        assert rows == [{"id": 1}]
+        assert total == 45
+
+    def test_total_none_without_content_range(self):
+        """网关不回 Content-Range → total=None，回退由调用方决定。"""
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert "Prefer" in request.headers  # 仍带 count=exact 尝试
+            return _ok([{"id": 1}])
+
+        rows, total = make_client(handler).find("orders", want_count=True)
+        assert rows == [{"id": 1}]
+        assert total is None
+
+    def test_default_find_returns_plain_list(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert "Prefer" not in request.headers
+            return _ok([{"id": 1}])
+
+        assert make_client(handler).find("orders") == [{"id": 1}]
+
+
+class TestPgHttpOrderRepoFindPage:
+    def test_single_roundtrip_carries_count_and_window(self):
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json=[{"order_no": "A"}], headers={"Content-Range": "0-0/45"})
+
+        from app.infrastructure.repositories.payments_repo import OrderRepo
+        rows, total = OrderRepo(make_client(handler)).find_by_user_page(
+            7, statuses=["paid", "fulfilled"], limit=20, offset=40,
+        )
+        assert rows == [{"order_no": "A"}]
+        assert total == 45
+        assert len(requests) == 1  # 单次往返：total 与当前页同请求
+        url = unquote(str(requests[0].url))
+        assert "user_id=eq.7" in url
+        assert "status=in.(paid,fulfilled)" in url
+        assert "order=created_at.desc" in url
+        assert "limit=20" in url
+        assert "offset=40" in url
+
+    def test_falls_back_to_separate_count_without_range(self):
+        """无 Content-Range → 降级单独计数（第二趟 limit=1），语义不变。"""
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if request.url.params["limit"] == "1":
+                return httpx.Response(200, json=[], headers={"Content-Range": "*/45"})
+            return _ok([{"order_no": "A"}])
+
+        from app.infrastructure.repositories.payments_repo import OrderRepo
+        rows, total = OrderRepo(make_client(handler)).find_by_user_page(7)
+        assert rows == [{"order_no": "A"}]
+        assert total == 45
+        assert len(requests) == 2
+
+    def test_without_statuses_omits_status(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert "status" not in request.url.params
+            return httpx.Response(200, json=[], headers={"Content-Range": "*/0"})
+
+        from app.infrastructure.repositories.payments_repo import OrderRepo
+        rows, total = OrderRepo(make_client(handler)).find_by_user_page(7)
+        assert rows == []
+        assert total == 0
+
+
+# ══════════════════════════════════════════════════════════════════
+# get_id 进程内 TTL 缓存（orders-page-latency）
+# ══════════════════════════════════════════════════════════════════
+
+class TestUserIdCache:
+    @pytest.fixture(autouse=True)
+    def _clean_cache(self):
+        from app.infrastructure.repositories.pg_http import user_repo as m
+        m._id_cache.clear()
+        yield
+        m._id_cache.clear()
+
+    @staticmethod
+    def _repo(calls: list[httpx.Request]) -> PgHttpUserRepo:
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request)
+            return _ok([{"id": 7, "username": "alice"}])
+        return PgHttpUserRepo(make_client(handler))
+
+    def test_hit_avoids_second_roundtrip(self):
+        calls: list[httpx.Request] = []
+        repo = self._repo(calls)
+        assert repo.get_id("alice") == 7
+        assert repo.get_id("alice") == 7
+        assert len(calls) == 1
+
+    def test_invalidate_forces_refetch(self):
+        calls: list[httpx.Request] = []
+        from app.infrastructure.repositories.pg_http.user_repo import invalidate_id
+        repo = self._repo(calls)
+        assert repo.get_id("alice") == 7
+        invalidate_id("alice")
+        assert repo.get_id("alice") == 7
+        assert len(calls) == 2
+
+    def test_missing_username_not_cached(self):
+        calls: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request)
+            return _ok([])
+
+        repo = PgHttpUserRepo(make_client(handler))
+        assert repo.get_id("ghost") is None
+        assert repo.get_id("ghost") is None
+        assert len(calls) == 2  # None 不缓存："用户不存在"即时可见
+
+    def test_ttl_expiry_refetches(self, monkeypatch):
+        from app.infrastructure.repositories.pg_http import user_repo as m
+        clock = {"t": 0.0}
+        monkeypatch.setattr(m.time, "monotonic", lambda: clock["t"])
+        calls: list[httpx.Request] = []
+        repo = self._repo(calls)
+        assert repo.get_id("alice") == 7
+        clock["t"] = 301.0  # 越过 300s TTL
+        assert repo.get_id("alice") == 7
+        assert len(calls) == 2
+
+    def test_capacity_clears_all(self):
+        calls: list[httpx.Request] = []
+        from app.infrastructure.repositories.pg_http import user_repo as m
+        repo = self._repo(calls)
+        original_max = m._ID_CACHE_MAX_ENTRIES
+        m._ID_CACHE_MAX_ENTRIES = 2
+        try:
+            for i in range(3):
+                m._id_cache[f"u{i}"] = (i, m.time.monotonic())
+            repo.get_id("alice")  # 触发清空后回源
+            assert "u0" not in m._id_cache and "alice" in m._id_cache
+        finally:
+            m._ID_CACHE_MAX_ENTRIES = original_max
