@@ -1631,7 +1631,7 @@ HTTP 状态码：成功 200；认证 401；属主不符 404（防枚举）；其
 | `/api/pay/orders/{no}/refund-preview` | GET | — | `{refundable:bool, reason:'below_one_fen'/'over_one_year'/'not_paid'/'in_progress'/'', refund_fen, remaining_desc}` | **方法=GET 路径=kebab**（前端版为准）；reason 枚举统一前端命名 |
 | `/api/pay/orders/{no}/refund` | POST | `{reason}` | `{refund_no, amount_fen, status:'refund_pending', cooldown_remaining_seconds}` | ★含倒计时秒数 |
 | `/api/pay/orders/{no}/refund/cancel` | POST | — | `{order_no, status:'fulfilled', grant_restored:true}` \| `{code:4007}` | **新增**（冷静期取消） |
-| `/api/pay/membership` | GET | — | `MembershipView`（Z.6） | 路径定 membership（前端版为准） |
+| `/api/pay/license` | GET | — | `LicenseView`（Z.6） | s-pay-license-naming：路径对齐域对象 License（原 membership 为域外词）；`/api/pay/membership` 过渡别名保留至前端线上包零引用后删 |
 | `/api/pay/grants/activate` | POST | `{order_no}` | `{grant_start, grant_end, tier}` | 路径+参数定前端版（order_no 而非 code_id） |
 | `/api/auth/check-auth` | GET | — | 现有字段 + `{days_remaining?, attention?}` | A4 扩展（可选字段） |
 
@@ -1667,7 +1667,7 @@ HTTP 状态码：成功 200；认证 401；属主不符 404（防枚举）；其
 }
 ```
 
-### Z.6 MembershipView DTO（统一版）
+### Z.6 LicenseView DTO（统一版）
 
 ```json
 {
@@ -1685,7 +1685,7 @@ HTTP 状态码：成功 200；认证 401；属主不符 404（防枚举）；其
 统一版的落地子集（追加字段向后兼容；时间均为 naive UTC isoformat 字符串，前端按北京渲染）：
 
 - **OrderDetailView 追加**：`fulfilled_at`（到货时间；空串=未到货半截态，前端到货行当且仅当其非空才显示实际时间）、`refund_requested_at`（退款申请时刻；空串=未发生）、`grant`（该单台账行快照 `{status: pending_activation|active|revoked, activated_at, expires_at}`，pending 态=null，老数据 null）。
-- **MembershipView 追加**：`grants[]`（**仅订单来源**台账行，手工发放码不进明细只计汇总）每行 `{code_id, order_no, tier, duration_days, status: pending_activation|active|revoked, activated_at, expires_at, grant_start}`，排序待激活→生效中→已收回、组内按创建时间倒序；`pending_count` 改为明细中待激活行真实计数（旧版恒 0）。旧前端忽略未知字段，旧后端无 `grants` 字段由前端 `?? []` 守卫。
+- **LicenseView 追加**：`grants[]`（**仅订单来源**台账行，手工发放码不进明细只计汇总）每行 `{code_id, order_no, tier, duration_days, status: pending_activation|active|revoked, activated_at, expires_at, grant_start}`，排序待激活→生效中→已收回、组内按创建时间倒序；`pending_count` 改为明细中待激活行真实计数（旧版恒 0）。旧前端忽略未知字段，旧后端无 `grants` 字段由前端 `?? []` 守卫。
 - **激活错误 msg 枚举**（`POST /api/pay/grants/activate` 返回 code 4004/4012，前端按 msg 映射文案）：`not_fulfilled`（订单非到货态）→「套餐还未到货，暂不能激活」；`order_not_found`/`code_not_found` →「找不到对应的套餐记录」；`Code is not in pending_activation state`（NotActivatableError，含已激活/已收回）→「该套餐当前不能激活（可能已激活或已收回）」。错误提示一律带「联系客服」可点击出口。
 - **台账行 created_at 写入口径**（s-payments 域）：支付发货与管理员发放两条路径均显式写 naive UTC，禁用 DB 列默认 `now()`（上海时区会话落上海本地时间裸值被按 UTC 读，快 8h）；存量偏差不回填。
 

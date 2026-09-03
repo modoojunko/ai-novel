@@ -86,7 +86,7 @@
 
 - `src/components/dashboard/ActivateCodeForm.vue`（删除）
 - `DashboardHome.vue` / `LicensePage.vue` 中的激活码 modal 与入口（重写时自然消失）
-- 路由 `/dashboard/license` → 迁移为 `/dashboard/membership`，旧路径 301 redirect（防外链/书签失效）
+- 路由 `/dashboard/membership` → 迁移为 `/dashboard/license`（s-pay-license-naming：路径对齐域对象 License），旧路径前端 redirect（防外链/书签失效）
 
 ---
 
@@ -106,13 +106,13 @@ src/router/index.ts 路由树（★新增 ◎改版 →重定向）
 │   └── order/:orderNo     ★ name=order-pay       OrderPayPage（waiting/paid/closed/failVerify 终态面板）
 ├── /dashboard             DashboardLayout（requiresAuth，改版导航）
 │   ├── ''                 ◎ name=dashboard       DashboardHome（横幅+四卡）
-│   ├── membership         ★ name=membership      MembershipPage（我的套餐）
+│   ├── license            ★ name=license         LicensePage（我的套餐）
 │   ├── orders             ★ name=orders          OrdersPage（我的订单）
 │   ├── orders/:orderNo    ★ name=order-detail    OrderDetailPage（六态详情）
 │   ├── orders/:orderNo/refund ★ name=refund     RefundPage（申请退款流）
 │   ├── devices            ◎ name=devices         DevicesPage（额度头+解绑确认）
 │   └── account            （不动）
-│   └── license            → redirect { name: 'membership' }（旧路径兼容一个版本期后删）
+│   └── membership         → redirect { name: 'license' }（上线前旧书签兼容；老激活码书签原路径即本页）
 └── /*                     NotFound（不动）
 ```
 
@@ -129,7 +129,7 @@ src/router/index.ts 路由树（★新增 ◎改版 →重定向）
 
 ```
 首页 · 我的套餐 · 我的订单 · 我的设备 · 我的账户
-/dashboard  /dashboard/membership  /dashboard/orders  /dashboard/devices  /dashboard/account
+/dashboard  /dashboard/license  /dashboard/orders  /dashboard/devices  /dashboard/account
 ```
 
 - 各页 `<router-link active-class="on">`，首页用 `exact-active-class="on"`（现状模式照抄）。
@@ -147,7 +147,7 @@ src/router/index.ts 路由树（★新增 ◎改版 →重定向）
 5. **已登录用户访问 `/pay`** 正常进 pick 态（不加 guestOnly）。
 6. **会话中途失效**（token 过期，拦截器 `handleUnauthorized` 硬跳 `/login`）：维持现有全局行为，`redirect` query 带回 `/pay...` 或 `/pay/order/:orderNo`，登录后回跳可恢复（轮询页靠 URL 订单号）。不为收银台单独改 `handleUnauthorized`（避免全局回归风险）。
 
-**控制台侧**：`/dashboard/**` 维持 `requiresAuth` 正向守卫（含新增 orders/membership 子路由），未登录 → `/login?redirect=…`（guards.spec.ts 补用例）。
+**控制台侧**：`/dashboard/**` 维持 `requiresAuth` 正向守卫（含新增 orders/license 子路由），未登录 → `/login?redirect=…`（guards.spec.ts 补用例）。
 
 ### 2.4 入口/去向对应表（storymap ↔ 路由）
 
@@ -159,12 +159,12 @@ src/router/index.ts 路由树（★新增 ◎改版 →重定向）
 | 我的套餐 | page-head「续费或购买时长」/ 免费态「去购买套餐」 | `/pay` |
 | 我的订单 · 空态 | 「去购买套餐」 | `/pay` |
 | 收银台各终态出口 | 「返回控制台」「重新下单」「返回重选」「重试」 | `/dashboard` / `/pay`（保留选区）/ `/pay` |
-| 已到货页「先存着」 | 次链接 | `/dashboard/membership` |
+| 已到货页「先存着」 | 次链接 | `/dashboard/license` |
 | 已到货页「立即激活」 | 主按钮 | 原地反馈（激活后仍停在本页显示已生效，提供「返回控制台」） |
 | 订单行「详情 ›」 | 链接 | `/dashboard/orders/:orderNo` |
 | 订单详情「申请退款」 | 按钮 | `/dashboard/orders/:orderNo/refund` |
 | 订单详情「继续支付」（waiting 态） | 主按钮 | `/pay/order/:orderNo` |
-| 订单详情「去我的套餐」 | 主按钮 | `/dashboard/membership` |
+| 订单详情「去我的套餐」 | 主按钮 | `/dashboard/license` |
 | 订单详情「再来一单 / 重新下单」 | 按钮 | `/pay?sku={order.sku_id}`（带上原 sku 预选） |
 
 ---
@@ -191,7 +191,7 @@ src/router/index.ts 路由树（★新增 ◎改版 →重定向）
 | OrderTimeline | `components/pay/OrderTimeline.vue` | 订单流程时间线（详情页复用） |
 | CopyableNo | `components/pay/CopyableNo.vue` | 微信单号脱敏+复制 |
 | HomeBanner | `components/dashboard/HomeBanner.vue` | 首页进行中横幅 |
-| MembershipHero | `components/dashboard/MembershipHero.vue` | 套餐总览头 |
+| LicenseHero | `components/dashboard/LicenseHero.vue` | 套餐总览头 |
 | GrantTimeline | `components/dashboard/GrantTimeline.vue` | 时长构成时间线 |
 | PendingGrantCard | `components/dashboard/PendingGrantCard.vue` | 待激活区块 |
 | OrderRow | `components/dashboard/OrderRow.vue` | 订单列表行 |
@@ -199,7 +199,7 @@ src/router/index.ts 路由树（★新增 ◎改版 →重定向）
 | RefundPage | `views/dashboard/RefundPage.vue` | 退款流容器（preview/processing/refunded/reject 四态） |
 | RefundConfirmModal | `components/dashboard/RefundConfirmModal.vue` | 退款确认弹层 |
 | DeviceRow + UnbindDeviceModal | `components/dashboard/DeviceRow.vue`、`UnbindDeviceModal.vue` | 设备行/解绑确认 |
-| DashboardHome / MembershipPage / OrdersPage / OrderDetailPage / DevicesPage | `views/dashboard/*.vue` | 五个页面容器 |
+| DashboardHome / LicensePage / OrdersPage / OrderDetailPage / DevicesPage | `views/dashboard/*.vue` | 五个页面容器 |
 
 新 composables / utils：`composables/useOrderPolling.ts`、`utils/format.ts`（fen→¥、北京时间、倒计时、微信单号脱敏）、`constants/pay-copy.ts`（§7 文案表落地为常量，实现单一来源）、`constants/agreement.ts`（协议全文示例稿 + 版本号，来自 cashier.html `<template id="doc-*">`）。
 
@@ -333,7 +333,7 @@ OrderPayPage（waiting）
 
 | 面板 | 触发 | 结构要点 | 主/次操作 |
 | --- | --- | --- | --- |
-| PayDonePanel（paid） | 轮询命中 fulfilled | `.done-mark`（ok 对勾）+ `.serif`「包年 · 已到货，待激活」+ 说明「点『立即激活』马上开始计时；先存着也随时可在『我的套餐』激活」+ `.kv` 五行（支付金额/获得时长/生效方式「激活后，接在试用结束后开始」/支付方式/协议确认「v2026.08 · 已同意（14:22）」） | 「立即激活」（primary，调 `apiPayActivateGrant`，成功后原地变为已生效态并 toast，OQ13）/「返回控制台」（secondary，/dashboard）/ lnk「先存着，之后在『我的套餐』激活」（/dashboard/membership） |
+| PayDonePanel（paid） | 轮询命中 fulfilled | `.done-mark`（ok 对勾）+ `.serif`「包年 · 已到货，待激活」+ 说明「点『立即激活』马上开始计时；先存着也随时可在『我的套餐』激活」+ `.kv` 五行（支付金额/获得时长/生效方式「激活后，接在试用结束后开始」/支付方式/协议确认「v2026.08 · 已同意（14:22）」） | 「立即激活」（primary，调 `apiPayActivateGrant`，成功后原地变为已生效态并 toast，OQ13）/「返回控制台」（secondary，/dashboard）/ lnk「先存着，之后在『我的套餐』激活」（/dashboard/license） |
 | PayClosedPanel（closed） | 轮询命中 closed | warn notice「本次订单未支付成功，没有产生扣款。重新下单将按当前价格生成新订单。」+ panel 行「PRO · 包年（365 天）· 下单时价格 ¥292.00」+ lnk「对价格有疑问？看看当前活动说明」 | 「重新下单」（primary → `/pay?sku={sku_id}`） |
 | PayFailCreatePanel（failCreate） | 创建失败（无 code_url） | err notice「网络波动或支付服务暂时不可用，本次未能生成支付二维码。没有产生扣款，请重试。」+ panel 行（sku + 价格）+ lnk「反复失败？联系客服」 | 「重试」（primary，重新创建/重新拿码）/「返回重选」（ghost → /pay） |
 | PayVerifyPanel（failVerify） | status=exception | err notice「已收到您的支付，系统正在核对金额，暂未到账。资金安全、不会丢失——请勿重复支付。」+ panel（「核对一般几分钟内完成…」「超过 30 分钟未到账，请携带订单号联系客服人工处理。」） | 「联系客服」（primary）/「查看我的订单」（secondary → /dashboard/orders）。**无重试按钮**（防重复支付，PRD §7） |
@@ -356,7 +356,7 @@ DashboardHome（/dashboard）
     ├── 我的套餐卡（试用态加 .hl）：panel-h「我的套餐」+ 状态 pill（生效中 pill-ok / 试用 · 剩 2 天 pill-warn）
     │   .row：.big「PRO」 + .pill-tag「包年 · 5 台设备」
     │   .row：.metric「455<small>天剩余</small>」+ .meta「最远到期 2027-11-26 · 正在消耗：包季（剩 66 天），包年已排队」
-    │   .ops：AppButton(secondary,sm)「查看套餐明细」→ /dashboard/membership（试用态：primary,sm「购买套餐」）
+    │   .ops：AppButton(secondary,sm)「查看套餐明细」→ /dashboard/license（试用态：primary,sm「购买套餐」）
     ├── 我的设备卡：panel-h「我的设备」+ .meta「额度按已购最高档计算」；.metric「2/5 台」+ 设备行摘要；.ops「管理设备」
     ├── 下载客户端卡：meta「在客户端里使用全部写作功能；套餐时长与设备额度与网页端同步。」+ Windows 版/macOS 版按钮 + 「v0.12 · 约 30 MB」（DownloadModal）
     └── 我的账户卡：meta「账号 {username} · 注册于 {date}」+「修改密码」（/dashboard/account）+ lnk「退出登录」（session.logout）
@@ -364,20 +364,20 @@ DashboardHome（/dashboard）
 
 | HomeBanner | 内容 |
 | --- | --- |
-| Props | `notices: HomeNotice[]`（来自 membership summary，§4.2） |
+| Props | `notices: HomeNotice[]`（来自 license summary，§4.2） |
 | 渲染 | 只取第一条；类型 `refund_processing`（含 est_fen）/`trial_ending`（含 days_left） |
 | a11y | `role=status` |
 
-数据源：挂载 `Promise.all([session.fetchUserInfo(), membershipStore.fetchSummary(), deviceStore.fetchDevices()])`，usePageLoad 统一 loadError/retry。激活码 modal 与 LicenseCard 整体移除。
+数据源：挂载 `Promise.all([session.fetchUserInfo(), licenseStore.fetchSummary(), deviceStore.fetchDevices()])`，usePageLoad 统一 loadError/retry。激活码 modal 与 LicenseCard 整体移除。
 
-### 3.3 我的套餐（membership.html）
+### 3.3 我的套餐（license.html）
 
 ```
-MembershipPage（/dashboard/membership）
+LicensePage（/dashboard/license）
 ├── .page-head：h1「我的套餐」+ sub（付费态「档位按已购最高档计算，时长按购买顺序先后消耗。」/免费态「购买后，套餐的使用情况与历史会展示在这里。」）
 │                + AppButton(primary)「续费或购买时长」→ /pay（免费态：「去购买套餐」）
 └── .stack
-    ├── MembershipHero（.panel）
+    ├── LicenseHero（.panel）
     │   ├── .panel-h：.tier-hero（.name「PRO」+ .pill-tag「包年」+ .pill-status pill-ok「生效中」+ .pill-tag「5 台设备」）
     │   │            右侧 .sum：剩余合计 <b>455 天</b>（已激活）· 最远到期 <b>2027-11-26</b> · 待激活 <b>1 个</b>（365 天）
     │   ├── .notice.info：「已激活的包年即刻把设备额度提升到 5 台；当前正在消耗包季时长，包季到期后包年自动接上。您还有 1 个套餐待激活——不计时、不占额度，想囤着随时激活。」（按数据拼装）
@@ -391,7 +391,7 @@ MembershipPage（/dashboard/membership）
 
 | 组件 | Props/Emits |
 | --- | --- |
-| MembershipHero | Props：`summary: MembershipSummary`；无 emits（动作下放） |
+| LicenseHero | Props：`summary: LicenseSummary`；无 emits（动作下放） |
 | GrantTimeline | Props：`grants: GrantRow[]`（`{id,order_no,name,tier,days,state:'past'\|'now'\|'future'\|'pending'\|'frozen',grant_start,grant_end,remaining_text}`）；时间线行点击 → `/dashboard/orders/:orderNo`（可选，OQ12） |
 | PendingGrantCard | Props：`grant: GrantRow`；Emits：`activate()` → `apiPayActivateGrant({order_no})` → 成功 toast「已激活，接在 {最远到期日} 后开始」+ 刷新 summary |
 | 免费态 | tier-hero 显示「试用」+ pill-warn「剩 2 天」+ pill-tag「1 台设备」；时间线仅试用一行；设备尾注「试用与免费版限 1 台设备；购买后：包月/包季 3 台、包年 5 台。lnk 对比各档位」 |
@@ -532,7 +532,7 @@ DevicesPage（/dashboard/devices）
 
 ## 4. API 层
 
-> **⚠️ 契约以 `backend-detail-design.md` 附录 Z（联合契约唯一版本）为准**——已对齐：错误码=数字码+前端映射、refund-preview=GET kebab、激活=grants/activate{order_no}、微信单号=完整值+前端脱敏渲染、membership 路径、pending 恢复端点、refund/cancel 新增。本节字段名不一致处以附录 Z 为准。
+> **⚠️ 契约以 `backend-detail-design.md` 附录 Z（联合契约唯一版本）为准**——已对齐：错误码=数字码+前端映射、refund-preview=GET kebab、激活=grants/activate{order_no}、微信单号=完整值+前端脱敏渲染、license 路径、pending 恢复端点、refund/cancel 新增。本节字段名不一致处以附录 Z 为准。
 
 ### 4.1 模块清单：`src/api/pay.ts`（函数签名）
 
@@ -567,8 +567,8 @@ export function apiPayCancelRefund(orderNo: string): Promise<ApiResponse<void>>
 // POST /pay/orders/{no}/refund/cancel：取消退款申请（OQ1——是否保留由答案定）
 
 // ── 套餐（我的套餐/首页） ──
-export function apiPayMembership(): Promise<ApiResponse<MembershipSummary>>
-// GET /pay/membership：summary + grants + notices
+export function apiPayLicense(): Promise<ApiResponse<LicenseSummary>>
+// GET /pay/license：summary + grants + notices
 export function apiPayActivateGrant(payload: { order_no: string }): Promise<ApiResponse<{ grant_start: string; grant_end: string }>>
 // POST /pay/grants/activate：立即激活（到货页/待激活区块共用）
 ```
@@ -622,7 +622,7 @@ interface RefundPreview {
   grant_range: [string, string] | null; remain_text: string   // 「9 天 16 小时 48 分」
 }
 
-interface MembershipSummary {
+interface LicenseSummary {
   tier_label: string; period_label: string | null       // 免费态 '试用'/'免费'
   status: 'active' | 'trial' | 'free'
   remaining_days: number | null; max_expires_at: string | null
@@ -720,7 +720,7 @@ useOrderPolling(orderNo: Ref<string>) → {
 | 协议弹窗开合/视图/agreed | TermsConfirmModal 局部 | 每次打开重置（决策 9） |
 | 订单列表/订单详情 | 页面局部 + usePageLoad | 无跨页共享需求 |
 | 退款流四态 | RefundPage 局部（态由 preview 结果 + 提交结果驱动） | 同上 |
-| 套餐总览（summary/grants/notices） | `stores/membership.ts`（新） | DashboardHome 卡 + MembershipPage + 激活后多处刷新共用 |
+| 套餐总览（summary/grants/notices） | `stores/license.ts`（新） | DashboardHome 卡 + LicensePage + 激活后多处刷新共用 |
 | 设备 | `stores/devices.ts`（现有，复用） | 已有；quota 头直接用 `activeLimit` |
 | 会话/tier/到期 | `stores/session.ts`（现有，扩展） | tier 语义随后端重构调整（OQ5） |
 | toast | `stores/toast`（现有） | 全局提示唯一通道 |
@@ -751,11 +751,11 @@ export const usePayStore = defineStore('pay', () => {
 })
 ```
 
-### 5.3 membership / devices / session 扩展
+### 5.3 license / devices / session 扩展
 
-- `stores/membership.ts`（新）：`summary: Ref<MembershipSummary|null>`、`fetchSummary()`、`activateGrant(orderNo)`（成功后重拉 summary）；沿用 devices store 的冷启动重试口径（`[20s,20s]` 仅无业务 code 网络错误重试）。
+- `stores/license.ts`（新）：`summary: Ref<LicenseSummary|null>`、`fetchSummary()`、`activateGrant(orderNo)`（成功后重拉 summary）；沿用 devices store 的冷启动重试口径（`[20s,20s]` 仅无业务 code 网络错误重试）。
 - `stores/devices.ts`：不改逻辑；设备页/首页卡读 `devices/totalCount/activatedCount/activeLimit`。
-- `stores/session.ts`：`tierDisplay` 映射表随 tier 重构（monthly/quarterly/yearly → PRO/MAX × period）重写（OQ5）；`expires_at` 已有，首页试用临期横幅优先用 membership notices（口径统一）。
+- `stores/session.ts`：`tierDisplay` 映射表随 tier 重构（monthly/quarterly/yearly → PRO/MAX × period）重写（OQ5）；`expires_at` 已有，首页试用临期横幅优先用 license notices（口径统一）。
 
 ### 5.4 未支付订单恢复（刷新/换设备回到 waiting）
 
@@ -967,7 +967,7 @@ export const usePayStore = defineStore('pay', () => {
 `e2e/mocks/api-handlers.ts` 的 `MockApi.routes` 追加（注意 Playwright 后注册优先，兜底 `/api/` 谓词拦截已在，漏出即 code 1）：
 
 ```
-'**/api/pay/skus'           '**/api/pay/membership'      '**/api/pay/grants/activate'
+'**/api/pay/skus'           '**/api/pay/license'      '**/api/pay/grants/activate'
 '**/api/pay/orders'         '**/api/pay/orders/pending'  '**/api/pay/orders/*'
 '**/api/pay/orders/*/query' '**/api/pay/orders/*/cancel'
 '**/api/pay/orders/*/refund-preview'  '**/api/pay/orders/*/refund'  '**/api/pay/orders/*/refund/cancel'
@@ -992,8 +992,8 @@ export const usePayStore = defineStore('pay', () => {
 | `pay-orders.spec.ts` | 六状态行渲染（pill 类/金额/副行文案逐一断言）、空态、行点击进详情、pending 行倒计时文案 |
 | `pay-order-detail.spec.ts` | 六态（mock 详情返回驱动）：状态 pill/notice 文案、kv 隐藏字段矩阵（expired 无支付时间/协议行/起止/微信单号）、时间线节点与打勾态、ops 按状态聚合（paid=申请退款+去我的套餐、waiting=继续支付+取消订单…）、微信单号复制（grant clipboard 权限，断言剪贴板值=完整单号+按钮文案变「已复制」）、waiting「继续支付」跳 `/pay/order/:no` |
 | `pay-refund.spec.ts` | preview 数字与后端 fixture 一致；确认弹层 kv 与 rule 文案；确认后 processing 态；refunded 态；拒绝两类（reject-fen/reject-window 文案）；「先不退了」返回 |
-| `pay-membership.spec.ts` | 付费态：hero 汇总、时间线三行（past/now/future 与 pill）+ frozen 行（pill-warn 退款冻结）、待激活区块「立即激活」→ grants/activate 请求 + 刷新；免费态：试用 hero+对比文案 |
-| `guards.spec.ts`（扩展） | `/dashboard/orders`、`/dashboard/membership` 未登录跳 login；`/dashboard/license` redirect membership；`/pay` 未登录**不**跳转（渲染登录卡）；`/pay/order/:no` 未登录同上 |
+| `pay-license.spec.ts` | 付费态：hero 汇总、时间线三行（past/now/future 与 pill）+ frozen 行（pill-warn 退款冻结）、待激活区块「立即激活」→ grants/activate 请求 + 刷新；免费态：试用 hero+对比文案 |
+| `guards.spec.ts`（扩展） | `/dashboard/orders`、`/dashboard/license` 未登录跳 login；`/dashboard/license` redirect license；`/pay` 未登录**不**跳转（渲染登录卡）；`/pay/order/:no` 未登录同上 |
 | `dashboard-home.spec.ts`（更新） | 新首页：横幅两态、四卡、导航 5 项、激活码入口不存在（断言「激活新码」count=0）；devices.spec.ts 更新解绑弹窗用例 |
 
 全部不依赖真实后端（H5）；现有 specs 中引用 LicensePage/激活码的用例随拆除同步更新。
@@ -1041,7 +1041,7 @@ export const usePayStore = defineStore('pay', () => {
 | OQ2 | **收银台对外 URL 契约** | C端 功能墙/到期条/外链要写死 S端 入口。本设计取 `/pay?sku={sku_id}`。确认路径名（/pay vs /checkout vs /buy）与参数格式，一经 C端 写入即冻结。 |
 | OQ3 | **「帮我查」NOTPAY 反馈的呈现** | PRD §7 有「NOTPAY → info『未查到支付记录，稍候再查』」口径，但原型未呈现此形态。确认：内嵌 info notice（本设计采用）还是仅按钮旁短提示？文案是否用 T2-7？ |
 | OQ4 | **订单列表分页与排序** | PRD 未定义。默认：创建时间倒序、暂不分页（一次全量，接口预留 page/page_size）。订单量预期多大？超过多少需要分页/按状态筛选？ |
-| OQ5 | **session.tier 语义迁移与 appbar pill 口径** | 现状 tier=monthly/quarterly/yearly（时长当档）；重构为 tier(PRO/MAX)×period 后 `tierDisplay` 映射表需重写。appbar pill 显示什么：档名「PRO」、时长「包年」、还是档+时长？原型各屏不一（console 常规态「包年」/membership「PRO」）。 |
+| OQ5 | **session.tier 语义迁移与 appbar pill 口径** | 现状 tier=monthly/quarterly/yearly（时长当档）；重构为 tier(PRO/MAX)×period 后 `tierDisplay` 映射表需重写。appbar pill 显示什么：档名「PRO」、时长「包年」、还是档+时长？原型各屏不一（console 常规态「包年」/license「PRO」）。 |
 | OQ6 | **收银台内登录失败的错误呈现**与注册回跳 | 登录失败用卡内 `.f-err` 还是 toast？「注册即送 7 天全功能试用」注册完成后是否直接回 `/pay?sku=…` 继续购买（注册即登录态，本设计假定是）？ |
 | OQ7 | **微信单号脱敏规则与完整值下发** | 脱敏格式按原型 `4200****7721`（前 4 后 4）？完整单号经属主鉴权接口下发给前端供复制，是否接受（PRD B4 只防遍历，未禁下发）？ |
 | OQ8 | **「最受欢迎」数据来源** | 人数=orders 近 30 天统计、<50 不展示（ADJUSTMENTS）。由 skus 接口一并返回（本设计）还是独立统计接口？MAX 上线前 popular 恒为 yearly 是否符合预期？ |

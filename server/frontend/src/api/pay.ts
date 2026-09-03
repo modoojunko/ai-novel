@@ -92,7 +92,7 @@ export interface OrderGrant {
 }
 
 /** 我的套餐明细行（订单来源台账行；手工码不进明细） */
-export interface MembershipGrant {
+export interface LicenseGrant {
   code_id: string
   order_no: string
   tier: string
@@ -103,13 +103,13 @@ export interface MembershipGrant {
   grant_start: string
 }
 
-export interface MembershipView {
+export interface LicenseView {
   tier: string
   remaining_sec: number
   remaining_desc: string
   max_expires_at: string | null
   pending_count: number
-  grants?: MembershipGrant[] // 旧后端无此字段 → undefined，消费侧 ?? [] 兜底
+  grants?: LicenseGrant[] // 旧后端无此字段 → undefined，消费侧 ?? [] 兜底
 }
 
 export interface ActivateResult {
@@ -212,8 +212,8 @@ export async function apiPayCancelRefund(orderNo: string): Promise<{ grant_resto
   return r.data.data!
 }
 
-export async function apiPayMembership(): Promise<MembershipView> {
-  const r = await request.get<ApiResponse<MembershipView>>('/pay/membership')
+export async function apiPayLicense(): Promise<LicenseView> {
+  const r = await request.get<ApiResponse<LicenseView>>('/pay/license')
   return r.data.data!
 }
 

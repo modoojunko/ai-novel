@@ -5,6 +5,7 @@
 
 | 日期 | 文件 | 类型 | 内容与原因 |
 | --- | --- | --- | --- |
+| 2026-09-03 | membership.html → license.html | 更名 | s-pay-license-naming 本体论对齐：页面对象是域内 License 聚合（membership 为域外词，谁也不是），原型随实现同批更名（git mv 保历史）；内容零变化。下方历史台账中的 membership.html 均为更名前事实，不改写 |
 | 2026-08-28 | 全部 3 个 HTML | 非基线 | 右上角评审切换器（.switcher）：仅评审用，实现对照/截图时排除 |
 | 2026-08-28 | 全部 3 个 HTML | 来源 | 内联样式 = `server/frontend/src/design/base.css` @cross 共享段逐字内联（tokens/btn/appbar/main/page-head/pill/mcard）+ S端 本地段（panel 家族 / notice 四语气 / btn-lg·block·disabled / empty 槽）+ 原型专用布局工具（plans 网格 / order-row / kv / stage 容器）——布局工具不做视觉决策，色/圆角/字体全走令牌 |
 | 2026-08-28 | cashier.html | 口径 | 价格为示例：三档基准 ¥30/¥90/¥365 × 折扣系数 0.8，集中在 MOCK 常量区；正式定价后只改 MOCK 并回改此行 |

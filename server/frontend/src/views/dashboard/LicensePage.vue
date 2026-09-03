@@ -1,25 +1,25 @@
 <script setup lang="ts">
 /**
  * 我的套餐——档位头汇总 + 订单来源套餐明细（生效中/待激活/已收回）+ 激活入口。
- * 设计事实源：docs/design-s/prototypes/membership.html
+ * 设计事实源：docs/design-s/prototypes/license.html
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppModal from '@/components/ui/AppModal.vue'
-import { apiPayActivate, apiPayMembership, fmtBj, type MembershipGrant, type MembershipView } from '@/api/pay'
+import { apiPayActivate, apiPayLicense, fmtBj, type LicenseGrant, type LicenseView } from '@/api/pay'
 
 const router = useRouter()
 const loading = ref(true)
-const data = ref<MembershipView | null>(null)
+const data = ref<LicenseView | null>(null)
 
-const grants = computed<MembershipGrant[]>(() => data.value?.grants ?? [])
+const grants = computed<LicenseGrant[]>(() => data.value?.grants ?? [])
 const isEmpty = computed(() => !!data.value && grants.value.length === 0 && data.value.remaining_sec <= 0)
 
 const TIER_NAMES: Record<string, string> = { trial: '试用', pro: 'PRO', max: 'MAX', lifetime: '永久' }
 function tierName(tier: string): string {
   return TIER_NAMES[tier] || tier
 }
-function durationLabel(g: MembershipGrant): string {
+function durationLabel(g: LicenseGrant): string {
   return g.duration_days >= 36500 ? '永久' : `${g.duration_days} 天`
 }
 function statusText(status: string): string {
@@ -31,7 +31,7 @@ function statusPill(status: string): string {
 
 // ── 激活（确认弹层 → 接口 → 刷新；两段式第二段的用户入口）──
 const confirmOpen = ref(false)
-const confirmTarget = ref<MembershipGrant | null>(null)
+const confirmTarget = ref<LicenseGrant | null>(null)
 const busy = ref(false)
 const toast = ref('')
 const activateErr = ref('')
@@ -43,15 +43,15 @@ function flash(msg: string) {
 
 async function reload() {
   try {
-    data.value = await apiPayMembership()
+    data.value = await apiPayLicense()
   } catch (e) {
-    console.error('membership load failed:', e)
+    console.error('license load failed:', e)
   } finally {
     loading.value = false
   }
 }
 
-function askActivate(g: MembershipGrant) {
+function askActivate(g: LicenseGrant) {
   confirmTarget.value = g
   activateErr.value = ''
   confirmOpen.value = true
@@ -86,7 +86,7 @@ onMounted(reload)
 </script>
 
 <template>
-  <div class="membership-page">
+  <div class="license-page">
     <div class="page-head">
       <div>
         <h1>我的套餐</h1>
@@ -162,7 +162,7 @@ onMounted(reload)
 </template>
 
 <style scoped>
-.membership-page { max-width: 720px; margin: 0 auto; position: relative; }
+.license-page { max-width: 720px; margin: 0 auto; position: relative; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
 .page-head h1 { font-family: var(--font-display); font-size: 26px; font-weight: 600; margin: 0; }
 .page-head .sub { font-size: 13px; color: var(--muted); margin-top: 6px; }

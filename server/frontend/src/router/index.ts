@@ -56,14 +56,15 @@ const routes = [
         component: () => import('@/views/dashboard/DashboardHome.vue'),
       },
       {
-        // 激活码入口已拆除（8.3）——老链接重定向到我的套餐
+        // 域对象是 License（s-pay-license-naming）：真身页占用 license 路径，
+        // 老激活码书签（8.3 拆除）语义连续直接落到本页；membership 旧路径接住上线前书签
         path: 'license',
-        redirect: { name: 'membership' },
+        name: 'license',
+        component: () => import('@/views/dashboard/LicensePage.vue'),
       },
       {
         path: 'membership',
-        name: 'membership',
-        component: () => import('@/views/dashboard/MembershipPage.vue'),
+        redirect: { name: 'license' },
       },
       {
         path: 'orders',

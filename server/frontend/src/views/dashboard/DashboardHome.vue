@@ -16,8 +16,8 @@ import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
 import Ico from '@/components/ui/Ico.vue'
 import { P } from '@/components/ui/icons'
 import {
-  apiPayMembership, apiPayOrders, fenToYuan,
-  type MembershipView, type OrderListItem,
+  apiPayLicense, apiPayOrders, fenToYuan,
+  type LicenseView, type OrderListItem,
 } from '@/api/pay'
 
 const router = useRouter()
@@ -25,13 +25,13 @@ const session = useSessionStore()
 const deviceStore = useDeviceStore()
 
 const showDownloadModal = ref(false)
-const membership = ref<MembershipView | null>(null)
+const license = ref<LicenseView | null>(null)
 const orders = ref<OrderListItem[]>([])
 
 const { loadError, retry } = usePageLoad(() => Promise.all([
   session.fetchUserInfo(),
   deviceStore.fetchDevices(),
-  apiPayMembership().then((m) => (membership.value = m)),
+  apiPayLicense().then((m) => (license.value = m)),
   apiPayOrders(1, 50).then((r) => (orders.value = r.items)),
 ]))
 
@@ -50,7 +50,7 @@ const banner = computed(() => {
       link: '查看进度',
     }
   }
-  const m = membership.value
+  const m = license.value
   if (m && m.tier === 'trial' && m.remaining_sec > 0 && m.remaining_sec <= 7 * 86400) {
     const days = Math.max(1, Math.ceil(m.remaining_sec / 86400))
     return {
@@ -64,15 +64,15 @@ const banner = computed(() => {
 })
 
 const tierName = computed(() => {
-  const t = membership.value?.tier ?? ''
+  const t = license.value?.tier ?? ''
   if (t === 'trial') return '试用'
   if (t === 'max') return 'MAX'
   if (t === 'pro') return 'PRO'
   return '免费'
 })
 
-const membershipStatusPill = computed(() => {
-  const m = membership.value
+const licenseStatusPill = computed(() => {
+  const m = license.value
   if (!m) return { cls: 'pill-tag', text: '—' }
   if (m.tier === 'trial' && m.remaining_sec > 0) {
     return { cls: 'pill-warn', text: `试用 · 剩 ${Math.max(1, Math.ceil(m.remaining_sec / 86400))} 天` }
@@ -96,7 +96,7 @@ const todayText = computed(() => {
         <p class="sub">{{ todayText }}</p>
       </div>
       <AppButton variant="primary" @click="router.push('/pay')">
-        {{ membership?.tier === 'trial' ? '购买套餐，继续使用' : '续费或购买时长' }}
+        {{ license?.tier === 'trial' ? '购买套餐，继续使用' : '续费或购买时长' }}
       </AppButton>
     </div>
 
@@ -120,27 +120,27 @@ const todayText = computed(() => {
       <!-- 四卡 -->
       <div class="cards">
         <!-- 我的套餐 -->
-        <AppCard hoverable :class="{ hl: membership?.tier === 'trial' }">
+        <AppCard hoverable :class="{ hl: license?.tier === 'trial' }">
           <div class="panel-h">
             <span class="qt serif">我的套餐</span>
-            <span v-if="membershipStatusPill.text !== '—'" class="pill" :class="membershipStatusPill.cls">{{ membershipStatusPill.text }}</span>
+            <span v-if="licenseStatusPill.text !== '—'" class="pill" :class="licenseStatusPill.cls">{{ licenseStatusPill.text }}</span>
           </div>
           <div class="row">
             <span class="big">{{ tierName }}</span>
           </div>
-          <div class="meta" v-if="membership">
-            <template v-if="membership.remaining_sec > 0">剩余 {{ membership.remaining_desc }}</template>
+          <div class="meta" v-if="license">
+            <template v-if="license.remaining_sec > 0">剩余 {{ license.remaining_desc }}</template>
             <template v-else>当前无生效中的套餐时长</template>
-            <template v-if="membership.max_expires_at"> · 最远到期 {{ membership.max_expires_at.slice(0, 10) }}</template>
-            <template v-if="membership.pending_count > 0"> · 待激活 {{ membership.pending_count }} 个</template>
+            <template v-if="license.max_expires_at"> · 最远到期 {{ license.max_expires_at.slice(0, 10) }}</template>
+            <template v-if="license.pending_count > 0"> · 待激活 {{ license.pending_count }} 个</template>
           </div>
           <div class="ops">
             <AppButton
-              :variant="membership?.tier === 'trial' ? 'primary' : 'secondary'"
+              :variant="license?.tier === 'trial' ? 'primary' : 'secondary'"
               size="sm"
-              @click="router.push(membership?.tier === 'trial' ? '/pay' : '/dashboard/membership')"
+              @click="router.push(license?.tier === 'trial' ? '/pay' : '/dashboard/license')"
             >
-              {{ membership?.tier === 'trial' ? '购买套餐' : '查看套餐明细' }}
+              {{ license?.tier === 'trial' ? '购买套餐' : '查看套餐明细' }}
             </AppButton>
           </div>
         </AppCard>
