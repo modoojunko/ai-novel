@@ -56,7 +56,7 @@ test.describe('收银台', () => {
     await expect(fullRow).toContainText('《退款政策》（v2026.08）')
   })
 
-  test('支付成功 → 已到货待激活', async ({ page, mockApi }) => {
+  test('支付成功 → 已到货待激活 → 立即激活就地生效', async ({ page, mockApi }) => {
     mockApi.setPayHint('SUCCESS')
     await gotoPay(page)
     await enterWaiting(page)
@@ -64,7 +64,11 @@ test.describe('收银台', () => {
     await page.getByText('我已支付，帮我查一下到账').click()
     await expect(page.getByText('支付成功')).toBeVisible({ timeout: 10000 })
     await expect(page.getByText('已到货，待激活')).toBeVisible()
-    await expect(page.getByRole('button', { name: '立即激活' })).toBeVisible()
+    // 立即激活=就地真激活（不再只是跳转我的套餐）；成功后标题与到期信息联动
+    await page.getByRole('button', { name: '立即激活' }).click()
+    await expect(page.getByText('已激活，计时中')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/到期/)).toBeVisible()
+    await expect(page.getByRole('button', { name: '立即激活' })).toHaveCount(0)
   })
 
   test('手动查单未支付成功 → 反馈可重试', async ({ page, mockApi }) => {
