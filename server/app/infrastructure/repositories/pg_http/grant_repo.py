@@ -16,8 +16,9 @@ class PgHttpGrantRepo:
         self.client = client
 
     def _resolve_user_id(self, username: str) -> int | None:
-        doc = self.client.find_one(_USERS, {"username": username})
-        return int(doc["id"]) if doc and doc.get("id") is not None else None
+        # username 路径走共享 TTL 缓存解析（license-userid-cache），免每请求一趟 users 往返
+        from app.infrastructure.repositories.pg_http.user_repo import resolve_user_id
+        return resolve_user_id(self.client, username)
 
     def _resolve_username(self, user_id) -> str:
         if user_id is None:

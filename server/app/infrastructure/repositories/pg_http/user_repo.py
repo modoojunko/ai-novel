@@ -27,6 +27,28 @@ def invalidate_id(username: str) -> None:
     _id_cache.pop(username, None)
 
 
+def resolve_user_id(client: PgRestClient, username: str) -> int | None:
+    """username → user_id 的共享缓存解析（license-userid-cache）。
+
+    pg_http 仓储凡需 username→id 解析 MUST 走本函数，禁止各自 find_one(users)
+    直查——绕开缓存即多一趟往返（code_repo 曾因此让 /pay/license 多一跳）。
+    """
+    now = time.monotonic()
+    hit = _id_cache.get(username)
+    if hit is not None and now - hit[1] < _ID_CACHE_TTL_SECONDS:
+        return hit[0]
+    if hit is not None:
+        _id_cache.pop(username, None)
+    doc = client.find_one(_TABLE, {"username": username})
+    if doc is None or doc.get("id") is None:
+        return None
+    uid = int(doc["id"])
+    if len(_id_cache) >= _ID_CACHE_MAX_ENTRIES:
+        _id_cache.clear()
+    _id_cache[username] = (uid, now)
+    return uid
+
+
 class PgHttpUserRepo:
     def __init__(self, client: PgRestClient):
         self.client = client
@@ -52,24 +74,8 @@ class PgHttpUserRepo:
         return self._to_domain(doc) if doc else None
 
     def get_id(self, username: str) -> int | None:
-        """username → user_id（代理键解析，与 SqlUserRepo.get_id 对齐）。
-
-        命中进程内 TTL 缓存时免 DB 往返；缓存对调用方透明（命中/回源结果一致）。
-        """
-        now = time.monotonic()
-        hit = _id_cache.get(username)
-        if hit is not None and now - hit[1] < _ID_CACHE_TTL_SECONDS:
-            return hit[0]
-        if hit is not None:
-            _id_cache.pop(username, None)
-        doc = self.client.find_one(_TABLE, {"username": username})
-        if doc is None or doc.get("id") is None:
-            return None
-        uid = int(doc["id"])
-        if len(_id_cache) >= _ID_CACHE_MAX_ENTRIES:
-            _id_cache.clear()
-        _id_cache[username] = (uid, now)
-        return uid
+        """username → user_id（代理键解析，与 SqlUserRepo.get_id 对齐）。走共享缓存解析。"""
+        return resolve_user_id(self.client, username)
 
     def exists(self, username: str) -> bool:
         return self.client.find_one(_TABLE, {"username": username}) is not None

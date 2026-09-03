@@ -15,7 +15,6 @@ from app.infrastructure.repositories.pg_http.client import (
 )
 
 _TABLE = "codes"
-_USERS_TABLE = "users"
 
 
 class PgHttpCodeRepo:
@@ -32,13 +31,17 @@ class PgHttpCodeRepo:
         return dt.isoformat()
 
     def _resolve_user_id(self, username_or_id) -> int | None:
-        """接受 username(str) 或 user_id(int)，返回 user_id(int)。"""
+        """接受 username(str) 或 user_id(int)，返回 user_id(int)。
+
+        username 路径走共享 TTL 缓存解析（license-userid-cache）：
+        /pay/license 等每请求都解析，直查 users 表会多一趟往返。
+        """
         if isinstance(username_or_id, int):
             return username_or_id
         if not username_or_id:
             return None
-        row = self.client.find_one(_USERS_TABLE, {"username": username_or_id})
-        return row.get("id") if row else None
+        from app.infrastructure.repositories.pg_http.user_repo import resolve_user_id
+        return resolve_user_id(self.client, username_or_id)
 
     @staticmethod
     def _to_domain(doc: dict) -> ActivationCode:
