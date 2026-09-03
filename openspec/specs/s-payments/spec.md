@@ -5,7 +5,6 @@
 
 ## Requirements
 
-
 ### Requirement: 订单全生命周期状态机
 订单（根对象）SHALL 以状态机管理生命周期：pending→paid→fulfilled 为主干；closed（可复活 closed→paid）/ exception（金额核对冻结）为分支；退款族 fulfilled→refund_pending（冷静期）→refund_processing→refunded。每次状态转移 SHALL 用单语句 CAS（WHERE 期望旧态）执行，非法转移在领域层拒绝。
 
@@ -21,7 +20,6 @@
 ### Requirement: 冻结快照与金额一致性
 订单 SHALL 在创建瞬间冻结套餐事实（sku_id 引用 + sku_snapshot JSONB + amount_fen），后续 SKU 配置变更不影响已创建订单的解释、发货与退款折算。全链路金额 SHALL 使用 int 分；支付回调金额与订单金额不一致时订单 SHALL 进入 exception 终态并告警，绝不发货。
 
-
 #### Scenario: 改价不影响已下单订单
 - WHEN 用户以 ¥292 下单后运营将包年改价为 ¥350
 - THEN 该订单的退款折算仍按快照 ¥292 计算，收银台轮询与详情页金额一致
@@ -29,6 +27,7 @@
 #### Scenario: 金额不符冻结不发货
 - WHEN 回调金额与订单冻结金额不一致
 - THEN 订单进入 exception 终态并触发告警，绝不发货，等待人工处置
+
 ### Requirement: 到货-激活两段式
 支付确认后系统 SHALL 立即落权益台账行（codes，状态 pending_activation），用户 SHALL 在「我的套餐」点「激活」才开始计时（起点=当前最远到期日，顺延衔接）。未激活行不计时、不占设备额度、退款全额、永不过期。tier 归属 SHALL 按已激活行中等级最高者。台账行插入（支付发货与管理员发放两条路径）SHALL 显式写入 UTC 口径的 created_at，MUST NOT 依赖数据库列默认值求值时区（生产曾致上海本地时间裸值被按 UTC 读、比订单时间快 8h）；存量行的历史偏差不回填（无计算依赖，仅治理增量）。
 
@@ -61,10 +60,10 @@
 ### Requirement: 日对账与资金留痕
 系统 SHALL 每日拉取微信账单与内部账逐笔三键比对（商户单号/交易单号/金额），不平即 Server酱告警；所有状态变化 SHALL 追加 trade_events（append-only，数据库触发器拒绝 UPDATE/DELETE，留存≥10 年）。月度计税报表 SHALL 排除演练白名单用户。
 
-
 #### Scenario: 漏回调由对账兜底
 - WHEN 一笔支付成功但回调与补偿扫描均未触达
 - THEN 日对账发现微信侧有此单而内部账为 pending，记入 mismatch_detail 并告警
+
 ### Requirement: 购买入口三态开关
 购买入口 SHALL 支持 off（默认，入口隐藏）/ rehearsal（仅白名单用户可下单，计税与对账排除白名单）/ on 三态；生产 mock 演练期 SHALL 处于 rehearsal；dev 注入端点 SHALL 强制 Admin 鉴权且仅在 mock 模式注册。
 
@@ -75,16 +74,17 @@
 ### Requirement: 前后端联合契约
 API 端点/DTO/错误码 SHALL 以 backend-detail-design.md 附录 Z 为唯一版本：错误码=数字码+前端映射表（HTTP 200+data.code）；对外 URL/API 只用业务标识（order_no/sku_key），内部 FK 用代理 id；微信单号=完整值下发+前端脱敏渲染。
 
-
 #### Scenario: 错误码映射唯一
 - WHEN 后端返回 data.code=4007
 - THEN 前端按附录 Z.1 映射表唯一解析为 REFUND_ALREADY_SUBMITTED 并渲染对应提示
+
 ### Requirement: 发票功能暂缓守卫
 发票功能 SHALL 整体暂缓：invoices 表随建但 API/前端全部不实现；相关代码以注释占位留恢复点，启用时另行立项。
 
 #### Scenario: 暂缓期无发票入口
 - WHEN 用户浏览任一订单详情
 - THEN 不出现获取发票按钮与发票区块，后端发票端点返回 404
+
 ### Requirement: 订单列表按状态筛选与真分页
 我的订单列表接口 `GET /api/pay/orders` SHALL 支持服务端筛选与真分页：`status` 参数接受逗号分隔的订单状态白名单（pending / paid / fulfilled / refund_pending / refund_processing / refunded / closed / exception），筛选与计数同口径；`page` / `page_size` 分页返回，响应 SHALL 含 `total`（符合筛选条件的全量笔数）供前端「已显示 X 笔 · 共 Y 笔」计数。不带 `status` 时返回全部状态。筛选仅作用于现有列，MUST NOT 引入 schema 变更。
 
@@ -103,3 +103,30 @@ API 端点/DTO/错误码 SHALL 以 backend-detail-design.md 附录 Z 为唯一�
 #### Scenario: 未登录与无用户照旧拒绝
 - WHEN 未登录或用户不存在
 - THEN 返回 `code=4001`，与现有口径一致
+
+### Requirement: License 总览接口命名对齐域对象
+
+用户权益聚合总览接口的 URI 与代码符号 SHALL 取自实存域对象名（`license`），MUST NOT 引入域外词（如 membership）。接口返回内容为当前登录用户的 License 聚合视图（有效档位、最远到期、剩余时长、待激活数、订单来源套餐明细），字段口径与既有实现保持一致。
+
+#### Scenario: 我的套餐总览走 license 路径
+
+- **WHEN** 已登录用户请求 `GET /api/pay/license`
+- **THEN** 返回 `code=0` 与 License 聚合视图（tier / remaining_sec / remaining_desc / max_expires_at / pending_count / grants 明细行），字段口径与原 membership 接口完全一致
+- **AND** 未登录请求返回 `code=4001`
+
+#### Scenario: 旧路径过渡别名
+
+- **WHEN** 客户端仍请求 `GET /api/pay/membership`
+- **THEN** 返回与 `GET /api/pay/license` 完全相同的聚合视图
+- **AND** 该别名为过渡兼容，前端线上包零引用后 MUST 移除
+
+#### Scenario: 旧页面链接重定向
+
+- **WHEN** 已登录用户访问前端旧地址 `/dashboard/membership`
+- **THEN** 重定向到 `/dashboard/license` 并渲染同一 License 总览页
+- **AND** 历史激活码地址 `/dashboard/license` 直接命中该页（原重定向规则由真身页取代），导航与各跳转入口全部指向新地址
+
+#### Scenario: 前端符号单一命名
+
+- **WHEN** 检查 S端 前端源码（router / api 客户端 / 视图组件）
+- **THEN** 该资源的类型、请求函数、页面组件、路由名一律命名为 license 语义（LicenseView / apiPayLicense / LicensePage / route name `license`），仓库内存量 membership 符号仅剩后端过渡别名一处
