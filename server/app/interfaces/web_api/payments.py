@@ -83,13 +83,26 @@ async def get_skus(request: Request, db: Db = Depends(get_db)):
     enabled = cfg.get("payments.purchase.enabled") or "off"
     rehearsal_list = (cfg.get("payments.rehearsal.usernames") or "").split(",")
 
-    # 构建响应（附录 Z.4 SkusView）
+    # 构建响应（附录 Z.4 SkusView；s-pay-plans-picker：卖点/planned/display_name 扩容，只增不删）
+    import json as _json
+
     from app.domain.payments.pricing import calc_discount_display
+
+    def _selling_points(raw) -> list[str]:
+        """tiers.selling_points 列（JSON 数组文本）→ 字符串数组；失败/空回 []。"""
+        if isinstance(raw, list):
+            return [str(x) for x in raw]
+        try:
+            v = _json.loads(raw or "[]")
+            return [str(x) for x in v] if isinstance(v, list) else []
+        except (ValueError, TypeError):
+            return []
+
     sku_list = []
     for s in skus:
         sku_list.append({
             "sku_key": s.get("sku_key", ""),
-            "tier_key": s.get("tier_key", "pro"),
+            "tier_key": s.get("tier_key", ""),
             "period": s.get("period", ""),
             "period_days": s.get("period_days", 0),
             "base_price_fen": s.get("base_price_fen", 0),
@@ -103,8 +116,13 @@ async def get_skus(request: Request, db: Db = Depends(get_db)):
     return {"code": 0, "data": {
         "purchase_enabled": enabled != "off",
         "agreement_version": "v2026.08",
-        "tiers": [{"key": t.get("key"), "label": t.get("display_name"),
-                    "is_live": t.get("status") == "live"} for t in tiers],
+        "tiers": [
+            {"key": t.get("key"), "label": t.get("display_name"),
+             "is_live": t.get("status") == "live",
+             "is_planned": t.get("status") == "planned",
+             "selling_points": _selling_points(t.get("selling_points"))}
+            for t in tiers if t.get("status") != "retired"
+        ],
         "skus": sku_list,
         "popular_sku": popular,
     }}

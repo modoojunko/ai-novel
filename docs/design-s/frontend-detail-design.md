@@ -243,54 +243,52 @@ CheckoutPage
 
 登录失败：卡内 `.f-err` 或 `useToast().error(msg)`（与 LoginPage 同口径：AppInput error 优先）。
 
-#### 3.1.2 态一 · 选套餐
+#### 3.1.2 态一 · 选套餐（s-pay-plans-picker 改版：时长主轴 × 三档对比）
 
 ```
-CheckoutPage（pick）
-├── PayLayout 外壳：.back「‹ 返回控制台」+ .brand（logo-mark 爱 + 爱小说）
+CashierPage（pick，单文件态机；无独立子组件）
+├── .brand（logo-mark 爱 + 爱小说）
 ├── h1「升级套餐，解锁全部写作能力」
 ├── p.sub「一次性买断 · 到期不自动扣款 · 随时按剩余时长退款」
-├── [可选] 未支付单恢复横幅（§5.4）
-├── TierTabs          档位 tab（PRO｜MAX 即将推出）
-├── #tierLive（tier.live 时）
-│   ├── SkuCards      免费卡（当前方案）+ 时长卡 × N
-│   ├── PurchaseBar   已选 + 应付 + 已省 + 去支付 CTA
-│   └── .agree        「点击去支付后，将确认《购买协议》与《退款政策》要点（{version}）」
-│   └── .foot         全部写作功能 · 时长可囤，激活才开始计时 · 原路退款
-├── #maxPanel（tier=planned 时，.max-preview 虚线框）
-└── TermsConfirmModal v-model:open（去支付触发）
+├── PeriodTabs     时长 tab 主轴（包月默认｜包季｜包年；由 /skus 的 period 集合驱动，整条居中）
+│                  tab 内折扣徽标=该时长任一 SKU 的 discount_display（单源，前端不换算）
+├── TierCards      三档对比列（免费 + PRO + MAX planned 预告卡），费用随时长 tab 联动
+├── PurchaseBar    已选（档 · 时长（N 天））+ 应付 + 已省 + 去支付 CTA
+├── .agree-hint    「点击去支付后，将确认《付费须知》与《退款政策》要点」
+└── TermsConfirmModal（AppModal；打开重置打钩）
 ```
 
-**TierTabs**
+**状态模型（二维）**：`period ref('monthly')` + `selectedTier ref(popular 所属档回退 pro)`，`selectedSku = computed(find(tier_key===selectedTier && period===period))`；守卫 `ensureSelection()`——所选档失效/该时长无 SKU 时回落（popular 档 → 该时长有货档 → 首个 live 档，跳过 free 行）。
+
+**PeriodTabs**
 
 | 项 | 内容 |
 | --- | --- |
-| Props | `tiers: PayTier[]`（`{key,label,live:boolean}`）、`modelValue: string` |
-| Emits | `update:modelValue`（仅 live 档可 emit） |
-| DOM | `.tabs > button[data-tier]`，选中 `.on`；MAX tab 文案「MAX 即将推出」 |
-| 行为 | 点 planned 档：只切换 tab 并显示 `#maxPanel`（时长区整体隐藏，非禁用置灰——原型口径：切入即显预告面板）；点回 PRO 恢复 |
-| a11y | `role=tablist/tab`，`aria-selected` |
+| DOM | `.pay-tabs > button.pay-tab`（选中 `.on`）+ `.pay-tab-mini`（折扣徽标，无折扣不渲染） |
+| 行为 | 点 tab 切 period + ensureSelection；时长名称=periodLabel 前端单源（包月/包季/包年，无 display_name 字段） |
 
-**SkuCards / SkuCard**
+**TierCards（三档对比列）**
 
 | 项 | 内容 |
 | --- | --- |
-| Props（组） | `skus: PaySku[]`（当前 tier 的在售行）、`freeCard: FreeCardInfo`、`modelValue: string`（period）、`popular: string`、`buyers: number \| null`（<50 时后端返 null，不渲染徽标） |
-| Emits（组） | `update:modelValue(period)` |
-| Props（卡） | `sku`、`selected:boolean`、`isPopular:boolean`、`buyers:number\|null` |
-| DOM（单卡） | `.card`（选中 `.on`；免费卡 `.card.free` + `.tag.cur` 当前方案）内：`.tag`（最受欢迎）/`.off`（9折/8折徽标）/`.p-name`/`.p-days`「{days} 天 · {devices} 台设备」/`.p-price`（整数价 `¥292` + `<small>元</small>`）/`.p-was`「原价 ¥365 元」（factor=1 不显示）/`.p-feat`（卖点 `<i>` 圆点列表）/`.p-note`「本月已有 {buyers} 人选择」 |
-| 卖点文案 | 免费卡：`全部基础写作工具 / 不含 AI 能力 / 本地作品永久保留`（圆点 muted）；PRO 卡：`含免费全部功能 / AI 生成正文（流式） / 设定与章纲融入 AI`（圆点 accent）。事实源 C端 UpgradeModal.tsx（ADJUSTMENTS 2026-08-29 登记） |
-| 行为 | 点付费卡 emit；免费卡 `cursor:default` 不可选（原型 `.card.free:hover` 不变色） |
-| a11y | 组 `role=radiogroup aria-label=选择时长`，卡为 `<button role=radio :aria-checked>`；免费卡 `aria-disabled=true tabindex=-1` |
+| 免费列 | `.pay-card-free`：`当前方案` tag + ¥0 + 固定 1 台设备 + 卖点（tiers 中 key=free 行的 selling_points，空则前端兜底三条）；对比锚点不可选 |
+| 付费档列 | `.pay-card`（选中 `.on`）：档名/`{days} 天 · 最多 {devices} 台设备`/主价 fmtPrice/划线原价（有差价时）/折扣角标 `.pay-card-offpill`（discount_display）/卖点列表（selling_points，空数组回退兜底：PRO=UpgradeModal 四条事实、MAX=五条占位稿） |
+| planned 档 | `.pay-card-soon`（dashed 虚线预告卡）：档名 +「即将推出」+ 说明文案；不可选不渲染价格 |
+| 交互 | 鼠标点按选档（用户裁定：不做键盘适配/a11y radiogroup）；点免费列/预告卡无效果 |
+| 不渲染 | 「最受欢迎」pill 与人数（服务端 ≥50 人规则未实现，展示即造假） |
 
 **PurchaseBar**
 
 | 项 | 内容 |
 | --- | --- |
-| Props | `sku: PaySku`（选中行，价格展示**以服务端算价结果为准**——下单冻结口径） |
-| Emits | `pay()`（CTA 点击 → 父组件打开 TermsConfirmModal） |
-| DOM | `.purchase > .sel`（已选 `<b>` 「PRO · 包年（365 天）」）+ `.pay`（`.save`「已省 73 元」+ `.now` `.num`「¥292.00」）+ `.cta`「去支付」 |
-| 说明 | CTA 不因协议禁用（弹窗式确认替代勾选框，决策 9）；金额展示 `¥xx.xx`（H4），卡片主价可按原型显示整数+「元」 |
+| DOM | `.pay-purchase > .sel`（已选 `<b>`「PRO · 包月（30 天）」）+ `.pay`（`.save`「已省 ¥8」无折扣隐藏 + `.amount` fmtPrice）+ CTA「去支付」 |
+| 价格单源 | 三处（卡面/购买条/协议弹窗/waiting 态提示）一律 `fmtPrice(fen)`：分→元去尾零（¥30 / ¥239.2）；fenToYuan 家族仅订单/退款页消费 |
+
+**降级与守卫**
+
+- 目录拉取失败/空 → 降级骨架：免费卡 + 三时长结构卡（价格留白「价格获取失败，请刷新重试」），购买条不渲染
+- 停售分支拆分：已登录+停售 → 停售态（「暂时无法购买」+ 返回控制台）；未登录 → 路由 requiresAuth 先行重定向 `/login?redirect=/pay`（页内态〇登录卡为防御性兜底）
+- 响应式：768px 以下三档列单列纵排、购买条堆叠
 
 **TermsConfirmModal（双视图，决策 9 留痕）**
 

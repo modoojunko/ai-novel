@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>爱小说 · 购买套餐（原型 · 四态 · 选型 A）</title>
+<title>爱小说 · 购买套餐（原型 · 三档对比选套餐 · 流程七态）</title>
 <style>
 /* ═══ 内联样式：令牌与基础类同源自 server/frontend/src/design/base.css（行号见 ADJUSTMENTS.md）；
-   布局组合为选型 A（竞品风·居中块面，2026-08-29 用户选定）═══ */
+   布局组合为选型 A（竞品风·居中块面，2026-08-29 用户选定）；
+   选套餐区 09-03 改版：时长 tab 主轴（默认包月）× 免费/PRO/MAX 三档对比列（口径见 ADJUSTMENTS）═══ */
 :root {
   --bg:      oklch(98% 0.004 240);
   --surface: oklch(100% 0 0);
@@ -64,15 +65,19 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.01em; margin: 30px 0 6px; text-align: center; }
 .sub { font-size: 13px; color: var(--muted); margin: 0 0 26px; text-align: center; }
 
-.tabs { display: inline-flex; background: var(--fg-soft); border-radius: 12px; padding: 4px; gap: 4px; }
+.tabs { display: flex; width: fit-content; margin-inline: auto; background: var(--fg-soft); border-radius: 12px; padding: 4px; gap: 4px; }
 .tabs button { height: 42px; padding: 0 26px; border-radius: 9px; font-size: 14.5px; font-weight: 600; color: var(--muted); }
 .tabs button.on { background: var(--surface); color: var(--fg); box-shadow: 0 1px 3px color-mix(in oklch, var(--fg) 10%, transparent); }
+.tabs .mini { font-size: 10.5px; font-weight: 600; color: var(--accent-strong); background: var(--accent-soft); padding: 1px 7px; border-radius: 999px; margin-left: 7px; vertical-align: 1px; }
 
-.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; width: 860px; max-width: 100%; margin-top: 26px; }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 860px; max-width: 100%; margin-top: 26px; }
 .off { position: absolute; top: 10px; right: 12px; font-size: 11px; font-weight: 600; color: var(--accent-strong); background: var(--accent-soft); padding: 2px 8px; border-radius: 999px; }
 .tag.cur { background: var(--fg-soft); color: var(--muted); }
 .card.free { cursor: default; }
 .card.free:hover { border-color: var(--border); }
+.card.soon { border-style: dashed; cursor: default; background: transparent; }
+.card.soon:hover { border-color: var(--border); }
+.card.soon .p-name { font-family: var(--font-display); color: var(--muted); }
 .card { position: relative; background: var(--surface); border: 1.5px solid var(--border); border-radius: 14px; padding: 20px 20px 18px; text-align: left; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
 .card:hover { border-color: color-mix(in oklch, var(--accent) 40%, var(--border)); }
 .card.on { border-color: var(--accent); background: color-mix(in oklch, var(--accent) 4%, var(--surface)); box-shadow: 0 0 0 3px var(--accent-soft); }
@@ -99,10 +104,6 @@ h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.01em; margin: 30px 0 6
 .agree input { accent-color: var(--accent); width: 14px; height: 14px; }
 .foot { margin-top: 26px; font-size: 12px; color: var(--muted); text-align: center; }
 .foot span { margin: 0 7px; }
-
-.max-preview { width: 860px; max-width: 100%; margin-top: 26px; border: 1.5px dashed var(--border); border-radius: 14px; padding: 22px; text-align: center; color: var(--muted); }
-.max-preview b { font-family: var(--font-display); font-size: 17px; color: var(--muted); display: block; margin-bottom: 4px; }
-.max-preview .meta { font-size: 12.5px; }
 
 .stage-narrow { width: 460px; max-width: 100%; margin-top: 8px; }
 .qr-stage { display: grid; justify-items: center; gap: 14px; padding: 24px 0 8px; }
@@ -143,6 +144,8 @@ h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.01em; margin: 30px 0 6
 
 <div class="switcher" id="switcher">
   <button data-state="pick" class="on">选套餐</button>
+  <button data-state="pickCampaign">选套餐·首购活动</button>
+  <button data-state="pickMaxPlanned">选套餐·MAX未上架</button>
   <button data-state="waiting">等待支付</button>
   <button data-state="paid">已到货</button>
   <button data-state="closed">已过期</button>
@@ -158,46 +161,48 @@ h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.01em; margin: 30px 0 6
 
 <main>
 
-  <!-- ═══ 态一：选套餐（选型 A） ═══ -->
+  <!-- ═══ 态一：选套餐（09-03 改版：时长 tab 主轴 × 免费/PRO/MAX 三档对比列） ═══ -->
   <section data-stage="pick">
     <h1>升级套餐，解锁全部写作能力</h1>
     <p class="sub">一次性买断 · 到期不自动扣款 · 随时按剩余时长退款</p>
 
-    <div class="tabs" id="tierTabs">
-      <button data-tier="pro" class="on">PRO</button>
-      <button data-tier="max">MAX 即将推出</button>
+    <!-- 限时活动横幅：仅活动态显示（切换器「选套餐·首购活动」注入） -->
+    <div class="notice ok" id="campaignNotice" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12.5l5 5L20 6.5"/></svg>
+      <span id="campaignNoticeText"></span>
     </div>
 
-    <div id="tierLive">
-      <div class="cards" id="cards"></div>
-
-      <div class="purchase">
-        <div class="sel">已选<b id="selName">PRO · 包年（365 天）</b></div>
-        <div class="pay"><span class="save" id="selSave">已省 73 元</span><div class="now" id="selPrice">¥292.00</div></div>
-        <button class="cta" id="payBtn">去支付</button>
-      </div>
-      <div class="agree">点击去支付后，将确认<a class="lnk" href="#">《付费须知》</a>与<a class="lnk" href="#">《退款政策》</a>要点（v2026.08）</div>
-
-      <div class="foot">
-        <span>全部写作功能</span>·<span>时长可囤，激活才开始计时</span>·<span>原路退款</span>
-      </div>
+    <!-- 时长主轴：包月默认；季度/年度常驻折扣徽标（per-SKU discount_permille），活动期包月追加 mini 徽标 -->
+    <div class="tabs" id="periodTabs">
+      <button data-period="monthly" class="on">包月<span class="mini" id="miniMonthly" hidden></span></button>
+      <button data-period="quarterly">季度<span class="mini">9折</span></button>
+      <button data-period="yearly">年度<span class="mini">8折</span></button>
     </div>
 
-    <div class="max-preview" id="maxPanel" hidden>
-      <b>MAX · 即将推出</b>
-      <span class="meta">更高设备上限 · 更强 AI 能力。档位由后台配置上线——上线后此处自动变为可选时长与价格，无需改版。</span>
+    <!-- 三档对比列：费用随时长 tab 联动；内容简要为各档固定权益事实；点卡片选中（免费列不可选） -->
+    <div class="cards" id="tierCards"></div>
+
+    <div class="purchase">
+      <div class="sel">已选<b id="selName">PRO · 包月（30 天）</b></div>
+      <div class="pay"><span class="save" id="selSave" hidden>已省 15 元</span><div class="now" id="selPrice">¥30.00</div></div>
+      <button class="cta" id="payBtn">去支付</button>
+    </div>
+    <div class="agree">点击去支付后，将确认<a class="lnk" href="#">《付费须知》</a>与<a class="lnk" href="#">《退款政策》</a>要点（v2026.08）</div>
+
+    <div class="foot">
+      <span>全部写作功能</span>·<span>时长可囤，激活才开始计时</span>·<span>原路退款</span>
     </div>
   </section>
 
   <!-- ═══ 态二：等待支付 ═══ -->
   <section data-stage="waiting" hidden>
     <h1>微信扫码支付</h1>
-    <p class="sub">订单号 <span class="num">S20260829-7F3K</span> · PRO · 包年（365 天）</p>
+    <p class="sub">订单号 <span class="num">S20260829-7F3K</span> · PRO · 包月（30 天）</p>
 
     <div class="stage-narrow">
       <div class="notice info">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
-        <span>请使用微信扫描二维码完成支付。<b>¥292.00</b> 支付成功后套餐立即到货，激活后开始计时。</span>
+        <span>请使用微信扫描二维码完成支付。<b>¥30.00</b> 支付成功后套餐立即到货，激活后开始计时。</span>
       </div>
       <div class="panel">
         <div class="qr-stage">
@@ -235,11 +240,11 @@ h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.01em; margin: 30px 0 6
         <div class="done-mark">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>
         </div>
-        <div class="serif" style="font-size:21px; font-weight:600">包年 · 已到货，待激活</div>
+        <div class="serif" style="font-size:21px; font-weight:600">包月 · 已到货，待激活</div>
         <div style="font-size:13px; color:var(--muted)">点「立即激活」马上开始计时；先存着也随时可在「我的套餐」激活</div>
         <div class="kv" style="margin-top:16px; width:100%; max-width:320px">
-          <span>支付金额</span><b class="num">¥292.00</b>
-          <span>获得时长</span><b class="num">365 天</b>
+          <span>支付金额</span><b class="num">¥30.00</b>
+          <span>获得时长</span><b class="num">30 天</b>
           <span>生效方式</span><b>激活后，接在试用结束后开始</b>
           <span>支付方式</span><b>微信扫码支付</b>
           <span>协议确认</span><b>v2026.08 · 已同意（14:22）</b>
@@ -264,7 +269,7 @@ h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.01em; margin: 30px 0 6
         <span>本次订单未支付成功，没有产生扣款。重新下单将按<b>当前价格</b>生成新订单。</span>
       </div>
       <div class="panel" style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 20px">
-        <span style="font-size:13px; color:var(--muted)">PRO · 包年（365 天）· 下单时价格 <b class="num">¥292.00</b></span>
+        <span style="font-size:13px; color:var(--muted)">PRO · 包月（30 天）· 下单时价格 <b class="num">¥30.00</b></span>
         <button class="btn btn-primary" style="height:42px; padding:0 20px">重新下单</button>
       </div>
       <p style="text-align:center; margin-top:14px">
@@ -276,7 +281,7 @@ h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.01em; margin: 30px 0 6
   <!-- ═══ 态〇：未登录（从 C端/外链跳入收银台时：登录后回跳购买上下文） ═══ -->
   <section data-stage="login" hidden>
     <h1>登录后继续购买</h1>
-    <p class="sub">PRO · 包年（365 天）· ¥292.00 —— 您的选择已保留</p>
+    <p class="sub">PRO · 包月（30 天）· ¥30.00 —— 您的选择已保留</p>
 
     <div class="stage-narrow">
       <div class="panel" style="padding:22px 24px">
@@ -300,7 +305,7 @@ h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.01em; margin: 30px 0 6
   <!-- ═══ 态五·前置：等待支付·查单反馈失败版（用户点「帮我查」后内嵌显示，不跳页） ═══ -->
   <section data-stage="waitFail" hidden>
     <h1>微信扫码支付</h1>
-    <p class="sub">订单号 <span class="num">S20260829-7F3K</span> · PRO · 包年（365 天）</p>
+    <p class="sub">订单号 <span class="num">S20260829-7F3K</span> · PRO · 包月（30 天）</p>
 
     <div class="stage-narrow">
       <div class="panel">
@@ -344,7 +349,7 @@ h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.01em; margin: 30px 0 6
         <span>网络波动或支付服务暂时不可用，本次未能生成支付二维码。<b>没有产生扣款</b>，请重试。</span>
       </div>
       <div class="panel" style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 20px">
-        <span style="font-size:13px; color:var(--muted)">PRO · 包年（365 天）· <b class="num">¥292.00</b></span>
+        <span style="font-size:13px; color:var(--muted)">PRO · 包月（30 天）· <b class="num">¥30.00</b></span>
         <div style="display:flex; gap:8px">
           <button class="btn btn-ghost" id="failBack">返回重选</button>
           <button class="btn btn-primary" style="height:42px; padding:0 20px" id="failRetry">重试</button>
@@ -359,7 +364,7 @@ h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.01em; margin: 30px 0 6
   <!-- ═══ 态六：支付核对中（已收款金额核对未过被冻结；绝不提供重试，防重复支付） ═══ -->
   <section data-stage="failVerify" hidden>
     <h1>支付核对中</h1>
-    <p class="sub">订单号 <span class="num">S20260829-7F3K</span> · PRO · 包年（365 天）</p>
+    <p class="sub">订单号 <span class="num">S20260829-7F3K</span> · PRO · 包月（30 天）</p>
 
     <div class="stage-narrow">
       <div class="notice" style="background: var(--err-soft); color: var(--err)">
@@ -391,7 +396,7 @@ h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.01em; margin: 30px 0 6
         <li>一次性买断时长，<b>到期不自动扣款</b></li>
         <li>套餐支付成功即到货，<b>点激活才开始计时</b>；未激活可全额退</li>
         <li>退款<b>按剩余时长计算、原路退回</b>，不影响其他套餐的起止时间。</li>
-        <li>本单：<b id="mOrder">PRO · 包年（365 天）· ¥292.00</b></li>
+        <li>本单：<b id="mOrder">PRO · 包月（30 天）· ¥30.00</b></li>
       </ul>
       <p style="margin:8px 0 0; font-size:12px; color:var(--muted)">全文：<a class="lnk" href="/legal/payment-notice.html" target="_blank">《付费须知》（v2026.08）</a> · <a class="lnk" href="/legal/refund-policy.html" target="_blank">《退款政策》（v2026.08）</a></p>
       <label class="terms-agree"><input type="checkbox" id="termsCheck">
@@ -408,72 +413,130 @@ h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.01em; margin: 30px 0 6
 
 <script>
 /* MOCK 常量区：tier × period 二维配置驱动（新增套餐=加配置行）。
-   tiers：key/名称/上架状态（planned=预告占位）；skus：基准价/折扣/设备数；促销位与人数规则见 ADJUSTMENTS。 */
+   09-03 改版：时长 tab 为主轴（默认包月），列=免费/PRO/MAX 三档对比；
+   campaign=限时活动位（对单 SKU 叠加折扣系数，演示=首购包月 5 折）；
+   max.live=false 即「未上架预告」态（dashed 卡）。MAX 价格与权益为占位示例稿，
+   运营定稿后只改本区（登记 ADJUSTMENTS）。常驻折扣映射 discount_permille：季 900 / 年 800。 */
 const MOCK = {
-  tiers: { pro: { label: "PRO", live: true }, max: { label: "MAX", live: false } },
-  popular: "yearly",
+  tiers: {
+    free: { label: "免费", live: true },
+    pro:  { label: "PRO",  live: true },
+    max:  { label: "MAX",  live: true },
+  },
+  popularTier: "pro",   // 「最受欢迎」pill 挂档位列；实现规则不变：近 30 天订单 ≥50 人才展示
   buyers: 1024,
-  /* factor=该 SKU 折扣系数（1=原价）；界面显示"9折/8折"，全局系数可作为批量工具叠加 */
+  campaign: null,       // 活动态由切换器注入：{ sku, label, factor, notice }
   skus: {
-    "pro-monthly":   { period: "monthly",   name: "包月", days: 30,  base: 3000,  factor: 1.0, devices: 3 },
-    "pro-quarterly": { period: "quarterly", name: "包季", days: 90,  base: 9000,  factor: 0.9, devices: 3 },
-    "pro-yearly":    { period: "yearly",    name: "包年", days: 365, base: 36500, factor: 0.8, devices: 5 },
+    "pro-monthly":   { tier: "pro", period: "monthly",   name: "包月", days: 30,  base: 3000,  factor: 1.0, devices: 3 },
+    "pro-quarterly": { tier: "pro", period: "quarterly", name: "包季", days: 90,  base: 9000,  factor: 0.9, devices: 3 },
+    "pro-yearly":    { tier: "pro", period: "yearly",    name: "包年", days: 365, base: 36500, factor: 0.8, devices: 5 },
+    "max-monthly":   { tier: "max", period: "monthly",   name: "包月", days: 30,  base: 6000,  factor: 1.0, devices: 10 },
+    "max-quarterly": { tier: "max", period: "quarterly", name: "包季", days: 90,  base: 18000, factor: 0.9, devices: 10 },
+    "max-yearly":    { tier: "max", period: "yearly",    name: "包年", days: 365, base: 73000, factor: 0.8, devices: 10 },
+  },
+  feats: {
+    /* 三档差异化：free=事实（无 AI）；pro=UpgradeModal 真实卖点（事实源 client/…/UpgradeModal.tsx:57-78）；
+       max=5 条占位稿（运营定稿后改此区） */
+    free: ["全部基础写作工具", "不含 AI 能力", "本地作品永久保留"],
+    pro:  ["含免费全部功能", "AI 生成正文（流式）", "设定与章纲融入 AI", "卷/章高级字段（冲突阶梯·情绪设计）"],
+    max:  ["含 PRO 全部功能", "更强模型 · 更大用量", "多章连写与批量生成", "优先体验新能力", "最多 10 台设备"],
   },
 };
-const fen = (v) => "¥" + (v / 100).toFixed(2);
-const yuan = (v) => "¥" + Math.round(v / 100);
+/* 价格口径单源（09-03 前端评审 P0 修复：整元不带小数、非整元保留分；卡片/购买条/弹窗同用 fmt） */
+const fmt = (v) => "¥" + (v / 100).toFixed(2).replace(/\.?0+$/, "");
+const fen = fmt;
+const yuan = fmt;
 
-let tier = "pro", period = "yearly";
+let tier = "pro", period = "monthly";
 const $ = (id) => document.getElementById(id);
 
-function renderCards() {
-  const box = $("cards");
+/* 活动命中该 SKU 时用活动系数，否则用 SKU 常驻折扣 */
+function skuPrice(sku) {
+  const hit = MOCK.campaign && MOCK.campaign.sku === sku.tier + "-" + sku.period;
+  return { price: Math.round(sku.base * (hit ? MOCK.campaign.factor : sku.factor)), hit };
+}
+
+function renderTiers() {
+  const box = $("tierCards");
   box.innerHTML = "";
-  const free = document.createElement("div");
-  free.className = "card free";
-  free.innerHTML =
-    '<span class="tag cur">当前方案</span>' +
-    '<div class="p-name">免费</div>' +
-    '<div class="p-days">1 台设备</div>' +
-    '<div class="p-price">¥0</div>' +
-    '<div class="p-was">试用剩 2 天</div>' +
-    '<div class="p-feat"><i>全部基础写作工具</i><i>不含 AI 能力</i><i>本地作品永久保留</i></div>';
-  box.appendChild(free);
-  for (const [key, sku] of Object.entries(MOCK.skus)) {
-    if (!key.startsWith(tier + "-")) continue;
-    const price = Math.round(sku.base * sku.factor);
+  for (const [key, t] of Object.entries(MOCK.tiers)) {
     const card = document.createElement("div");
-    card.className = "card" + (sku.period === period ? " on" : "");
-    card.dataset.period = sku.period;
-    const off = sku.factor < 1 ? (Math.round(sku.factor * 100) / 10) + "折" : "";
-    card.innerHTML =
-      (sku.period === MOCK.popular ? '<span class="tag">最受欢迎</span>' : "") +
-      (off ? '<span class="off">' + off + "</span>" : "") +
-      '<div class="p-name">' + sku.name + "</div>" +
-      '<div class="p-days">' + sku.days + " 天 · " + sku.devices + " 台设备</div>" +
-      '<div class="p-price">' + yuan(price) + "<small>元</small></div>" +
-      '<div class="p-was">原价 ' + yuan(sku.base) + " 元</div>" +
-      '<div class="p-feat"><i>含免费全部功能</i><i>AI 生成正文（流式）</i><i>设定与章纲融入 AI</i></div>' +
-      (sku.period === MOCK.popular ? '<div class="p-note">本月已有 ' + MOCK.buyers.toLocaleString() + " 人选择</div>" : "");
-    card.addEventListener("click", () => { period = sku.period; renderCards(); refreshPurchase(); });
+    if (key === "free") {
+      card.className = "card free";
+      card.innerHTML =
+        '<span class="tag cur">当前方案</span>' +
+        '<div class="p-name">免费</div>' +
+        '<div class="p-days">1 台设备</div>' +
+        '<div class="p-price">¥0</div>' +
+        '<div class="p-was">试用剩 2 天</div>' +
+        '<div class="p-feat">' + MOCK.feats.free.map((f) => "<i>" + f + "</i>").join("") + "</div>";
+    } else if (!t.live) {
+      card.className = "card soon";
+      card.innerHTML =
+        '<div class="p-name">' + t.label + "</div>" +
+        '<div class="p-days">即将推出</div>' +
+        '<div class="p-note">更高设备上限 · 更强 AI 能力。档位由后台配置上线——上线后此处自动变为可选时长与价格，无需改版。</div>';
+    } else {
+      const sku = MOCK.skus[key + "-" + period];
+      const { price, hit } = skuPrice(sku);
+      const off = hit ? MOCK.campaign.label : sku.factor < 1 ? (Math.round(sku.factor * 100) / 10) + "折" : "";
+      const popular = key === MOCK.popularTier;
+      card.className = "card" + (key === tier ? " on" : "");
+      card.dataset.tier = key;
+      card.innerHTML =
+        (popular ? '<span class="tag">最受欢迎</span>' : "") +
+        (off ? '<span class="off">' + off + "</span>" : "") +
+        '<div class="p-name">' + t.label + "</div>" +
+        '<div class="p-days">' + sku.days + " 天 · 最多 " + sku.devices + " 台设备</div>" +
+        '<div class="p-price">' + yuan(price) + "<small>元</small></div>" +
+        (price < sku.base ? '<div class="p-was">原价 ' + yuan(sku.base) + " 元</div>" : "") +
+        '<div class="p-feat">' + MOCK.feats[key].map((f) => "<i>" + f + "</i>").join("") + "</div>" +
+        (popular ? '<div class="p-note">本月已有 ' + MOCK.buyers.toLocaleString() + " 人选择</div>" : "");
+      card.addEventListener("click", () => { tier = key; renderTiers(); refreshPurchase(); });
+    }
     box.appendChild(card);
   }
 }
+
 function refreshPurchase() {
   const sku = MOCK.skus[tier + "-" + period];
-  const price = Math.round(sku.base * sku.factor);
-  $("selName").textContent = "PRO · " + sku.name + "（" + sku.days + " 天）";
+  const { price } = skuPrice(sku);
+  const saved = sku.base - price;
+  $("selName").textContent = MOCK.tiers[tier].label + " · " + sku.name + "（" + sku.days + " 天）";
   $("selPrice").textContent = fen(price);
-  $("selSave").textContent = "已省 " + yuan(sku.base - price) + " 元";
+  $("selSave").hidden = saved <= 0;
+  $("selSave").textContent = "已省 " + yuan(saved) + " 元";
 }
-$("tierTabs").addEventListener("click", (e) => {
+
+function applyCampaign() {
+  const c = MOCK.campaign;
+  $("campaignNotice").hidden = !c;
+  if (c) $("campaignNoticeText").textContent = c.notice;
+  $("miniMonthly").hidden = !c;
+  if (c) $("miniMonthly").textContent = c.label;
+}
+
+/* 切换器选套餐变体注入：normal=常态（MAX 在售）/ campaign=首购活动 / maxPlanned=MAX 未上架 */
+function setupPick(mode) {
+  MOCK.campaign = mode === "campaign" ? {
+    sku: "pro-monthly", label: "首月 5 折", factor: 0.5,
+    notice: "限时首购优惠：首次购买包月按 5 折（¥15）结算；再次购买恢复原价，活动价以下单时页面为准。",
+  } : null;
+  MOCK.tiers.max.live = mode !== "maxPlanned";
+  tier = "pro"; period = "monthly";
+  [...$("periodTabs").children].forEach((x) => x.classList.toggle("on", x.dataset.period === "monthly"));
+  applyCampaign();
+  renderTiers();
+  refreshPurchase();
+}
+
+$("periodTabs").addEventListener("click", (e) => {
   const b = e.target.closest("button");
   if (!b) return;
-  [...$("tierTabs").children].forEach((x) => x.classList.toggle("on", x === b));
-  tier = b.dataset.tier;
-  const live = MOCK.tiers[tier].live;
-  $("tierLive").hidden = !live;
-  $("maxPanel").hidden = live;
+  [...$("periodTabs").children].forEach((x) => x.classList.toggle("on", x === b));
+  period = b.dataset.period;
+  renderTiers();
+  refreshPurchase();
 });
 
 const openTerms = (show) => {
@@ -482,7 +545,7 @@ const openTerms = (show) => {
 };
 $("payBtn").addEventListener("click", () => {
   const sku = MOCK.skus[tier + "-" + period];
-  $("mOrder").textContent = "PRO · " + sku.name + "（" + sku.days + " 天）· " + fen(Math.round(sku.base * sku.factor));
+  $("mOrder").textContent = MOCK.tiers[tier].label + " · " + sku.name + "（" + sku.days + " 天）· " + fen(skuPrice(sku).price);
   openTerms(true);
 });
 $("termsCancel").addEventListener("click", () => openTerms(false));
@@ -498,11 +561,14 @@ switcher.addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-state]");
   if (!btn) return;
   switcher.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === btn));
-  stages.forEach((s) => (s.hidden = s.dataset.stage !== btn.dataset.state));
+  const st = btn.dataset.state;
+  const pickMode = { pick: "normal", pickCampaign: "campaign", pickMaxPlanned: "maxPlanned" }[st];
+  if (pickMode) setupPick(pickMode);
+  const stage = pickMode ? "pick" : st;
+  stages.forEach((s) => (s.hidden = s.dataset.stage !== stage));
 });
 
-renderCards();
-refreshPurchase();
+setupPick("normal");
 </script>
 </body>
 </html>

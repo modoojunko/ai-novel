@@ -103,6 +103,56 @@ class TestPaySkus:
         r = client.get("/api/pay/skus", headers=_auth(web_user))
         assert r.json()["data"]["purchase_enabled"] is True
 
+    def test_contract_expansion_planned_selling_points(self, client, web_user, _catalog):
+        """s-pay-plans-picker：selling_points 下发 / planned 进目录不泄 SKU / retired 不返回 /
+        tier_key 来自档行而非端点默认 / popular 取 sort 序确定性 / 契约只增不删。"""
+        s = SessionLocal()
+        try:
+            pro = s.query(TierORM).filter_by(key="pro").first()
+            pro.selling_points = '["AI 生成正文（流式）","设定与章纲融入 AI"]'
+            max_t = TierORM(key="max", display_name="MAX", rank=30, status="planned",
+                            selling_points='["含 PRO 全部功能"]')
+            old = TierORM(key="legacy", display_name="旧档", rank=10, status="retired")
+            alt = TierORM(key="alt", display_name="ALT", rank=25, status="live")
+            s.add_all([max_t, old, alt])
+            s.flush()
+            # planned 档误配 on_sale SKU 反例：不得泄入目录
+            s.add(SkuORM(sku_key="max_yearly_bad", tier_id=max_t.id, period="yearly",
+                         period_days=365, base_price_fen=73000, discount_permille=800,
+                         device_limit=10, on_sale=True, sort=9))
+            s.add(SkuORM(sku_key="old_yearly", tier_id=old.id, period="yearly",
+                         period_days=365, base_price_fen=100, discount_permille=1000,
+                         device_limit=1, on_sale=True, sort=8))
+            # 另一 live 档：tier_key 真实性 + popular sort 序确定性（sort=0 在 pro_yearly 前）
+            s.add(SkuORM(sku_key="alt_yearly", tier_id=alt.id, period="yearly",
+                         period_days=365, base_price_fen=50000, discount_permille=1000,
+                         device_limit=3, on_sale=True, sort=0))
+            s.commit()
+        finally:
+            s.close()
+
+        r = client.get("/api/pay/skus", headers=_auth(web_user))
+        data = r.json()["data"]
+        tiers = {t["key"]: t for t in data["tiers"]}
+        assert tiers["pro"]["selling_points"] == ["AI 生成正文（流式）", "设定与章纲融入 AI"]
+        assert tiers["pro"]["is_live"] is True and tiers["pro"]["is_planned"] is False
+        assert tiers["max"]["is_planned"] is True and tiers["max"]["is_live"] is False
+        assert "legacy" not in tiers  # retired 档不返回
+        assert tiers["alt"]["selling_points"] == []  # 未配置 → 空数组
+        sku_keys = {x["sku_key"] for x in data["skus"]}
+        assert "max_yearly_bad" not in sku_keys  # planned 档 on_sale SKU 不泄入
+        assert "old_yearly" not in sku_keys  # retired 档 SKU 同步挡住
+        alt_sku = next(x for x in data["skus"] if x["sku_key"] == "alt_yearly")
+        assert alt_sku["tier_key"] == "alt"  # 来自档行富集，非端点 "pro" 硬默认
+        assert data["popular_sku"] == "alt_yearly"  # sort 序（0）先于 pro_yearly（3）；不命中 planned
+        # 契约只增不删：既有字段齐备
+        for x in data["skus"]:
+            assert {"sku_key", "tier_key", "period", "period_days", "base_price_fen",
+                    "discount_display", "price_fen", "device_limit"} <= set(x)
+        assert {"purchase_enabled", "agreement_version", "tiers", "skus", "popular_sku"} <= set(data)
+        for t in data["tiers"]:
+            assert {"key", "label", "is_live"} <= set(t)
+
 
 class TestCreateOrder:
     def test_off_switch_rejects_4012(self, client, web_user, _catalog, _switch_off):

@@ -115,6 +115,41 @@ class TestPgRestClient:
 
 
 # ══════════════════════════════════════════════════════════════════
+# SkuRepo.find_on_sale（s-pay-plans-picker D2：双分支口径对齐）
+# ══════════════════════════════════════════════════════════════════
+
+class TestSkuRepoFindOnSale:
+    def test_pg_http_filters_non_live_tiers_and_enriches_tier_key(self):
+        """pg_http 分支 tier status 过滤 + tier_key 富集（对齐 sqlite 分支）。
+
+        修前：pg_http 只按 on_sale 过滤，planned/retired 档 SKU 会泄入生产目录，
+        且返回行无 tier_key（端点曾以 "pro" 硬默认掩盖）。"""
+        from app.infrastructure.repositories.payments_repo import SkuRepo
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            table = request.url.path.rsplit("/", 1)[-1]
+            if table == "tiers":
+                assert request.url.params["status"] == "eq.live"
+                return _ok([
+                    {"id": 1, "key": "pro", "display_name": "PRO", "rank": 20, "status": "live"},
+                ])
+            if table == "skus":
+                assert request.url.params["on_sale"] == "eq.True"
+                return _ok([
+                    {"sku_key": "pro_yearly", "tier_id": 1, "period": "yearly", "sort": 3},
+                    {"sku_key": "max_yearly_bad", "tier_id": 2, "period": "yearly", "sort": 9},
+                ])
+            raise AssertionError(f"unexpected table {table}")
+
+        repo = SkuRepo(make_client(handler))
+        rows = repo.find_on_sale()
+        assert [r["sku_key"] for r in rows] == ["pro_yearly"]  # 非 live 档 SKU 不泄入
+        assert rows[0]["tier_key"] == "pro"
+        assert rows[0]["tier_display"] == "PRO"
+        assert rows[0]["tier_rank"] == 20
+
+
+# ══════════════════════════════════════════════════════════════════
 # PgHttpUserRepo
 # ══════════════════════════════════════════════════════════════════
 

@@ -69,8 +69,10 @@ export class MockApi {
   private payHint = 'NOTPAY'
   /** 购买开关（off → 收银台登录卡态） */
   private purchaseEnabled = true
-  /** /api/pay/skus 覆写（landing 套餐区数据源；null = 用默认 PRO 三档，结构与生产一致） */
+  /** /api/pay/skus 覆写（landing 套餐区数据源；null = 用默认三档矩阵，结构与生产一致） */
   private skusOverride: Record<string, unknown> | null = null
+  /** /api/pay/skus GET 门控（s-pay-plans-picker：失败→收银台降级骨架；同 codesGate 语义） */
+  private skusGate: { delayMs?: number; fail?: boolean } | null = null
   /** 会话失效模式：/user/me 返回 HTTP 200 + code 1（与真实后端「用户不存在/未登录」一致） */
   private userMeDead = false
   /** 让接下来 N 次 /user/preferences 失败（测「保存失败→重试→落库」路径） */
@@ -176,6 +178,11 @@ export class MockApi {
   /** 覆写 /api/pay/skus（landing 套餐区降级态测试用；传 null 恢复默认） */
   setSkus(v: Record<string, unknown> | null): void {
     this.skusOverride = v
+  }
+
+  /** skus 目录 GET 门控（失败/延迟；null 解除）——收银台降级骨架态测试用 */
+  setSkusGate(gate: { delayMs?: number; fail?: boolean } | null): void {
+    this.skusGate = gate
   }
 
   /** 设置 /api/pay/license 摘要（S端 首页/我的套餐卡数据源） */
@@ -499,12 +506,20 @@ export class MockApi {
     }
 
     // ── 支付（S端）──
+    // 单源 skus 路由（s-pay-plans-picker：曾存在第二个重复块漂移为死代码，已删；此处为唯一出口）
     if (path === '/api/pay/skus' && method === 'GET') {
+      if (this.skusGate?.fail) return route.abort('connectionrefused')
+      if (this.skusGate?.delayMs) await new Promise((r) => setTimeout(r, this.skusGate.delayMs))
       if (this.skusOverride) return route.fulfill(json(0, this.skusOverride))
       return route.fulfill(json(0, {
         purchase_enabled: this.purchaseEnabled,
         agreement_version: 'v2026.08',
-        tiers: [{ key: 'pro', label: 'PRO', is_live: true }],
+        // 三档矩阵（s-pay-plans-picker）：free 卖点空数组=前端兜底；max planned=预告卡
+        tiers: [
+          { key: 'free', label: '免费', is_live: true, is_planned: false, selling_points: [] },
+          { key: 'pro', label: 'PRO', is_live: true, is_planned: false, selling_points: ['含免费全部功能', 'AI 生成正文（流式）', '设定与章纲融入 AI'] },
+          { key: 'max', label: 'MAX', is_live: false, is_planned: true, selling_points: [] },
+        ],
         skus: [
           { sku_key: 'pro_monthly', tier_key: 'pro', period: 'monthly', period_days: 30, base_price_fen: 3000, discount_display: '', price_fen: 3000, device_limit: 3 },
           { sku_key: 'pro_quarterly', tier_key: 'pro', period: 'quarterly', period_days: 90, base_price_fen: 8000, discount_display: '9折', price_fen: 7200, device_limit: 3 },
@@ -656,20 +671,6 @@ export class MockApi {
       const o = this.orders.find((x) => x.order_no === cancelRefundMatch[1])
       if (o) { o.status = 'fulfilled'; o.refund_amount_fen = null }
       return route.fulfill(json(0, { code_restored: true }))
-    }
-
-    if (path === '/api/pay/skus' && method === 'GET') {
-      return route.fulfill(json(0, {
-        purchase_enabled: this.purchaseEnabled,
-        agreement_version: 'v2026.08',
-        tiers: [{ key: 'pro', label: 'PRO', is_live: true }],
-        skus: [
-          { sku_key: 'pro_monthly', tier_key: 'pro', period: 'monthly', period_days: 30, base_price_fen: 3000, discount_display: '', price_fen: 3000, device_limit: 3 },
-          { sku_key: 'pro_quarterly', tier_key: 'pro', period: 'quarterly', period_days: 90, base_price_fen: 8000, discount_display: '9 折', price_fen: 7200, device_limit: 3 },
-          { sku_key: 'pro_yearly', tier_key: 'pro', period: 'yearly', period_days: 365, base_price_fen: 29900, discount_display: '8 折', price_fen: 23920, device_limit: 5 },
-        ],
-        popular_sku: 'pro_yearly',
-      }))
     }
 
     if (path === '/api/pay/orders' && method === 'POST') {

@@ -405,7 +405,22 @@ class SkuRepo:
                 result.append(d)
             return result
         else:
-            return self._db.find("skus", filter={"on_sale": True}, sort=[("sort", "asc")])
+            # pg_http 无联表：先取 live 档集，再按 tier_id 过滤+富集——与 sqlite 分支口径
+            # 一致（planned/retired 档 SKU 不泄入目录；tier_key 由档行富集而非端点默认值）
+            tiers = self._db.find("tiers", filter={"status": "eq.live"}, sort=[("rank", "asc")])
+            by_id = {t.get("id"): t for t in tiers}
+            rows = self._db.find("skus", filter={"on_sale": True}, sort=[("sort", "asc")])
+            result = []
+            for d in rows:
+                tier = by_id.get(d.get("tier_id"))
+                if tier is None:
+                    continue
+                d = dict(d)
+                d["tier_key"] = tier.get("key", "")
+                d["tier_display"] = tier.get("display_name", "")
+                d["tier_rank"] = tier.get("rank", 0)
+                result.append(d)
+            return result
 
     def find_by_key(self, sku_key: str) -> dict | None:
         if isinstance(self._db, Session):

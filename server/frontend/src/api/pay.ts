@@ -22,6 +22,10 @@ export interface TierItem {
   key: string
   label: string
   is_live: boolean
+  /** status=planned 预告档（可见不可购，驱动「即将推出」卡）；s-pay-plans-picker */
+  is_planned: boolean
+  /** 档位卖点（tiers.selling_points 解析下发；空数组=前端兜底文案） */
+  selling_points: string[]
 }
 
 export interface SkusView {
@@ -262,6 +266,14 @@ export function fenToYuan(fen: number): string {
 
 export function fenToYuanShort(fen: number): string {
   return `¥${Math.round(fen / 100)}`
+}
+
+/**
+ * 收银台价格展示单源（s-pay-plans-picker）：分→元后去尾零——整元不带小数（¥30），
+ * 非整元保留分（¥310.2）。卡面/购买条/协议弹窗一律走它，勿再各写一套格式化。
+ */
+export function fmtPrice(fen: number): string {
+  return `¥${(fen / 100).toFixed(2).replace(/\.?0+$/, '')}`
 }
 
 /** 订单状态 → UI 徽标类名（附录 Z 状态映射） */
