@@ -31,6 +31,15 @@ def _ok(json_body: list | dict | None = None) -> httpx.Response:
     return httpx.Response(200, json=json_body if json_body is not None else [])
 
 
+@pytest.fixture(autouse=True)
+def _isolated_shared_id_cache():
+    """共享 user_id 缓存是模块级单例（license-userid-cache），逐用例清空防串味。"""
+    from app.infrastructure.repositories.pg_http import user_repo as m
+    m._id_cache.clear()
+    yield
+    m._id_cache.clear()
+
+
 # ══════════════════════════════════════════════════════════════════
 # PgRestClient
 # ══════════════════════════════════════════════════════════════════
@@ -634,3 +643,55 @@ class TestUserIdCache:
             assert "u0" not in m._id_cache and "alice" in m._id_cache
         finally:
             m._ID_CACHE_MAX_ENTRIES = original_max
+
+
+# ══════════════════════════════════════════════════════════════════
+# code_repo / grant_repo 共享缓存解析（license-userid-cache）
+# ══════════════════════════════════════════════════════════════════
+
+class TestSharedUserIdResolution:
+    @pytest.fixture(autouse=True)
+    def _clean_cache(self):
+        from app.infrastructure.repositories.pg_http import user_repo as m
+        m._id_cache.clear()
+        yield
+        m._id_cache.clear()
+
+    @staticmethod
+    def _client(calls: list[httpx.Request]) -> PgRestClient:
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request)
+            if request.url.path.endswith("/users"):
+                return _ok([{"id": 7, "username": "alice"}])
+            return _ok([])
+
+        return make_client(handler)
+
+    def test_code_repo_resolution_hits_cache(self):
+        calls: list[httpx.Request] = []
+        from app.infrastructure.repositories.pg_http.code_repo import PgHttpCodeRepo
+        repo = PgHttpCodeRepo(self._client(calls))
+        assert repo.find_all_by_username("alice") == []
+        assert repo.find_all_by_username("alice") == []
+        users_calls = [r for r in calls if r.url.path.endswith("/users")]
+        assert len(users_calls) == 1  # 第二次命中共享缓存，免 users 往返
+
+    def test_grant_repo_resolution_hits_cache(self):
+        calls: list[httpx.Request] = []
+        from app.infrastructure.repositories.pg_http.grant_repo import PgHttpGrantRepo
+        repo = PgHttpGrantRepo(self._client(calls))
+        assert repo._resolve_user_id("alice") == 7
+        assert repo._resolve_user_id("alice") == 7
+        users_calls = [r for r in calls if r.url.path.endswith("/users")]
+        assert len(users_calls) == 1
+
+    def test_invalidate_id_clears_shared_path(self):
+        from app.infrastructure.repositories.pg_http.user_repo import invalidate_id
+        calls: list[httpx.Request] = []
+        from app.infrastructure.repositories.pg_http.code_repo import PgHttpCodeRepo
+        repo = PgHttpCodeRepo(self._client(calls))
+        repo.find_all_by_username("alice")
+        invalidate_id("alice")
+        repo.find_all_by_username("alice")
+        users_calls = [r for r in calls if r.url.path.endswith("/users")]
+        assert len(users_calls) == 2
