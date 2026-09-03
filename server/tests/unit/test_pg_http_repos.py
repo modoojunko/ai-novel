@@ -31,15 +31,6 @@ def _ok(json_body: list | dict | None = None) -> httpx.Response:
     return httpx.Response(200, json=json_body if json_body is not None else [])
 
 
-@pytest.fixture(autouse=True)
-def _isolated_shared_id_cache():
-    """共享 user_id 缓存是模块级单例（license-userid-cache），逐用例清空防串味。"""
-    from app.infrastructure.repositories.pg_http import user_repo as m
-    m._id_cache.clear()
-    yield
-    m._id_cache.clear()
-
-
 # ══════════════════════════════════════════════════════════════════
 # PgRestClient
 # ══════════════════════════════════════════════════════════════════
@@ -573,125 +564,50 @@ class TestPgHttpOrderRepoFindPage:
 
 
 # ══════════════════════════════════════════════════════════════════
-# get_id 进程内 TTL 缓存（orders-page-latency）
+# get_id / resolve_user_id 直查（jwt-uid-claim：缓存已拆，web 路径凭 token uid 零翻译）
 # ══════════════════════════════════════════════════════════════════
 
-class TestUserIdCache:
-    @pytest.fixture(autouse=True)
-    def _clean_cache(self):
-        from app.infrastructure.repositories.pg_http import user_repo as m
-        m._id_cache.clear()
-        yield
-        m._id_cache.clear()
+class TestResolveUserIdPlain:
+    def test_resolves_once_per_call(self):
+        """无缓存：每次调用各一趟 users 查询（web 路径已不经过本函数）。"""
+        calls: list[httpx.Request] = []
 
-    @staticmethod
-    def _repo(calls: list[httpx.Request]) -> PgHttpUserRepo:
         def handler(request: httpx.Request) -> httpx.Response:
             calls.append(request)
             return _ok([{"id": 7, "username": "alice"}])
-        return PgHttpUserRepo(make_client(handler))
 
-    def test_hit_avoids_second_roundtrip(self):
-        calls: list[httpx.Request] = []
-        repo = self._repo(calls)
+        repo = PgHttpUserRepo(make_client(handler))
         assert repo.get_id("alice") == 7
-        assert repo.get_id("alice") == 7
-        assert len(calls) == 1
-
-    def test_invalidate_forces_refetch(self):
-        calls: list[httpx.Request] = []
-        from app.infrastructure.repositories.pg_http.user_repo import invalidate_id
-        repo = self._repo(calls)
-        assert repo.get_id("alice") == 7
-        invalidate_id("alice")
         assert repo.get_id("alice") == 7
         assert len(calls) == 2
 
-    def test_missing_username_not_cached(self):
+    def test_missing_returns_none(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return _ok([])
+
+        assert PgHttpUserRepo(make_client(handler)).get_id("ghost") is None
+
+    def test_code_repo_int_passthrough_no_users_query(self):
+        """int 入参直通：license 端点传 uid 后不再有 users 解析往返。"""
         calls: list[httpx.Request] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
             calls.append(request)
             return _ok([])
 
-        repo = PgHttpUserRepo(make_client(handler))
-        assert repo.get_id("ghost") is None
-        assert repo.get_id("ghost") is None
-        assert len(calls) == 2  # None 不缓存："用户不存在"即时可见
+        from app.infrastructure.repositories.pg_http.code_repo import PgHttpCodeRepo
+        assert PgHttpCodeRepo(make_client(handler)).find_all_by_username(7) == []
+        assert all(not r.url.path.endswith("/users") for r in calls)
 
-    def test_ttl_expiry_refetches(self, monkeypatch):
-        from app.infrastructure.repositories.pg_http import user_repo as m
-        clock = {"t": 0.0}
-        monkeypatch.setattr(m.time, "monotonic", lambda: clock["t"])
+    def test_grant_repo_plain_resolution(self):
         calls: list[httpx.Request] = []
-        repo = self._repo(calls)
-        assert repo.get_id("alice") == 7
-        clock["t"] = 301.0  # 越过 300s TTL
-        assert repo.get_id("alice") == 7
-        assert len(calls) == 2
 
-    def test_capacity_clears_all(self):
-        calls: list[httpx.Request] = []
-        from app.infrastructure.repositories.pg_http import user_repo as m
-        repo = self._repo(calls)
-        original_max = m._ID_CACHE_MAX_ENTRIES
-        m._ID_CACHE_MAX_ENTRIES = 2
-        try:
-            for i in range(3):
-                m._id_cache[f"u{i}"] = (i, m.time.monotonic())
-            repo.get_id("alice")  # 触发清空后回源
-            assert "u0" not in m._id_cache and "alice" in m._id_cache
-        finally:
-            m._ID_CACHE_MAX_ENTRIES = original_max
-
-
-# ══════════════════════════════════════════════════════════════════
-# code_repo / grant_repo 共享缓存解析（license-userid-cache）
-# ══════════════════════════════════════════════════════════════════
-
-class TestSharedUserIdResolution:
-    @pytest.fixture(autouse=True)
-    def _clean_cache(self):
-        from app.infrastructure.repositories.pg_http import user_repo as m
-        m._id_cache.clear()
-        yield
-        m._id_cache.clear()
-
-    @staticmethod
-    def _client(calls: list[httpx.Request]) -> PgRestClient:
         def handler(request: httpx.Request) -> httpx.Response:
             calls.append(request)
             if request.url.path.endswith("/users"):
                 return _ok([{"id": 7, "username": "alice"}])
             return _ok([])
 
-        return make_client(handler)
-
-    def test_code_repo_resolution_hits_cache(self):
-        calls: list[httpx.Request] = []
-        from app.infrastructure.repositories.pg_http.code_repo import PgHttpCodeRepo
-        repo = PgHttpCodeRepo(self._client(calls))
-        assert repo.find_all_by_username("alice") == []
-        assert repo.find_all_by_username("alice") == []
-        users_calls = [r for r in calls if r.url.path.endswith("/users")]
-        assert len(users_calls) == 1  # 第二次命中共享缓存，免 users 往返
-
-    def test_grant_repo_resolution_hits_cache(self):
-        calls: list[httpx.Request] = []
         from app.infrastructure.repositories.pg_http.grant_repo import PgHttpGrantRepo
-        repo = PgHttpGrantRepo(self._client(calls))
-        assert repo._resolve_user_id("alice") == 7
-        assert repo._resolve_user_id("alice") == 7
-        users_calls = [r for r in calls if r.url.path.endswith("/users")]
-        assert len(users_calls) == 1
-
-    def test_invalidate_id_clears_shared_path(self):
-        from app.infrastructure.repositories.pg_http.user_repo import invalidate_id
-        calls: list[httpx.Request] = []
-        from app.infrastructure.repositories.pg_http.code_repo import PgHttpCodeRepo
-        repo = PgHttpCodeRepo(self._client(calls))
-        repo.find_all_by_username("alice")
-        invalidate_id("alice")
-        repo.find_all_by_username("alice")
-        users_calls = [r for r in calls if r.url.path.endswith("/users")]
-        assert len(users_calls) == 2
+        assert PgHttpGrantRepo(make_client(handler))._resolve_user_id("alice") == 7
+        assert len(calls) == 1

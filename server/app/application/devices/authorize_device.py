@@ -48,8 +48,8 @@ def authorize_device(
     codes = code_repo.find_active_by_username(username)
     license_ = License(username=username).merge(codes)
 
-    # 4) 写入授权凭证
-    token = sign_jwt(username)
+    # 4) 写入授权凭证（token 携带 uid，jwt-uid-claim 与 web 签发同口径）
+    token = sign_jwt(username, user_repo.get_id(username))
     grant_repo.upsert(
         pc_hash=pc_hash,
         username=username,

@@ -54,7 +54,7 @@ def login(
 
     codes = code_repo.find_active_by_username(username)
     license_ = License(username=username).merge(codes)
-    token = sign_jwt(username)
+    token = sign_jwt(username, user_repo.get_id(username))
 
     return {
         "code": 0,

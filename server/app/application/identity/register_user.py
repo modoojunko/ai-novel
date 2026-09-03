@@ -55,7 +55,7 @@ def register_user(
     code_repo.activate(trial_code_id, username, expires)
 
     from app.infrastructure.security.jwt import sign_jwt
-    token = sign_jwt(username)
+    token = sign_jwt(username, user_id)
 
     return {
         "code": 0,

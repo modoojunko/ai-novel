@@ -16,7 +16,7 @@ from app.infrastructure.security.jwt import sign_jwt
 
 def jwt_for_testuser() -> str:
     """生成一个对测试用户有效的 JWT。"""
-    return sign_jwt("modoojunko")
+    return sign_jwt("modoojunko", 1)
 
 
 # ══════════════════════════════════════════════════════════════════
