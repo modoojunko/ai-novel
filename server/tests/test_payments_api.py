@@ -284,7 +284,6 @@ class TestFulfillActivateFlow:
         # 订单详情 grant 快照折出已激活
         r = client.get(f"/api/pay/orders/{order_no}", headers=auth)
         grant = r.json()["data"]["fulfillment"]
-        assert r.json()["data"]["grant"] == grant  # 双发过渡
         assert grant["status"] == "active"
         assert grant["activated_at"] != "" and grant["expires_at"] != ""
 
@@ -317,7 +316,7 @@ class TestLicenseGrants:
         # license 瘦身：聚合视图无 grants 内嵌，只有行计数（与「全部」total 同口径）
         d = client.get("/api/pay/license", headers=auth).json()["data"]
         assert "grants" not in d
-        assert d["code_count"] == 1 and d["grant_count"] == 1  # 双发过渡：新键+旧键同值
+        assert d["code_count"] == 1
         assert d["pending_count"] == 1
 
         # 明细端点：注册即送的 trial 属手工来源（source=admin）不进明细，只有订单台账行
@@ -380,7 +379,7 @@ class TestLicenseGrants:
         s.commit()
 
         d = client.get("/api/pay/license", headers=auth).json()["data"]
-        assert d["code_count"] == 1 and d["grant_count"] == 1  # 双发过渡：新键+旧键同值 and d["pending_count"] == 0
+        assert d["code_count"] == 1 and d["pending_count"] == 0
         body = client.get("/api/pay/license/codes?status=revoked", headers=auth).json()["data"]
         assert body["total"] == 1 and body["items"][0]["status"] == "revoked"
 
@@ -408,7 +407,7 @@ class TestLicenseGrants:
         assert d["tier"] == "pro"  # 未激活的 max 码不抬档
         body = client.get("/api/pay/license/codes", headers=auth).json()["data"]
         assert all(g["code_id"] != "AC-MANUAL-MAX-TEST" for g in body["items"])  # 手工码不进明细
-        assert d["code_count"] == 1 and d["grant_count"] == 1  # 双发过渡：新键+旧键同值  # 计数同口径：手工码不计入
+        assert d["code_count"] == 1  # 计数同口径：手工码不计入
 
     def test_grant_created_at_matches_paid_at(self, client, web_user, _catalog, db_session, admin_token):
         """台账行 created_at 显式 UTC 口径：与订单 paid_at 秒级同（回归：列默认快 8h）。"""
@@ -459,12 +458,12 @@ class TestOrderDetail:
         assert body["data"]["status"] == "pending"
         assert 0 < body["data"]["remaining_pay_seconds"] <= 900
         # 未到货：grant 快照为空，到货/退款时间列为空串
-        assert body["data"]["grant"] is None
+        assert body["data"]["fulfillment"] is None
         assert body["data"]["fulfilled_at"] == ""
         assert body["data"]["refund_requested_at"] == ""
 
-    def test_refunded_detail_shows_arrival_and_grant(self, client, web_user, _catalog, db_session, admin_token):
-        """已退款单详情：fulfilled_at/refund_requested_at 有值、grant 折出已收回（时间线 '—' 回归）。"""
+    def test_refunded_detail_shows_arrival_and_fulfillment(self, client, web_user, _catalog, db_session, admin_token):
+        """已退款单详情：fulfilled_at/refund_requested_at 有值、fulfillment 折出已收回（时间线 '—' 回归）。"""
         self._switch_on(db_session)
         auth = _auth(web_user)
         r = client.post("/api/pay/orders", headers=auth, json={
@@ -495,8 +494,8 @@ class TestOrderDetail:
         assert d["fulfilled_at"] != ""
         assert d["refund_requested_at"] != ""
         assert d["refunded_at"] != ""
-        assert d["grant"]["status"] == "revoked"
-        assert d["grant"]["activated_at"] == ""
+        assert d["fulfillment"]["status"] == "revoked"
+        assert d["fulfillment"]["activated_at"] == ""
 
     @pytest.mark.parametrize("form", ["pg_http_str", "sqlite_naive", "aware"])
     def test_row_datetime_forms(self, form):
