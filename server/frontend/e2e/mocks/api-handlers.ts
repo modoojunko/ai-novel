@@ -682,8 +682,21 @@ export class MockApi {
         this.createOrderFailCount--
         return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 500, msg: 'mock create order fail' }) })
       }
+      // 登记订单（收银台成功页就地激活消费；幂等去重防连测串单）
+      const orderNo = 'SE2ENEWORDER0001'
+      this.orders = this.orders.filter((o) => o.order_no !== orderNo)
+      this.orders.push({
+        order_no: orderNo,
+        status: 'fulfilled',
+        amount_fen: 23920,
+        snapshot: { tier_key: 'pro', tier_display: 'PRO', period: 'yearly', period_days: 365 },
+        created_at: new Date().toISOString().slice(0, 19),
+        paid_at: new Date().toISOString().slice(0, 19),
+        refunded_at: '',
+        fulfillment: { status: 'pending_activation', activated_at: '', expires_at: '' },
+      })
       return route.fulfill(json(0, {
-        order_no: 'SE2ENEWORDER0001',
+        order_no: orderNo,
         amount_fen: 23920,
         code_url: 'weixin://mock/e2e-new-order',
         status: 'pending',

@@ -8,9 +8,9 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  apiPaySkus, apiPayCreateOrder, apiPayQueryOrder, apiPayCancelOrder,
-  fmtPrice, periodLabel,
-  type SkusView, type SkuItem, type CreateOrderResult,
+  apiPaySkus, apiPayCreateOrder, apiPayQueryOrder, apiPayCancelOrder, apiPayActivate,
+  fmtPrice, fmtBj, periodLabel,
+  type SkusView, type SkuItem, type CreateOrderResult, type ActivateResult,
 } from '@/api/pay'
 import { useSessionStore } from '@/stores/session'
 import Ico from '@/components/ui/Ico.vue'
@@ -35,6 +35,26 @@ const countdownSec = ref(0)
 const queryHint = ref('')
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let countdownTimer: ReturnType<typeof setInterval> | null = null
+
+// ── 到货页就地激活（立即激活=真激活，不再只是跳转；囤单路径=「先存着」）──
+const activating = ref(false)
+const activated = ref(false)
+const activateErr = ref('')
+const activateResult = ref<ActivateResult | null>(null)
+
+async function doActivate() {
+  if (!order.value || activating.value || activated.value) return
+  activating.value = true
+  activateErr.value = ''
+  try {
+    activateResult.value = await apiPayActivate(order.value.order_no)
+    activated.value = true
+  } catch (e: any) {
+    activateErr.value = e?.message || '网络异常，请重试'
+  } finally {
+    activating.value = false
+  }
+}
 
 // ── 卖点兜底文案（selling_points 空数组时的保底，不空白）──
 // 免费/PRO=UpgradeModal 真实功能事实（client/…/UpgradeModal.tsx）；MAX=占位稿待运营定稿
@@ -441,17 +461,26 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
       </div>
     </template>
 
-    <!-- ═══ 态三：已到货 ═══ -->
+    <!-- ═══ 态三：已到货（立即激活=就地真激活；先存着=囤，之后在我的套餐激活） ═══ -->
     <template v-else-if="payState === 'success'">
       <h1 class="pay-h1">支付成功</h1>
       <div class="pay-card pay-success-card">
         <div class="pay-success-mark"><Ico :d="P.check" :size="26" /></div>
-        <div class="pay-success-title">已到货，待激活</div>
-        <div class="pay-success-hint">点「立即激活」马上开始计时；先存着也随时可在「我的套餐」激活</div>
+        <div class="pay-success-title">{{ activated ? '已激活，计时中' : '已到货，待激活' }}</div>
+        <div v-if="activated && activateResult" class="pay-success-hint">
+          已激活：{{ fmtBj(activateResult.grant_start, false) }} 起 · {{ fmtBj(activateResult.expires_at, false) }} 到期
+        </div>
+        <div v-else class="pay-success-hint">点「立即激活」马上开始计时；先存着也随时可在「我的套餐」激活</div>
+        <div v-if="activateErr" class="notice warn pay-notice">
+          <span>激活没成功：{{ activateErr }}。订单与时长不受影响，可稍后在「我的套餐」重试。</span>
+        </div>
         <div class="pay-success-actions">
-          <button class="btn btn-primary" @click="router.push('/dashboard/license')">立即激活</button>
+          <button v-if="!activated" class="btn btn-primary" :disabled="activating" @click="doActivate">
+            {{ activating ? '激活中…' : '立即激活' }}
+          </button>
           <button class="btn btn-secondary" @click="router.push('/dashboard')">返回控制台</button>
         </div>
+        <a v-if="!activated" class="lnk" style="margin-top:6px; font-size:12.5px" @click.prevent="router.push('/dashboard/license')">先存着，之后在「我的套餐」激活</a>
       </div>
     </template>
 
