@@ -6,7 +6,7 @@
 - DeviceProfile 编解码                     app/domain/devices/device.py
 - /api/authorize                           app/interfaces/client_api/authorize.py
 - /api/devices/current · consume-enrolled  app/interfaces/client_api/devices.py
-- /api/device/my                           app/interfaces/web_api/devices.py
+- /api/devices/my                          app/interfaces/web_api/devices.py
 
 用法：
     cd server
@@ -353,7 +353,7 @@ class TestDevicesCurrentAPI:
 
 
 # ============================================================
-# API — GET /api/device/my（门户设备列表）+ consume-enrolled
+# API — GET /api/devices/my（门户设备列表）+ client 面 consume-enrolled
 # ============================================================
 
 class TestDevicePortalAPI:
@@ -363,7 +363,7 @@ class TestDevicePortalAPI:
         seed_device_row(web_user["username"], "FP-B", 2.0, hostname="办公本")
 
         r = client.get(
-            "/api/device/my",
+            "/api/devices/my",
             headers={"Authorization": f"Bearer {web_user['token']}"},
         )
         data = r.json()

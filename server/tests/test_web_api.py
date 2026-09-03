@@ -2,7 +2,7 @@
 
 覆盖现存路由中的门户 / 管理 / OAuth 授权流：
   web_api:    /api/web/login /api/web/register /api/user/me /api/user/password
-              /api/user/security /api/license/activate /api/device/my /api/device/remove
+              /api/user/security /api/license/activate /api/devices/my /api/devices/remove
   admin_api:  /api/generate_code /api/query_codes
   client_api: /api/auth-page /api/authorize /api/check-auth /api/verify /api/reset_password
   （/api/devices/current 与 /api/devices/consume-enrolled 见 test_device_activation.py）
@@ -106,7 +106,7 @@ class TestUserMe:
 class TestLicenseActivate:
     def test_endpoint_retired(self, client, web_user, gen_code):
         """激活码 web 端点已下线（s-pay-foundation 8.3）：路由 404，激活码通道仅存
-        管理端出码（/api/generate_code）+ 支付激活（application.payments.activate_entitlement）。"""
+        管理端出码（/api/generate_code）+ 支付激活（application.payments.activate_code）。"""
         code = gen_code("yearly")[0]
         r = client.post("/api/license/activate", json={"code": code}, headers=_bearer(web_user["token"]))
         assert r.status_code == 404
@@ -210,7 +210,7 @@ class TestAccountSecurity:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# 6. 门户设备管理 /api/device/my + /api/device/remove
+# 6. 门户设备管理 /api/devices/my + /api/devices/remove
 # ═══════════════════════════════════════════════════════════════════
 
 
@@ -224,7 +224,7 @@ class TestDevicePortal:
         )
         assert r.json()["code"] == 0, r.text
 
-        r2 = client.get("/api/device/my", headers=_bearer(web_user["token"]))
+        r2 = client.get("/api/devices/my", headers=_bearer(web_user["token"]))
         d = r2.json()
         assert d["code"] == 0, d
         assert d["total_count"] == 1
@@ -233,7 +233,7 @@ class TestDevicePortal:
         assert d["data"][0]["hostname"] == "门户测试机"
 
     def test_my_devices_no_auth(self, client):
-        assert client.get("/api/device/my").json()["code"] == 1
+        assert client.get("/api/devices/my").json()["code"] == 1
 
     def test_remove_device(self, client, web_user, uid):
         pc = f"rm_pc_{uid}"
@@ -241,17 +241,17 @@ class TestDevicePortal:
             "/api/authorize",
             json={"username": web_user["username"], "password": web_user["password"], "pc_hash": pc, "pc_name": "待删机"},
         )
-        my = client.get("/api/device/my", headers=_bearer(web_user["token"])).json()
+        my = client.get("/api/devices/my", headers=_bearer(web_user["token"])).json()
         assert my["total_count"] == 1
         device_id = my["data"][0]["id"]
 
-        r = client.post("/api/device/remove", json={"id": device_id}, headers=_bearer(web_user["token"]))
+        r = client.post("/api/devices/remove", json={"id": device_id}, headers=_bearer(web_user["token"]))
         assert r.json()["code"] == 0, r.text
-        my2 = client.get("/api/device/my", headers=_bearer(web_user["token"])).json()
+        my2 = client.get("/api/devices/my", headers=_bearer(web_user["token"])).json()
         assert my2["total_count"] == 0
 
     def test_remove_device_no_auth(self, client):
-        assert client.post("/api/device/remove", json={"id": "whatever"}).json()["code"] == 1
+        assert client.post("/api/devices/remove", json={"id": "whatever"}).json()["code"] == 1
 
 
 # ═══════════════════════════════════════════════════════════════════

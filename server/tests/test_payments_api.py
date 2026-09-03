@@ -260,13 +260,13 @@ class TestFulfillActivateFlow:
         assert r.json()["code"] == 0, r.text
         assert r.json()["data"]["status"] == "fulfilled"
         # 激活
-        r = client.post("/api/pay/grants/activate", headers=auth, json={"order_no": order_no})
+        r = client.post("/api/pay/codes/activate", headers=auth, json={"order_no": order_no})
         body = r.json()
         assert body["code"] == 0, body
         assert body["data"]["tier"] == "pro"
         assert body["data"]["expires_at"] > body["data"]["grant_start"]
         # 重复激活 → NotActivatableError（DomainError 家族=4012 拒绝）
-        r = client.post("/api/pay/grants/activate", headers=auth, json={"order_no": order_no})
+        r = client.post("/api/pay/codes/activate", headers=auth, json={"order_no": order_no})
         assert r.json()["code"] == 4012
         # 台账行已 active 且带 grant_start/order_id
         from app.models.code import ActivationCodeORM
@@ -340,7 +340,7 @@ class TestLicenseGrants:
                         json={"order_no": order_no})
         assert r.json()["code"] == 0, r.text
         # 激活 pro（成为 active）+ 手工发一张未激活 max 码
-        r = client.post("/api/pay/grants/activate", headers=auth, json={"order_no": order_no})
+        r = client.post("/api/pay/codes/activate", headers=auth, json={"order_no": order_no})
         assert r.json()["code"] == 0, r.text
 
         from app.models.code import ActivationCodeORM
