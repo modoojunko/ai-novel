@@ -25,4 +25,4 @@
 
 - [ ] 4.1 全量 pytest（双模式）+ ruff 改动文件全净；本机全量 e2e
 - [ ] 4.2 PR 合并 → 部署 → 线上验收：新登录 token 打订单/套餐接口 users 查询 0（MockTransport 层面已断言，线上 curl 0.3s 地板 + 旧格式 token 401 实测）；盯 401 率
-- [ ] 4.3 归档 + 知识总结落 ~/Desktop/knowledge + 记忆索引 + master.md
+- [x] 4.3 归档 + 知识总结落 ~/Desktop/knowledge + 记忆索引 + master.md
