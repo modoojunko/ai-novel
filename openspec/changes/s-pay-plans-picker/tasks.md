@@ -29,5 +29,5 @@
 ## 4. 文档与收尾
 
 - [x] 4.1 backend-detail-design 附录 Z.2/Z.4 SkusView 对齐实现并扩容两字段（selling_points/is_planned）与 planned/retired 语义（含砍字段裁定注记）；frontend-detail-design §3.1.2 选套餐区重写为新 IA+实现事实；同批清 proposal/design 残留措辞（复审 P2：device_limit 概览行、字段计数）
-- [ ] 4.2 部署后线上验证：/skus 线上响应含新字段、收银台三档矩阵渲染、金额与收银台单一致；**前置种子（生产 PG 手工执行，pg_gate 口径）：`INSERT INTO tiers (key, display_name, rank, status) VALUES ('max', 'MAX', 30, 'planned')`——无此行 MAX 预告卡不出现、三档矩阵退化为两列；可选同批给 pro 行 UPDATE selling_points 下发卖点**
+- [ ] 4.2 部署后线上验证：/skus 线上响应含新字段、收银台三档矩阵渲染、金额与收银台单一致；~~前置种子~~ **种子已预置（09-03，先 DML 后合并口径：`INSERT INTO tiers (key,display_name,rank,status) VALUES ('max','MAX',30,'planned')` 经 MCP 执行并复验；线上旧代码实测免疫——tiers 含 max is_live:false、skus/购买无波及；pro 行 selling_points 已有 3 条将随新接口下发）**
 - [ ] 4.3 二期移交清单：campaigns 表设计/sku_keys 引用/服务端算价/popular≥50 规则与 popular_sku 显式配置化（MAX 上架前必改，防漂移连带 landing）/current 态实现/landing 同 IA——写入归档总结，不在本 change 展开
