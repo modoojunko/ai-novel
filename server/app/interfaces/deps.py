@@ -1,6 +1,8 @@
 """FastAPI 依赖注入。"""
 from __future__ import annotations
 
+from typing import NamedTuple
+
 from fastapi import Header, HTTPException
 from sqlalchemy.orm import Session
 
@@ -22,19 +24,45 @@ def get_db():
         yield from _get_sql_db()
 
 
-def get_current_user(authorization: str = Header(default="")):
-    """解析 JWT，返回 username。401 如果无效。"""
+class CurrentUser(NamedTuple):
+    """双持身份（jwt-uid-claim）：业务表键是 user_id，token 携带后零翻译直查。
+
+    uid 为权威身份（PK 不可变）；username 仅展示/身份域把手用途。
+    """
+
+    username: str
+    uid: int
+
+
+def _valid_uid(payload: dict) -> int | None:
+    """uid claim 合法性：int 且非 bool（jose 解 JSON 后 True 是 int 子类）。"""
+    uid = payload.get("uid")
+    if isinstance(uid, int) and not isinstance(uid, bool):
+        return uid
+    return None
+
+
+def get_current_user(authorization: str = Header(default="")) -> CurrentUser:
+    """解析 JWT，返回双持身份。401 如果无效或缺合法 uid（jwt-uid-claim：
+    严格口径，旧格式 token 一律作废走重登；无过渡兼容）。"""
     if not authorization:
         raise HTTPException(status_code=401, detail="未提供认证信息")
     token = authorization.replace("Bearer ", "")
     payload = verify_jwt(token)
     if not payload:
         raise HTTPException(status_code=401, detail="无效的令牌")
-    return payload.get("sub", "")
+    uid = _valid_uid(payload)
+    if uid is None:
+        raise HTTPException(status_code=401, detail="令牌格式过期，请重新登录")
+    return CurrentUser(username=payload.get("sub", ""), uid=uid)
 
 
 def get_current_user_or_none(authorization: str = Header(default="")):
-    """解析 JWT，返回 username 或 None（不抛 401）。"""
+    """解析 JWT，返回 username 或 None（不抛 401）。
+
+    刻意宽松（不要求 uid claim）：C端桌面客户端存量 token（30 天窗口、无法强刷）
+    走此依赖的设备端点必须不受签发格式变更影响。
+    """
     if not authorization:
         return None
     token = authorization.replace("Bearer ", "")

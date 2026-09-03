@@ -336,7 +336,7 @@ class TestVerify:
             "/api/authorize",
             json={"username": web_user["username"], "password": web_user["password"], "pc_hash": pc},
         )
-        foreign_token = sign_jwt("someone_else")
+        foreign_token = sign_jwt("someone_else", 999)
         r = client.post("/api/verify", json={"username": web_user["username"], "token": foreign_token, "pc_hash": pc})
         d = r.json()
         assert d["code"] == 2

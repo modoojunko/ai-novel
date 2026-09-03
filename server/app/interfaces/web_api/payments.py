@@ -24,19 +24,30 @@ from app.interfaces.deps import Db, get_db
 r = APIRouter(prefix="/api/pay", tags=["payments"])
 
 
-def _current_username(request: Request) -> str:
-    """从 Authorization JWT 解析 username（无无效令牌时返回空串，由端点返回 4001）。
+def _current_identity(request: Request) -> tuple[str, int] | None:
+    """从 Authorization JWT 解析双持身份（username, uid）。
 
-    端点统一走此 helper：request.state.username 无中间件回填（历史断点），
-    JWT sub = username（deps.get_current_user 同一口径）。
+    三态口径（jwt-uid-claim）：
+    - 未携带令牌 / 签名无效 → None，端点返回 4001 壳（s-payments 既定口径不变）；
+    - 签名有效但缺/非法 uid（升级前旧格式 token）→ 抛 HTTP 401：前端 401 拦截
+      自动登出回登录页——这是旧 token 的迁移机制；
+    - 正常 → (username, uid)，业务表凭 uid 直查，零身份翻译。
+    授权只认 token 里的 uid；user_id SHALL NOT 从请求参数收。
     """
+    from fastapi import HTTPException
+
     from app.infrastructure.security.jwt import verify_jwt
 
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
-        return ""
+        return None
     payload = verify_jwt(auth.removeprefix("Bearer "))
-    return payload.get("sub", "") if payload else ""
+    if not payload:
+        return None
+    uid = payload.get("uid")
+    if not isinstance(uid, int) or isinstance(uid, bool):
+        raise HTTPException(status_code=401, detail="令牌格式过期，请重新登录")
+    return payload.get("sub", ""), uid
 
 
 # ── DTO ──
@@ -102,22 +113,19 @@ async def get_skus(request: Request, db: Db = Depends(get_db)):
 @r.post("/orders")
 async def create_order(req: CreateOrderRequest, request: Request, db: Db = Depends(get_db)):
     """Z.3 下单（冻结快照+统一下单）。"""
-    username = _current_username(request)
-    if not username:
+    identity = _current_identity(request)
+    if not identity:
         return {"code": 4001, "msg": "未登录"}
-
+    username, user_id = identity
 
     from app.application.payments.create_order import create_order as _create
     from app.infrastructure.payments.gateway import MockPaymentGateway
-    from app.infrastructure.repositories.factory import user_repo
     from app.infrastructure.repositories.payments_repo import (
         OrderRepo,
         SkuRepo,
         TradeEventRepo,
     )
 
-    user_repo = user_repo(db)
-    user_id = user_repo.get_id(username)
     if not user_id:
         return {"code": 4001, "msg": "用户不存在"}
 
@@ -169,16 +177,15 @@ async def list_orders(
 ):
     """Z.4 我的订单列表（创建时间倒序；status=逗号分隔状态白名单筛选，
     total=筛选全量计数，page/page_size 真分页——tab 分版 + 加载更多契约）。"""
-    username = _current_username(request)
-    if not username:
+    identity = _current_identity(request)
+    if not identity:
         return {"code": 4001, "msg": "未登录"}
+    username, user_id = identity
 
     from datetime import datetime
 
-    from app.infrastructure.repositories.factory import user_repo
     from app.infrastructure.repositories.payments_repo import OrderRepo
 
-    user_id = user_repo(db).get_id(username)
     if not user_id:
         return {"code": 4001, "msg": "用户不存在"}
 
@@ -223,14 +230,13 @@ async def list_orders(
 @r.get("/orders/pending")
 async def get_pending_order(request: Request, db: Db = Depends(get_db)):
     """Z.3 恢复未支付订单。"""
-    username = _current_username(request)
-    if not username:
+    identity = _current_identity(request)
+    if not identity:
         return {"code": 4001, "msg": "未登录"}
+    username, user_id = identity
 
-    from app.infrastructure.repositories.factory import user_repo
-    from app.infrastructure.repositories.payments_repo import OrderRepo
     from app.application.payments.create_order import ORDER_TTL_SECONDS
-    user_id = user_repo(db).get_id(username)
+    from app.infrastructure.repositories.payments_repo import OrderRepo
     orders = OrderRepo(db).find_by_user(user_id, limit=1)
 
     def _alive(o: dict) -> bool:
@@ -260,11 +266,11 @@ async def get_pending_order(request: Request, db: Db = Depends(get_db)):
 @r.get("/orders/{order_no}")
 async def get_order(order_no: str, request: Request, db: Db = Depends(get_db)):
     """Z.5 订单详情（全量：状态/时间线/单号/退款进度）。"""
-    username = _current_username(request)
-    if not username:
+    identity = _current_identity(request)
+    if not identity:
         return {"code": 4001, "msg": "未登录"}
+    username, user_id = identity
 
-    from app.infrastructure.repositories.factory import user_repo
     from app.infrastructure.repositories.payments_repo import OrderRepo
 
     order = OrderRepo(db).find_by_order_no(order_no)
@@ -272,7 +278,6 @@ async def get_order(order_no: str, request: Request, db: Db = Depends(get_db)):
         return {"code": 4004, "msg": "订单不存在"}
 
     # 属主校验（404 防枚举）
-    user_id = user_repo(db).get_id(username)
     if order.get("user_id") != user_id:
         return {"code": 4004, "msg": "订单不存在"}
 
@@ -295,15 +300,13 @@ async def get_order(order_no: str, request: Request, db: Db = Depends(get_db)):
 @r.post("/orders/{order_no}/query")
 async def query_order(order_no: str, request: Request, db: Db = Depends(get_db)):
     """手动查单（"我已支付帮我查"）。"""
-    username = _current_username(request)
+    username, user_id = _current_identity(request) or ("", None)
 
     from app.application.payments.fulfill_payment import fulfill_payment
     from app.infrastructure.payments.gateway import MockPaymentGateway, PaymentStatus
-    from app.infrastructure.repositories.factory import user_repo
     from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
     order = OrderRepo(db).find_by_order_no(order_no)
-    user_id = user_repo(db).get_id(username)
     if not order or order.get("user_id") != user_id:
         return {"code": 4004, "msg": "订单不存在"}
 
@@ -334,18 +337,16 @@ async def query_order(order_no: str, request: Request, db: Db = Depends(get_db))
 @r.get("/orders/{order_no}/refund-preview")
 async def refund_preview(order_no: str, request: Request, db: Db = Depends(get_db)):
     """退款预览（折算金额）。基准=台账行（未激活全额退）。"""
-    username = _current_username(request)
+    username, user_id = _current_identity(request) or ("", None)
 
     from datetime import datetime
 
     from app.application.payments.refund_flow import resolve_refund_basis
     from app.domain.payments.refund import calc_refund_fen
     from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
-    from app.infrastructure.repositories.factory import user_repo
     from app.infrastructure.repositories.payments_repo import OrderRepo
 
     order = OrderRepo(db).find_by_order_no(order_no)
-    user_id = user_repo(db).get_id(username)
     if not order or order.get("user_id") != user_id:
         return {"code": 4004, "msg": "订单不存在"}
 
@@ -385,15 +386,13 @@ async def refund_preview(order_no: str, request: Request, db: Db = Depends(get_d
 @r.post("/orders/{order_no}/refund")
 async def request_refund(order_no: str, req: RefundRequest, request: Request, db: Db = Depends(get_db)):
     """确认退款（进入冷静期）。"""
-    username = _current_username(request)
+    username, user_id = _current_identity(request) or ("", None)
 
     from app.application.payments.refund_flow import request_refund as _refund
     from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
-    from app.infrastructure.repositories.factory import user_repo
     from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
     order = OrderRepo(db).find_by_order_no(order_no)
-    user_id = user_repo(db).get_id(username)
     if not order or order.get("user_id") != user_id:
         return {"code": 4004, "msg": "订单不存在"}
 
@@ -416,14 +415,12 @@ async def request_refund(order_no: str, req: RefundRequest, request: Request, db
 @r.post("/orders/{order_no}/refund/cancel")
 async def cancel_refund(order_no: str, request: Request, db: Db = Depends(get_db)):
     """冷静期取消退款。"""
-    username = _current_username(request)
+    username, user_id = _current_identity(request) or ("", None)
 
     from app.application.payments.refund_flow import cancel_refund as _cancel
-    from app.infrastructure.repositories.factory import user_repo
     from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
     order = OrderRepo(db).find_by_order_no(order_no)
-    user_id = user_repo(db).get_id(username)
     if not order or order.get("user_id") != user_id:
         return {"code": 4004, "msg": "订单不存在"}
 
@@ -438,14 +435,12 @@ async def cancel_refund(order_no: str, request: Request, db: Db = Depends(get_db
 @r.post("/orders/{order_no}/cancel")
 async def cancel_order(order_no: str, request: Request, db: Db = Depends(get_db)):
     """取消订单（用户主动）。"""
-    username = _current_username(request)
+    username, user_id = _current_identity(request) or ("", None)
 
     from app.domain.payments.order import Transition
-    from app.infrastructure.repositories.factory import user_repo
     from app.infrastructure.repositories.payments_repo import OrderRepo
 
     order = OrderRepo(db).find_by_order_no(order_no)
-    user_id = user_repo(db).get_id(username)
     if not order or order.get("user_id") != user_id:
         return {"code": 4004, "msg": "订单不存在"}
 
@@ -462,18 +457,20 @@ async def cancel_order(order_no: str, request: Request, db: Db = Depends(get_db)
 @r.get("/license")
 async def get_license(request: Request, db: Db = Depends(get_db)):
     """Z.6 我的套餐总览：档位头汇总（含手工码）+ 订单来源套餐明细。"""
-    username = _current_username(request)
-    if not username:
+    identity = _current_identity(request)
+    if not identity:
         return {"code": 4001, "msg": "未登录"}
+    _, user_id = identity
 
     from app.domain.licensing.license import License
     from app.infrastructure.repositories.factory import code_repo
     from app.infrastructure.repositories.payments_repo import OrderRepo
 
-    all_codes = code_repo(db).find_all_by_username(username)
+    # uid 直通（jwt-uid-claim）：_resolve_user_id 对 int 零开销，免 users 表翻译
+    all_codes = code_repo(db).find_all_by_username(user_id)
     # 汇总口径保持原状（原 find_active_by_username 只喂 active 行）：unused 手工码
     # 不参与档位归属（merge 跳过清单不含 unused，直接喂会抬高档位头）；明细仍全量
-    lic = License(username=username).merge([c for c in all_codes if c.status != "unused"])
+    lic = License(username="").merge([c for c in all_codes if c.status != "unused"])  # username 仅标识标签，merge/响应不用
 
     # 明细：仅订单来源台账行（手工码不进明细，design D2）；order_no 供激活接口定位
     grants_src = [c for c in all_codes if getattr(c, "source", "admin") == "order"]
@@ -515,16 +512,15 @@ async def get_license(request: Request, db: Db = Depends(get_db)):
 @r.post("/codes/activate")
 async def activate(req: ActivateRequest, request: Request, db: Db = Depends(get_db)):
     """激活（到货-激活两段式第二段）。"""
-    username = _current_username(request)
-    if not username:
+    identity = _current_identity(request)
+    if not identity:
         return {"code": 4001, "msg": "未登录"}
+    username, user_id = identity
 
     from app.application.payments.activate_code import activate_code
     from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
-    from app.infrastructure.repositories.factory import user_repo
     from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
-    user_id = user_repo(db).get_id(username)
     try:
         result = activate_code(
             OrderRepo(db), TradeEventRepo(db), _code_repo_factory(db),

@@ -122,7 +122,7 @@ def _seed_new_db(db_path: str):
     ))
 
     # device_grant（原 auth_tokens）
-    jwt_token = sign_jwt("modoojunko")
+    jwt_token = sign_jwt("modoojunko", 1)
     db.add(DeviceGrantORM(
         pc_hash="test-pc-hash-001",
         user_id=_uid,

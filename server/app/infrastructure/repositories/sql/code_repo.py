@@ -25,8 +25,12 @@ class SqlCodeRepo:
             now = datetime.now(UTC)
         return now.astimezone(UTC).replace(tzinfo=None) if now.tzinfo else now
 
-    def _resolve_user_id(self, username: str) -> int | None:
-        row = self.db.query(UserORM.id).filter(UserORM.username == username).first()
+    def _resolve_user_id(self, username_or_id) -> int | None:
+        """接受 username(str) 或 user_id(int)（与 pg_http 侧契约对齐：
+        jwt-uid-claim 后 web 端点直传 token uid，int 零开销直通）。"""
+        if isinstance(username_or_id, int) and not isinstance(username_or_id, bool):
+            return username_or_id
+        row = self.db.query(UserORM.id).filter(UserORM.username == username_or_id).first()
         return row[0] if row else None
 
     @staticmethod

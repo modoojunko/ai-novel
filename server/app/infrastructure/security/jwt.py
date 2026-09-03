@@ -8,11 +8,17 @@ from jose import jwt as jose_jwt
 from app.config import settings
 
 
-def sign_jwt(username: str) -> str:
-    """签发 JWT（30 天过期）。"""
+def sign_jwt(username: str, uid: int) -> str:
+    """签发 JWT（30 天过期）。
+
+    uid=用户整型代理键（jwt-uid-claim）：业务表外键全站是 user_id，token 携带后
+    web 业务端点凭 uid 直查、免每请求 username→id 翻译。uid 为权威身份（PK 不可变，
+    注销后同名重注册获得新 uid）。严格鉴权依赖要求合法 uid；C端心跳只读 sub 不受影响。
+    """
     payload = {
         "sub": username,
         "username": username,
+        "uid": uid,
         "exp": int((datetime.now(UTC) + timedelta(days=settings.JWT_EXPIRE_DAYS)).timestamp()),
     }
     return jose_jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
