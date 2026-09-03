@@ -1637,19 +1637,27 @@ HTTP 状态码：成功 200；认证 401；属主不符 404（防枚举）；其
 | `/api/pay/license`（计数/快照注） | GET | — | `…code_count`（双发 `grant_count` 过渡）；订单详情 `…fulfillment`（双发 `grant` 过渡） | s-license-codes-field：字段层对齐 code/到货；fulfillment=本单到货码行激活状态投影 |
 | `/api/auth/check-auth` | GET | — | 现有字段 + `{days_remaining?, attention?}` | A4 扩展（可选字段） |
 
-### Z.4 SkusView DTO（统一版）
+### Z.4 SkusView DTO（统一版；s-pay-plans-picker 对齐实现并扩容）
 
 ```json
 {
-  "tiers": [{"key":"pro","label":"PRO","rank":20,"is_live":true,"planned_label":"MAX · 即将推出"}],
-  "free_card": {"devices":1,"features":["全部基础写作工具","不含 AI 能力","本地作品永久保留"]},
-  "skus": [{"sku_key":"pro-yearly","tier":"pro","period":"yearly","name":"包年","days":365,
-            "base_fen":36500,"discount_permille":800,"price_fen":29200,"device_limit":5,"is_popular":true}],
-  "popular_sku":"pro-yearly",
-  "buyers_count": 1024,
-  "current": null  // 登录时：{tier, expires_at, remaining_days, pending_activation_count}
+  "purchase_enabled": true,
+  "agreement_version": "v2026.08",
+  "tiers": [
+    {"key":"pro","label":"PRO","is_live":true,"is_planned":false,
+     "selling_points":["含免费全部功能","AI 生成正文（流式）","设定与章纲融入 AI"]},
+    {"key":"max","label":"MAX","is_live":false,"is_planned":true,"selling_points":[]}
+  ],
+  "skus": [{"sku_key":"pro_yearly","tier_key":"pro","period":"yearly","period_days":365,
+            "base_price_fen":29900,"discount_display":"8折","price_fen":23920,"device_limit":5}],
+  "popular_sku": "pro_yearly"
 }
 ```
+
+- `selling_points`：tiers 列 JSON 数组解析后下发（空数组=前端兜底文案）；三档卖点单源，运营改库即生效
+- `is_planned`：planned 档返回但无 SKU（「即将推出」预告卡数据源）；**retired 档及其 SKU 均不返回**
+- 无 `display_name`/档位级 `device_limit` 字段（列不存在裁定砍除）：时长名称=period 映射前端单源（包月/包季/包年），免费列设备数固定 1
+- `current`：设计保留、实现未组装（登录态扩展属二期）
 
 ### Z.5 OrderDetailView DTO（统一版——单端点全量）
 

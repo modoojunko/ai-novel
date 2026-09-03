@@ -1,27 +1,32 @@
 <script setup lang="ts">
 /**
  * 收银台——购买流程页（无控制台外壳）。
- * 选套餐、协议弹窗、扫码支付、八态分支。
- * 设计事实源：docs/design-s/prototypes/cashier.html（选型 A）
+ * 选套餐（时长主轴×三档对比）、协议弹窗、扫码支付、八态分支。
+ * 设计事实源：docs/design-s/prototypes/cashier.html 态一（09-03 改版，s-pay-plans-picker）：
+ * 界面以鼠标点按为主，不做键盘适配（用户裁定）；价格展示一律走 fmtPrice 单源。
  */
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   apiPaySkus, apiPayCreateOrder, apiPayQueryOrder, apiPayCancelOrder,
-  fenToYuan, fenToYuanShort, periodLabel,
+  fmtPrice, periodLabel,
   type SkusView, type SkuItem, type CreateOrderResult,
 } from '@/api/pay'
+import { useSessionStore } from '@/stores/session'
 import Ico from '@/components/ui/Ico.vue'
 import AppModal from '@/components/ui/AppModal.vue'
 import SiteBeianBar from '@/components/site/SiteBeianBar.vue'
 import { P } from '@/components/ui/icons'
 
 const router = useRouter()
+const session = useSessionStore()
 
 // ── 状态 ──
 const loading = ref(true)
 const skusData = ref<SkusView | null>(null)
-const selectedSku = ref<SkuItem | null>(null)
+// 二维选套餐状态（s-pay-plans-picker D1）：时长主轴默认包月（用户裁定）+ 档位列选中
+const period = ref<SkuItem['period']>('monthly')
+const selectedTier = ref('')
 const order = ref<CreateOrderResult | null>(null)
 const payState = ref<'pick' | 'waiting' | 'success' | 'closed' | 'failCreate' | 'failVerify' | 'waitFail'>('pick')
 const showTerms = ref(false)
@@ -31,26 +36,98 @@ const queryHint = ref('')
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 
+// ── 卖点兜底文案（selling_points 空数组时的保底，不空白）──
+// 免费/PRO=UpgradeModal 真实功能事实（client/…/UpgradeModal.tsx）；MAX=占位稿待运营定稿
+const FALLBACK_FEATS: Record<string, string[]> = {
+  free: ['全部基础写作工具', '不含 AI 能力', '本地作品永久保留'],
+  pro: ['含免费全部功能', 'AI 生成正文（流式）', '设定与章纲融入 AI', '卷/章高级字段（冲突阶梯·情绪设计）'],
+  max: ['含 PRO 全部功能', '更强模型 · 更大用量', '多章连写与批量生成', '优先体验新能力', '最多 10 台设备'],
+}
+// 目录不可达时的降级骨架：时长/设备数是产品结构事实，价格一律留白
+const FALLBACK_PAID = [
+  { period: 'monthly', days: 30, devices: 3 },
+  { period: 'quarterly', days: 90, devices: 3 },
+  { period: 'yearly', days: 365, devices: 5 },
+] as const
+
+const PERIOD_ORDER: SkuItem['period'][] = ['monthly', 'quarterly', 'yearly']
+
 // ── 计算属性 ──
-const selectedPrice = computed(() => {
-  if (!selectedSku.value) return ''
-  return fenToYuan(selectedSku.value.price_fen)
+const isLoggedIn = computed(() => session.isLoggedIn)
+
+/** 目录里实际在售的时长集合（驱动 tab；目录不可达时为空=不渲染 tab） */
+const periods = computed<SkuItem['period'][]>(() => {
+  const set = new Set((skusData.value?.skus ?? []).map(s => s.period))
+  return PERIOD_ORDER.filter(p => set.has(p))
 })
+
+/** 时长 tab 折扣徽标：读该时长下任一 SKU 的 discount_display（单源，前端不换算） */
+function periodDiscount(p: SkuItem['period']): string {
+  const sku = skusData.value?.skus.find(s => s.period === p && s.discount_display)
+  return sku?.discount_display ?? ''
+}
+
+/** 三档对比列（free 行除外；planned 档渲染预告卡） */
+const tierCards = computed(() => {
+  const tiers = (skusData.value?.tiers ?? []).filter(t => t.key !== 'free')
+  return tiers.map(t => ({
+    ...t,
+    feats: t.selling_points.length ? t.selling_points : FALLBACK_FEATS[t.key] ?? [],
+    sku: skusData.value?.skus.find(s => s.tier_key === t.key && s.period === period.value) ?? null,
+  }))
+})
+
+const freeTier = computed(() => skusData.value?.tiers.find(t => t.key === 'free') ?? null)
+const freeFeats = computed(() =>
+  freeTier.value?.selling_points.length ? freeTier.value.selling_points : FALLBACK_FEATS.free)
+
+/** 选中规格：档×时长 交集（档被下架/该时长无 SKU 时为 null，由守卫回落） */
+const selectedSku = computed<SkuItem | null>(() =>
+  skusData.value?.skus.find(s => s.tier_key === selectedTier.value && s.period === period.value) ?? null)
+
+const selectedPrice = computed(() => selectedSku.value ? fmtPrice(selectedSku.value.price_fen) : '')
+
+const savedFen = computed(() => {
+  const s = selectedSku.value
+  return s ? Math.max(0, s.base_price_fen - s.price_fen) : 0
+})
+
+function tierLabelOf(key: string): string {
+  if (key === 'free') return '免费'
+  return skusData.value?.tiers.find(t => t.key === key)?.label ?? key
+}
+
+/** 守卫：所选档失效（下架/该时长无 SKU）时回落——popular 档 → 该时长有货的首个 live 档 */
+function ensureSelection() {
+  if (selectedSku.value || !skusData.value) return
+  const data = skusData.value
+  const popular = data.skus.find(s => s.sku_key === data.popular_sku)
+  const fallback =
+    (popular && popular.tier_key) ||
+    data.skus.find(s => s.period === period.value)?.tier_key ||
+    data.skus[0]?.tier_key ||
+    ''
+  if (fallback) selectedTier.value = fallback
+}
 
 // 协议确认在「去支付」后的弹窗里打钩留痕（产品拍板），选卡本身不设门槛
 const canPay = computed(() => !!selectedSku.value)
 
-// ── 方法 ──
-function selectSku(sku: SkuItem) {
-  selectedSku.value = sku
+function switchPeriod(p: SkuItem['period']) {
+  period.value = p
+  ensureSelection()
 }
 
+// ── 方法 ──
 async function loadSkus() {
   try {
     skusData.value = await apiPaySkus()
-    // 默认选 popular 或第一个
-    const popular = skusData.value.skus.find(s => s.sku_key === skusData.value?.popular_sku)
-    selectedSku.value = popular || skusData.value.skus[0] || null
+    // 默认：时长=包月（用户裁定）；档位=popular 所属档回退 pro/首个 live 档
+    const data = skusData.value
+    if (!periods.value.includes(period.value) && periods.value.length) period.value = periods.value[0]
+    const popular = data.skus.find(s => s.sku_key === data.popular_sku)
+    selectedTier.value = popular?.tier_key || data.tiers.find(t => t.is_live && t.key !== 'free')?.key || 'pro'
+    ensureSelection()
   } catch (e) {
     console.error('loadSkus failed:', e)
   } finally {
@@ -208,8 +285,8 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
       <span class="pay-brand-name">爱小说</span>
     </div>
 
-    <!-- ═══ 态〇：未登录 ═══ -->
-    <template v-if="payState === 'pick' && !skusData?.purchase_enabled && skusData">
+    <!-- ═══ 态〇：未登录且停售开关关闭（未登录≠停售，两分支按登录态拆分） ═══ -->
+    <template v-if="payState === 'pick' && skusData && !skusData.purchase_enabled && !isLoggedIn">
       <div class="pay-stage">
         <h1>登录后继续购买</h1>
         <p class="pay-sub">您选择的套餐已保留</p>
@@ -224,60 +301,89 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
       </div>
     </template>
 
-    <!-- ═══ 态一：选套餐 ═══ -->
+    <!-- ═══ 态一·停售：已登录但购买开关关闭 ═══ -->
+    <template v-else-if="payState === 'pick' && skusData && !skusData.purchase_enabled && isLoggedIn">
+      <div class="pay-stage">
+        <h1>暂时无法购买</h1>
+        <div class="pay-card">
+          <div class="notice warn pay-notice">
+            <span>购买服务暂未开放，已登录账号不受影响。开放后此处即可选购套餐。</span>
+          </div>
+          <button class="btn btn-secondary btn-block" @click="router.push('/dashboard')">返回控制台</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- ═══ 态一：选套餐（时长主轴×三档对比） ═══ -->
     <template v-else-if="payState === 'pick'">
       <h1 class="pay-h1">升级套餐，解锁全部写作能力</h1>
       <p class="pay-sub">一次性买断 · 到期不自动扣款 · 随时按剩余时长退款</p>
 
-      <!-- 档位 tab（仅多档位时显示） -->
-      <div v-if="skusData && skusData.tiers.filter(t => t.is_live).length > 1" class="pay-tabs">
+      <!-- 时长 tab 主轴（包月默认；折扣徽标读 discount_display 单源） -->
+      <div v-if="periods.length > 1" class="pay-tabs">
         <button
-          v-for="t in skusData.tiers.filter(t => t.is_live)"
-          :key="t.key"
+          v-for="p in periods"
+          :key="p"
           class="pay-tab"
-          :class="{ on: selectedSku?.tier_key === t.key }"
+          :class="{ on: period === p }"
+          @click="switchPeriod(p)"
         >
-          {{ t.label }}
+          {{ periodLabel(p) }}<span v-if="periodDiscount(p)" class="pay-tab-mini">{{ periodDiscount(p) }}</span>
         </button>
       </div>
 
-      <!-- 套餐卡 -->
       <div v-if="loading" class="pay-loading">加载中…</div>
-      <div v-else-if="skusData" class="pay-cards">
-        <!-- 免费卡 -->
+
+      <!-- 目录不可达或无在售 SKU（spec：失败或为空同款降级）——结构事实保留，价格一律留白，
+           防 live 无货档被误渲染成「即将推出」预告卡 -->
+      <div v-else-if="!skusData || !skusData.skus.length" class="pay-cards">
         <div class="pay-card-free">
           <span class="pill pill-tag">当前方案</span>
           <div class="pay-card-name">免费</div>
           <div class="pay-card-days">1 台设备</div>
           <div class="pay-card-price">¥0</div>
-          <div class="pay-card-feat">
-            <i>全部基础写作工具</i>
-            <i>不含 AI 能力</i>
-            <i>本地作品永久保留</i>
-          </div>
+          <div class="pay-card-feat"><i v-for="f in FALLBACK_FEATS.free" :key="f">{{ f }}</i></div>
+        </div>
+        <div v-for="fb in FALLBACK_PAID" :key="fb.period" class="pay-card-free">
+          <div class="pay-card-name">{{ periodLabel(fb.period) }}</div>
+          <div class="pay-card-days">{{ fb.days }} 天 · {{ fb.devices }} 台设备</div>
+          <div class="pay-card-price pay-price-blank">价格获取失败，请刷新重试</div>
+          <div class="pay-card-feat"><i v-for="f in FALLBACK_FEATS.pro" :key="f">{{ f }}</i></div>
+        </div>
+      </div>
+
+      <!-- 三档对比列 -->
+      <div v-else class="pay-cards">
+        <!-- 免费列：对比锚点，不可选 -->
+        <div class="pay-card-free">
+          <span class="pill pill-tag">当前方案</span>
+          <div class="pay-card-name">免费</div>
+          <div class="pay-card-days">1 台设备</div>
+          <div class="pay-card-price">¥0</div>
+          <div class="pay-card-feat"><i v-for="f in freeFeats" :key="f">{{ f }}</i></div>
         </div>
 
-        <!-- 付费 SKU 卡 -->
-        <div
-          v-for="sku in skusData.skus"
-          :key="sku.sku_key"
-          class="pay-card"
-          :class="{ on: selectedSku?.sku_key === sku.sku_key, popular: sku.sku_key === skusData.popular_sku }"
-          @click="selectSku(sku)"
-        >
-          <span v-if="sku.sku_key === skusData.popular_sku" class="pill pill-accent pay-card-badge">最受欢迎</span>
-          <div class="pay-card-name">{{ periodLabel(sku.period) }}</div>
-          <div class="pay-card-days">{{ sku.period_days }} 天 · {{ sku.device_limit }} 台设备</div>
-          <div class="pay-card-price">
-            {{ fenToYuanShort(sku.price_fen) }}<small>元</small>
+        <!-- 付费档列 / planned 预告卡 -->
+        <template v-for="t in tierCards" :key="t.key">
+          <div v-if="t.is_planned || !t.sku" class="pay-card-free pay-card-soon">
+            <div class="pay-card-name">{{ t.label }}</div>
+            <div class="pay-card-days">即将推出</div>
+            <div class="pay-card-soon-note">更高设备上限 · 更强 AI 能力。上线后此处自动变为可选时长与价格。</div>
           </div>
-          <div v-if="sku.discount_display" class="pay-card-off">{{ sku.discount_display }}</div>
-          <div class="pay-card-feat">
-            <i>含免费全部功能</i>
-            <i>AI 生成正文（流式）</i>
-            <i>设定与章纲融入 AI</i>
+          <div
+            v-else
+            class="pay-card"
+            :class="{ on: selectedTier === t.key }"
+            @click="selectedTier = t.key"
+          >
+            <span v-if="t.sku.discount_display && t.sku.price_fen < t.sku.base_price_fen" class="pay-card-offpill">{{ t.sku.discount_display }}</span>
+            <div class="pay-card-name">{{ t.label }}</div>
+            <div class="pay-card-days">{{ t.sku.period_days }} 天 · 最多 {{ t.sku.device_limit }} 台设备</div>
+            <div class="pay-card-price">{{ fmtPrice(t.sku.price_fen) }}<small>元</small></div>
+            <div v-if="t.sku.price_fen < t.sku.base_price_fen" class="pay-card-was">原价 {{ fmtPrice(t.sku.base_price_fen) }} 元</div>
+            <div class="pay-card-feat"><i v-for="f in t.feats" :key="f">{{ f }}</i></div>
           </div>
-        </div>
+        </template>
       </div>
 
       <!-- 协议 + 购买条 -->
@@ -285,12 +391,12 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
         <div class="pay-purchase-info">
           <div class="pay-purchase-label">已选</div>
           <div class="pay-purchase-name">
-            {{ periodLabel(selectedSku.period) }}（{{ selectedSku.period_days }} 天）
+            {{ tierLabelOf(selectedSku.tier_key) }} · {{ periodLabel(selectedSku.period) }}（{{ selectedSku.period_days }} 天）
           </div>
         </div>
         <div class="pay-purchase-price">
-          <div v-if="selectedSku.discount_display" class="pay-purchase-save">
-            已省 {{ fenToYuanShort(selectedSku.base_price_fen - selectedSku.price_fen) }}
+          <div v-if="savedFen > 0" class="pay-purchase-save">
+            已省 {{ fmtPrice(savedFen) }}
           </div>
           <div class="pay-purchase-amount">{{ selectedPrice }}</div>
         </div>
@@ -381,7 +487,7 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
         <li>一次性买断时长，<b>到期不自动扣款</b></li>
         <li>套餐支付成功即到货，<b>点激活才开始计时</b>；未激活可全额退</li>
         <li>退款<b>按剩余时长计算、原路退回</b>，不影响其他套餐</li>
-        <li>本单：<b>{{ selectedSku ? `${periodLabel(selectedSku.period)}（${selectedSku.period_days} 天）· ${selectedPrice}` : '' }}</b></li>
+        <li>本单：<b>{{ selectedSku ? `${tierLabelOf(selectedSku.tier_key)} · ${periodLabel(selectedSku.period)}（${selectedSku.period_days} 天）· ${selectedPrice}` : '' }}</b></li>
       </ul>
       <p class="pay-terms-full">
         全文：<a class="lnk" href="/legal/payment-notice.html" target="_blank" rel="noopener">《付费须知》</a><template v-if="skusData?.agreement_version">（{{ skusData.agreement_version }}）</template>
@@ -418,20 +524,26 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
 .pay-tabs { display: inline-flex; background: var(--fg-soft); border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 10px; }
 .pay-tab { height: 42px; padding: 0 26px; border-radius: 9px; font-size: 14.5px; font-weight: 600; color: var(--muted); border: 0; background: none; cursor: pointer; }
 .pay-tab.on { background: var(--surface); color: var(--fg); box-shadow: 0 1px 3px color-mix(in oklch, var(--fg) 10%, transparent); }
+.pay-tab-mini { font-size: 10.5px; font-weight: 600; color: var(--accent-strong); background: var(--accent-soft); padding: 1px 7px; border-radius: 999px; margin-left: 7px; vertical-align: 1px; }
 
-.pay-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; width: 860px; max-width: 100%; margin-top: 26px; }
+/* 三档对比列（时长主轴在 tab，列=档位；对齐原型 cashier.html 态一） */
+.pay-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 860px; max-width: 100%; margin-top: 26px; }
 .pay-card-free, .pay-card { position: relative; background: var(--surface); border: 1.5px solid var(--border); border-radius: 14px; padding: 20px 20px 18px; text-align: left; }
 .pay-card { cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
 .pay-card:hover { border-color: color-mix(in oklch, var(--accent) 40%, var(--border)); }
 .pay-card.on { border-color: var(--accent); background: color-mix(in oklch, var(--accent) 4%, var(--surface)); box-shadow: 0 0 0 3px var(--accent-soft); }
 .pay-card-free { cursor: default; }
 .pay-card-free:hover { border-color: var(--border); }
-.pay-card-badge { position: absolute; top: -11px; left: 16px; }
+/* planned 预告卡：dashed，不可选 */
+.pay-card-soon { border-style: dashed; background: transparent; }
+.pay-card-soon-note { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.6; }
 .pay-card-name { font-size: 15px; font-weight: 600; color: var(--fg); }
 .pay-card-days { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .pay-card-price { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 32px; font-weight: 600; letter-spacing: -0.02em; margin-top: 12px; color: var(--fg); }
 .pay-card-price small { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 2px; }
-.pay-card-off { display: inline-block; font-size: 11px; font-weight: 600; color: var(--accent-strong); background: var(--accent-soft); padding: 2px 8px; border-radius: 999px; margin-top: 4px; }
+.pay-price-blank { font-family: var(--font-body); font-size: 13px; font-weight: 400; color: var(--muted); }
+.pay-card-offpill { position: absolute; top: 10px; right: 12px; font-size: 11px; font-weight: 600; color: var(--accent-strong); background: var(--accent-soft); padding: 2px 8px; border-radius: 999px; }
+.pay-card-was { font-size: 12px; color: var(--muted); text-decoration: line-through; margin-top: 1px; }
 .pay-card-feat { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: grid; gap: 4px; }
 .pay-card-feat i { font-style: normal; font-size: 11.5px; color: var(--muted); display: flex; gap: 6px; align-items: baseline; }
 .pay-card-feat i::before { content: ''; flex: none; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
@@ -467,9 +579,9 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
 .pay-agree { display: flex; gap: 8px; align-items: flex-start; margin: 12px 0 0; font-size: 12.5px; color: var(--fg); cursor: pointer; }
 .pay-agree input { margin-top: 3px; accent-color: var(--accent); width: 14px; height: 14px; flex: none; }
 
-/* 响应式 */
+/* 响应式：三档对比列 768px 以下单列纵排（对比列变对比行），购买条堆叠 */
 @media (max-width: 768px) {
-  .pay-cards { grid-template-columns: repeat(2, 1fr); }
+  .pay-cards { grid-template-columns: 1fr; }
   .pay-purchase { flex-direction: column; align-items: stretch; text-align: center; }
   .pay-purchase-info, .pay-purchase-price { text-align: center; }
 }
