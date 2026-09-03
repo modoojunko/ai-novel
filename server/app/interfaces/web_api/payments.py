@@ -460,7 +460,6 @@ async def cancel_order(order_no: str, request: Request, db: Db = Depends(get_db)
 
 
 @r.get("/license")
-@r.get("/membership")  # 过渡别名：线上前端 bundle grep '/pay/membership'=0 后删除（s-pay-license-naming 5.4）
 async def get_license(request: Request, db: Db = Depends(get_db)):
     """Z.6 我的套餐总览：档位头汇总（含手工码）+ 订单来源套餐明细。"""
     username = _current_username(request)

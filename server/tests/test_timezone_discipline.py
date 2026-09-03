@@ -51,9 +51,9 @@ def _register(client, uid) -> dict:
 
 
 class TestNaiveUtcDiscipline:
-    def test_membership_remaining(self, client, web_user, tz_shanghai):
-        """会员剩余秒数 = max_expires_at − UTC now（TZ=上海下不偏 8 小时）。"""
-        r = client.get("/api/pay/membership", headers={
+    def test_license_remaining(self, client, web_user, tz_shanghai):
+        """总览剩余秒数 = max_expires_at − UTC now（TZ=上海下不偏 8 小时）。"""
+        r = client.get("/api/pay/license", headers={
             "Authorization": f"Bearer {web_user['token']}"})
         body = r.json()
         assert body["code"] == 0, body
