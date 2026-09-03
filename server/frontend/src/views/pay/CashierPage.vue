@@ -343,7 +343,7 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
         <div class="pay-success-title">已到货，待激活</div>
         <div class="pay-success-hint">点「立即激活」马上开始计时；先存着也随时可在「我的套餐」激活</div>
         <div class="pay-success-actions">
-          <button class="btn btn-primary" @click="router.push('/dashboard/membership')">立即激活</button>
+          <button class="btn btn-primary" @click="router.push('/dashboard/license')">立即激活</button>
           <button class="btn btn-secondary" @click="router.push('/dashboard')">返回控制台</button>
         </div>
       </div>

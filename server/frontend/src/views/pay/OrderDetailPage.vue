@@ -318,7 +318,7 @@ async function copyNo() {
       <div class="ops">
         <template v-if="state === 'paid' || state === 'fulfilled'">
           <button class="btn btn-secondary" @click="router.push(`/dashboard/orders/${order.order_no}/refund`)">申请退款</button>
-          <button class="btn btn-primary" @click="router.push('/dashboard/membership')">去我的套餐</button>
+          <button class="btn btn-primary" @click="router.push('/dashboard/license')">去我的套餐</button>
         </template>
         <template v-else-if="state === 'pending'">
           <button class="btn btn-ghost" :disabled="busy" @click="doCancelOrder">取消订单</button>

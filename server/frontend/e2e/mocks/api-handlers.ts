@@ -1,8 +1,8 @@
 import type { Page, Route } from '@playwright/test'
 import { createTestUser, createTestDevice, type TestUser, type TestDevice } from './test-data'
 
-/** /api/pay/membership 明细行（订单来源台账行） */
-export interface TestMembershipGrant {
+/** /api/pay/license 明细行（订单来源台账行） */
+export interface TestLicenseGrant {
   code_id: string
   order_no: string
   tier: string
@@ -13,14 +13,14 @@ export interface TestMembershipGrant {
   grant_start: string
 }
 
-/** /api/pay/membership 响应（S端 我的套餐摘要 + 明细） */
-export interface TestMembership {
+/** /api/pay/license 响应（S端 我的套餐摘要 + 明细） */
+export interface TestLicense {
   tier: string
   remaining_sec: number
   remaining_desc: string
   max_expires_at: string | null
   pending_count: number
-  grants?: TestMembershipGrant[]
+  grants?: TestLicenseGrant[]
 }
 
 /** /api/pay/orders 列表项（S端 我的订单） */
@@ -48,7 +48,7 @@ export class MockApi {
   private page: Page
   private currentUser: TestUser | null = null
   private devices: TestDevice[] = []
-  private membership: TestMembership | null = null
+  private license: TestLicense | null = null
   private orders: TestOrder[] = []
   /** 退款预览覆写（测拒绝态：below_one_fen / over_one_year / refundable:false） */
   private refundPreviewOverride: { refundable: boolean; reason: string; refund_fen?: number; remaining_desc?: string } | null = null
@@ -168,9 +168,9 @@ export class MockApi {
     this.skusOverride = v
   }
 
-  /** 设置 /api/pay/membership 摘要（S端 首页/我的套餐卡数据源） */
-  setMembership(m: Partial<TestMembership>): void {
-    this.membership = {
+  /** 设置 /api/pay/license 摘要（S端 首页/我的套餐卡数据源） */
+  setLicense(m: Partial<TestLicense>): void {
+    this.license = {
       tier: 'free',
       remaining_sec: 0,
       remaining_desc: '0 天',
@@ -218,9 +218,9 @@ export class MockApi {
     this.activateFailMode = mode
   }
 
-  /** 由 orders 的 grant 快照同步 membership 摘要（激活流转后明细/计数保持一致） */
-  private syncMembershipFromGrants(): void {
-    const grants: TestMembershipGrant[] = this.orders
+  /** 由 orders 的 grant 快照同步 license 摘要（激活流转后明细/计数保持一致） */
+  private syncLicenseFromGrants(): void {
+    const grants: TestLicenseGrant[] = this.orders
       .filter((o) => o.grant && o.grant.status !== 'none')
       .map((o) => ({
         code_id: `O-${o.order_no}`,
@@ -232,15 +232,15 @@ export class MockApi {
         expires_at: o.grant!.expires_at,
         grant_start: o.grant!.activated_at,
       }))
-    if (!this.membership) this.membership = { tier: 'free', remaining_sec: 0, remaining_desc: '0 天', max_expires_at: null, pending_count: 0, grants: [] }
-    this.membership.grants = grants
-    this.membership.pending_count = grants.filter((g) => g.status === 'pending_activation').length
+    if (!this.license) this.license = { tier: 'free', remaining_sec: 0, remaining_desc: '0 天', max_expires_at: null, pending_count: 0, grants: [] }
+    this.license.grants = grants
+    this.license.pending_count = grants.filter((g) => g.status === 'pending_activation').length
     const active = grants.find((g) => g.status === 'active')
     if (active) {
-      this.membership.tier = 'pro'
-      this.membership.max_expires_at = active.expires_at
-      this.membership.remaining_sec = Math.max(0, Math.round((Date.parse(active.expires_at + 'Z') - Date.now()) / 1000))
-      this.membership.remaining_desc = `${Math.max(0, Math.round(this.membership.remaining_sec / 86400))} 天`
+      this.license.tier = 'pro'
+      this.license.max_expires_at = active.expires_at
+      this.license.remaining_sec = Math.max(0, Math.round((Date.parse(active.expires_at + 'Z') - Date.now()) / 1000))
+      this.license.remaining_desc = `${Math.max(0, Math.round(this.license.remaining_sec / 86400))} 天`
     }
   }
 
@@ -485,15 +485,15 @@ export class MockApi {
       }))
     }
 
-    if (path === '/api/pay/membership' && method === 'GET') {
-      if (!this.membership && this.orders.some((o) => o.grant)) this.syncMembershipFromGrants()
-      return route.fulfill(json(0, this.membership ?? {
+    if (path === '/api/pay/license' && method === 'GET') {
+      if (!this.license && this.orders.some((o) => o.grant)) this.syncLicenseFromGrants()
+      return route.fulfill(json(0, this.license ?? {
         tier: this.currentUser?.tier ?? 'free',
         remaining_sec: 0,
         remaining_desc: '0 天',
         max_expires_at: null,
         pending_count: 0,
-        grants: [] as TestMembershipGrant[],
+        grants: [] as TestLicenseGrant[],
       }))
     }
 
@@ -513,7 +513,7 @@ export class MockApi {
       const days = (o.snapshot?.period_days as number) ?? 30
       const expires = new Date(Date.now() + days * 86400000).toISOString().slice(0, 19)
       o.grant = { status: 'active', activated_at: new Date().toISOString().slice(0, 19), expires_at: expires }
-      this.syncMembershipFromGrants()
+      this.syncLicenseFromGrants()
       return route.fulfill(json(0, {
         code_id: `O-${o.order_no}`,
         grant_start: new Date().toISOString().slice(0, 19),

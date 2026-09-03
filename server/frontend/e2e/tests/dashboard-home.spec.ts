@@ -3,7 +3,7 @@ import { test, expect } from '../fixtures'
 test.describe('控制台首页', () => {
   test.beforeEach(async ({ page, mockApi }) => {
     mockApi.registerUser()
-    mockApi.setMembership({ tier: 'free', remaining_sec: 0, remaining_desc: '0 天' })
+    mockApi.setLicense({ tier: 'free', remaining_sec: 0, remaining_desc: '0 天' })
     await page.goto('/')
     await page.evaluate((token) => localStorage.setItem('token', token), mockApi.token)
     await page.goto('/dashboard')
@@ -26,7 +26,7 @@ test.describe('控制台首页', () => {
   })
 
   test('我的套餐卡（试用临期态 + 横幅）', async ({ page, mockApi }) => {
-    mockApi.setMembership({ tier: 'trial', remaining_sec: 2 * 86400, remaining_desc: '2 天' })
+    mockApi.setLicense({ tier: 'trial', remaining_sec: 2 * 86400, remaining_desc: '2 天' })
     await page.reload()
     await expect(page.getByText('试用 · 剩 2 天')).toBeVisible({ timeout: 10000 })
     // 试用临期横幅（优先级低于退款处理中）
@@ -34,7 +34,7 @@ test.describe('控制台首页', () => {
   })
 
   test('退款处理中横幅（最高优先级）', async ({ page, mockApi }) => {
-    mockApi.setMembership({ tier: 'trial', remaining_sec: 2 * 86400, remaining_desc: '2 天' })
+    mockApi.setLicense({ tier: 'trial', remaining_sec: 2 * 86400, remaining_desc: '2 天' })
     mockApi.setOrders([{
       order_no: 'SORDER-REFUND-0001',
       status: 'refund_processing',

@@ -51,7 +51,7 @@ class OrderRepo:
             return self._db.find_one("orders", {"order_no": order_no})
 
     def find_by_ids(self, ids: list) -> list[dict]:
-        """按代理 id 批量取（membership 明细 order_no 映射用）。"""
+        """按代理 id 批量取（license 明细 order_no 映射用）。"""
         if not ids:
             return []
         if isinstance(self._db, Session):
