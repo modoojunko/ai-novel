@@ -28,5 +28,5 @@
 ## 5. 门禁与收尾
 
 - [x] 5.1 后端全量 pytest + 前端 vue-tsc --noEmit + 本机 S端 e2e 全量；verify=全绿
-- [ ] 5.2 合并 push main 部署，线上验证：`/api/pay/license` 返回 grant_count 无 grants、`/api/pay/license/grants` 各筛选 200、我的套餐页四 tab 实测（本机 tcb 部署兜底路线备用）；verify=curl/线上实测记录
-- [ ] 5.3 归档（用户口令触发）：sync 两 capability spec、ADJUSTMENTS.md 补「已实现」行、按规则产出归档知识总结（~/Desktop/knowledge/ + 记忆索引）
+- [x] 5.2 合并 push main 部署，线上验证：`/api/pay/license` 返回 grant_count 无 grants、`/api/pay/license/grants` 各筛选 200、我的套餐页四 tab 实测（本机 tcb 部署兜底路线备用）；verify=curl/线上实测记录
+- [x] 5.3 归档（用户口令触发）：sync 两 capability spec、ADJUSTMENTS.md 补「已实现」行、按规则产出归档知识总结（~/Desktop/knowledge/ + 记忆索引）
