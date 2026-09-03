@@ -14,7 +14,6 @@ r = APIRouter(tags=["web"])
 
 
 @r.get("/api/devices/my")
-@r.get("/api/device/my")  # 过渡别名：线上前端 bundle grep '/api/device/my'=0 后删除（s-api-naming-convergence 5.4）
 async def api_devices_my(db: Db = Depends(get_db), username: str = Depends(get_current_user_or_none)):
     if not username:
         return fail(code=1, msg="未登录")
@@ -22,7 +21,6 @@ async def api_devices_my(db: Db = Depends(get_db), username: str = Depends(get_c
 
 
 @r.post("/api/devices/remove")
-@r.post("/api/device/remove")  # 过渡别名：线上前端 bundle grep '/api/device/remove'=0 后删除（s-api-naming-convergence 5.4）
 async def api_devices_remove(req: DeviceRemoveRequest, db: Db = Depends(get_db), username: str = Depends(get_current_user_or_none)):
     if not username:
         return fail(code=1, msg="未登录")
