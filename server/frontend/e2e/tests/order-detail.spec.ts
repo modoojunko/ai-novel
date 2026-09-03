@@ -106,6 +106,9 @@ test.describe('冷静期已结束过渡态（refund-cooldown-end-status）', () 
     await gotoDetail(page)
     // 过渡态文案直接出现（不闪现倒计时）
     await expect(page.getByText(/冷静期已结束，退款流程已启动，不能再取消/)).toBeVisible({ timeout: 10000 })
+    // 页头 pill 同步为「退款中」，不再标注冷静期
+    await expect(page.locator('.page-head .pill-status')).toHaveText('退款中')
+    await expect(page.getByText('退款中·冷静期')).toHaveCount(0)
     // 不再出现「可取消」措辞与取消入口
     await expect(page.getByText(/可取消/)).toHaveCount(0)
     await expect(page.getByRole('button', { name: '取消退款' })).toHaveCount(0)

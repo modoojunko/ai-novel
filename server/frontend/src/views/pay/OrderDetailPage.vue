@@ -85,6 +85,9 @@ const state = computed(() => order.value?.status ?? '')
 const snapshot = computed(() => order.value?.snapshot ?? null)
 const amount = computed(() => (order.value ? fenToYuan(order.value.amount_fen) : ''))
 
+// 过渡展示态下 pill 同步为「退款中」（冷静期已结束，不再标注冷静期；statusLabel 保持共享单源不分叉）
+const pillLabel = computed(() => (cooldownElapsed.value ? '退款中' : statusLabel(state.value)))
+
 const stateNoticeKind = computed(() => {
   switch (state.value) {
     case 'paid': case 'fulfilled': return 'info'
@@ -258,7 +261,7 @@ async function copyNo() {
           <button class="back" @click="router.push('/dashboard/orders')">‹ 我的订单</button>
           <h1>订单详情</h1>
         </div>
-        <span :class="statusPillClass(state)">{{ statusLabel(state) }}</span>
+        <span :class="statusPillClass(state)">{{ pillLabel }}</span>
       </div>
 
       <!-- 状态说明条 -->
