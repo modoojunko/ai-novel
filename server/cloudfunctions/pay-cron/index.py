@@ -88,3 +88,8 @@ def main_handler(event, context):
     except Exception as e:  # noqa: BLE001——失败落日志，下轮触发自然重试（扫描幂等）
         print(f"event=pay_cron_fail trigger={trigger_name} path={path} error={e}")
         return {"statusCode": 502, "body": json.dumps({"code": -1, "msg": str(e)})}
+
+
+# SCF Handler 兼容别名：控制台/MCP 配置若为 index.main 也能命中（曾因 handler=index.main
+# 而函数名只有 main_handler 致 09-02 17:17 起全部定时触发 handler not found）
+main = main_handler
