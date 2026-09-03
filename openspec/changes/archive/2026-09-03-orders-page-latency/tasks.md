@@ -18,4 +18,4 @@
 
 - [ ] 3.1 本地全量 pytest（venv python，双模式）+ ruff 全绿；S端 e2e 全 mock 密闭复跑（停 19000 容器验证法）
 - [ ] 3.2 PR 合并 → push main 自动部署 → 本机 curl `/api/pay/orders`（带/不带 status）对照改前耗时，确认接口 ~0.4–0.5s 档；浏览器实测进页/切 tab 无白屏
-- [ ] 3.3 归档：openspec sync + 归档 PR；按规则产出归档总结落 ~/Desktop/knowledge/ 并更新记忆索引
+- [x] 3.3 归档：openspec sync + 归档 PR；按规则产出归档总结落 ~/Desktop/knowledge/ 并更新记忆索引
