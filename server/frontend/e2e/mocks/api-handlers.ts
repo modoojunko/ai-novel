@@ -1,7 +1,7 @@
 import type { Page, Route } from '@playwright/test'
 import { createTestUser, createTestDevice, type TestUser, type TestDevice } from './test-data'
 
-/** /api/pay/license 明细行（订单来源台账行） */
+/** /api/pay/license/grants 明细行（订单来源台账行；手工码不进明细） */
 export interface TestLicenseGrant {
   code_id: string
   order_no: string
@@ -13,14 +13,15 @@ export interface TestLicenseGrant {
   grant_start: string
 }
 
-/** /api/pay/license 响应（S端 我的套餐摘要 + 明细） */
+/** /api/pay/license 响应（S端 我的套餐聚合视图；license-grants-pagination 瘦身后无明细内嵌） */
 export interface TestLicense {
   tier: string
   remaining_sec: number
   remaining_desc: string
   max_expires_at: string | null
   pending_count: number
-  grants?: TestLicenseGrant[]
+  /** 订单来源套餐行总数；缺省由 licenseGrants 列表推导（旧后端退化测试传 0 且不设明细） */
+  grant_count?: number
 }
 
 /** /api/pay/orders 列表项（S端 我的订单） */
@@ -50,8 +51,12 @@ export class MockApi {
   private devices: TestDevice[] = []
   private license: TestLicense | null = null
   private orders: TestOrder[] = []
+  /** /api/pay/license/grants 明细数据源（syncLicenseFromGrants 由 orders 推导，或 setLicenseGrants 直设） */
+  private licenseGrants: TestLicenseGrant[] = []
   /** orders 列表 GET 门控（orders-page-latency：延迟/失败，测切版保留旧列表、失败不误报空态） */
   private ordersGate: { delayMs?: number; fail?: boolean } | null = null
+  /** 套餐明细列表 GET 门控（同 ordersGate 语义，license-grants-pagination） */
+  private grantsGate: { delayMs?: number; fail?: boolean } | null = null
   /** 退款预览覆写（测拒绝态：below_one_fen / over_one_year / refundable:false） */
   private refundPreviewOverride: { refundable: boolean; reason: string; refund_fen?: number; remaining_desc?: string } | null = null
   /** 冷静期剩余秒数（e2e 用短窗口） */
@@ -113,6 +118,8 @@ export class MockApi {
     this.preferencesFailCount = 0
     this.skusOverride = null
     this.ordersGate = null
+    this.grantsGate = null
+    this.licenseGrants = []
     this.deletionPending = false
     this.deletionDaysLeft = 15
     this.deletionDeadline = '2026-09-14'
@@ -183,6 +190,19 @@ export class MockApi {
     }
   }
 
+  /** 直设 /api/pay/license/grants 明细（license 页测试用）并同步聚合视图计数 */
+  setLicenseGrants(list: TestLicenseGrant[]): void {
+    this.licenseGrants = list
+    if (!this.license) this.setLicense({})
+    this.license!.grant_count = list.length
+    this.license!.pending_count = list.filter((g) => g.status === 'pending_activation').length
+  }
+
+  /** 套餐明细列表 GET 门控（延迟/失败；null 解除） */
+  setGrantsGate(gate: { delayMs?: number; fail?: boolean } | null): void {
+    this.grantsGate = gate
+  }
+
   /** 设置 /api/pay/orders 列表（S端 我的订单/首页横幅数据源） */
   setOrders(list: TestOrder[]): void {
     // grant 快照归一：已支付未显式给 grant 的按状态推导（refunded→revoked，其余→pending_activation）
@@ -226,7 +246,7 @@ export class MockApi {
     this.activateFailMode = mode
   }
 
-  /** 由 orders 的 grant 快照同步 license 摘要（激活流转后明细/计数保持一致） */
+  /** 由 orders 的 grant 快照同步 license 摘要与明细分页数据源（激活流转后保持一致） */
   private syncLicenseFromGrants(): void {
     const grants: TestLicenseGrant[] = this.orders
       .filter((o) => o.grant && o.grant.status !== 'none')
@@ -240,8 +260,9 @@ export class MockApi {
         expires_at: o.grant!.expires_at,
         grant_start: o.grant!.activated_at,
       }))
-    if (!this.license) this.license = { tier: 'free', remaining_sec: 0, remaining_desc: '0 天', max_expires_at: null, pending_count: 0, grants: [] }
-    this.license.grants = grants
+    this.licenseGrants = grants
+    if (!this.license) this.license = { tier: 'free', remaining_sec: 0, remaining_desc: '0 天', max_expires_at: null, pending_count: 0 }
+    this.license.grant_count = grants.length
     this.license.pending_count = grants.filter((g) => g.status === 'pending_activation').length
     const active = grants.find((g) => g.status === 'active')
     if (active) {
@@ -493,6 +514,24 @@ export class MockApi {
       }))
     }
 
+    // ── 套餐明细分页（license-grants-pagination：status 白名单 + 真分页，与真实契约同款）──
+    if (path === '/api/pay/license/grants' && method === 'GET') {
+      if (this.grantsGate?.fail) return route.abort('connectionrefused')
+      if (this.grantsGate?.delayMs) await new Promise((r) => setTimeout(r, this.grantsGate.delayMs))
+      if (!this.licenseGrants.length && this.orders.some((o) => o.grant)) this.syncLicenseFromGrants()
+      const statusQ = url.searchParams.get('status')
+      const allowed = ['pending_activation', 'active', 'revoked']
+      let list = this.licenseGrants
+      if (statusQ !== null) {
+        const want = statusQ.split(',').map((s) => s.trim()).filter((s) => allowed.includes(s))
+        list = want.length ? list.filter((g) => want.includes(g.status)) : []
+      }
+      const page = Math.max(1, Number(url.searchParams.get('page') ?? '1') || 1)
+      const size = Math.min(100, Math.max(1, Number(url.searchParams.get('page_size') ?? '20') || 20))
+      const items = list.slice((page - 1) * size, page * size)
+      return route.fulfill(json(0, { items, total: list.length }))
+    }
+
     if (path === '/api/pay/license' && method === 'GET') {
       if (!this.license && this.orders.some((o) => o.grant)) this.syncLicenseFromGrants()
       return route.fulfill(json(0, this.license ?? {
@@ -501,12 +540,13 @@ export class MockApi {
         remaining_desc: '0 天',
         max_expires_at: null,
         pending_count: 0,
-        grants: [] as TestLicenseGrant[],
+        grant_count: 0,
       }))
     }
 
     // ── 激活（到货-激活两段式第二段；明细待激活行入口）──
-    if (path === '/api/pay/grants/activate' && method === 'POST') {
+    // 前端走 codes/activate（api-naming-convergence）；grants/activate 为旧别名兼容
+    if ((path === '/api/pay/codes/activate' || path === '/api/pay/grants/activate') && method === 'POST') {
       const body = route.request().postDataJSON()
       if (this.activateFailMode !== 'none') {
         const m = this.activateFailMode

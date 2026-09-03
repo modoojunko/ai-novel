@@ -456,7 +456,8 @@ async def cancel_order(order_no: str, request: Request, db: Db = Depends(get_db)
 
 @r.get("/license")
 async def get_license(request: Request, db: Db = Depends(get_db)):
-    """Z.6 我的套餐总览：档位头汇总（含手工码）+ 订单来源套餐明细。"""
+    """Z.6 我的套餐总览：档位头汇总（含手工码）+ 订单来源套餐行计数。
+    明细列表走 GET /license/grants 分页（license-grants-pagination：响应体不再内嵌全量）。"""
     identity = _current_identity(request)
     if not identity:
         return {"code": 4001, "msg": "未登录"}
@@ -464,34 +465,16 @@ async def get_license(request: Request, db: Db = Depends(get_db)):
 
     from app.domain.licensing.license import License
     from app.infrastructure.repositories.factory import code_repo
-    from app.infrastructure.repositories.payments_repo import OrderRepo
 
     # uid 直通（jwt-uid-claim）：_resolve_user_id 对 int 零开销，免 users 表翻译
     all_codes = code_repo(db).find_all_by_username(user_id)
     # 汇总口径保持原状（原 find_active_by_username 只喂 active 行）：unused 手工码
-    # 不参与档位归属（merge 跳过清单不含 unused，直接喂会抬高档位头）；明细仍全量
+    # 不参与档位归属（merge 跳过清单不含 unused，直接喂会抬高档位头）
     lic = License(username="").merge([c for c in all_codes if c.status != "unused"])  # username 仅标识标签，merge/响应不用
 
-    # 明细：仅订单来源台账行（手工码不进明细，design D2）；order_no 供激活接口定位
-    grants_src = [c for c in all_codes if getattr(c, "source", "admin") == "order"]
-    orders_by_id = {}
-    if grants_src:
-        order_ids = {c.order_id for c in grants_src if c.order_id}
-        if order_ids:
-            orders_by_id = {o["id"]: o.get("order_no", "") for o in OrderRepo(db).find_by_ids(order_ids)}
-
-    _status_order = {"pending_activation": 0, "active": 1, "revoked": 2}
-    grants_src.sort(key=lambda c: (_status_order.get(c.status, 9), -(c.created_at.timestamp() if c.created_at else 0)))
-    grants = [{
-        "code_id": c.code_id,
-        "order_no": orders_by_id.get(c.order_id, ""),
-        "tier": c.tier,
-        "duration_days": c.duration_days,
-        "status": c.status,
-        "activated_at": _iso_or_empty(c.activated_at),
-        "expires_at": _iso_or_empty(c.expires_at),
-        "grant_start": _iso_or_empty(c.grant_start),
-    } for c in grants_src]
+    # grant_count 与明细接口「全部」total 同过滤器（source='order'）——口径单源
+    def _is_order_row(c):
+        return getattr(c, "source", "admin") == "order"
 
     from datetime import UTC, datetime
     now = datetime.now(UTC).replace(tzinfo=None)  # naive UTC（表列口径，不依赖容器 TZ）
@@ -504,9 +487,64 @@ async def get_license(request: Request, db: Db = Depends(get_db)):
         "remaining_sec": remaining,
         "remaining_desc": f"{remaining // 86400} 天",
         "max_expires_at": lic.max_expires_at.isoformat() if lic.max_expires_at else None,
-        "pending_count": sum(1 for g in grants if g["status"] == "pending_activation"),
-        "grants": grants,
+        "pending_count": sum(1 for c in all_codes if _is_order_row(c) and c.status == "pending_activation"),
+        "grant_count": sum(1 for c in all_codes if _is_order_row(c)),
     }}
+
+
+# 套餐明细 status 参数白名单（license-grants-pagination：tab 归组映射在前端，接口保持"哑"）
+_LIST_GRANT_STATUSES = {"pending_activation", "active", "revoked"}
+
+
+@r.get("/license/grants")
+async def list_license_grants(
+    request: Request, db: Db = Depends(get_db),
+    page: int = 1, page_size: int = 20, status: str = "",
+):
+    """我的套餐明细分页（仅订单来源台账行；created_at 倒序——裁定不做状态分组，
+    已收回行的视觉区分由前端置灰承载）。status=逗号分隔状态白名单筛选，
+    total=筛选全量计数——tab 分版 + 加载更多契约（与订单列表同构）。"""
+    identity = _current_identity(request)
+    if not identity:
+        return {"code": 4001, "msg": "未登录"}
+    _, user_id = identity
+    if not user_id:
+        return {"code": 4001, "msg": "用户不存在"}
+
+    # 未知值忽略；全部未知 → 空列表而非报错（契约 scenario，同 list_orders）
+    requested = [s.strip() for s in (status or "").split(",") if s.strip()]
+    if requested and all(s not in _LIST_GRANT_STATUSES for s in requested):
+        return {"code": 0, "data": {"items": [], "total": 0}}
+    statuses = [s for s in requested if s in _LIST_GRANT_STATUSES] or None
+
+    page = max(1, page)
+    page_size = min(max(1, page_size), 100)
+
+    from app.infrastructure.repositories.factory import code_repo
+    from app.infrastructure.repositories.payments_repo import OrderRepo
+
+    rows, total = code_repo(db).find_order_grants_page(
+        user_id, statuses=statuses, limit=page_size, offset=(page - 1) * page_size)
+
+    # order_no 供激活接口定位（页内行批量映射，与原 license 明细组装同款）
+    orders_by_id = {}
+    if rows:
+        order_ids = {c.order_id for c in rows if c.order_id}
+        if order_ids:
+            orders_by_id = {o["id"]: o.get("order_no", "") for o in OrderRepo(db).find_by_ids(order_ids)}
+
+    items = [{
+        "code_id": c.code_id,
+        "order_no": orders_by_id.get(c.order_id, ""),
+        "tier": c.tier,
+        "duration_days": c.duration_days,
+        "status": c.status,
+        "activated_at": _iso_or_empty(c.activated_at),
+        "expires_at": _iso_or_empty(c.expires_at),
+        "grant_start": _iso_or_empty(c.grant_start),
+    } for c in rows]
+
+    return {"code": 0, "data": {"items": items, "total": total}}
 
 
 @r.post("/codes/activate")
