@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>爱小说 · 我的套餐（原型 · 套餐总览）</title>
+<title>爱小说 · 我的套餐（原型 · tab 分版修订版）</title>
 <style>
 /* ═══ 内联样式：与 server/frontend/src/design/base.css 逐字同源段，来源行号见 ADJUSTMENTS.md ═══ */
 :root {
@@ -74,27 +74,34 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 .notice.warn { background: var(--warn-soft); color: var(--warn); }
 .stack { display: grid; gap: 14px; }
 
-/* ─── 原型专用：布局工具 + 业务组合 ─── */
+/* ─── 同源段：.seg 状态分版词汇（base.css 逐字，同 orders.html 09-02 修订版） ─── */
+.seg { display: inline-flex; align-items: center; background: var(--fg-soft); border-radius: 9px; padding: 2px; }
+.seg button { height: 24px; padding: 0 9px; border-radius: 7px; font-size: 12px; color: var(--muted); }
+.seg button:hover { color: var(--fg); }
+.seg button.on { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px color-mix(in oklch, var(--fg) 8%, transparent); font-weight: 500; }
+.seg-row { margin-bottom: 16px; }
+
+/* ─── 本页业务样式（对齐实现 LicensePage.vue #275 解剖 + tab 分版新增） ─── */
 .tier-hero { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .tier-hero .name { font-family: var(--font-display); font-size: 24px; font-weight: 600; }
-.tl { margin: 14px 0 6px; }
-.tl-bar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; }
-.tl-bar .seg-past { background: var(--fg-soft); }
-.tl-bar .seg-now { background: var(--accent); }
-.tl-bar .seg-future { background: var(--accent-soft); }
-.tl-rows { display: grid; gap: 8px; margin-top: 12px; }
-.tl-row { display: grid; grid-template-columns: 14px minmax(0,1fr) auto; gap: 10px; align-items: center; font-size: 13px; }
-.tl-dot { width: 10px; height: 10px; border-radius: 3px; }
-.tl-dot.past { background: var(--fg-soft); }
-.tl-dot.now { background: var(--accent); }
-.tl-dot.future { background: var(--accent-soft); border: 1px dashed var(--accent); }
-.tl-row .dates { color: var(--muted); font-size: 12.5px; }
 .sum { display: flex; gap: 26px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
 .sum b { color: var(--fg); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 14px; }
-.dev-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 12px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--border); }
-.dev-row:last-child { border-bottom: 0; }
-.dev-row .host { font-size: 13.5px; font-weight: 500; }
-.dev-row .last { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.grant-list { display: flex; flex-direction: column; }
+.grant-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; padding: 13px 0; border-top: 1px solid var(--border); }
+.grant-row:first-child { border-top: none; }
+.grant-row.revoked.dim { opacity: 0.55; }
+.g-main { display: flex; align-items: center; gap: 10px; }
+.g-tier { font-family: var(--font-display); font-weight: 600; font-size: 14px; }
+.g-sub { grid-column: 1; font-size: 12.5px; color: var(--muted); }
+.grant-row .btn { grid-row: 1 / 3; grid-column: 2; align-self: center; }
+.tab-empty { padding: 40px 16px; text-align: center; color: var(--muted); font-size: 13.5px; }
+.tab-empty p { margin: 0 0 6px; }
+.list-tail { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 14px; }
+.list-tail .cnt { font-size: 12.5px; color: var(--muted); }
+.empty { border: 1px dashed var(--border); border-radius: var(--radius-lg); padding: 64px 32px; text-align: center; color: var(--muted); }
+.empty .serif { font-family: var(--font-display); font-size: 19px; color: var(--fg); }
+.empty p { margin: 8px 0 0; font-size: 13.5px; }
+.empty .btn { margin-top: 16px; }
 .switcher { position: fixed; top: 12px; right: 12px; z-index: 90; display: flex; gap: 4px; padding: 5px; background: var(--fg); border-radius: 9px; box-shadow: var(--shadow-card); }
 .switcher button { font-size: 11.5px; color: oklch(100% 0 0 / 70%); padding: 4px 9px; border-radius: 6px; }
 .switcher button.on { background: oklch(100% 0 0 / 16%); color: oklch(100% 0 0); font-weight: 500; }
@@ -103,8 +110,10 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 <body>
 
 <div class="switcher" id="switcher">
-  <button data-state="pro" class="on">套餐总览</button>
-  <button data-state="free">免费/试用态</button>
+  <button data-state="list" class="on">分版列表</button>
+  <button data-state="emptyCat">某类空</button>
+  <button data-state="manual">手工码态</button>
+  <button data-state="empty">空态</button>
 </div>
 
 <header class="appbar">
@@ -122,167 +131,176 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 
 <main class="main">
 
-  <!-- ═══ 态一：套餐总览 ═══ -->
-  <section data-stage="pro">
+  <!-- ═══ 态一：tab 分版列表（默认版=生效中，tab 可点真过滤评审演示） ═══ -->
+  <section data-stage="list">
     <div class="page-head">
       <div>
         <h1>我的套餐</h1>
-        <div class="sub">档位按已购最高档计算，时长按购买顺序先后消耗。</div>
+        <div class="sub">套餐按状态分版：全部、生效中、待激活、已收回；待激活不计时，点「激活」立即开始使用。</div>
       </div>
       <a class="btn btn-primary" href="#">续费或购买时长</a>
     </div>
 
-    <div class="stack">
+    <!-- 档位头汇总：聚合口径独立，不随 tab 联动 -->
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-h">
+        <div class="tier-hero">
+          <span class="name">PRO</span>
+          <span class="pill pill-status pill-ok">生效中</span>
+        </div>
+        <span class="sum">
+          <span>剩余 <b>455 天</b></span>
+          <span>最远到期 <b>2027-11-26</b></span>
+          <span>待激活 <b>1 个</b></span>
+        </span>
+      </div>
+    </div>
 
-      <div class="panel">
-        <div class="panel-h">
-          <div class="tier-hero">
-            <span class="name">PRO</span>
-            <span class="pill pill-tag">包年</span>
+    <div class="seg-row">
+      <div class="seg" id="license-tabs" role="tablist" aria-label="套餐状态分版">
+        <button data-filter="all" role="tab" aria-selected="false">全部</button>
+        <button data-filter="active" class="on" role="tab" aria-selected="true">生效中</button>
+        <button data-filter="pending" role="tab" aria-selected="false">待激活</button>
+        <button data-filter="revoked" role="tab" aria-selected="false">已收回</button>
+      </div>
+    </div>
+
+    <div class="panel" role="tabpanel" aria-label="套餐明细列表">
+      <div class="grant-list" id="grant-list">
+        <!-- 生效中 -->
+        <div class="grant-row" data-group="active">
+          <div class="g-main">
+            <span class="g-tier">PRO · 90 天</span>
             <span class="pill pill-status pill-ok">生效中</span>
-            <span class="pill pill-tag">5 台设备</span>
           </div>
-          <span class="sum">
-            <span>剩余合计 <b>455 天</b>（已激活）</span>
-            <span>最远到期 <b>2027-11-26</b></span>
-            <span>待激活 <b>1 个</b>（365 天）</span>
-          </span>
+          <div class="g-sub">已激活 2026-08-22 10:35 · 2026-11-27 到期</div>
         </div>
-
-        <div class="notice info" style="margin-bottom:6px">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
-          <span>已激活的包年即刻把设备额度提升到 <b>5 台</b>；当前正在消耗包季时长，包季到期后包年自动接上。您还有 1 个套餐待激活——<b>不计时、不占额度</b>，想囤着随时激活。</span>
+        <!-- 待激活（hidden=默认版演示初始态；点「全部/待激活」出现） -->
+        <div class="grant-row" data-group="pending" hidden>
+          <div class="g-main">
+            <span class="g-tier">PRO · 365 天</span>
+            <span class="pill pill-status pill-warn">待激活</span>
+          </div>
+          <div class="g-sub">已到货未激活：不计时、不占额度；未激活前退款全额</div>
+          <button class="btn btn-primary btn-sm">激活</button>
         </div>
-
-        <!-- 时长构成：试用已耗完 → 包季消耗中 → 包年未开始（宽度按 7/90/365 比例） -->
-        <div class="tl">
-          <div class="tl-bar" aria-hidden="true">
-            <div class="seg-past" style="flex:7"></div>
-            <div class="seg-now" style="flex:90"></div>
-            <div class="seg-future" style="flex:365"></div>
+        <!-- 已收回（「全部」内置灰，专属 tab 内不置灰） -->
+        <div class="grant-row revoked dim" data-group="revoked" hidden>
+          <div class="g-main">
+            <span class="g-tier">PRO · 30 天</span>
+            <span class="pill pill-tag">已收回</span>
           </div>
-          <div class="tl-rows">
-            <div class="tl-row">
-              <span class="tl-dot past"></span>
-              <span>注册试用 · 7 天</span>
-              <span class="dates">2026-08-15 ～ 08-22 · 已耗完</span>
-            </div>
-            <div class="tl-row">
-              <span class="tl-dot now"></span>
-              <span>包季 · 90 天 <span class="pill pill-tag">消耗中</span></span>
-              <span class="dates">2026-08-22 ～ 2026-11-27 · 剩 66 天</span>
-            </div>
-            <div class="tl-row">
-              <span class="tl-dot future"></span>
-              <span>PRO 包年 · 365 天 <span class="pill pill-tag">已激活 · 排队中</span></span>
-              <span class="dates">2026-11-27 ～ 2027-11-26</span>
-            </div>
-          </div>
-          <div style="margin-top:14px; padding:12px 14px; border:1px dashed var(--border); border-radius:9px; display:flex; align-items:center; gap:12px; justify-content:space-between; flex-wrap:wrap">
-            <span style="font-size:13px"><b>PRO 包年 · 365 天</b> <span class="pill pill-accent" style="margin-left:4px">待激活</span>
-              <span style="color:var(--muted); font-size:12.5px; margin-left:6px">2026-10-05 支付 · 激活后才开始计时，未激活可全额退</span></span>
-            <button class="btn btn-primary btn-sm">立即激活</button>
-          </div>
+          <div class="g-sub">已随退款收回</div>
         </div>
       </div>
+    </div>
 
-      <div class="panel">
-        <div class="panel-h">
-          <h2>我的设备</h2>
-          <span>已绑定 <b class="num">2</b> / 5 台</span>
-        </div>
-        <div class="dev-row">
-          <div>
-            <div class="host">MacBook Pro</div>
-            <div class="last">最近活跃：今天 14:22</div>
-          </div>
-          <span class="pill pill-tag">当前设备</span>
-          <span></span>
-        </div>
-        <div class="dev-row">
-          <div>
-            <div class="host">Mac mini</div>
-            <div class="last">最近活跃：3 天前</div>
-          </div>
-          <span></span>
-          <a class="btn btn-ghost btn-sm" href="#">解绑</a>
-        </div>
-        <p style="font-size:12.5px; color:var(--muted); margin:10px 0 0">
-          额度按已激活最高档计算（包年 = 5 台）；待激活套餐不占额度。<a class="lnk" href="#">管理全部设备</a> · <a class="lnk" href="#">换设备怎么办？</a>
-        </p>
-      </div>
-
+    <!-- 服务端分页（评审修订 D3'）：每 tab 独立分页，交互同订单「加载更多」 -->
+    <div class="list-tail">
+      <span class="cnt" id="grant-cnt">已显示 1 笔 · 共 9 笔</span>
+      <button class="btn btn-secondary">加载更多</button>
     </div>
   </section>
 
-  <!-- ═══ 态二：免费/试用（无任何付费订单） ═══ -->
-  <section data-stage="free" hidden>
+  <!-- ═══ 态二：某类空（如「已收回」无行；tab 条保留，给切回全部出口） ═══ -->
+  <section data-stage="emptyCat" hidden>
     <div class="page-head">
       <div>
         <h1>我的套餐</h1>
-        <div class="sub">购买后，套餐的使用情况与历史会展示在这里。</div>
+        <div class="sub">套餐按状态分版：全部、生效中、待激活、已收回；待激活不计时，点「激活」立即开始使用。</div>
+      </div>
+      <a class="btn btn-primary" href="#">续费或购买时长</a>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-h">
+        <div class="tier-hero">
+          <span class="name">PRO</span>
+          <span class="pill pill-status pill-ok">生效中</span>
+        </div>
+        <span class="sum">
+          <span>剩余 <b>455 天</b></span>
+          <span>最远到期 <b>2027-11-26</b></span>
+          <span>待激活 <b>1 个</b></span>
+        </span>
       </div>
     </div>
 
-    <div class="stack">
-      <div class="panel">
-        <div class="panel-h">
-          <div class="tier-hero">
-            <span class="name">试用</span>
-            <span class="pill pill-status pill-warn">剩 2 天</span>
-            <span class="pill pill-tag">1 台设备</span>
-          </div>
-          <a class="btn btn-primary" href="#">去购买套餐</a>
-        </div>
-        <div class="tl">
-          <div class="tl-bar" aria-hidden="true">
-            <div class="seg-past" style="flex:5"></div>
-            <div class="seg-now" style="flex:2"></div>
-          </div>
-          <div class="tl-rows">
-            <div class="tl-row">
-              <span class="tl-dot now"></span>
-              <span>注册试用 · 7 天</span>
-              <span class="dates">2026-08-26 ～ 09-02 · 剩 2 天后回到免费版</span>
-            </div>
-          </div>
-        </div>
+    <div class="seg-row">
+      <div class="seg" role="tablist" aria-label="套餐状态分版">
+        <button role="tab" aria-selected="false">全部</button>
+        <button role="tab" aria-selected="false">生效中</button>
+        <button role="tab" aria-selected="false">待激活</button>
+        <button class="on" role="tab" aria-selected="true">已收回</button>
       </div>
+    </div>
 
-      <div class="panel">
-        <div class="panel-h">
-          <h2>我的设备</h2>
-          <span>已绑定 <b class="num">1</b> / 1 台</span>
-        </div>
-        <div class="dev-row">
-          <div>
-            <div class="host">MacBook Pro</div>
-            <div class="last">最近活跃：今天 14:22</div>
-          </div>
-          <span class="pill pill-tag">当前设备</span>
-          <span></span>
-        </div>
-        <p style="font-size:12.5px; color:var(--muted); margin:10px 0 0">
-          试用与免费版限 1 台设备；购买后：包月/包季 3 台、包年 5 台。<a class="lnk" href="#">对比各档位</a>
-        </p>
+    <div class="panel tab-empty">
+      <p>没有已收回的套餐</p>
+      <button class="lnk">切回全部查看</button>
+    </div>
+  </section>
+
+  <!-- ═══ 态三：手工码态（grants 空但有剩余权益：仅档位头；tab 条/明细/空态均不渲染——架构评审 C1 第三分支） ═══ -->
+  <section data-stage="manual" hidden>
+    <div class="page-head">
+      <div>
+        <h1>我的套餐</h1>
+        <div class="sub">已购套餐的使用情况与时长都在这里。</div>
       </div>
+      <a class="btn btn-primary" href="#">续费或购买时长</a>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h">
+        <div class="tier-hero">
+          <span class="name">PRO</span>
+          <span class="pill pill-status pill-ok">生效中</span>
+        </div>
+        <span class="sum">
+          <span>剩余 <b>200 天</b></span>
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 态四：整页空态（名下无任何套餐行且无生效权益；tab 条不渲染） ═══ -->
+  <section data-stage="empty" hidden>
+    <div class="page-head">
+      <div>
+        <h1>我的套餐</h1>
+        <div class="sub">购买套餐后，使用情况与时长明细会展示在这里。</div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:14px">
+      <div class="panel-h">
+        <div class="tier-hero">
+          <span class="name">试用</span>
+          <span class="pill pill-tag">已到期</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="empty">
+      <div class="serif">还没有生效中的套餐</div>
+      <p>购买套餐后，使用情况与时长明细会展示在这里。</p>
+      <a class="btn btn-primary" href="#">去看看套餐</a>
     </div>
   </section>
 
 </main>
 
 <script>
-/* MOCK 常量区：时长构成与设备数为示例（ADJUSTMENTS 登记）。
-   口径来源：docs/prd/s-payment-explore.md 子决策「权益台账语义」与 C2 tier 归属（未过期行按套餐等级取最高）。 */
-const MOCK = {
-  tierRule: "最高档归属（已激活行）：激活包年即提升至包年档与 5 台额度；待激活不计时不占额度、退款全额、永不过期",
-  grants: [
-    { name: "注册试用", days: 7,   state: "past",   range: "2026-08-15 ～ 08-22" },
-    { name: "包季",     days: 90,  state: "now",    range: "2026-08-22 ～ 11-27" },
-    { name: "包年",     days: 365, state: "future", range: "2026-11-27 ～ 2027-11-26" },
-  ],
-  devicesUsed: 2, devicesLimit: 5,
-};
+/* MOCK 常量区（ADJUSTMENTS 登记）：三状态示例行覆盖 tab 全组。
+   口径来源：GET /pay/license/grants（订单来源台账行，手工码不进明细；D3' 服务端分页版）。
+   分版词汇：全部/生效中(active)/待激活(pending_activation)/已收回(revoked)；
+   默认版=生效中（架构评审已同意拍板）；
+   激活成功后在待激活 tab 内 → replace 切「全部」（评审 C2 定版：动作结果可见，不落某类空）；
+   tab 条可见性=grant_count>0（评审 C4：数据源=/pay/license 新增字段，与「全部」tab total 同过滤器 source='order'；
+   手工码/旧后端 grant_count 空/0 且 remaining_sec>0 → 仅档位头）。
+   分页 MOCK：各 tab 服务端 total 示例（每 tab 独立分页，PAGE_SIZE=20 同订单）。 */
+const MOCK_TOTALS = { all: 12, active: 9, pending: 1, revoked: 2 };
 
 const switcher = document.getElementById("switcher");
 const stages = document.querySelectorAll("[data-stage]");
@@ -292,6 +310,36 @@ switcher.addEventListener("click", (e) => {
   switcher.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === btn));
   stages.forEach((s) => (s.hidden = s.dataset.stage !== btn.dataset.state));
 });
+
+/* 评审演示：tab 切版（真接口下=换参重新拉取，此处前端模拟）+ aria-selected 联动（评审 C3） */
+const lt = document.getElementById("license-tabs");
+if (lt) {
+  lt.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-filter]");
+    if (!btn) return;
+    lt.querySelectorAll("button").forEach((b) => {
+      const on = b === btn;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    const f = btn.dataset.filter;
+    let shown = 0;
+    document.querySelectorAll("#grant-list .grant-row").forEach((r) => {
+      r.hidden = f !== "all" && r.dataset.group !== f;
+      r.classList.toggle("dim", f === "all" && r.dataset.group === "revoked");
+      if (!r.hidden) shown++;
+    });
+    const cnt = document.getElementById("grant-cnt");
+    if (cnt) cnt.textContent = `已显示 ${shown} 笔 · 共 ${MOCK_TOTALS[f]} 笔`;
+  });
+}
+
+/* hash 预置（截图/评审直达）：#state=list&tab=all 形式 */
+const h = new URLSearchParams(location.hash.slice(1));
+const sb = h.get("state") && switcher.querySelector(`[data-state="${h.get("state")}"]`);
+if (sb) sb.click();
+const tb = h.get("tab") && lt && lt.querySelector(`[data-filter="${h.get("tab")}"]`);
+if (tb) tb.click();
 </script>
 </body>
 </html>

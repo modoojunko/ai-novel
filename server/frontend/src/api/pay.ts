@@ -109,7 +109,32 @@ export interface LicenseView {
   remaining_desc: string
   max_expires_at: string | null
   pending_count: number
-  grants?: LicenseGrant[] // 旧后端无此字段 → undefined，消费侧 ?? [] 兜底
+  /** 订单来源套餐行总数（与明细接口「全部」total 同过滤器 source='order'） */
+  grant_count: number
+}
+
+export interface LicenseGrantPage {
+  items: LicenseGrant[]
+  total: number
+}
+
+// ── 套餐明细四版 tab（license-grants-pagination：模式同订单五版，归组映射单源）──
+
+export const LICENSE_TABS = [
+  { key: 'all', label: '全部', statuses: null },
+  { key: 'active', label: '生效中', statuses: ['active'] },
+  { key: 'pending', label: '待激活', statuses: ['pending_activation'] },
+  { key: 'revoked', label: '已收回', statuses: ['revoked'] },
+] as const
+
+export type LicenseTabKey = (typeof LICENSE_TABS)[number]['key']
+
+/** 默认版=生效中（进页即聚焦正在消耗的套餐；三轮评审拍板） */
+export const DEFAULT_LICENSE_TAB: LicenseTabKey = 'active'
+
+/** ?tab= 参数 → 合法组名（非法/缺省回落默认版） */
+export function licenseTabFromQuery(v: unknown): LicenseTabKey {
+  return LICENSE_TABS.some((t) => t.key === v) ? (v as LicenseTabKey) : DEFAULT_LICENSE_TAB
 }
 
 export interface ActivateResult {
@@ -180,6 +205,13 @@ export async function apiPayOrders(page = 1, pageSize = 50, statuses?: readonly 
   const params: Record<string, unknown> = { page, page_size: pageSize }
   if (statuses?.length) params.status = statuses.join(',')
   const r = await request.get<ApiResponse<OrderListResult>>('/pay/orders', { params })
+  return r.data.data!
+}
+
+export async function apiPayLicenseGrants(page = 1, pageSize = 20, statuses?: readonly string[] | null): Promise<LicenseGrantPage> {
+  const params: Record<string, unknown> = { page, page_size: pageSize }
+  if (statuses?.length) params.status = statuses.join(',')
+  const r = await request.get<ApiResponse<LicenseGrantPage>>('/pay/license/grants', { params })
   return r.data.data!
 }
 

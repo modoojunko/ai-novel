@@ -226,3 +226,15 @@ class SqlCodeRepo:
         }, synchronize_session=False)
         self.db.commit()
         return result > 0
+
+    def find_order_grants_page(self, user_id: int, statuses: list[str] | None = None,
+                               limit: int = 20, offset: int = 0) -> tuple[list[ActivationCode], int]:
+        """订单来源明细分页：filtered 全量装载后 len()+切片（个人量级，同 OrderRepo 假设）。"""
+        q = self.db.query(ActivationCodeORM).filter(
+            ActivationCodeORM.user_id == user_id,
+            ActivationCodeORM.source == "order",
+        )
+        if statuses:
+            q = q.filter(ActivationCodeORM.status.in_(statuses))
+        rows = q.order_by(ActivationCodeORM.created_at.desc()).all()
+        return [self._to_domain(r) for r in rows[offset:offset + limit]], len(rows)

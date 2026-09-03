@@ -77,6 +77,13 @@ class CodeRepo(Protocol):
         False=状态已被并发方改走（重复激活/已退）。"""
         ...
 
+    def find_order_grants_page(self, user_id: int, statuses: list[str] | None = None,
+                               limit: int = 20, offset: int = 0) -> tuple[list[ActivationCode], int]:
+        """订单来源套餐明细分页（license-grants-pagination）：(当前页行, total)。
+        只数 source='order' 行（手工码/历史无来源行不进明细）；statuses=None=全部；
+        created_at 倒序（裁定：分页排序下推 DB，不做状态分组）。"""
+        ...
+
 
 class DeviceRepo(Protocol):
     def get_by_fingerprint(self, user_id: str, fingerprint: str) -> DeviceRegistry | None: ...

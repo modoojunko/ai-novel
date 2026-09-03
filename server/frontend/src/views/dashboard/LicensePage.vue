@@ -1,19 +1,92 @@
 <script setup lang="ts">
 /**
- * 我的套餐——档位头汇总 + 订单来源套餐明细（生效中/待激活/已收回）+ 激活入口。
- * 设计事实源：docs/design-s/prototypes/license.html
+ * 我的套餐——档位头汇总 + 套餐明细四版 tab 分页列表（生效中/待激活/已收回）+ 激活入口。
+ * 设计事实源：docs/design-s/prototypes/license.html（2026-09-03 tab 分版修订版）
+ * 明细走 GET /pay/license/grants 服务端分页（license-grants-pagination），交互与订单页同构：
+ * 默认版=生效中；各 tab 独立分页（加载更多）；?tab= 路由同步。
+ * 页面级判定单源=grant_count：tab 条=grant_count>0；整页空态=0 且无生效权益；手工码态=0 且有权益。
  */
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import AppModal from '@/components/ui/AppModal.vue'
-import { apiPayActivate, apiPayLicense, fmtBj, type LicenseGrant, type LicenseView } from '@/api/pay'
+import {
+  apiPayActivate, apiPayLicense, apiPayLicenseGrants, fmtBj,
+  DEFAULT_LICENSE_TAB, LICENSE_TABS, licenseTabFromQuery,
+  type LicenseGrant, type LicenseTabKey, type LicenseView,
+} from '@/api/pay'
 
+const PAGE_SIZE = 20
+
+const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
 const data = ref<LicenseView | null>(null)
 
-const grants = computed<LicenseGrant[]>(() => data.value?.grants ?? [])
-const isEmpty = computed(() => !!data.value && grants.value.length === 0 && data.value.remaining_sec <= 0)
+/** 明细分页状态（每版独立拉取，切版重置；tabToken 防过期响应） */
+const items = ref<LicenseGrant[]>([])
+const total = ref(0)
+const loadingMore = ref(false)
+const refreshing = ref(false)
+const activeTab = ref<LicenseTabKey>(licenseTabFromQuery(route.query.tab))
+
+const tabLabel = computed(() => LICENSE_TABS.find((t) => t.key === activeTab.value)?.label ?? '')
+const statusList = computed(() => LICENSE_TABS.find((t) => t.key === activeTab.value)?.statuses)
+const hasMore = computed(() => items.value.length < total.value)
+/** 页面级判定（grant_count 单源；旧后端无字段 ?? 0 → 仅档位头安全退化） */
+const grantCount = computed(() => data.value?.grant_count ?? 0)
+/** 整页空态：无任何套餐行且无生效权益；手工码态（grant_count=0 且 remaining_sec>0）= 仅档位头，天然落在两个分支之外 */
+const pageEmpty = computed(() => !!data.value && grantCount.value === 0 && data.value.remaining_sec <= 0)
+
+let tabToken = 0
+
+// ── 明细分页（同 OrdersPage.fetchPage 骨架）──
+async function fetchPage(reset: boolean): Promise<void> {
+  const token = ++tabToken
+  if (reset) {
+    if (items.value.length > 0) refreshing.value = true
+    else loading.value = true
+  } else {
+    loadingMore.value = true
+  }
+  const page = reset ? 1 : Math.floor(items.value.length / PAGE_SIZE) + 1
+  const statuses = statusList.value ?? undefined
+  try {
+    const res = await apiPayLicenseGrants(page, PAGE_SIZE, statuses)
+    if (token !== tabToken) return
+    total.value = res.total
+    if (reset) {
+      items.value = res.items
+    } else {
+      const seen = new Set(items.value.map((g) => g.code_id))
+      items.value = [...items.value, ...res.items.filter((g) => !seen.has(g.code_id))]
+    }
+  } catch (e) {
+    // 失败保留旧列表原样，MUST NOT 误显示空态
+    console.error('license grants load failed:', e)
+  } finally {
+    if (token === tabToken) {
+      loading.value = false
+      loadingMore.value = false
+      refreshing.value = false
+    }
+  }
+}
+
+/** 切 tab：URL query 同步（默认版省略参数保持 URL 干净；replace 不进历史栈） */
+function switchTab(key: LicenseTabKey): void {
+  if (key === activeTab.value) return
+  activeTab.value = key
+  router.replace({ query: { ...route.query, tab: key === DEFAULT_LICENSE_TAB ? undefined : key } })
+}
+
+// 浏览器回退/前进改 query → 只还原 tab；刷新统一由 watch(activeTab) 触发（避免双请求）
+watch(() => route.query.tab, (v) => {
+  const key = licenseTabFromQuery(v)
+  if (key !== activeTab.value) activeTab.value = key
+})
+
+// 切 tab（switchTab）与 URL 还原两条路径的刷新都收敛到这里
+watch(activeTab, () => fetchPage(true))
 
 const TIER_NAMES: Record<string, string> = { trial: '试用', pro: 'PRO', max: 'MAX', lifetime: '永久' }
 function tierName(tier: string): string {
@@ -65,6 +138,17 @@ function activateErrText(msg: string): string {
   return msg || '激活失败，请稍后重试'
 }
 
+/**
+ * 激活成功后的统一刷新入口（防双拉取）：hero 必刷（pending_count/remaining 变化）；
+ * 待激活版内激活成功 → 切「全部」让用户看到刚生效的行（switchTab 的 watch 会拉列表）；
+ * 其余版（含「全部」内直接激活）留在本版重拉——行在版内 pending→active 迁移。
+ */
+async function postActivateRefresh() {
+  await reload()
+  if (activeTab.value === 'pending') switchTab('all')
+  else fetchPage(true)
+}
+
 async function doActivate() {
   const g = confirmTarget.value
   if (!g) return
@@ -74,7 +158,7 @@ async function doActivate() {
     confirmOpen.value = false
     confirmTarget.value = null
     flash('激活成功，套餐已开始计时')
-    await reload()
+    await postActivateRefresh()
   } catch (e) {
     activateErr.value = activateErrText(e instanceof Error ? e.message : '')
   } finally {
@@ -82,7 +166,10 @@ async function doActivate() {
   }
 }
 
-onMounted(reload)
+onMounted(() => {
+  reload()
+  fetchPage(true)
+})
 </script>
 
 <template>
@@ -90,7 +177,7 @@ onMounted(reload)
     <div class="page-head">
       <div>
         <h1>我的套餐</h1>
-        <div class="sub">已购套餐的使用情况与时长都在这里。</div>
+        <div class="sub">套餐按状态分版：全部、生效中、待激活、已收回；待激活不计时，点「激活」立即开始使用。</div>
       </div>
       <button class="btn btn-primary" @click="router.push('/pay')">续费或购买时长</button>
     </div>
@@ -98,8 +185,8 @@ onMounted(reload)
     <div v-if="loading" class="loading">加载中…</div>
 
     <template v-else-if="data">
-      <!-- 档位头（汇总含手工发放的历史权益） -->
-      <div class="panel">
+      <!-- 档位头（汇总含手工发放的历史权益；不随 tab 联动） -->
+      <div class="panel hero">
         <div class="panel-h">
           <div class="tier-hero">
             <span class="tier-name">{{ tierName(data.tier) }}</span>
@@ -114,31 +201,56 @@ onMounted(reload)
         </div>
       </div>
 
-      <!-- 套餐明细（订单来源台账行：生效中/待激活/已收回） -->
-      <div v-if="grants.length" class="panel">
-        <div class="panel-h"><span class="panel-title">套餐明细</span></div>
-        <div class="grant-list">
-          <div v-for="g in grants" :key="g.code_id" class="grant-row" :class="{ revoked: g.status === 'revoked' }">
-            <div class="g-main">
-              <span class="g-tier">{{ tierName(g.tier) }} · {{ durationLabel(g) }}</span>
-              <span :class="statusPill(g.status)">{{ statusText(g.status) }}</span>
-            </div>
-            <div class="g-sub">
-              <template v-if="g.status === 'active'">已激活 {{ fmtBj(g.activated_at) }} · {{ fmtBj(g.expires_at, false) }} 到期</template>
-              <template v-else-if="g.status === 'pending_activation'">已到货未激活：不计时、不占额度；未激活前退款全额</template>
-              <template v-else>已随退款收回</template>
-            </div>
-            <button v-if="g.status === 'pending_activation'" class="btn btn-primary btn-sm" @click="askActivate(g)">激活</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 空态：名下无任何套餐行且无生效权益 -->
-      <div v-if="isEmpty" class="empty">
+      <!-- 整页空态：名下无任何套餐行且无生效权益（tab 条不渲染） -->
+      <div v-if="pageEmpty" class="empty">
         <div class="serif">还没有生效中的套餐</div>
         <p>购买套餐后，使用情况与时长明细会展示在这里。</p>
         <button class="btn btn-primary" @click="router.push('/pay')">去看看套餐</button>
       </div>
+
+      <!-- 手工码态：grant_count=0 但有剩余权益 → 仅档位头（上方已渲染） -->
+
+      <!-- 明细四版 tab（grant_count>0 才渲染） -->
+      <template v-else-if="grantCount > 0">
+        <div class="seg seg-row" role="tablist" aria-label="套餐状态分版">
+          <button
+            v-for="t in LICENSE_TABS" :key="t.key"
+            role="tab" :aria-selected="t.key === activeTab"
+            :class="{ on: t.key === activeTab }"
+            @click="switchTab(t.key)"
+          >{{ t.label }}</button>
+        </div>
+
+        <!-- 某类空态 -->
+        <div v-if="items.length === 0 && !loading" class="panel tab-empty">
+          <p>没有{{ tabLabel }}的套餐</p>
+          <button v-if="activeTab !== 'all'" class="lnk" @click="switchTab('all')">切回全部查看</button>
+        </div>
+
+        <!-- 列表 -->
+        <template v-else-if="!loading">
+          <div class="panel list" :class="{ refreshing }">
+            <div v-for="g in items" :key="g.code_id" class="grant-row" :class="{ revoked: g.status === 'revoked' && activeTab === 'all' }">
+              <div class="g-main">
+                <span class="g-tier">{{ tierName(g.tier) }} · {{ durationLabel(g) }}</span>
+                <span :class="statusPill(g.status)">{{ statusText(g.status) }}</span>
+              </div>
+              <div class="g-sub">
+                <template v-if="g.status === 'active'">已激活 {{ fmtBj(g.activated_at) }} · {{ fmtBj(g.expires_at, false) }} 到期</template>
+                <template v-else-if="g.status === 'pending_activation'">已到货未激活：不计时、不占额度；未激活前退款全额</template>
+                <template v-else>已随退款收回</template>
+              </div>
+              <button v-if="g.status === 'pending_activation'" class="btn btn-primary btn-sm" @click="askActivate(g)">激活</button>
+            </div>
+          </div>
+          <div class="list-tail">
+            <span class="cnt">{{ refreshing ? '加载中…' : `已显示 ${items.length} 个 · 共 ${total} 个` }}</span>
+            <button v-if="hasMore" class="btn btn-secondary" :disabled="loadingMore" @click="fetchPage(false)">
+              {{ loadingMore ? '加载中…' : '加载更多' }}
+            </button>
+          </div>
+        </template>
+      </template>
     </template>
 
     <!-- 激活确认：必须走 AppModal（base.css 两段式 .show 体系，手写弹窗会隐形拦截点击） -->
@@ -167,14 +279,14 @@ onMounted(reload)
 .page-head h1 { font-family: var(--font-display); font-size: 26px; font-weight: 600; margin: 0; }
 .page-head .sub { font-size: 13px; color: var(--muted); margin-top: 6px; }
 .loading { padding: 60px; text-align: center; color: var(--muted); }
-.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; margin-bottom: 14px; }
-.panel-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
-.panel-title { font-family: var(--font-display); font-weight: 600; font-size: 15px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 6px 22px; transition: opacity .15s; }
+.panel.hero { padding: 20px 22px; margin-bottom: 14px; }
+.panel.list.refreshing { opacity: .5; pointer-events: none; }
+.seg-row { margin-bottom: 16px; }
 .tier-hero { display: flex; align-items: center; gap: 10px; }
 .tier-name { font-family: var(--font-display); font-size: 22px; font-weight: 600; }
 .sum { display: flex; gap: 16px; font-size: 12.5px; color: var(--muted); }
 .sum b { color: var(--fg); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-.grant-list { display: flex; flex-direction: column; }
 .grant-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; padding: 13px 0; border-top: 1px solid var(--border); }
 .grant-row:first-child { border-top: none; }
 .grant-row.revoked { opacity: 0.55; }
@@ -183,6 +295,10 @@ onMounted(reload)
 .g-sub { grid-column: 1; font-size: 12.5px; color: var(--muted); }
 .grant-row .btn { grid-row: 1 / 3; grid-column: 2; align-self: center; }
 .btn-sm { padding: 5px 16px; font-size: 13px; }
+.tab-empty { padding: 40px 16px; text-align: center; color: var(--muted); font-size: 13.5px; }
+.tab-empty p { margin: 0 0 6px; }
+.list-tail { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 14px; }
+.list-tail .cnt { font-size: 12.5px; color: var(--muted); }
 .activate-terms { margin: 0 0 10px; padding-left: 18px; font-size: 13.5px; line-height: 1.9; }
 .activate-err { border-radius: var(--radius-lg); background: color-mix(in oklch, red 10%, var(--surface)); padding: 10px 14px; font-size: 13px; }
 .activate-err .lnk { color: var(--accent, var(--fg)); cursor: pointer; }

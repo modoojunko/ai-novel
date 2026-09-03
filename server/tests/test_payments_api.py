@@ -289,56 +289,106 @@ class TestFulfillActivateFlow:
 
 
 class TestLicenseGrants:
-    """Z.6 我的套餐明细（订单来源台账行）：手工码排除 + order_no 映射 + created_at 同口径。"""
+    """套餐明细分页接口（license-grants-pagination）+ license 聚合视图瘦身口径：
+    手工码排除 + order_no 映射 + status 白名单 + created_at 同口径。"""
 
     def _switch_on(self, db_session):
         from app.models.config import GlobalConfigORM
         db_session.merge(GlobalConfigORM(key="payments.purchase.enabled", value="on"))
         db_session.commit()
 
-    def test_grants_listing_and_manual_code_excluded(self, client, web_user, _catalog, db_session, admin_token):
-        self._switch_on(db_session)
+    def _buy_and_fulfill(self, client, web_user, db_session, admin_token, sku_key="pro_yearly"):
+        """下单+注入支付，返回 order_no（_catalog 只有 pro_yearly 可买）。"""
         auth = _auth(web_user)
         r = client.post("/api/pay/orders", headers=auth, json={
-            "sku_key": "pro_yearly", "agreement_version": AGREEMENT_VERSION})
+            "sku_key": sku_key, "agreement_version": AGREEMENT_VERSION})
         order_no = r.json()["data"]["order_no"]
         r = client.post("/api/dev/pay/inject-payment", headers={"X-Admin-Token": admin_token},
                         json={"order_no": order_no})
         assert r.json()["code"] == 0, r.text
+        return order_no
 
-        r = client.get("/api/pay/license", headers=auth)
-        d = r.json()["data"]
-        # 注册即送的 trial 属手工来源（source=admin），不进明细；明细只有订单台账行
-        assert len(d["grants"]) == 1
-        g = d["grants"][0]
+    def test_license_view_slimmed_and_grants_endpoint(self, client, web_user, _catalog, db_session, admin_token):
+        self._switch_on(db_session)
+        auth = _auth(web_user)
+        order_no = self._buy_and_fulfill(client, web_user, db_session, admin_token)
+
+        # license 瘦身：聚合视图无 grants 内嵌，只有行计数（与「全部」total 同口径）
+        d = client.get("/api/pay/license", headers=auth).json()["data"]
+        assert "grants" not in d
+        assert d["grant_count"] == 1
+        assert d["pending_count"] == 1
+
+        # 明细端点：注册即送的 trial 属手工来源（source=admin）不进明细，只有订单台账行
+        r = client.get("/api/pay/license/grants", headers=auth)
+        assert r.json()["code"] == 0
+        body = r.json()["data"]
+        assert body["total"] == 1
+        g = body["items"][0]
         assert g["order_no"] == order_no
         assert g["status"] == "pending_activation"
-        assert d["pending_count"] == 1
+        assert set(g) == {"code_id", "order_no", "tier", "duration_days", "status",
+                          "activated_at", "expires_at", "grant_start"}
+
+        # 状态筛选
+        assert client.get("/api/pay/license/grants?status=pending_activation",
+                          headers=auth).json()["data"]["total"] == 1
+        assert client.get("/api/pay/license/grants?status=active",
+                          headers=auth).json()["data"]["total"] == 0
+
+        # 未知值不致命：全未知=空列表+0；混合=未知忽略
+        r = client.get("/api/pay/license/grants?status=bogus", headers=auth)
+        assert r.json()["data"] == {"items": [], "total": 0}
+        r = client.get("/api/pay/license/grants?status=pending_activation,bogus", headers=auth)
+        assert r.json()["data"]["total"] == 1
+
+        # 未登录照旧拒绝
+        assert client.get("/api/pay/license/grants").json()["code"] == 4001
+
+    def test_grants_pagination_created_desc(self, client, web_user, _catalog, db_session, admin_token):
+        """分页口径：created_at 倒序（裁定不做状态分组）、total 不随翻页变。"""
+        self._switch_on(db_session)
+        auth = _auth(web_user)
+        nos = [self._buy_and_fulfill(client, web_user, db_session, admin_token) for _ in range(3)]
+
+        r = client.get("/api/pay/license/grants?page=1&page_size=2", headers=auth)
+        body = r.json()["data"]
+        assert body["total"] == 3
+        assert len(body["items"]) == 2
+        assert body["items"][0]["order_no"] == nos[-1]  # 最新单在前
+
+        r = client.get("/api/pay/license/grants?page=2&page_size=2", headers=auth)
+        body = r.json()["data"]
+        assert body["total"] == 3
+        assert [i["order_no"] for i in body["items"]] == [nos[0]]  # 剩最旧一行
+
+        # 分页钳制：page_size 上限 100、page 下限 1
+        r = client.get("/api/pay/license/grants?page=-1&page_size=9999", headers=auth)
+        assert r.json()["code"] == 0 and r.json()["data"]["total"] == 3
+
+    def test_grants_listing_and_manual_code_excluded(self, client, web_user, _catalog, db_session, admin_token):
+        self._switch_on(db_session)
+        auth = _auth(web_user)
+        order_no = self._buy_and_fulfill(client, web_user, db_session, admin_token)
 
         # 模拟退款收回 → 已收回灰显仍在明细、待激活计数归零
         from app.models.code import ActivationCodeORM
-        from app.models.user import UserORM
         s = db_session
-        uid = s.query(UserORM).filter_by(username=web_user["username"]).one().id
         row = s.query(ActivationCodeORM).filter_by(code_id=f"O-{order_no}").one()
         row.status = "revoked"
         s.commit()
 
         d = client.get("/api/pay/license", headers=auth).json()["data"]
-        assert len(d["grants"]) == 1 and d["grants"][0]["status"] == "revoked"
-        assert d["pending_count"] == 0
+        assert d["grant_count"] == 1 and d["pending_count"] == 0
+        body = client.get("/api/pay/license/grants?status=revoked", headers=auth).json()["data"]
+        assert body["total"] == 1 and body["items"][0]["status"] == "revoked"
 
     def test_unused_manual_code_does_not_inflate_tier(self, client, web_user, _catalog, db_session, admin_token):
         """unused 手工码不参与档位归属（merge 输入保持原 active 口径）：
         active pro + 未激活手工 max 码 → 档位头仍为 pro，max 码只不进明细。"""
         self._switch_on(db_session)
         auth = _auth(web_user)
-        r = client.post("/api/pay/orders", headers=auth, json={
-            "sku_key": "pro_yearly", "agreement_version": AGREEMENT_VERSION})
-        order_no = r.json()["data"]["order_no"]
-        r = client.post("/api/dev/pay/inject-payment", headers={"X-Admin-Token": admin_token},
-                        json={"order_no": order_no})
-        assert r.json()["code"] == 0, r.text
+        order_no = self._buy_and_fulfill(client, web_user, db_session, admin_token)
         # 激活 pro（成为 active）+ 手工发一张未激活 max 码
         r = client.post("/api/pay/codes/activate", headers=auth, json={"order_no": order_no})
         assert r.json()["code"] == 0, r.text
@@ -355,7 +405,9 @@ class TestLicenseGrants:
 
         d = client.get("/api/pay/license", headers=auth).json()["data"]
         assert d["tier"] == "pro"  # 未激活的 max 码不抬档
-        assert all(g["code_id"] != "AC-MANUAL-MAX-TEST" for g in d["grants"])  # 手工码不进明细
+        body = client.get("/api/pay/license/grants", headers=auth).json()["data"]
+        assert all(g["code_id"] != "AC-MANUAL-MAX-TEST" for g in body["items"])  # 手工码不进明细
+        assert d["grant_count"] == 1  # 计数同口径：手工码不计入
 
     def test_grant_created_at_matches_paid_at(self, client, web_user, _catalog, db_session, admin_token):
         """台账行 created_at 显式 UTC 口径：与订单 paid_at 秒级同（回归：列默认快 8h）。"""
@@ -368,7 +420,7 @@ class TestLicenseGrants:
                         json={"order_no": order_no})
         assert r.json()["code"] == 0, r.text
 
-        from datetime import UTC, datetime
+        from datetime import UTC
 
         from app.models.code import ActivationCodeORM
         from app.models.payments import OrderORM
