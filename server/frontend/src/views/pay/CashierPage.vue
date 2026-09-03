@@ -405,7 +405,7 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
         </button>
       </div>
       <div v-if="selectedSku" class="pay-agree-hint">
-        点击去支付后，将确认<a class="lnk" @click.prevent="showTerms = true">《付费须知》</a>与<a class="lnk" @click.prevent="showTerms = true">《退款政策》</a>要点
+        点击去支付后，将确认<a class="lnk" href="/legal/payment-notice.html" target="_blank" rel="noopener">《付费须知》</a>与<a class="lnk" href="/legal/refund-policy.html" target="_blank" rel="noopener">《退款政策》</a>要点<template v-if="skusData?.agreement_version">（{{ skusData.agreement_version }}）</template>
       </div>
     </template>
 
