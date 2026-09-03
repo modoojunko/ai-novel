@@ -152,6 +152,19 @@ test.describe('我的套餐明细 tab 分版与激活（license-grants-paginatio
     await expect(page.getByRole('button', { name: '加载更多' })).toHaveCount(0)
   })
 
+  test('从某类空 tab 切出不整页闪（档位头保持、无整页加载态）', async ({ page, mockApi }) => {
+    mockApi.setOrders([order()]) // 唯一行=待激活：默认版生效中=某类空
+    await gotoLicense(page)
+    await expect(page.getByText('没有生效中的套餐')).toBeVisible({ timeout: 10000 })
+    mockApi.setGrantsGate({ delayMs: 600 })
+    await page.getByRole('tab', { name: '待激活' }).click()
+    // 等待期内档位头与 tab 条保持原位，整页 MUST NOT 被「加载中…」替换
+    await expect(page.locator('.panel.hero')).toBeVisible({ timeout: 2000 })
+    await expect(page.getByText('加载中…')).toHaveCount(0)
+    await expect(page.getByText('没有待激活的套餐')).toBeVisible() // 旧空态面板保留到数据到达（文案随新 tab 名）
+    await expect(page.getByText('PRO · 30 天')).toBeVisible({ timeout: 5000 })
+  })
+
   test('切版失败保留旧列表、不误报空态', async ({ page, mockApi }) => {
     mockApi.setOrders([order()]) // 待激活行
     await gotoLicense(page)

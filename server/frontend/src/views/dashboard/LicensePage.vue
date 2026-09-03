@@ -38,13 +38,23 @@ const grantCount = computed(() => data.value?.grant_count ?? 0)
 const pageEmpty = computed(() => !!data.value && grantCount.value === 0 && data.value.remaining_sec <= 0)
 
 let tabToken = 0
+/** 首载已完成标记：整页 loading 只用于进页首取；切 tab 一律局部刷新（从某类空 tab 切出也绝不整页闪） */
+let firstLoadDone = false
+/** 置灰延迟：请求超过 200ms 才置灰旧列表——秒回的切版全程无灰闪 */
+let dimTimer: number | undefined
+const DIM_DELAY_MS = 200
 
-// ── 明细分页（同 OrdersPage.fetchPage 骨架）──
+// ── 明细分页（OrdersPage.fetchPage 骨架 + 切版闪烁修补）──
 async function fetchPage(reset: boolean): Promise<void> {
   const token = ++tabToken
   if (reset) {
-    if (items.value.length > 0) refreshing.value = true
-    else loading.value = true
+    if (firstLoadDone) {
+      dimTimer = window.setTimeout(() => {
+        if (token === tabToken) refreshing.value = true
+      }, DIM_DELAY_MS)
+    } else {
+      loading.value = true
+    }
   } else {
     loadingMore.value = true
   }
@@ -64,7 +74,9 @@ async function fetchPage(reset: boolean): Promise<void> {
     // 失败保留旧列表原样，MUST NOT 误显示空态
     console.error('license grants load failed:', e)
   } finally {
+    window.clearTimeout(dimTimer)
     if (token === tabToken) {
+      firstLoadDone = true
       loading.value = false
       loadingMore.value = false
       refreshing.value = false
