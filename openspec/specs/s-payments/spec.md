@@ -131,21 +131,22 @@ API 端点/DTO/错误码 SHALL 以 backend-detail-design.md 附录 Z 为唯一�
 - **WHEN** 检查 S端 前端源码（router / api 客户端 / 视图组件）
 - **THEN** 该资源的类型、请求函数、页面组件、路由名一律命名为 license 语义（LicenseView / apiPayLicense / LicensePage / route name `license`），仓库内存量 membership 符号仅剩后端过渡别名一处
 
-### Requirement: 订单列表单往返取数
+### Requirement: 激活动作接口命名对齐域对象 code
 
-订单列表接口 `GET /api/pay/orders` SHALL 在一次数据访问往返内同时取得 `total`（筛选全量计数）与当前页行数据，两者的口径 MUST 与分开计数/取行时完全一致（同筛选、同排序、同分页窗口）。用户标识（username → user_id）解析 SHALL 支持进程内缓存，缓存 MUST 对调用方透明：命中与未命中返回结果一致，且 MUST 提供按用户名主动失效的途径供账号生命周期事件（如注销）接线。
+订单来源套餐的激活动作接口 URI 与代码符号 SHALL 取自实存域对象名（`code`，ActivationCode/codes 表），MUST NOT 使用域外借词（grant/entitlement）。激活语义（订单号换权益开始计时）、错误码与响应体字段口径保持不变。
 
-#### Scenario: total 与当前页一次取得且口径不变
+#### Scenario: 激活走 codes 路径
 
-- **WHEN** 已登录用户请求任一 `page` / `status` 组合（pg_http 生产模式）
-- **THEN** 响应中的 `total` 与 `items` 来自同一次数据访问往返，`total` 仍为符合筛选条件的全量笔数，「已显示 X 笔 · 共 Y 笔」与「加载更多」行为不变
+- **WHEN** 已登录用户请求 `POST /api/pay/codes/activate` `{order_no}`
+- **THEN** 行为与原 grants/activate 完全一致：到货态订单的台账行转为 active、返回 `{code_id, grant_start, expires_at, tier}`，非到货/不可激活错误码不变
 
-#### Scenario: 用户解析缓存透明
+#### Scenario: 旧路径过渡别名
 
-- **WHEN** 同一用户名的解析请求命中缓存后再次发起，或缓存被主动失效后再次发起
-- **THEN** 两种情况返回的 user_id 一致；接口行为与不启用缓存时无任何差异
+- **WHEN** 客户端仍请求 `POST /api/pay/grants/activate`
+- **THEN** 返回与 `POST /api/pay/codes/activate` 完全一致的结果
+- **AND** 该别名为过渡兼容，前端线上包零引用后 MUST 移除
 
-#### Scenario: 缓存失效钩子可用
+#### Scenario: 应用层符号单一命名
 
-- **WHEN** 账号生命周期事件（注销等）需要丢弃某用户名的解析缓存
-- **THEN** 按用户名主动失效后，下一次解析重新回源，不会命中过期条目
+- **WHEN** 检查后端应用服务与接口层符号
+- **THEN** 激活用例统一命名 activate_code（模块/函数/handler），仓库内存量 grant/entitlement 借词仅剩过渡别名一处

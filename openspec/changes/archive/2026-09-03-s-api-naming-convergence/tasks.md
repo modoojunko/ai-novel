@@ -22,10 +22,10 @@
 ## 5. 回归与上线验证
 
 - [x] 5.1 门禁全跑并记录结论：`vue-tsc --noEmit` → **exit 0**；全量 `pytest -q` → **290 passed**；`design:lint` 存量红同 license-naming 口径（site-beian emoji，主目录同报）；ruff 改动文件 10 处全为存量（refund_flow/scan_orders/已知 2 处，主目录同报）：`vue-tsc --noEmit` / 全量 `pytest` / `design:lint`（存量红口径同 license-naming：site-beian emoji）；验证=结论写入本条
-- [ ] 5.2 残余 grep 验收：全 worktree（排除归档/venv/node_modules/.mimosa）`grants/activate`、`activate_entitlement`、`device/my`、`device/remove` 残余=后端别名 + 测试/文档过渡性表述；验证=清单核对
-- [ ] 5.3 上线验证（合并 → 自动部署后）：`POST /api/pay/codes/activate` 与 `/grants/activate` 未登录口径一致（4001 系）、`GET /api/devices/my` 与 `/api/device/my` 同；前端线上包换名后核验零引用；验证=实测记录
-- [ ] 5.4 收尾小 PR：判据成立后删 3 条旧路径别名 → 全量 pytest 绿 → 合并部署复验新路径 200/旧路径 404；验证=线上终态记录
+- [x] 5.2 残余 grep 验收：全 worktree 排除扫描 → 代码残余=3 条别名 decorator 注释（已随 5.4 删除）；历史性残余=backend-detail 758 旧方案行、postmortem、openspec/s-pay-foundation 旧目录（历史事实不改）；验证=清单核对通过：全 worktree（排除归档/venv/node_modules/.mimosa）`grants/activate`、`activate_entitlement`、`device/my`、`device/remove` 残余=后端别名 + 测试/文档过渡性表述；验证=清单核对
+- [x] 5.3 上线验证（合并 → 自动部署后）：`POST /api/pay/codes/activate` 与 `/grants/activate` 未登录口径一致（4001 系）、`GET /api/devices/my` 与 `/api/device/my` 同；前端线上包换名后核验零引用；实测：✅ POST codes/activate 与 grants/activate 同 422 参数校验口径；✅ devices/my 与 device/my 同 200 未登录口径；✅ 前端线上包（novel-s-web-086，本机 tcb 兜底部署——CI 前端步跨境超时复刻 #279 剧本）三旧路径引用全 0、备案号在位
+- [x] 5.4 收尾小 PR（PR #290）：判据成立后删 3 条旧路径别名 → 全量 pytest 绿 → 合并部署复验新路径 200/旧路径 404；实测：✅ codes/activate 200 / grants/activate 404；✅ devices/my 200 / device/my 404；✅ devices/remove 200 / device/remove 404
 
 ## 6. 归档
 
-- [ ] 6.1 openspec sync + 归档走 PR（--admin 纯文档）；验证=归档后 specs 含新 requirement、changes 列表无本 change
+- [x] 6.1 openspec sync + 归档走 PR（--admin 纯文档）；验证=归档后 specs 含新 requirement、changes 列表无本 change
