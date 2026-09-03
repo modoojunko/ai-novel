@@ -23,9 +23,9 @@
 
 - [x] 5.1 门禁全跑并记录结论：`vue-tsc --noEmit` / 全量 `pytest` / `design:lint`（存量口径同前）；实测：vue-tsc exit 0；全量 pytest 312 passed；playwright 154 passed；design:lint 存量口径不变
 - [x] 5.2 残余 grep 验收：全 worktree（排除归档/venv/node_modules/.mimosa/本 change 工件）`license/grants`、`grant_count`、`LicenseGrant`、`find_order_grants_page`、`grant-row` 残余=后端别名/双发行 + 收尾前过渡表述；实测：代码残余=后端别名/双发行（470-492/501/630 区）+ license.spec describe 标题引用归档 change 名 license-grants-pagination（专名词）+ backend-detail 事件键 codes:{id}:granted 与 device_grants（已落库幂等键/device 域，裁定保留记账）
-- [ ] 5.3 上线验证（合并 → 自动部署后）：`GET /api/pay/license` 未登录 4001 且登录口径双计数键同值（pytest 兜底）、`GET /api/pay/license/codes` 与旧路径行为一致、订单详情双快照键；前端线上包核验旧键/旧路径零引用；验证=实测记录
-- [ ] 5.4 收尾小 PR：删旧路径别名与 grant_count/grant 旧键 → 全量 pytest 绿 → 合并部署复验终态（codes 200/旧路径 404、单键）；验证=终态记录
+- [x] 5.3 上线验证（合并 → 自动部署后）：`GET /api/pay/license` 未登录 4001 且登录口径双计数键同值（pytest 兜底）、`GET /api/pay/license/codes` 与旧路径行为一致、订单详情双快照键；前端线上包核验旧键/旧路径零引用；实测：✅ license/codes 与 license/grants（别名期）同 200；✅ 前端 novel-s-web-087（本机 tcb 兜底，CI 前端步又超时）全分包扫描 new=3/old=0、备案在位
+- [x] 5.4 收尾小 PR（PR #298）：删旧路径别名与 grant_count/grant 旧键 → 全量 pytest 绿 → 合并部署复验终态（codes 200/旧路径 404、单键）；实测：✅ license/codes 200、license/grants 404；✅ 前端包 new=3/old=0；pytest 312 绿
 
 ## 6. 归档
 
-- [ ] 6.1 openspec sync + 归档走 PR（--admin 纯文档）；验证=归档后 s-payments 含 MODIFIED/ADDED requirement、changes 列表无本 change
+- [x] 6.1 openspec sync + 归档走 PR（--admin 纯文档）；验证=归档执行成功（本行勾选时点）

@@ -106,24 +106,19 @@ API 端点/DTO/错误码 SHALL 以 backend-detail-design.md 附录 Z 为唯一�
 
 ### Requirement: License 总览接口命名对齐域对象
 
-用户权益聚合总览接口的 URI 与代码符号 SHALL 取自实存域对象名（`license`），MUST NOT 引入域外词（如 membership）。接口返回内容为当前登录用户的 License 聚合视图（有效档位、最远到期、剩余时长、待激活数、订单来源套餐行计数），MUST NOT 内嵌套餐明细列表（明细由套餐明细分页接口承载）；`grant_count` SHALL 只数 `source='order'` 的台账行，与套餐明细分页接口「全部」筛选的 total 同过滤器，保证档位头计数与列表口径一致。
+用户权益聚合总览接口的 URI 与代码符号 SHALL 取自实存域对象名（`license`），MUST NOT 引入域外词（如 membership）。接口返回内容为当前登录用户的 License 聚合视图（有效档位、最远到期、剩余时长、待激活数、订单来源套餐行计数）；明细列表由独立分页端点承载（见「License 明细与快照字段层对齐域对象 code」）。
 
 #### Scenario: 我的套餐总览走 license 路径
 
 - **WHEN** 已登录用户请求 `GET /api/pay/license`
-- **THEN** 返回 `code=0` 与 License 聚合视图（tier / remaining_sec / remaining_desc / max_expires_at / pending_count / grant_count），响应中不含 grants 明细数组
+- **THEN** 返回 `code=0` 与 License 聚合视图（tier / remaining_sec / remaining_desc / max_expires_at / pending_count / code_count）
 - **AND** 未登录请求返回 `code=4001`
-
-#### Scenario: grant_count 与「全部」tab total 同口径
-
-- **WHEN** 用户名下存在订单来源台账行与手工发放码
-- **THEN** `grant_count` 等于 `GET /api/pay/license/grants`（不带 status 筛选）返回的 total，手工发放码不计入两者
 
 #### Scenario: 旧路径过渡别名
 
 - **WHEN** 客户端仍请求 `GET /api/pay/membership`
 - **THEN** 返回与 `GET /api/pay/license` 完全相同的聚合视图
-- **AND** 该别名为过渡兼容，前端线上包零引用后 MUST 移除
+- **AND** 该别名已随 s-pay-license-naming 收尾移除（现为终态行为：旧路径 404）
 
 #### Scenario: 旧页面链接重定向
 
@@ -134,7 +129,7 @@ API 端点/DTO/错误码 SHALL 以 backend-detail-design.md 附录 Z 为唯一�
 #### Scenario: 前端符号单一命名
 
 - **WHEN** 检查 S端 前端源码（router / api 客户端 / 视图组件）
-- **THEN** 该资源的类型、请求函数、页面组件、路由名一律命名为 license 语义（LicenseView / apiPayLicense / LicensePage / route name `license`），仓库内存量 membership 符号仅剩后端过渡别名一处
+- **THEN** 该资源的类型、请求函数、页面组件、路由名一律命名为 license 语义（LicenseView / apiPayLicense / LicensePage / route name `license`），仓库内存量 membership 符号仅剩历史文档表述
 
 ### Requirement: 激活动作接口命名对齐域对象 code
 
@@ -156,36 +151,29 @@ API 端点/DTO/错误码 SHALL 以 backend-detail-design.md 附录 Z 为唯一�
 - **WHEN** 检查后端应用服务与接口层符号
 - **THEN** 激活用例统一命名 activate_code（模块/函数/handler），仓库内存量 grant/entitlement 借词仅剩过渡别名一处
 
-### Requirement: 套餐明细分页接口
+### Requirement: License 明细与快照字段层对齐域对象 code
 
-订单来源套餐明细 SHALL 由独立分页接口 `GET /api/pay/license/grants` 承载：`status` 参数为逗号分隔白名单 `{pending_activation, active, revoked}`（未登录返回 `code=4001`）；未知状态值 MUST 忽略，全部未知时返回空列表与 total=0（不报错）；分页参数 `page`/`page_size` 默认 20、上限 100 钳制；响应为 `{items, total}`，items 行结构与原 license 内嵌 grants 行逐字一致（code_id/order_no/tier/duration_days/status/activated_at/expires_at/grant_start）；列表 SHALL 按创建时间倒序排列（裁定：明细分页后不再按状态分组排序，与订单列表全局口径一致，「已收回」行的视觉区分由前端置灰承载）。
+套餐明细分页端点、总览行计数字段、订单详情权益快照 SHALL 以实存域对象名（`code`）命名：`GET /api/pay/license/codes`、总览字段 `code_count`、订单详情快照 `fulfillment`（到货——订单状态机 fulfilled 的名词化，零新词；本单到货产出的码行激活状态投影，引用非订单属性）。旧 URI/旧字段以过渡别名与双发兼容，前端线上包零引用后 MUST 移除。`grant_start` 为 codes 表既成列名连同响应字段裁定保留（"起算日"既成名，不入本轮）。
 
-#### Scenario: 按状态筛选返回对应套餐行
+#### Scenario: 明细分页走 codes 路径
 
-- **WHEN** 已登录用户请求 `GET /api/pay/license/grants?status=pending_activation`
-- **THEN** items 仅含待激活行，total 为待激活行总数；`status=active`、`status=revoked` 同理各自筛选
+- **WHEN** 已登录用户请求 `GET /api/pay/license/codes?page=1&status=pending_activation`
+- **THEN** 行为与原 license/grants 完全一致：items 行含 code_id/order_no/tier/duration_days/status/activated_at/expires_at/grant_start，total 为筛选全量计数，未知 status 白名单外值忽略
+- **AND** 未登录请求返回 `code=4001`
 
-#### Scenario: 不带筛选返回全量分页
+#### Scenario: 总览计数与订单快照双发过渡
 
-- **WHEN** 已登录用户请求 `GET /api/pay/license/grants`（无 status）
-- **THEN** 返回名下全部订单来源行的第一页（按创建时间倒序），total 为全部行数
+- **WHEN** 已登录用户请求 `GET /api/pay/license` 与 `GET /api/pay/orders/{order_no}`
+- **THEN** 总览同时返回 `code_count` 与 `grant_count`（同值），订单详情同时返回 `fulfillment` 与 `grant`（同内容）
+- **AND** 双发为过渡兼容，前端线上包零引用旧字段后 MUST 移除
 
-#### Scenario: 未知状态值不致命
+#### Scenario: 旧分页路径过渡别名
 
-- **WHEN** 请求携带 `status=bogus` 或 `status=active,bogus`
-- **THEN** 未知值被忽略：前者返回空列表+total=0，后者等同 `status=active`；均不返回错误
+- **WHEN** 客户端仍请求 `GET /api/pay/license/grants`
+- **THEN** 返回与 `GET /api/pay/license/codes` 完全一致的结果
+- **AND** 别名为过渡兼容，前端线上包零引用后 MUST 移除
 
-#### Scenario: 分页追加口径
+#### Scenario: 字段层符号单一命名
 
-- **WHEN** 同一筛选条件下请求 `page=2`
-- **THEN** 返回按创建时间倒序的下一页且 `total` 不变；前端据此判断「加载更多」是否还有下一页
-
-#### Scenario: 手工发放码与历史无来源行不进明细
-
-- **WHEN** 用户名下存在管理员手工发放的激活码，或历史台账行无 source 标记（按 admin 口径折算）
-- **THEN** 这些行不出现在任何筛选条件的 items 中，也不计入 total
-
-#### Scenario: 未登录照旧拒绝
-
-- **WHEN** 未登录请求该接口
-- **THEN** 返回 `code=4001`，与现有口径一致
+- **WHEN** 检查前后端源码
+- **THEN** 明细行类型/仓储方法/分页函数一律命名 code 语义（LicenseCode / LicenseCodePage / apiPayLicenseCodes / find_order_codes_page / list_license_codes），grant 借词仅剩 grant_start 既成字段与过渡别名/双发字段
