@@ -93,6 +93,8 @@ export interface Fulfillment {
   status: string // pending_activation | active | revoked
   activated_at: string
   expires_at: string
+  /** 起算时刻（未来=排队码：已激活但顺延未计时；剩余展示与退款折算以它为界） */
+  grant_start?: string
 }
 
 /** 我的套餐明细行（订单来源码行；手工码不进明细） */

@@ -38,7 +38,7 @@ export interface TestOrder {
   fulfilled_at?: string
   refund_requested_at?: string
   /** 到货快照（订单详情/激活流转）；缺省由 paid_at 推导 pending_activation */
-  fulfillment?: { status: string; activated_at: string; expires_at: string } | null
+  fulfillment?: { status: string; activated_at: string; expires_at: string; grant_start?: string } | null
 }
 
 /**

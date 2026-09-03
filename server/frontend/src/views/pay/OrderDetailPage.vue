@@ -162,7 +162,17 @@ const steps = computed(() => {
   const g = o.fulfillment
   if (o.fulfilled_at) {
     let title = '套餐到货'
-    if (g?.status === 'active') title = `套餐到货（已激活，计时中）· 剩余 ${daysLeft(g.expires_at)} 天`
+    if (g?.status === 'active') {
+      // 排队码：已激活但顺延未起算（grant_start 在未来）——不显示"剩余万年天"，
+      // 剩余/折算口径以 grant_start 为界（排队期未消耗，退款走全额）
+      const gs = g.grant_start
+      const gsMs = gs ? Date.parse(/[Zz]|[+-]\d{2}:?\d{2}$/.test(gs) ? gs : gs + 'Z') : 0
+      if (gsMs > Date.now()) {
+        title = `套餐到货（已激活·排队中，${fmtBj(gs!, false)} 起算）`
+      } else {
+        title = `套餐到货（已激活，计时中）· 剩余 ${daysLeft(g.expires_at)} 天`
+      }
+    }
     else if (g?.status === 'pending_activation') title = '套餐到货（待激活，未计时）'
     else if (g?.status === 'revoked') title = '套餐到货（已收回）'
     rows.push({ title, when: fmtBj(o.fulfilled_at), done: true, now: false })
