@@ -192,8 +192,8 @@ async def list_orders(
     page_size = min(max(1, page_size), 100)
 
     repo = OrderRepo(db)
-    # total 与当前页单次往返取得（orders-page-latency），口径同 count+find 分步
-    orders, total = repo.find_by_user_page(user_id, statuses=statuses, limit=page_size, offset=(page - 1) * page_size)
+    total = repo.count_by_user(user_id, statuses)
+    orders = repo.find_by_user(user_id, statuses=statuses, limit=page_size, offset=(page - 1) * page_size)
     now = datetime.now(UTC).replace(tzinfo=None)  # naive UTC（与表列口径一致，同 _order_to_detail）
 
     items = []
@@ -512,21 +512,21 @@ async def get_license(request: Request, db: Db = Depends(get_db)):
     }}
 
 
-@r.post("/grants/activate")
-async def activate_grant(req: ActivateRequest, request: Request, db: Db = Depends(get_db)):
+@r.post("/codes/activate")
+async def activate(req: ActivateRequest, request: Request, db: Db = Depends(get_db)):
     """激活（到货-激活两段式第二段）。"""
     username = _current_username(request)
     if not username:
         return {"code": 4001, "msg": "未登录"}
 
-    from app.application.payments.activate_entitlement import activate_entitlement
+    from app.application.payments.activate_code import activate_code
     from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
     from app.infrastructure.repositories.factory import user_repo
     from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
     user_id = user_repo(db).get_id(username)
     try:
-        result = activate_entitlement(
+        result = activate_code(
             OrderRepo(db), TradeEventRepo(db), _code_repo_factory(db),
             req.order_no, user_id,
         )
