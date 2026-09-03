@@ -108,6 +108,19 @@ test.describe('我的订单', () => {
     await expect(page.getByText('已支付').first()).toBeVisible()
   })
 
+  test('从某类空 tab 切出不整页闪（无整页加载态，同 license 8714e0c）', async ({ page, mockApi }) => {
+    mockApi.registerUser()
+    mockApi.setOrders([paidOrder()]) // 无待支付单：默认版=某类空
+    await gotoOrders(page)
+    await expect(page.getByText('没有待支付的订单')).toBeVisible({ timeout: 10000 })
+    mockApi.setOrdersGate({ delayMs: 600 })
+    await tabButton(page, '已完成').click()
+    // 等待期内整页 MUST NOT 被「加载中…」替换（首载标记后切版一律局部刷新）
+    await expect(page.getByText('加载中…')).toHaveCount(0)
+    await expect(page.getByText('没有已完成的订单')).toBeVisible() // 旧空态面板保留（文案随新 tab 名）
+    await expect(page.getByText('已支付').first()).toBeVisible({ timeout: 5000 })
+  })
+
   test('加载更多：跨版追加去重，取完按钮消失', async ({ page, mockApi }) => {
     mockApi.registerUser()
     mockApi.setOrders(

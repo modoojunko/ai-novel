@@ -26,19 +26,30 @@ const total = ref(0)
 const activeTab = ref<OrderTabKey>(orderTabFromQuery(route.query.tab))
 /** 整页空态（账号无任何订单）——与「某类空」区分，tab 条不渲染 */
 const pageEmpty = ref(false)
-/** tab 会话令牌：切走后返回的过期响应直接丢弃（design D7） */
-let tabToken = 0
 
 const tabLabel = computed(() => ORDER_TABS.find((t) => t.key === activeTab.value)?.label ?? '')
 const statusList = computed(() => ORDER_TABS.find((t) => t.key === activeTab.value)?.statuses)
 const hasMore = computed(() => items.value.length < total.value)
 
+/** tab 会话令牌：切走后返回的过期响应直接丢弃（design D7） */
+let tabToken = 0
+/** 首载已完成标记：整页 loading 只用于进页首取；切 tab 一律局部刷新（从某类空 tab 切出也绝不整页闪，同 LicensePage 8714e0c 热修） */
+let firstLoadDone = false
+/** 置灰延迟：请求超过 200ms 才置灰旧列表——秒回的切版全程无灰闪 */
+let dimTimer: number | undefined
+const DIM_DELAY_MS = 200
+
 async function fetchPage(reset: boolean): Promise<void> {
   const token = ++tabToken
   if (reset) {
-    // 切版/刷新不清空旧列表（orders-page-latency）：置灰局部加载；仅首进无数据才整页 loading
-    if (items.value.length > 0) refreshing.value = true
-    else loading.value = true
+    // 切版/刷新不清空旧列表（orders-page-latency）：置灰局部加载；整页 loading 仅限进页首取
+    if (firstLoadDone) {
+      dimTimer = window.setTimeout(() => {
+        if (token === tabToken) refreshing.value = true
+      }, DIM_DELAY_MS)
+    } else {
+      loading.value = true
+    }
   } else {
     loadingMore.value = true
   }
@@ -64,7 +75,9 @@ async function fetchPage(reset: boolean): Promise<void> {
     // 失败保留旧列表原样，MUST NOT 误显示空态
     console.error('orders load failed:', e)
   } finally {
+    window.clearTimeout(dimTimer)
     if (token === tabToken) {
+      firstLoadDone = true
       loading.value = false
       loadingMore.value = false
       refreshing.value = false
