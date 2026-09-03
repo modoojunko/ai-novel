@@ -98,8 +98,8 @@ export class MockApi {
     '**/api/user/deletion/refund-request',
     '**/api/user/deletion',
     '**/api/user/deletion/revoke',
-    '**/api/device/my',
-    '**/api/device/remove',
+    '**/api/devices/my',
+    '**/api/devices/remove',
     '**/api/authorize',
     '**/api/reset_password',
     // ⚠️ 真实调用带 query（?pc_hash=），Playwright glob 匹配完整 URL，须以 * 收尾
@@ -483,7 +483,7 @@ export class MockApi {
       return route.fulfill(json(0, { success: true }))
     }
 
-    if (path === '/api/device/my' && method === 'GET') {
+    if (path === '/api/devices/my' && method === 'GET') {
       const activatedCount = this.devices.filter(d => d.activated).length
       return route.fulfill(json(0, this.devices, {
         total_count: this.devices.length,
@@ -492,7 +492,7 @@ export class MockApi {
       }))
     }
 
-    if (path === '/api/device/remove' && method === 'POST') {
+    if (path === '/api/devices/remove' && method === 'POST') {
       const body = route.request().postDataJSON()
       this.devices = this.devices.filter(d => d.id !== body?.id)
       return route.fulfill(json(0, { success: true }))
