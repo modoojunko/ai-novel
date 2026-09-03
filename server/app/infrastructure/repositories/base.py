@@ -77,7 +77,7 @@ class CodeRepo(Protocol):
         False=状态已被并发方改走（重复激活/已退）。"""
         ...
 
-    def find_order_grants_page(self, user_id: int, statuses: list[str] | None = None,
+    def find_order_codes_page(self, user_id: int, statuses: list[str] | None = None,
                                limit: int = 20, offset: int = 0) -> tuple[list[ActivationCode], int]:
         """订单来源套餐明细分页（license-grants-pagination）：(当前页行, total)。
         只数 source='order' 行（手工码/历史无来源行不进明细）；statuses=None=全部；

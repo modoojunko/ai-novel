@@ -177,7 +177,7 @@ test.describe('订单流程时间线（s-pay-post-purchase-completion）', () =>
 
   test('已激活单到货行显示剩余天数', async ({ page, mockApi }) => {
     mockApi.setOrders([order({
-      grant: { status: 'active', activated_at: '2026-08-30T06:30:00', expires_at: '2026-11-28T00:00:00' },
+      fulfillment: { status: 'active', activated_at: '2026-08-30T06:30:00', expires_at: '2026-11-28T00:00:00' },
     })])
     await gotoDetail(page)
     await expect(page.getByText(/套餐到货（已激活，计时中）· 剩余 \d+ 天/)).toBeVisible({ timeout: 10000 })

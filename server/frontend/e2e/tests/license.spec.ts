@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { test, expect } from '../fixtures'
-import type { MockApi, TestLicenseGrant } from '../mocks/api-handlers'
+import type { MockApi, TestLicenseCode } from '../mocks/api-handlers'
 
 function order(overrides: Partial<Parameters<MockApi['setOrders']>[0][number]> = {}): Parameters<MockApi['setOrders']>[0][number] {
   return {
@@ -16,7 +16,7 @@ function order(overrides: Partial<Parameters<MockApi['setOrders']>[0][number]> =
   }
 }
 
-function grant(overrides: Partial<TestLicenseGrant> = {}): TestLicenseGrant {
+function code(overrides: Partial<TestLicenseCode> = {}): TestLicenseCode {
   return {
     code_id: 'O-S20260902TEST0001',
     order_no: 'S20260902TEST0001',
@@ -52,7 +52,7 @@ test.describe('我的套餐明细 tab 分版与激活（license-grants-paginatio
   })
 
   test('手工码态：有剩余权益无套餐行 → 仅档位头', async ({ page, mockApi }) => {
-    mockApi.setLicense({ tier: 'pro', remaining_sec: 86400, remaining_desc: '1 天', pending_count: 0, grant_count: 0 })
+    mockApi.setLicense({ tier: 'pro', remaining_sec: 86400, remaining_desc: '1 天', pending_count: 0, code_count: 0 })
     await gotoLicense(page)
     await expect(page.getByText('剩余')).toBeVisible({ timeout: 10000 })
     await expect(page.getByRole('tablist')).toHaveCount(0)
@@ -77,7 +77,7 @@ test.describe('我的套餐明细 tab 分版与激活（license-grants-paginatio
     await expectTabOn(page, '生效中')
     await page.getByRole('tab', { name: '待激活' }).click()
     await expect(page.url()).toContain('tab=pending')
-    await expect(page.locator('.grant-row .pill-warn')).toBeVisible()
+    await expect(page.locator('.code-row .pill-warn')).toBeVisible()
   })
 
   test('待激活行可见 → 确认激活 → 自动切「全部」展示生效中', async ({ page, mockApi }) => {
@@ -114,7 +114,7 @@ test.describe('我的套餐明细 tab 分版与激活（license-grants-paginatio
   })
 
   test('已收回行：专属版不置灰可见，「全部」内置灰，无操作按钮', async ({ page, mockApi }) => {
-    mockApi.setLicenseGrants([grant({
+    mockApi.setLicenseCodes([code({
       code_id: 'O-S20260902REFUND01',
       order_no: 'S20260902REFUND01',
       status: 'revoked',
@@ -129,25 +129,25 @@ test.describe('我的套餐明细 tab 分版与激活（license-grants-paginatio
     await expect(page.getByText('已随退款收回')).toBeVisible({ timeout: 10000 })
     await expect(page.getByRole('button', { name: '激活' })).toHaveCount(0)
     // 专属版内不置灰（无 revoked 置灰类）
-    await expect(page.locator('.grant-row.revoked')).toHaveCount(0)
+    await expect(page.locator('.code-row.revoked')).toHaveCount(0)
     // 切回「全部」→ 置灰
     await page.getByRole('tab', { name: '全部' }).click()
-    await expect(page.locator('.grant-row.revoked')).toHaveCount(1)
+    await expect(page.locator('.code-row.revoked')).toHaveCount(1)
   })
 
   test('加载更多：跨页追加不重复，取完按钮消失', async ({ page, mockApi }) => {
-    mockApi.setLicenseGrants(
-      Array.from({ length: 25 }, (_, i) => grant({
+    mockApi.setLicenseCodes(
+      Array.from({ length: 25 }, (_, i) => code({
         code_id: `O-S20260902BULK${String(i).padStart(2, '0')}`,
         order_no: `S20260902BULK${String(i).padStart(2, '0')}`,
       })),
     )
     await gotoLicense(page)
     await page.getByRole('tab', { name: '全部' }).click()
-    await expect(page.locator('.grant-row')).toHaveCount(20, { timeout: 10000 })
+    await expect(page.locator('.code-row')).toHaveCount(20, { timeout: 10000 })
     await expect(page.getByText('已显示 20 个 · 共 25 个')).toBeVisible()
     await page.getByRole('button', { name: '加载更多' }).click()
-    await expect(page.locator('.grant-row')).toHaveCount(25)
+    await expect(page.locator('.code-row')).toHaveCount(25)
     await expect(page.getByText('已显示 25 个 · 共 25 个')).toBeVisible()
     await expect(page.getByRole('button', { name: '加载更多' })).toHaveCount(0)
   })

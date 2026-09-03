@@ -983,7 +983,7 @@ cancel_order：
  2. codes frozen→active（CAS；终点不变、不补偿——纪要拍板）
     INSERT entitlement.unfrozen
  3. SET refund_status='canceled'（+INSERT refund.canceled 事件——前科进 trade_events 留痕）
- 4. 响应：{order_no, status:'fulfilled', grant_restored:true}
+ 4. 响应：{order_no, status:'fulfilled', code_restored:true}（s-license-codes-field：原 grant_restored 为借词，前端未读值直接改名）
 崩溃窗口：1 后任一步断 → 残留态=orders fulfilled + refund_status=cooldown + codes frozen
   ★与申请路径"3后4前"残留同形——用 cooldown_ends_at 判方向：
   - cooldown_ends_at > now（冷静期未过）→ 用户意图=取消 → 扫描补 T5c 剩余步骤（解冻+canceled）
@@ -1633,6 +1633,8 @@ HTTP 状态码：成功 200；认证 401；属主不符 404（防枚举）；其
 | `/api/pay/orders/{no}/refund/cancel` | POST | — | `{order_no, status:'fulfilled', grant_restored:true}` \| `{code:4007}` | **新增**（冷静期取消） |
 | `/api/pay/license` | GET | — | `LicenseView`（Z.6） | s-pay-license-naming：路径对齐域对象 License（原 membership 为域外词）；`/api/pay/membership` 过渡别名保留至前端线上包零引用后删 |
 | `/api/pay/codes/activate` | POST | `{order_no}` | `{grant_start, grant_end, tier}` | 路径+参数定前端版（order_no 而非 code_id）；s-api-naming-convergence：对齐域对象 code（原 grants/activate 为借词），旧路径过渡别名 |
+| `/api/pay/license/codes` | GET | `page/page_size/status` | `{items:[{code_id,order_no,tier,duration_days,status,activated_at,expires_at,grant_start}], total}` | s-license-codes-field：明细分页（原 /license/grants 借词），旧路径过渡别名；status 白名单 pending_activation/active/revoked |
+| `/api/pay/license`（计数/快照注） | GET | — | `…code_count`（双发 `grant_count` 过渡）；订单详情 `…fulfillment`（双发 `grant` 过渡） | s-license-codes-field：字段层对齐 code/到货；fulfillment=本单到货码行激活状态投影 |
 | `/api/auth/check-auth` | GET | — | 现有字段 + `{days_remaining?, attention?}` | A4 扩展（可选字段） |
 
 ### Z.4 SkusView DTO（统一版）

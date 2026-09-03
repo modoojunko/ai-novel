@@ -56,7 +56,7 @@ export interface OrderDetail {
   fulfilled_at?: string
   refund_requested_at?: string
   refunded_at?: string
-  grant?: OrderGrant | null
+  fulfillment?: Fulfillment | null
   agreement?: { version: string; agreed_at: string }
   wx_transaction_id?: string
   remaining_pay_seconds?: number | null
@@ -84,15 +84,15 @@ export interface RefundResult {
   cooldown_remaining_seconds: number
 }
 
-/** 订单关联的权益台账快照（到货行激活标注用；pending 态=null） */
-export interface OrderGrant {
+/** 订单到货快照（本单到货产出的码行激活状态投影；pending 态=null） */
+export interface Fulfillment {
   status: string // pending_activation | active | revoked
   activated_at: string
   expires_at: string
 }
 
-/** 我的套餐明细行（订单来源台账行；手工码不进明细） */
-export interface LicenseGrant {
+/** 我的套餐明细行（订单来源码行；手工码不进明细） */
+export interface LicenseCode {
   code_id: string
   order_no: string
   tier: string
@@ -109,12 +109,12 @@ export interface LicenseView {
   remaining_desc: string
   max_expires_at: string | null
   pending_count: number
-  /** 订单来源套餐行总数（与明细接口「全部」total 同过滤器 source='order'） */
-  grant_count: number
+  /** 订单来源码行总数（与明细接口「全部」total 同过滤器 source='order'） */
+  code_count: number
 }
 
-export interface LicenseGrantPage {
-  items: LicenseGrant[]
+export interface LicenseCodePage {
+  items: LicenseCode[]
   total: number
 }
 
@@ -208,10 +208,10 @@ export async function apiPayOrders(page = 1, pageSize = 50, statuses?: readonly 
   return r.data.data!
 }
 
-export async function apiPayLicenseGrants(page = 1, pageSize = 20, statuses?: readonly string[] | null): Promise<LicenseGrantPage> {
+export async function apiPayLicenseCodes(page = 1, pageSize = 20, statuses?: readonly string[] | null): Promise<LicenseCodePage> {
   const params: Record<string, unknown> = { page, page_size: pageSize }
   if (statuses?.length) params.status = statuses.join(',')
-  const r = await request.get<ApiResponse<LicenseGrantPage>>('/pay/license/grants', { params })
+  const r = await request.get<ApiResponse<LicenseCodePage>>('/pay/license/codes', { params })
   return r.data.data!
 }
 
@@ -239,8 +239,8 @@ export async function apiPayRequestRefund(orderNo: string, reason: string): Prom
   return r.data.data!
 }
 
-export async function apiPayCancelRefund(orderNo: string): Promise<{ grant_restored: boolean }> {
-  const r = await request.post<ApiResponse<{ grant_restored: boolean }>>(`/pay/orders/${orderNo}/refund/cancel`)
+export async function apiPayCancelRefund(orderNo: string): Promise<{ code_restored: boolean }> {
+  const r = await request.post<ApiResponse<{ code_restored: boolean }>>(`/pay/orders/${orderNo}/refund/cancel`)
   return r.data.data!
 }
 

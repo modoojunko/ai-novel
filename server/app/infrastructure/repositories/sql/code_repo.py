@@ -227,7 +227,7 @@ class SqlCodeRepo:
         self.db.commit()
         return result > 0
 
-    def find_order_grants_page(self, user_id: int, statuses: list[str] | None = None,
+    def find_order_codes_page(self, user_id: int, statuses: list[str] | None = None,
                                limit: int = 20, offset: int = 0) -> tuple[list[ActivationCode], int]:
         """订单来源明细分页：filtered 全量装载后 len()+切片（个人量级，同 OrderRepo 假设）。"""
         q = self.db.query(ActivationCodeORM).filter(

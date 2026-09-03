@@ -159,7 +159,7 @@ const steps = computed(() => {
   if (state.value === 'pending') return rows
 
   // 套餐到货：fulfilled_at 非空才显示实际时间；已支付未到货（半截态）按进行中处理
-  const g = o.grant
+  const g = o.fulfillment
   if (o.fulfilled_at) {
     let title = '套餐到货'
     if (g?.status === 'active') title = `套餐到货（已激活，计时中）· 剩余 ${daysLeft(g.expires_at)} 天`

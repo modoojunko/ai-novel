@@ -457,7 +457,7 @@ async def cancel_order(order_no: str, request: Request, db: Db = Depends(get_db)
 @r.get("/license")
 async def get_license(request: Request, db: Db = Depends(get_db)):
     """Z.6 我的套餐总览：档位头汇总（含手工码）+ 订单来源套餐行计数。
-    明细列表走 GET /license/grants 分页（license-grants-pagination：响应体不再内嵌全量）。"""
+    明细列表走 GET /license/codes 分页（license-grants-pagination：响应体不再内嵌全量）。"""
     identity = _current_identity(request)
     if not identity:
         return {"code": 4001, "msg": "未登录"}
@@ -472,7 +472,7 @@ async def get_license(request: Request, db: Db = Depends(get_db)):
     # 不参与档位归属（merge 跳过清单不含 unused，直接喂会抬高档位头）
     lic = License(username="").merge([c for c in all_codes if c.status != "unused"])  # username 仅标识标签，merge/响应不用
 
-    # grant_count 与明细接口「全部」total 同过滤器（source='order'）——口径单源
+    # code_count 与明细接口「全部」total 同过滤器（source='order'）——口径单源
     def _is_order_row(c):
         return getattr(c, "source", "admin") == "order"
 
@@ -488,16 +488,18 @@ async def get_license(request: Request, db: Db = Depends(get_db)):
         "remaining_desc": f"{remaining // 86400} 天",
         "max_expires_at": lic.max_expires_at.isoformat() if lic.max_expires_at else None,
         "pending_count": sum(1 for c in all_codes if _is_order_row(c) and c.status == "pending_activation"),
-        "grant_count": sum(1 for c in all_codes if _is_order_row(c)),
+        "code_count": sum(1 for c in all_codes if _is_order_row(c)),
+        "grant_count": sum(1 for c in all_codes if _is_order_row(c)),  # 过渡双发：旧键，线上包零引用后删（s-license-codes-field 5.4）
     }}
 
 
 # 套餐明细 status 参数白名单（license-grants-pagination：tab 归组映射在前端，接口保持"哑"）
-_LIST_GRANT_STATUSES = {"pending_activation", "active", "revoked"}
+_LIST_CODE_STATUSES = {"pending_activation", "active", "revoked"}
 
 
-@r.get("/license/grants")
-async def list_license_grants(
+@r.get("/license/codes")
+@r.get("/license/grants")  # 过渡别名：线上前端 bundle grep '/license/grants'=0 后删除（s-license-codes-field 5.4）
+async def list_license_codes(
     request: Request, db: Db = Depends(get_db),
     page: int = 1, page_size: int = 20, status: str = "",
 ):
@@ -513,9 +515,9 @@ async def list_license_grants(
 
     # 未知值忽略；全部未知 → 空列表而非报错（契约 scenario，同 list_orders）
     requested = [s.strip() for s in (status or "").split(",") if s.strip()]
-    if requested and all(s not in _LIST_GRANT_STATUSES for s in requested):
+    if requested and all(s not in _LIST_CODE_STATUSES for s in requested):
         return {"code": 0, "data": {"items": [], "total": 0}}
-    statuses = [s for s in requested if s in _LIST_GRANT_STATUSES] or None
+    statuses = [s for s in requested if s in _LIST_CODE_STATUSES] or None
 
     page = max(1, page)
     page_size = min(max(1, page_size), 100)
@@ -523,7 +525,7 @@ async def list_license_grants(
     from app.infrastructure.repositories.factory import code_repo
     from app.infrastructure.repositories.payments_repo import OrderRepo
 
-    rows, total = code_repo(db).find_order_grants_page(
+    rows, total = code_repo(db).find_order_codes_page(
         user_id, statuses=statuses, limit=page_size, offset=(page - 1) * page_size)
 
     # order_no 供激活接口定位（页内行批量映射，与原 license 明细组装同款）
@@ -624,7 +626,8 @@ def _order_to_detail(order: dict, grant: dict | None = None) -> dict:
         "fulfilled_at": _iso_or_empty(order.get("fulfilled_at")),
         "refund_requested_at": _iso_or_empty(order.get("refund_requested_at")),
         "refunded_at": _iso_or_empty(order.get("refunded_at")),
-        "grant": grant,
+        "fulfillment": grant,  # 到货快照：本单到货产出的码行激活状态投影（codes.order_id 反向引用，非订单属性；fulfilled=已到货的名词化）
+        "grant": grant,  # 过渡双发：旧键（s-license-codes-field 5.4）
         "agreement": {"version": order.get("agreement_version"), "agreed_at": str(order.get("agreed_at", ""))},
         "wx_transaction_id": order.get("transaction_id"),
         "remaining_pay_seconds": remaining_pay,
