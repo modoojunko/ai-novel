@@ -310,6 +310,9 @@ async def get_order(order_no: str, request: Request, db: Db = Depends(get_db)):
             "status": c.status,
             "activated_at": _iso_or_empty(c.activated_at),
             "expires_at": _iso_or_empty(c.expires_at),
+            # 起算时刻：排队码（顺延到现有套餐之后）grant_start 在未来——前端据此区分「排队中/计时中」，
+            # 剩余天数展示与退款折算口径均以它为界（折算域函数已按 grant_start>now 走全额退）
+            "grant_start": _iso_or_empty(c.grant_start),
         }
 
     return {"code": 0, "data": _order_to_detail(order, grant=grant)}

@@ -183,6 +183,20 @@ test.describe('订单流程时间线（s-pay-post-purchase-completion）', () =>
     await expect(page.getByText(/套餐到货（已激活，计时中）· 剩余 \d+ 天/)).toBeVisible({ timeout: 10000 })
   })
 
+  test('排队码（顺延未起算）到货行显示排队中起算日，不显示万年剩余', async ({ page, mockApi }) => {
+    mockApi.setOrders([order({
+      fulfillment: {
+        status: 'active',
+        activated_at: '2026-09-03T15:35:00',
+        expires_at: '2126-09-30T00:00:00',
+        grant_start: '2126-08-31T00:00:00',
+      },
+    })])
+    await gotoDetail(page)
+    await expect(page.getByText(/套餐到货（已激活·排队中，\d{4}-\d{2}-\d{2} 起算）/)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/剩余 \d+ 天/)).toHaveCount(0)
+  })
+
   test('半截发货态不以支付时间冒充到货', async ({ page, mockApi }) => {
     mockApi.setOrders([order({ status: 'paid', fulfilled_at: '' })])
     await gotoDetail(page)

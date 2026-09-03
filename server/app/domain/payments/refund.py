@@ -75,7 +75,7 @@ def calc_refund_fen(
     # 未激活 / 排队中（grant_start 为 None 或在未来）→ 全额退
     if grant_start is None or grant_start > refund_at:
         return RefundQuote(True, amount_fen, "", total_sec,
-                           "未激活，全额退")
+                           "未起算，全额退")
 
     # 已消耗：计算剩余秒数（clamp 到 [0, expires_at - max(refund_at, grant_start)]）
     clamp_start = max(refund_at, grant_start)
