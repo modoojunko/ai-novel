@@ -201,4 +201,23 @@ test.describe('选套餐区·三档矩阵（s-pay-plans-picker）', () => {
     await gotoPay(page)
     await expect(page.locator('.pay-purchase-name')).toHaveText('PRO · 包月（30 天）', { timeout: 10000 })
   })
+
+  test('目录返回但无在售 SKU → 同款降级骨架（spec：失败或为空；防 live 无货档误显「即将推出」）', async ({ page, mockApi }) => {
+    mockApi.setSkus({
+      purchase_enabled: true,
+      agreement_version: 'v2026.08',
+      tiers: [
+        { key: 'pro', label: 'PRO', is_live: true, is_planned: false, selling_points: [] },
+        { key: 'max', label: 'MAX', is_live: false, is_planned: true, selling_points: [] },
+      ],
+      skus: [],
+      popular_sku: '',
+    })
+    await gotoPay(page)
+    // 付费档骨架价格留白 ×3，免费列保留，购买条不渲染，且不出现「即将推出」预告卡
+    await expect(page.getByText('价格获取失败，请刷新重试')).toHaveCount(3, { timeout: 10000 })
+    await expect(page.locator('.pay-card-free').filter({ hasText: '当前方案' }).first()).toContainText('¥0')
+    await expect(page.getByText('即将推出')).toHaveCount(0)
+    await expect(page.locator('.pay-purchase')).toHaveCount(0)
+  })
 })

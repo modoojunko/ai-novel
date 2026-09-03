@@ -334,8 +334,9 @@ onUnmounted(() => { stopPolling(); stopCountdown() })
 
       <div v-if="loading" class="pay-loading">加载中…</div>
 
-      <!-- 目录不可达降级骨架：时长/设备数等结构事实保留，价格一律留白 -->
-      <div v-else-if="!skusData" class="pay-cards">
+      <!-- 目录不可达或无在售 SKU（spec：失败或为空同款降级）——结构事实保留，价格一律留白，
+           防 live 无货档被误渲染成「即将推出」预告卡 -->
+      <div v-else-if="!skusData || !skusData.skus.length" class="pay-cards">
         <div class="pay-card-free">
           <span class="pill pill-tag">当前方案</span>
           <div class="pay-card-name">免费</div>

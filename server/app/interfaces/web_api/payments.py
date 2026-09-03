@@ -83,7 +83,7 @@ async def get_skus(request: Request, db: Db = Depends(get_db)):
     enabled = cfg.get("payments.purchase.enabled") or "off"
     rehearsal_list = (cfg.get("payments.rehearsal.usernames") or "").split(",")
 
-    # 构建响应（附录 Z.4 SkusView；s-pay-plans-picker：卖点/planned/display_name 扩容，只增不删）
+    # 构建响应（附录 Z.4 SkusView；s-pay-plans-picker：selling_points/is_planned 扩容，只增不删）
     import json as _json
 
     from app.domain.payments.pricing import calc_discount_display
