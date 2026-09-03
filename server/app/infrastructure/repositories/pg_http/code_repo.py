@@ -204,7 +204,7 @@ class PgHttpCodeRepo:
         )
         return rows > 0
 
-    def find_order_grants_page(self, user_id: int, statuses: list[str] | None = None,
+    def find_order_codes_page(self, user_id: int, statuses: list[str] | None = None,
                                limit: int = 20, offset: int = 0) -> tuple[list[ActivationCode], int]:
         """订单来源明细分页单往返（count 与取行合并，同 OrderRepo.find_by_user_page；
         网关不回 Content-Range 时降级单独计数）。source=eq.order 天然排除 NULL 来源行。"""

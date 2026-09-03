@@ -393,7 +393,7 @@ LicensePage（/dashboard/license）
 | --- | --- |
 | LicenseHero | Props：`summary: LicenseSummary`；无 emits（动作下放） |
 | GrantTimeline | Props：`grants: GrantRow[]`（`{id,order_no,name,tier,days,state:'past'\|'now'\|'future'\|'pending'\|'frozen',grant_start,grant_end,remaining_text}`）；时间线行点击 → `/dashboard/orders/:orderNo`（可选，OQ12） |
-| PendingGrantCard | Props：`grant: GrantRow`；Emits：`activate()` → `apiPayActivateGrant({order_no})` → 成功 toast「已激活，接在 {最远到期日} 后开始」+ 刷新 summary |
+| PendingCodeCard | Props：`code: LicenseCode`；Emits：`activate()` → `apiPayActivate({order_no})` → 成功 toast「已激活，接在 {最远到期日} 后开始」+ 刷新 summary |
 | 免费态 | tier-hero 显示「试用」+ pill-warn「剩 2 天」+ pill-tag「1 台设备」；时间线仅试用一行；设备尾注「试用与免费版限 1 台设备；购买后：包月/包季 3 台、包年 5 台。lnk 对比各档位」 |
 
 权益语义锚点（PRD 子决策）：待激活不计时/不占额度/退款全额/永不过期；剩余时长=Σ已激活行(终点−max(今天,起点))，待激活另计「N 个」；档位=已激活行按等级序取最高（C2）；展示口径=概览给剩余天数+最远到期日，明细给每行起止（订单行不带起止，ADJUSTMENTS 本体论修正）。
@@ -568,7 +568,7 @@ export function apiPayCancelRefund(orderNo: string): Promise<ApiResponse<void>>
 
 // ── 套餐（我的套餐/首页） ──
 export function apiPayLicense(): Promise<ApiResponse<LicenseSummary>>
-// GET /pay/license：summary + grants + notices
+// GET /pay/license：summary（code_count）+ notices；明细另走 GET /pay/license/codes 分页
 export function apiPayActivateGrant(payload: { order_no: string }): Promise<ApiResponse<{ grant_start: string; grant_end: string }>>
 // POST /pay/codes/activate：立即激活（到货页/待激活区块共用）
 ```
@@ -628,7 +628,7 @@ interface LicenseSummary {
   remaining_days: number | null; max_expires_at: string | null
   pending_count: number; pending_days_total: number
   device_quota: { used: number; limit: number; basis: string }   // 「PRO 包年」
-  grants: GrantRow[]
+  codes: LicenseCode[]
   notices: ({ type: 'refund_processing'; est_fen: number; order_no: string }
            | { type: 'trial_ending'; days_left: number })[]
 }
@@ -720,7 +720,7 @@ useOrderPolling(orderNo: Ref<string>) → {
 | 协议弹窗开合/视图/agreed | TermsConfirmModal 局部 | 每次打开重置（决策 9） |
 | 订单列表/订单详情 | 页面局部 + usePageLoad | 无跨页共享需求 |
 | 退款流四态 | RefundPage 局部（态由 preview 结果 + 提交结果驱动） | 同上 |
-| 套餐总览（summary/grants/notices） | `stores/license.ts`（新） | DashboardHome 卡 + LicensePage + 激活后多处刷新共用 |
+| 套餐总览（summary/codes 计数/notices） | `stores/license.ts`（新） | DashboardHome 卡 + LicensePage + 激活后多处刷新共用 |
 | 设备 | `stores/devices.ts`（现有，复用） | 已有；quota 头直接用 `activeLimit` |
 | 会话/tier/到期 | `stores/session.ts`（现有，扩展） | tier 语义随后端重构调整（OQ5） |
 | toast | `stores/toast`（现有） | 全局提示唯一通道 |

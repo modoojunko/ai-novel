@@ -1,8 +1,8 @@
 import type { Page, Route } from '@playwright/test'
 import { createTestUser, createTestDevice, type TestUser, type TestDevice } from './test-data'
 
-/** /api/pay/license/grants 明细行（订单来源台账行；手工码不进明细） */
-export interface TestLicenseGrant {
+/** /api/pay/license/codes 明细行（订单来源台账行；手工码不进明细） */
+export interface TestLicenseCode {
   code_id: string
   order_no: string
   tier: string
@@ -20,8 +20,8 @@ export interface TestLicense {
   remaining_desc: string
   max_expires_at: string | null
   pending_count: number
-  /** 订单来源套餐行总数；缺省由 licenseGrants 列表推导（旧后端退化测试传 0 且不设明细） */
-  grant_count?: number
+  /** 订单来源套餐行总数；缺省由 licenseCodes 列表推导（旧后端退化测试传 0 且不设明细） */
+  code_count?: number
 }
 
 /** /api/pay/orders 列表项（S端 我的订单） */
@@ -37,8 +37,8 @@ export interface TestOrder {
   remaining_pay_seconds?: number | null
   fulfilled_at?: string
   refund_requested_at?: string
-  /** 权益台账快照（订单详情/激活流转）；缺省由 paid_at 推导 pending_activation */
-  grant?: { status: string; activated_at: string; expires_at: string } | null
+  /** 到货快照（订单详情/激活流转）；缺省由 paid_at 推导 pending_activation */
+  fulfillment?: { status: string; activated_at: string; expires_at: string } | null
 }
 
 /**
@@ -51,12 +51,12 @@ export class MockApi {
   private devices: TestDevice[] = []
   private license: TestLicense | null = null
   private orders: TestOrder[] = []
-  /** /api/pay/license/grants 明细数据源（syncLicenseFromGrants 由 orders 推导，或 setLicenseGrants 直设） */
-  private licenseGrants: TestLicenseGrant[] = []
+  /** /api/pay/license/codes 明细数据源（syncLicenseFromCodes 由 orders 推导，或 setLicenseCodes 直设） */
+  private licenseCodes: TestLicenseCode[] = []
   /** orders 列表 GET 门控（orders-page-latency：延迟/失败，测切版保留旧列表、失败不误报空态） */
   private ordersGate: { delayMs?: number; fail?: boolean } | null = null
   /** 套餐明细列表 GET 门控（同 ordersGate 语义，license-grants-pagination） */
-  private grantsGate: { delayMs?: number; fail?: boolean } | null = null
+  private codesGate: { delayMs?: number; fail?: boolean } | null = null
   /** 退款预览覆写（测拒绝态：below_one_fen / over_one_year / refundable:false） */
   private refundPreviewOverride: { refundable: boolean; reason: string; refund_fen?: number; remaining_desc?: string } | null = null
   /** 冷静期剩余秒数（e2e 用短窗口） */
@@ -98,8 +98,8 @@ export class MockApi {
     '**/api/user/deletion/refund-request',
     '**/api/user/deletion',
     '**/api/user/deletion/revoke',
-    '**/api/device/my',
-    '**/api/device/remove',
+    '**/api/devices/my',
+    '**/api/devices/remove',
     '**/api/authorize',
     '**/api/reset_password',
     // ⚠️ 真实调用带 query（?pc_hash=），Playwright glob 匹配完整 URL，须以 * 收尾
@@ -118,8 +118,8 @@ export class MockApi {
     this.preferencesFailCount = 0
     this.skusOverride = null
     this.ordersGate = null
-    this.grantsGate = null
-    this.licenseGrants = []
+    this.codesGate = null
+    this.licenseCodes = []
     this.deletionPending = false
     this.deletionDaysLeft = 15
     this.deletionDeadline = '2026-09-14'
@@ -190,26 +190,26 @@ export class MockApi {
     }
   }
 
-  /** 直设 /api/pay/license/grants 明细（license 页测试用）并同步聚合视图计数 */
-  setLicenseGrants(list: TestLicenseGrant[]): void {
-    this.licenseGrants = list
+  /** 直设 /api/pay/license/codes 明细（license 页测试用）并同步聚合视图计数 */
+  setLicenseCodes(list: TestLicenseCode[]): void {
+    this.licenseCodes = list
     if (!this.license) this.setLicense({})
-    this.license!.grant_count = list.length
+    this.license!.code_count = list.length
     this.license!.pending_count = list.filter((g) => g.status === 'pending_activation').length
   }
 
   /** 套餐明细列表 GET 门控（延迟/失败；null 解除） */
   setGrantsGate(gate: { delayMs?: number; fail?: boolean } | null): void {
-    this.grantsGate = gate
+    this.codesGate = gate
   }
 
   /** 设置 /api/pay/orders 列表（S端 我的订单/首页横幅数据源） */
   setOrders(list: TestOrder[]): void {
-    // grant 快照归一：已支付未显式给 grant 的按状态推导（refunded→revoked，其余→pending_activation）
+    // fulfillment 快照归一：已支付未显式给 fulfillment 的按状态推导（refunded→revoked，其余→pending_activation）
     this.orders = list.map((o) => ({
       ...o,
-      grant: o.grant !== undefined
-        ? o.grant
+      fulfillment: o.fulfillment !== undefined
+        ? o.fulfillment
         : (o.paid_at
             ? (o.status === 'refunded' ? { status: 'revoked', activated_at: '', expires_at: '' } : { status: 'pending_activation', activated_at: '', expires_at: '' })
             : null),
@@ -246,25 +246,25 @@ export class MockApi {
     this.activateFailMode = mode
   }
 
-  /** 由 orders 的 grant 快照同步 license 摘要与明细分页数据源（激活流转后保持一致） */
-  private syncLicenseFromGrants(): void {
-    const grants: TestLicenseGrant[] = this.orders
-      .filter((o) => o.grant && o.grant.status !== 'none')
+  /** 由 orders 的 fulfillment 快照同步 license 摘要与明细分页数据源（激活流转后保持一致） */
+  private syncLicenseFromCodes(): void {
+    const codes: TestLicenseCode[] = this.orders
+      .filter((o) => o.fulfillment && o.fulfillment.status !== 'none')
       .map((o) => ({
         code_id: `O-${o.order_no}`,
         order_no: o.order_no,
         tier: (o.snapshot?.tier_key as string) ?? 'pro',
         duration_days: (o.snapshot?.period_days as number) ?? 30,
-        status: o.grant!.status,
-        activated_at: o.grant!.activated_at,
-        expires_at: o.grant!.expires_at,
-        grant_start: o.grant!.activated_at,
+        status: o.fulfillment!.status,
+        activated_at: o.fulfillment!.activated_at,
+        expires_at: o.fulfillment!.expires_at,
+        grant_start: o.fulfillment!.activated_at,
       }))
-    this.licenseGrants = grants
+    this.licenseCodes = codes
     if (!this.license) this.license = { tier: 'free', remaining_sec: 0, remaining_desc: '0 天', max_expires_at: null, pending_count: 0 }
-    this.license.grant_count = grants.length
-    this.license.pending_count = grants.filter((g) => g.status === 'pending_activation').length
-    const active = grants.find((g) => g.status === 'active')
+    this.license.code_count = codes.length
+    this.license.pending_count = codes.filter((g) => g.status === 'pending_activation').length
+    const active = codes.find((g) => g.status === 'active')
     if (active) {
       this.license.tier = 'pro'
       this.license.max_expires_at = active.expires_at
@@ -483,7 +483,7 @@ export class MockApi {
       return route.fulfill(json(0, { success: true }))
     }
 
-    if (path === '/api/device/my' && method === 'GET') {
+    if (path === '/api/devices/my' && method === 'GET') {
       const activatedCount = this.devices.filter(d => d.activated).length
       return route.fulfill(json(0, this.devices, {
         total_count: this.devices.length,
@@ -492,7 +492,7 @@ export class MockApi {
       }))
     }
 
-    if (path === '/api/device/remove' && method === 'POST') {
+    if (path === '/api/devices/remove' && method === 'POST') {
       const body = route.request().postDataJSON()
       this.devices = this.devices.filter(d => d.id !== body?.id)
       return route.fulfill(json(0, { success: true }))
@@ -515,13 +515,13 @@ export class MockApi {
     }
 
     // ── 套餐明细分页（license-grants-pagination：status 白名单 + 真分页，与真实契约同款）──
-    if (path === '/api/pay/license/grants' && method === 'GET') {
-      if (this.grantsGate?.fail) return route.abort('connectionrefused')
-      if (this.grantsGate?.delayMs) await new Promise((r) => setTimeout(r, this.grantsGate.delayMs))
-      if (!this.licenseGrants.length && this.orders.some((o) => o.grant)) this.syncLicenseFromGrants()
+    if (path === '/api/pay/license/codes' && method === 'GET') {
+      if (this.codesGate?.fail) return route.abort('connectionrefused')
+      if (this.codesGate?.delayMs) await new Promise((r) => setTimeout(r, this.codesGate.delayMs))
+      if (!this.licenseCodes.length && this.orders.some((o) => o.fulfillment)) this.syncLicenseFromCodes()
       const statusQ = url.searchParams.get('status')
       const allowed = ['pending_activation', 'active', 'revoked']
-      let list = this.licenseGrants
+      let list = this.licenseCodes
       if (statusQ !== null) {
         const want = statusQ.split(',').map((s) => s.trim()).filter((s) => allowed.includes(s))
         list = want.length ? list.filter((g) => want.includes(g.status)) : []
@@ -533,20 +533,20 @@ export class MockApi {
     }
 
     if (path === '/api/pay/license' && method === 'GET') {
-      if (!this.license && this.orders.some((o) => o.grant)) this.syncLicenseFromGrants()
+      if (!this.license && this.orders.some((o) => o.fulfillment)) this.syncLicenseFromCodes()
       return route.fulfill(json(0, this.license ?? {
         tier: this.currentUser?.tier ?? 'free',
         remaining_sec: 0,
         remaining_desc: '0 天',
         max_expires_at: null,
         pending_count: 0,
-        grant_count: 0,
+        code_count: 0,
       }))
     }
 
     // ── 激活（到货-激活两段式第二段；明细待激活行入口）──
-    // 前端走 codes/activate（api-naming-convergence）；grants/activate 为旧别名兼容
-    if ((path === '/api/pay/codes/activate' || path === '/api/pay/grants/activate') && method === 'POST') {
+    // 前端走 codes/activate（api-naming-convergence）
+    if (path === '/api/pay/codes/activate' && method === 'POST') {
       const body = route.request().postDataJSON()
       if (this.activateFailMode !== 'none') {
         const m = this.activateFailMode
@@ -555,13 +555,13 @@ export class MockApi {
         return route.fulfill(json(4004, null, { msg }))
       }
       const o = this.orders.find((x) => x.order_no === body?.order_no)
-      if (!o || o.grant?.status === 'revoked') {
+      if (!o || o.fulfillment?.status === 'revoked') {
         return route.fulfill(json(4004, null, { msg: 'Code is not in pending_activation state' }))
       }
       const days = (o.snapshot?.period_days as number) ?? 30
       const expires = new Date(Date.now() + days * 86400000).toISOString().slice(0, 19)
-      o.grant = { status: 'active', activated_at: new Date().toISOString().slice(0, 19), expires_at: expires }
-      this.syncLicenseFromGrants()
+      o.fulfillment = { status: 'active', activated_at: new Date().toISOString().slice(0, 19), expires_at: expires }
+      this.syncLicenseFromCodes()
       return route.fulfill(json(0, {
         code_id: `O-${o.order_no}`,
         grant_start: new Date().toISOString().slice(0, 19),
@@ -609,8 +609,8 @@ export class MockApi {
         fulfilled_at: o.fulfilled_at ?? (o.paid_at || ''),
         refund_requested_at: o.refund_requested_at ?? (o.refund_amount_fen ? (o.refunded_at || o.paid_at) : ''),
         refunded_at: o.refunded_at,
-        grant: o.grant !== undefined
-          ? o.grant
+        fulfillment: o.fulfillment !== undefined
+          ? o.fulfillment
           : (o.status === 'refunded'
               ? { status: 'revoked', activated_at: '', expires_at: '' }
               : (o.paid_at ? { status: 'pending_activation', activated_at: '', expires_at: '' } : null)),
@@ -655,7 +655,7 @@ export class MockApi {
     if (cancelRefundMatch && method === 'POST') {
       const o = this.orders.find((x) => x.order_no === cancelRefundMatch[1])
       if (o) { o.status = 'fulfilled'; o.refund_amount_fen = null }
-      return route.fulfill(json(0, { grant_restored: true }))
+      return route.fulfill(json(0, { code_restored: true }))
     }
 
     if (path === '/api/pay/skus' && method === 'GET') {

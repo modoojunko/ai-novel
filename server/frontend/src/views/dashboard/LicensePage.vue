@@ -2,17 +2,17 @@
 /**
  * 我的套餐——档位头汇总 + 套餐明细四版 tab 分页列表（生效中/待激活/已收回）+ 激活入口。
  * 设计事实源：docs/design-s/prototypes/license.html（2026-09-03 tab 分版修订版）
- * 明细走 GET /pay/license/grants 服务端分页（license-grants-pagination），交互与订单页同构：
+ * 明细走 GET /pay/license/codes 服务端分页（license-grants-pagination），交互与订单页同构：
  * 默认版=生效中；各 tab 独立分页（加载更多）；?tab= 路由同步。
- * 页面级判定单源=grant_count：tab 条=grant_count>0；整页空态=0 且无生效权益；手工码态=0 且有权益。
+ * 页面级判定单源=code_count：tab 条=code_count>0；整页空态=0 且无生效权益；手工码态=0 且有权益。
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppModal from '@/components/ui/AppModal.vue'
 import {
-  apiPayActivate, apiPayLicense, apiPayLicenseGrants, fmtBj,
+  apiPayActivate, apiPayLicense, apiPayLicenseCodes, fmtBj,
   DEFAULT_LICENSE_TAB, LICENSE_TABS, licenseTabFromQuery,
-  type LicenseGrant, type LicenseTabKey, type LicenseView,
+  type LicenseCode, type LicenseTabKey, type LicenseView,
 } from '@/api/pay'
 
 const PAGE_SIZE = 20
@@ -23,7 +23,7 @@ const loading = ref(true)
 const data = ref<LicenseView | null>(null)
 
 /** 明细分页状态（每版独立拉取，切版重置；tabToken 防过期响应） */
-const items = ref<LicenseGrant[]>([])
+const items = ref<LicenseCode[]>([])
 const total = ref(0)
 const loadingMore = ref(false)
 const refreshing = ref(false)
@@ -32,10 +32,10 @@ const activeTab = ref<LicenseTabKey>(licenseTabFromQuery(route.query.tab))
 const tabLabel = computed(() => LICENSE_TABS.find((t) => t.key === activeTab.value)?.label ?? '')
 const statusList = computed(() => LICENSE_TABS.find((t) => t.key === activeTab.value)?.statuses)
 const hasMore = computed(() => items.value.length < total.value)
-/** 页面级判定（grant_count 单源；旧后端无字段 ?? 0 → 仅档位头安全退化） */
-const grantCount = computed(() => data.value?.grant_count ?? 0)
-/** 整页空态：无任何套餐行且无生效权益；手工码态（grant_count=0 且 remaining_sec>0）= 仅档位头，天然落在两个分支之外 */
-const pageEmpty = computed(() => !!data.value && grantCount.value === 0 && data.value.remaining_sec <= 0)
+/** 页面级判定（code_count 单源；旧后端无字段 ?? 0 → 仅档位头安全退化） */
+const codeCount = computed(() => data.value?.code_count ?? 0)
+/** 整页空态：无任何套餐行且无生效权益；手工码态（code_count=0 且 remaining_sec>0）= 仅档位头，天然落在两个分支之外 */
+const pageEmpty = computed(() => !!data.value && codeCount.value === 0 && data.value.remaining_sec <= 0)
 
 let tabToken = 0
 /** 首载已完成标记：整页 loading 只用于进页首取；切 tab 一律局部刷新（从某类空 tab 切出也绝不整页闪） */
@@ -61,7 +61,7 @@ async function fetchPage(reset: boolean): Promise<void> {
   const page = reset ? 1 : Math.floor(items.value.length / PAGE_SIZE) + 1
   const statuses = statusList.value ?? undefined
   try {
-    const res = await apiPayLicenseGrants(page, PAGE_SIZE, statuses)
+    const res = await apiPayLicenseCodes(page, PAGE_SIZE, statuses)
     if (token !== tabToken) return
     total.value = res.total
     if (reset) {
@@ -72,7 +72,7 @@ async function fetchPage(reset: boolean): Promise<void> {
     }
   } catch (e) {
     // 失败保留旧列表原样，MUST NOT 误显示空态
-    console.error('license grants load failed:', e)
+    console.error('license codes load failed:', e)
   } finally {
     window.clearTimeout(dimTimer)
     if (token === tabToken) {
@@ -104,7 +104,7 @@ const TIER_NAMES: Record<string, string> = { trial: '试用', pro: 'PRO', max: '
 function tierName(tier: string): string {
   return TIER_NAMES[tier] || tier
 }
-function durationLabel(g: LicenseGrant): string {
+function durationLabel(g: LicenseCode): string {
   return g.duration_days >= 36500 ? '永久' : `${g.duration_days} 天`
 }
 function statusText(status: string): string {
@@ -116,7 +116,7 @@ function statusPill(status: string): string {
 
 // ── 激活（确认弹层 → 接口 → 刷新；两段式第二段的用户入口）──
 const confirmOpen = ref(false)
-const confirmTarget = ref<LicenseGrant | null>(null)
+const confirmTarget = ref<LicenseCode | null>(null)
 const busy = ref(false)
 const toast = ref('')
 const activateErr = ref('')
@@ -136,7 +136,7 @@ async function reload() {
   }
 }
 
-function askActivate(g: LicenseGrant) {
+function askActivate(g: LicenseCode) {
   confirmTarget.value = g
   activateErr.value = ''
   confirmOpen.value = true
@@ -220,10 +220,10 @@ onMounted(() => {
         <button class="btn btn-primary" @click="router.push('/pay')">去看看套餐</button>
       </div>
 
-      <!-- 手工码态：grant_count=0 但有剩余权益 → 仅档位头（上方已渲染） -->
+      <!-- 手工码态：code_count=0 但有剩余权益 → 仅档位头（上方已渲染） -->
 
-      <!-- 明细四版 tab（grant_count>0 才渲染） -->
-      <template v-else-if="grantCount > 0">
+      <!-- 明细四版 tab（code_count>0 才渲染） -->
+      <template v-else-if="codeCount > 0">
         <div class="seg seg-row" role="tablist" aria-label="套餐状态分版">
           <button
             v-for="t in LICENSE_TABS" :key="t.key"
@@ -242,7 +242,7 @@ onMounted(() => {
         <!-- 列表 -->
         <template v-else-if="!loading">
           <div class="panel list" :class="{ refreshing }">
-            <div v-for="g in items" :key="g.code_id" class="grant-row" :class="{ revoked: g.status === 'revoked' && activeTab === 'all' }">
+            <div v-for="g in items" :key="g.code_id" class="code-row" :class="{ revoked: g.status === 'revoked' && activeTab === 'all' }">
               <div class="g-main">
                 <span class="g-tier">{{ tierName(g.tier) }} · {{ durationLabel(g) }}</span>
                 <span :class="statusPill(g.status)">{{ statusText(g.status) }}</span>
@@ -299,13 +299,13 @@ onMounted(() => {
 .tier-name { font-family: var(--font-display); font-size: 22px; font-weight: 600; }
 .sum { display: flex; gap: 16px; font-size: 12.5px; color: var(--muted); }
 .sum b { color: var(--fg); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-.grant-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; padding: 13px 0; border-top: 1px solid var(--border); }
-.grant-row:first-child { border-top: none; }
-.grant-row.revoked { opacity: 0.55; }
+.code-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; padding: 13px 0; border-top: 1px solid var(--border); }
+.code-row:first-child { border-top: none; }
+.code-row.revoked { opacity: 0.55; }
 .g-main { display: flex; align-items: center; gap: 10px; }
 .g-tier { font-family: var(--font-display); font-weight: 600; font-size: 14px; }
 .g-sub { grid-column: 1; font-size: 12.5px; color: var(--muted); }
-.grant-row .btn { grid-row: 1 / 3; grid-column: 2; align-self: center; }
+.code-row .btn { grid-row: 1 / 3; grid-column: 2; align-self: center; }
 .btn-sm { padding: 5px 16px; font-size: 13px; }
 .tab-empty { padding: 40px 16px; text-align: center; color: var(--muted); font-size: 13.5px; }
 .tab-empty p { margin: 0 0 6px; }
