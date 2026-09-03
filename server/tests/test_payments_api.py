@@ -278,8 +278,8 @@ class TestFulfillActivateFlow:
         assert row.grant_start is not None and row.order_id is not None
         order_row = s.query(OrderORM).filter(OrderORM.order_no == order_no).one()
         assert row.order_id == order_row.id
-        # membership 汇总出现 pro
-        r = client.get("/api/pay/membership", headers=auth)
+        # license 汇总出现 pro
+        r = client.get("/api/pay/license", headers=auth)
         assert r.json()["data"]["tier"] == "pro"
         # 订单详情 grant 快照折出已激活
         r = client.get(f"/api/pay/orders/{order_no}", headers=auth)
@@ -288,7 +288,7 @@ class TestFulfillActivateFlow:
         assert grant["activated_at"] != "" and grant["expires_at"] != ""
 
 
-class TestMembershipGrants:
+class TestLicenseGrants:
     """Z.6 我的套餐明细（订单来源台账行）：手工码排除 + order_no 映射 + created_at 同口径。"""
 
     def _switch_on(self, db_session):
@@ -306,7 +306,7 @@ class TestMembershipGrants:
                         json={"order_no": order_no})
         assert r.json()["code"] == 0, r.text
 
-        r = client.get("/api/pay/membership", headers=auth)
+        r = client.get("/api/pay/license", headers=auth)
         d = r.json()["data"]
         # 注册即送的 trial 属手工来源（source=admin），不进明细；明细只有订单台账行
         assert len(d["grants"]) == 1
@@ -324,7 +324,7 @@ class TestMembershipGrants:
         row.status = "revoked"
         s.commit()
 
-        d = client.get("/api/pay/membership", headers=auth).json()["data"]
+        d = client.get("/api/pay/license", headers=auth).json()["data"]
         assert len(d["grants"]) == 1 and d["grants"][0]["status"] == "revoked"
         assert d["pending_count"] == 0
 
@@ -353,7 +353,7 @@ class TestMembershipGrants:
         ))
         s.commit()
 
-        d = client.get("/api/pay/membership", headers=auth).json()["data"]
+        d = client.get("/api/pay/license", headers=auth).json()["data"]
         assert d["tier"] == "pro"  # 未激活的 max 码不抬档
         assert all(g["code_id"] != "AC-MANUAL-MAX-TEST" for g in d["grants"])  # 手工码不进明细
 
