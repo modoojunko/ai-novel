@@ -132,3 +132,6 @@ server/.venv
 .curl-debug/
 .pgprobe/
 .worktrees/
+
+# 微信支付密钥本地副本（MCP/CLI 部署包需要，绝不入库；CI 由 secrets 现场 printf 生成）
+server/secrets/*.pem

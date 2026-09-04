@@ -2,10 +2,7 @@ name: S端 自动发布 CloudBase
 
 on:
   push:
-    branches: [main]
-    paths:
-      - "server/**"
-      - ".github/workflows/s-server-deploy.yml"
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       ref:
@@ -30,7 +27,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.ref || 'main' }}
+          # tag 触发时部署 tag 快照（github.ref=refs/tags/v*）；手动触发走 inputs.ref
+          ref: ${{ github.event.inputs.ref || github.ref }}
 
       - uses: actions/setup-node@v4
         with:
