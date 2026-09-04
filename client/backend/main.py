@@ -19,6 +19,7 @@ from archive.router import router as archive_router
 
 # License 本地验证
 from auth_local.router import router as auth_local_router
+from backup.router import router as backup_router
 from chapters.ai_draft import router as chapters_ai_draft_router
 from chapters.router import router as chapters_router
 from chapters.versions import router as chapters_versions_router
@@ -41,6 +42,25 @@ from write.router import router as write_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # ── 旧库留档（c-novel-export-roundtrip PR0）：必须先于任何 engine 连接 ──
+    # schema 指纹不匹配 → 三件套改名留档（零接触）→ 全新空库启动。
+    # 单轨升级：兼容责任在资产包 format_version，库层零迁移零召回。
+    import logging as _logging
+    from pathlib import Path
+
+    from config import DATA_ROOT, DATABASE_URL
+    import legacy_archive
+
+    _schema_fp = legacy_archive.compute_schema_fingerprint(Base.metadata)
+    _db_path = Path(DATABASE_URL.split("///")[-1])
+    _legacy_info = legacy_archive.archive_if_legacy(_db_path, _schema_fp)
+    if _legacy_info["archived"]:
+        _logging.getLogger("uvicorn.error").info(
+            "Legacy library archived: %s (%s)",
+            _legacy_info["archived_path"],
+            _legacy_info["reason"],
+        )
+
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -48,6 +68,20 @@ async def lifespan(app: FastAPI):
         import logging
 
         logging.getLogger("uvicorn.error").warning("Failed to create tables: %s", e)
+
+    # ── 给（新的）当前库打 schema 指纹戳：重启/重装同版本幂等 ───────────
+    from models.app_meta import AppMeta
+
+    try:
+        async with async_session() as session:
+            existing = await session.get(AppMeta, legacy_archive.SCHEMA_ID_KEY)
+            if existing is None:
+                session.add(
+                    AppMeta(key=legacy_archive.SCHEMA_ID_KEY, value=_schema_fp)
+                )
+                await session.commit()
+    except SQLAlchemyError:
+        pass
 
     # ── Migrate: add source column to projects ───────────────────────
     try:
@@ -381,6 +415,7 @@ app.add_middleware(
 
 # License 验证路由
 app.include_router(auth_local_router, prefix="/api/auth", tags=["auth"])
+app.include_router(backup_router)
 
 # 版本自报与更新检测（client-update-notify）
 app.include_router(update_check_router)
