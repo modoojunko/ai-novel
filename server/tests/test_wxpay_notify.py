@@ -15,7 +15,7 @@ import json
 import secrets
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from cryptography.hazmat.primitives import hashes, serialization
@@ -137,9 +137,9 @@ def _create_order(order_no: str, user_id: int, *, amount_fen: int = 1,
             amount_fen=amount_fen, status=status,
             prepay_status="prepaid", channel="wxpay",
             agreement_version="v2026.08",
-            agreed_at=datetime.now(timezone.utc),
+            agreed_at=datetime.now(UTC),
             refund_status=refund_status,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         ))
         s.commit()
     finally:
