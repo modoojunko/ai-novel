@@ -57,6 +57,8 @@ jobs:
               "name": "novel-s-server",
               "serverType": "container",
               "openAccessTypes": ["PUBLIC"],
+              "cpu": 0.25,
+              "mem": 0.5,
               "envParams": {
                 "DB_BACKEND": "pg_http",
                 "TCB_PG_ENV_ID": "${{ vars.TCB_ENV_ID }}",
@@ -102,6 +104,20 @@ jobs:
       - name: 部署后端（novel-s-server）
         # printf 回答灰度提问（No=部署成功后自动切换流量）；--wait 等待构建完成
         run: printf 'n\n' | tcb cloudrun deploy --service-name novel-s-server --source ./server --env-id ${{ vars.TCB_ENV_ID }} --force --wait
+
+      # 09-04 事故教训：新版本对服务配置（env/规格）的继承曾整体失灵，全量 401 到
+      # PG 数据面；check-auth 不碰 DB 测不出来，必须探 skus（读 SKU 表走 pg_http）。
+      # 失败即响亮报错并给出回滚命令，人工执行一条即回到上一稳定版本。
+      - name: 部署后健康探活（skus 触 DB）
+        run: |
+          for i in 1 2 3 4 5; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://www.awesomenovel.com/api/pay/skus || echo 000)
+            echo "probe $i: skus=$CODE"
+            if [ "$CODE" = "200" ]; then exit 0; fi
+            sleep 30
+          done
+          echo "::error::部署后 skus 探活 5 轮失败（新版本 env/规格异常）。回滚：tcb cloudrun version rollback -s novel-s-server -e ${{ vars.TCB_ENV_ID }} --rollback-version-name <上一稳定版本名> --force"
+          exit 1
 
       # ── 前端：本地构建 → 静态托管 app（独立域名 + 版本管理）──
       # TCB_BACKEND_DOMAIN 支持两种形态：裸域名（https://<统一域名>）或已带 /api
