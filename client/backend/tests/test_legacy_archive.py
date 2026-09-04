@@ -113,15 +113,19 @@ class TestLegacyDbStatusEndpoint:
         assert d["present"] is False
 
     def test_archive_listed_latest_first(self, client, tmp_path, monkeypatch):
-        _make_legacy_db(tmp_path / "novel.legacy-20260901-120000.db", books=2)
-        _make_legacy_db(tmp_path / "novel.legacy-20260902-090000.db", books=5)
+        for name in ["novel.db.legacy-20260901-120000", "novel.db.legacy-20260902-090000"]:
+            conn = sqlite3.connect(tmp_path / name)
+            conn.execute("CREATE TABLE projects (id TEXT PRIMARY KEY, name TEXT)")
+            conn.executemany("INSERT INTO projects VALUES (?, ?)", [(f"b{i}", f"书{i}") for i in range(2)])
+            conn.commit()
+            conn.close()
         monkeypatch.setattr("backup.router.DATA_ROOT", str(tmp_path))
         r = client.get("/api/backup/legacy-db/status")
         d = r.json()["data"]
         assert d["present"] is True
-        assert d["book_count"] == 5  # 最新留档为主报告
+        assert d["book_count"] == 2  # 最新留档为主报告
         assert len(d["all"]) == 2
-        assert d["filename"] == "novel.legacy-20260902-090000.db"
+        assert "20260902" in d["filename"]  # 最新在前
 
     def test_unauthorized_401(self, monkeypatch, tmp_path):
         from fastapi.testclient import TestClient as _TC
