@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Header, Request
 
@@ -48,7 +48,7 @@ async def cron_scan_orders(
 
     # 冷静期到点：CAS 赢的才提交（与用户取消竞态，先到者赢）
     submitted = 0
-    for order in order_repo.find_cooldown_expired(datetime.now(timezone.utc)):
+    for order in order_repo.find_cooldown_expired(datetime.now(UTC)):
         result = cooldown_submit(order_repo, event_repo, gateway, order,
                                  code_repo=_code_repo_factory(db))
         if result.get("status") == "refund_processing" or result.get("skipped"):
@@ -68,9 +68,8 @@ async def cron_scan_repairs(
         return deny
 
     from app.application.payments.scan_orders import scan_paid_unfulfilled
-    from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
-
     from app.infrastructure.repositories.factory import code_repo as _code_repo_factory
+    from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
     repaired = scan_paid_unfulfilled(OrderRepo(db), TradeEventRepo(db), _code_repo_factory(db))
     logger.info("event=cron.r2 repaired=%d", len(repaired))
     return {"code": 0, "data": {"repaired": len(repaired)}}

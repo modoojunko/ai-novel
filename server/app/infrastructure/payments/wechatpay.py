@@ -83,7 +83,7 @@ def _fen_from_yuan(cell: str) -> int:
     if not text:
         return 0
     try:
-        return int((Decimal(text) * 100).quantize(Decimal("1")))
+        return int((Decimal(text) * 100).quantize(Decimal(1)))
     except (InvalidOperation, ValueError):
         return 0
 
@@ -118,10 +118,9 @@ class WechatPayGateway:
         self._refund_limiter = _RateLimiter(min_interval_sec=0.25)
 
     @classmethod
-    def from_settings(cls) -> "WechatPayGateway":
+    def from_settings(cls) -> WechatPayGateway:
         """按 WXPAY_* 配置构造。调用前 main.py 已用 wxpay_config_errors 拦截缺项。"""
         from cryptography.hazmat.primitives.serialization import load_pem_private_key
-
         from wechatpayv3 import WeChatPay, WeChatPayType
 
         private_key_pem = Path_read(settings.WXPAY_PRIVATE_KEY_PATH)

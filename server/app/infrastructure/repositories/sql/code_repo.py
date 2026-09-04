@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.domain.licensing import ActivationCode
@@ -135,6 +136,22 @@ class SqlCodeRepo:
         result = self.db.query(ActivationCodeORM).filter(
             ActivationCodeORM.code_id == f"O-{order_no}",
             ActivationCodeORM.status.in_(["unused", "pending_activation"]),
+        ).update({"status": "revoked", "status_detail": "revoked"}, synchronize_session=False)
+        self.db.commit()
+        return result
+
+    def revoke_queued_for_order(self, order_no: str, anchor) -> int:
+        """退款收回（排队相位）：active 且 grant_start 空或 > anchor 置 revoked；
+        已起算行（grant_start <= anchor）不动。anchor=refund_requested_at（naive UTC）。"""
+        if isinstance(anchor, str):
+            anchor = datetime.fromisoformat(anchor.replace("Z", "+00:00"))
+        if anchor is not None and anchor.tzinfo is not None:
+            anchor = anchor.astimezone(UTC).replace(tzinfo=None)
+        result = self.db.query(ActivationCodeORM).filter(
+            ActivationCodeORM.code_id == f"O-{order_no}",
+            ActivationCodeORM.status == "active",
+            or_(ActivationCodeORM.grant_start.is_(None),
+                ActivationCodeORM.grant_start > anchor),
         ).update({"status": "revoked", "status_detail": "revoked"}, synchronize_session=False)
         self.db.commit()
         return result

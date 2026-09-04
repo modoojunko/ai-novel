@@ -230,6 +230,23 @@ class OrderRepo:
         else:
             return self._db.find("orders", filter={"refund_status": "succeeded"})
 
+    def find_refund_succeeded(self) -> list[dict]:
+        """扫描 E：全部退款成功终态单（refunded + refund_status=succeeded）。
+        与 find_refund_succeeded_between 同源口径、无时间窗——
+        供排队中权益码漏网自愈扫描取数（含历史存量）。"""
+        if isinstance(self._db, Session):
+            from app.models.payments import OrderORM
+            orms = self._db.query(OrderORM).filter(
+                OrderORM.status == "refunded",
+                OrderORM.refund_status == "succeeded",
+            ).all()
+            return [{c.name: getattr(o, c.name) for c in o.__table__.columns} for o in orms]
+        else:
+            return self._db.find(
+                "orders",
+                filter={"status": "refunded", "refund_status": "succeeded"},
+            )
+
     def find_cooldown_expired(self, now: datetime) -> list[dict]:
         """扫描冷静期到期的订单（§4.9b 到点提交）。"""
         if isinstance(self._db, Session):

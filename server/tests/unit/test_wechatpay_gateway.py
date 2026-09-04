@@ -20,7 +20,6 @@ import requests
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from app.config import settings
 from app.infrastructure.payments.gateway import (
     CloseResult,
     PaymentStatus,
@@ -28,8 +27,8 @@ from app.infrastructure.payments.gateway import (
 )
 from app.infrastructure.payments.wechatpay import (
     WechatPayGateway,
-    _parse_bill_csv,
     _fen_from_yuan,
+    _parse_bill_csv,
 )
 
 NOTIFY_URL = "https://www.example.com/api/pay/notify"

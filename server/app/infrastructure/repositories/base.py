@@ -69,6 +69,12 @@ class CodeRepo(Protocol):
         """退款收回：该订单未激活台账行（发货键 O-{order_no}，unused/pending_activation）
         置 revoked；已激活行不动——部分退款按秒折算，用户保留剩余权益。返回行数。"""
         ...
+    def revoke_queued_for_order(self, order_no: str, anchor) -> int:
+        """退款收回（排队相位）：该订单 active 且 grant_start 为空或 > anchor 的台账行
+        置 revoked。anchor=该单 refund_requested_at（naive UTC），与折算金额锁定同锚——
+        若按退款成功时刻判，冷静期窗口内跨起算点会复现「全额退+码保留」同构 bug。
+        已起算行（grant_start <= anchor）不动。返回行数。"""
+        ...
     def find_active_by_user_id(self, user_id: int) -> list[ActivationCode]:
         """已激活行（顺延起点计算）。"""
         ...
