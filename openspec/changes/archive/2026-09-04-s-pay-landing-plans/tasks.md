@@ -23,5 +23,5 @@
 
 ## 5. 收口
 
-- [ ] 5.1 本机 vitest（若 PricingSection 相关单测存在）+ 前端 build 通过；push 后盯 CI，跨境超时按既定路线本机 tcb 部署兜底
-- [ ] 5.2 线上验证：landing 三档对比与 tab 联动正常、带参跳 /pay 预选生效、无参 /pay 行为不变；归档时 specs sync 两条 capability
+- [x] 5.1 本机 vitest（若 PricingSection 相关单测存在）+ 前端 build 通过；push 后盯 CI，跨境超时按既定路线本机 tcb 部署兜底
+- [x] 5.2 线上验证：landing 三档对比与 tab 联动正常、带参跳 /pay 预选生效、无参 /pay 行为不变；归档时 specs sync 两条 capability
