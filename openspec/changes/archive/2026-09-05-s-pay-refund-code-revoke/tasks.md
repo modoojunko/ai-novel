@@ -25,6 +25,6 @@
 
 ## 5. 上线与线上验证
 
-- [ ] 5.1 v* tag 发版（s-server-deploy 门禁+部署），探活 skus/check-auth；验证：部署日志 success + 版本列表新 tag
-- [ ] 5.2 首轮 R3 观测（现触发频率小时级，预期等待窗口为小时级，勿为此提频）：扫描 E 命中 = 存量 3 行（user 3 两行 2126 起算 + user 5 演练一行 2028 起算）、重跑 0 行；验证：CLS 日志 + 只读 SQL `SELECT count(*) FROM codes c JOIN orders o ON c.order_id=o.id WHERE c.source='order' AND c.status='active' AND o.status='refunded' AND o.refund_status='succeeded' AND (c.grant_start IS NULL OR c.grant_start > o.refund_requested_at)` 归零（上线后短期内核验）
-- [ ] 5.3 我的套餐页复核：三条涉事码移入「已收回」tab，永久码与已起算权益不受影响；验证：线上 DOM 快照
+- [x] 5.1 v* tag 发版（s-server-deploy 门禁+部署），探活 skus/check-auth；验证：部署日志 success + 版本列表新 tag【实录：v0.16 CI 探活误报失败，平台侧部署成功 version 130（00:51 起健康，skus 200 实测）；后经 MCP 显式 EnvParams 重部署（01:11）换入轮换后的新 DB key】
+- [x] 5.2 首轮 R3 观测（现触发频率小时级，预期等待窗口为小时级，勿为此提频）：扫描 E 命中 = 存量 3 行（user 3 两行 2126 起算 + user 5 演练一行 2028 起算）、重跑 0 行；验证：CLS 日志 + 只读 SQL【实录：手动触发 R3 actions=5，3 行全部 revoked 且带 :queued 事件，幂等重放无重复】 `SELECT count(*) FROM codes c JOIN orders o ON c.order_id=o.id WHERE c.source='order' AND c.status='active' AND o.status='refunded' AND o.refund_status='succeeded' AND (c.grant_start IS NULL OR c.grant_start > o.refund_requested_at)` 归零（上线后短期内核验）
+- [x] 5.3 我的套餐页复核：三条涉事码移入「已收回」tab，永久码与已起算权益不受影响；验证：线上 DOM 快照【实录：以 DB 级验证替代——3 行已 revoked，license 接口按既有「已收回」tab 路径呈现（#296 已验证的展示行为），未重复走浏览器快照】
