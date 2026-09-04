@@ -73,4 +73,38 @@ if (problems.length > 0) {
   for (const p of problems) console.error(`✗ 备案探针失败：${p}`)
   process.exit(1)
 }
+
+// ── 公安备案号（beianPolice）检查：双层对拍 + 警徽图标在位 ──
+// 期望值优先取注入 env（CI Secrets 严格对拍）；本地跑 probe 未 export 时回落
+// site-config.json 自身（仍可暴露「JSON 在、产物无」的断链）。两层都有且不一致
+// = 双层漂移，压层会吃掉 secret 新号，直接失败。
+const policeEnv = (process.env.VITE_BEIAN_POLICE ?? '').trim()
+const policeJson = typeof siteConfig.beianPolice === 'string' ? siteConfig.beianPolice.trim() : ''
+if (policeEnv && policeJson && policeEnv !== policeJson) {
+  console.error(`✗ 备案探针失败：公安备案号双层漂移——env「${policeEnv}」vs site-config.json「${policeJson}」，运行时层会压住烘焙层，换号须两层同步`)
+  process.exit(1)
+}
+const police = policeEnv || policeJson
+if (!police) {
+  console.warn('⚠️  公安备案号（beianPolice）两层均未配置——备案条仅显示 ICP 号，公安备案通过后须补挂')
+} else {
+  const policeProblems = []
+  if (!bundle.includes(police)) {
+    policeProblems.push(`公安备案号「${police}」未出现在 JS 产物中——Secret 注入可能断链`)
+  }
+  if (!bundle.includes('beian.mps.gov.cn')) {
+    policeProblems.push('公安查询链接 beian.mps.gov.cn 未出现在产物中——policeQueryUrl 拼接链路断链')
+  }
+  if (!bundle.includes('beian-police.png')) {
+    policeProblems.push('警徽图标引用 beian-police.png 未出现在产物中——备案条图标被移除')
+  }
+  if (!existsSync(join(distDir, 'beian-police.png'))) {
+    policeProblems.push('dist/beian-police.png 缺失——警徽图标资产断链')
+  }
+  if (policeProblems.length > 0) {
+    for (const p of policeProblems) console.error(`✗ 备案探针失败：${p}`)
+    process.exit(1)
+  }
+}
+
 console.log(`✓ 备案探针通过：JS 产物与 site-config.json 均含备案号，工信部链接在位`)

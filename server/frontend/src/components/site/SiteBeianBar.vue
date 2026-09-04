@@ -23,7 +23,12 @@ import { siteBeian, hasBeianInfo } from '@/constants/site-beian'
       :href="siteBeian.policeUrl"
       target="_blank"
       rel="noopener"
-    >{{ siteBeian.police }}</a>
+      class="police-link"
+    >
+      <!-- 公安备案规范：警徽图标 + 编号文字，整体链至 mps 查询页；图标为部署级资产可直换 -->
+      <img src="/beian-police.png" alt="" width="13" height="14" aria-hidden="true" />
+      {{ siteBeian.police }}
+    </a>
   </footer>
 </template>
 
@@ -39,6 +44,8 @@ import { siteBeian, hasBeianInfo } from '@/constants/site-beian'
   color: color-mix(in oklch, var(--muted) 70%, transparent);
 }
 .beian-bar a { color: inherit; text-decoration: none; }
+.police-link { display: inline-flex; align-items: center; gap: 4px; }
+.police-link img { display: block; }
 .sep { color: color-mix(in oklch, var(--muted) 40%, transparent); }
 .legal-links { display: flex; gap: 14px; }
 .legal-links a { color: inherit; text-decoration: none; }

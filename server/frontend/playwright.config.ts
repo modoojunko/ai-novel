@@ -31,6 +31,6 @@ export default defineConfig({
     timeout: 30000,
     // 备案条 e2e 的「有号世界」：固定测试号，不受本机 .env 状态影响；
     // 主题保存自愈重试延迟压到 300ms（生产 15s，冷启动自愈用）
-    env: { ...process.env, VITE_BEIAN_ICP: process.env.VITE_BEIAN_ICP || '粤ICP备TEST0000001号', VITE_THEME_RETRY_MS: '300' },
+    env: { ...process.env, VITE_BEIAN_ICP: process.env.VITE_BEIAN_ICP || '粤ICP备TEST0000001号', VITE_BEIAN_POLICE: process.env.VITE_BEIAN_POLICE || '粤公网安备TEST4401000200号', VITE_THEME_RETRY_MS: '300' },
   },
 })
