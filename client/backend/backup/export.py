@@ -74,15 +74,14 @@ def _yaml_str(data: dict) -> str:
 
 async def dump_book_into(zf, db, project, prefix: str = "") -> None:
     """把一本书的全部资产写进 zip（prefix 为空=单书包根，多书=projects/{slug}/）。"""
+    from sqlalchemy import select
+
     from archive.router import _archive_filename
     from chapters.store import assemble_chapter
-    from filesystem.paths import CHARACTER_DIR, PATH_TO_KEY, THREADS_PATH
-    from filesystem.storage import get_storage
     from models.archive import Archive, ChapterPrompt
     from models.chapter import Chapter, ChapterVersion
     from models.volume import Volume
     from novels.service import novel_to_dict
-    from sqlalchemy import select
     from volumes.service import get_volume
 
     def put(name: str, data: str) -> None:
@@ -344,8 +343,8 @@ def _run_backup_thread(payload: dict, user_id: str) -> None:
 
 
 async def export_backup_to_dir(target_dir: str, user_id: str, include_config: bool) -> None:
-    from models.user import User
     from models.project import Novel
+    from models.user import User
 
     target = Path(target_dir)
     _phase("probe")

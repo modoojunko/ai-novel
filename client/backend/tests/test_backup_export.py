@@ -5,12 +5,10 @@ legacy-db/status、单飞 409 的状态机基础。
 """
 
 import asyncio
-import io
 import time
+import uuid
 import zipfile
 from pathlib import Path
-
-import uuid
 
 import pytest
 import yaml
@@ -62,7 +60,6 @@ async def _seed_book(user_id: str, tmp_root: str):
 @pytest.fixture
 def seeded(tmp_path, monkeypatch):
     """建用户+配置+一本书；打回导出端点依赖与 DATA_ROOT。"""
-    import os
 
     user_id = asyncio.run(_seed_user_with_config())
     book_root = tmp_path / "book-root"

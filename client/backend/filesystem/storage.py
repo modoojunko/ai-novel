@@ -46,11 +46,11 @@ class LocalFileBackend:
         fullpath = self._safe(root_path, relative_path)
         os.makedirs(os.path.dirname(fullpath), exist_ok=True)
         # 原子写：先写同目录临时文件再 os.replace，防写一半损坏
-        tmp = f"{fullpath}.tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            yaml.dump(
-                data, f, allow_unicode=True, default_flow_style=False, sort_keys=False
-            )
+        content = yaml.dump(
+            data, allow_unicode=True, default_flow_style=False, sort_keys=False
+        )
+        tmp = self._safe(root_path, relative_path + ".tmp")
+        Path(tmp).write_text(content, encoding="utf-8")
         os.replace(tmp, fullpath)
 
     async def read_md(self, root_path: str, relative_path: str) -> str:
@@ -63,7 +63,7 @@ class LocalFileBackend:
         fullpath = self._safe(root_path, relative_path)
         os.makedirs(os.path.dirname(fullpath), exist_ok=True)
         # 原子写：先写同目录临时文件再 os.replace，防写一半损坏
-        tmp = f"{fullpath}.tmp"
+        tmp = fullpath + ".tmp"
         Path(tmp).write_text(content, encoding="utf-8")
         os.replace(tmp, fullpath)
 

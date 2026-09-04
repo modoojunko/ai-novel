@@ -25,6 +25,7 @@ import json
 import os
 import tempfile
 import uuid
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -1857,9 +1858,9 @@ class TestRealJwtAuth:
         self.token = uid
         self.user_id = uid
         # 写入 OAuth 会话（隔离的临时 config.json）
-        cfg_path = CONFIG_FILE
-        with open(cfg_path, "w", encoding="utf-8") as f:
-            json.dump({"token": self.token, "username": self.user_id}, f)
+        Path(CONFIG_FILE).write_text(
+            json.dumps({"token": self.token, "username": self.user_id}), encoding="utf-8"
+        )
         # Remove the override so real auth runs
         old_override = app.dependency_overrides.pop(get_current_user, None)
         yield

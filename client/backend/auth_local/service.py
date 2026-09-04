@@ -10,6 +10,7 @@ import platform
 import subprocess
 import urllib.parse
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 
 import httpx
 
@@ -60,8 +61,8 @@ def _get_server_api_fallback() -> str:
     )
 
 
-CONFIG_DIR = os.environ.get("DATA_ROOT", "./data")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
+CONFIG_DIR = str(Path(os.environ.get("DATA_ROOT", "data")).resolve())
+CONFIG_FILE = str(Path(CONFIG_DIR) / "config.json")
 SESSION_DAYS = 30
 POLL_INTERVAL = 2
 POLL_TIMEOUT = 120
@@ -84,9 +85,10 @@ def get_local_config() -> dict:
 
 
 def save_local_config(config: dict):
-    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(config, f, indent=2, ensure_ascii=False)
+    Path(CONFIG_DIR).mkdir(parents=True, exist_ok=True)
+    Path(CONFIG_FILE).write_text(
+        json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
 
 def load_or_create_config() -> dict:

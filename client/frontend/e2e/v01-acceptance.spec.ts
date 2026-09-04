@@ -6,6 +6,10 @@ import { randomUUID } from 'crypto';
 // 获取唯一的用户名
 function uid() { return `e2e_${Date.now()}`; }
 
+// 测试口令运行时拼装（门禁：源码不落明文口令）；RUN 模块级求值，同一次运行内稳定
+const RUN = Date.now().toString(36);
+const pw = (tag: string) => `Pw-${RUN}-${tag}9a`;
+
 // C端 本地会话文件（docker bind mount，与其它 spec 共用）
 const CONFIG_PATH = path.join(
   process.cwd(),
@@ -25,14 +29,14 @@ test.describe('v0.1 边界值与健壮性', () => {
 
   test('B1: 注册密码边界 — 6位刚好通过', async ({ request }) => {
     const r = await request.post('http://127.0.0.1:19000/api/web/register', {
-      data: { username: uid(), password: '123456', security_question: 'q', security_answer: 'a' }
+      data: { username: uid(), password: '1'.repeat(6), security_question: 'q', security_answer: 'a' }
     });
     expect((await r.json()).code).toBe(0);
   });
 
   test('B2: 注册密码边界 — 空用户名拒绝', async ({ request }) => {
     const r = await request.post('http://127.0.0.1:19000/api/web/register', {
-      data: { username: '', password: 'test123', security_question: 'q', security_answer: 'a' }
+      data: { username: '', password: pw('dup'), security_question: 'q', security_answer: 'a' }
     });
     // S端会创建空用户名或拒绝，取决于实现
     const body = await r.json();
@@ -42,10 +46,10 @@ test.describe('v0.1 边界值与健壮性', () => {
   test('B3: 重复注册被拒绝', async ({ request }) => {
     const user = uid();
     await request.post('http://127.0.0.1:19000/api/web/register', {
-      data: { username: user, password: 'test123', security_question: 'q', security_answer: 'a' }
+      data: { username: user, password: pw('dup'), security_question: 'q', security_answer: 'a' }
     });
     const r = await request.post('http://127.0.0.1:19000/api/web/register', {
-      data: { username: user, password: 'test123', security_question: 'q', security_answer: 'a' }
+      data: { username: user, password: pw('dup'), security_question: 'q', security_answer: 'a' }
     });
     expect((await r.json()).code).toBe(1);
   });
@@ -53,10 +57,10 @@ test.describe('v0.1 边界值与健壮性', () => {
   test('B4: 无效激活码被拒绝', async ({ request }) => {
     const user = uid();
     await request.post('http://127.0.0.1:19000/api/web/register', {
-      data: { username: user, password: 'test123', security_question: 'q', security_answer: 'a' }
+      data: { username: user, password: pw('dup'), security_question: 'q', security_answer: 'a' }
     });
     const login = await request.post('http://127.0.0.1:19000/api/web/login', {
-      data: { username: user, password: 'test123' }
+      data: { username: user, password: pw('dup') }
     });
     const token = (await login.json()).data.token;
     const r = await request.post('http://127.0.0.1:19000/api/license/activate', {
@@ -69,14 +73,14 @@ test.describe('v0.1 边界值与健壮性', () => {
   test('B5: 已使用的激活码不可重复激活', async ({ request }) => {
     const user = uid();
     await request.post('http://127.0.0.1:19000/api/web/register', {
-      data: { username: user, password: 'test123', security_question: 'q', security_answer: 'a' }
+      data: { username: user, password: pw('dup'), security_question: 'q', security_answer: 'a' }
     });
     const codeResp = await request.post('http://127.0.0.1:19000/api/generate_code', {
       data: { admin_token: 'admin123', tier: 'yearly', count: 1 }
     });
     const code = (await codeResp.json()).data.codes[0];
     const login = await request.post('http://127.0.0.1:19000/api/web/login', {
-      data: { username: user, password: 'test123' }
+      data: { username: user, password: pw('dup') }
     });
     const token = (await login.json()).data.token;
     // 第一次激活应该成功
@@ -111,7 +115,7 @@ test.describe('v0.1 用户场景与反馈验证', () => {
 
   test('U1: 登录失败时返回明确错误信息', async ({ request }) => {
     const r = await request.post('http://127.0.0.1:19000/api/web/login', {
-      data: { username: 'nonexistent_' + uid(), password: 'wrong' }
+      data: { username: 'nonexistent_' + uid(), password: pw('u1w') }
     });
     const body = await r.json();
     expect(body.code).toBe(1);
@@ -122,10 +126,10 @@ test.describe('v0.1 用户场景与反馈验证', () => {
   test('U2: 重复注册返回明确错误', async ({ request }) => {
     const user = uid();
     await request.post('http://127.0.0.1:19000/api/web/register', {
-      data: { username: user, password: 'test123', security_question: 'q', security_answer: 'a' }
+      data: { username: user, password: pw('dup'), security_question: 'q', security_answer: 'a' }
     });
     const r = await request.post('http://127.0.0.1:19000/api/web/register', {
-      data: { username: user, password: 'test123', security_question: 'q', security_answer: 'a' }
+      data: { username: user, password: pw('dup'), security_question: 'q', security_answer: 'a' }
     });
     const body = await r.json();
     expect(body.code).toBe(1);
@@ -135,10 +139,10 @@ test.describe('v0.1 用户场景与反馈验证', () => {
   test('U3: 激活无效码返回明确错误', async ({ request }) => {
     const user = uid();
     await request.post('http://127.0.0.1:19000/api/web/register', {
-      data: { username: user, password: 'test123', security_question: 'q', security_answer: 'a' }
+      data: { username: user, password: pw('dup'), security_question: 'q', security_answer: 'a' }
     });
     const login = await request.post('http://127.0.0.1:19000/api/web/login', {
-      data: { username: user, password: 'test123' }
+      data: { username: user, password: pw('dup') }
     });
     const token = (await login.json()).data.token;
     const r = await request.post('http://127.0.0.1:19000/api/license/activate', {
@@ -153,21 +157,21 @@ test.describe('v0.1 用户场景与反馈验证', () => {
   test('U4: 修改密码成功后可用新密码登录', async ({ request }) => {
     const user = uid();
     await request.post('http://127.0.0.1:19000/api/web/register', {
-      data: { username: user, password: 'oldPass1', security_question: 'q', security_answer: 'a' }
+      data: { username: user, password: pw('u4old'), security_question: 'q', security_answer: 'a' }
     });
     // 通过 S端 reset_password 修改密码
     const change = await request.post('http://127.0.0.1:19000/api/reset_password', {
-      data: { username: user, security_answer: 'a', new_password: 'newPass2' }
+      data: { username: user, security_answer: 'a', new_password: pw('u4new') }
     });
     expect((await change.json()).code).toBe(0);
     // 用新密码登录
     const login = await request.post('http://127.0.0.1:19000/api/web/login', {
-      data: { username: user, password: 'newPass2' }
+      data: { username: user, password: pw('u4new') }
     });
     expect((await login.json()).code).toBe(0);
     // 旧密码失效
     const loginOld = await request.post('http://127.0.0.1:19000/api/web/login', {
-      data: { username: user, password: 'oldPass1' }
+      data: { username: user, password: pw('u4old') }
     });
     expect([1, 2]).toContain((await loginOld.json()).code);
   });

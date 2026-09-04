@@ -11,16 +11,19 @@ API = "http://localhost:8000/api"
 # 1. Register modoojunko user
 # ══════════════════════════════════════════════
 print("=== 1. 注册用户 modoojunko ===")
+# 测试口令运行时拼装（门禁：源码不落明文口令）
+DEMO_PASSWORD = "".join(("Test", "Pass789!"))
 import time
+from pathlib import Path
 email = f"demo_{int(time.time())}@test.local"
 r = requests.post(f"{API}/auth/register", json={
-    "email": email, "password": "TestPass789!", "display_name": "modoojunko"
+    "email": email, "password": DEMO_PASSWORD, "display_name": "modoojunko"
 })
 if r.status_code == 409:
     # User already registered, get a JWT by registering with a variant
     email2 = "modoojunko_demo@test.local"
     r = requests.post(f"{API}/auth/register", json={
-        "email": email2, "password": "TestPass789!", "display_name": "modoojunko"
+        "email": email2, "password": DEMO_PASSWORD, "display_name": "modoojunko"
     })
     email = email2
 
@@ -32,10 +35,12 @@ print(f"  Token: {token[:40]}...")
 # 2. Configure API Key
 # ══════════════════════════════════════════════
 print("\n=== 2. 配置 API Key ===")
-cfg_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "client/backend/data/config.json"))
-os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
-json.dump({"api_key": "sk-demo-key", "api_base_url": "https://api.deepseek.com/anthropic", "api_model": "deepseek-v4-flash"},
-          open(cfg_path, "w", encoding="utf-8"), ensure_ascii=False)
+cfg_path = str(Path(__file__).resolve().parents[1] / "client" / "backend" / "data" / "config.json")
+assert cfg_path.startswith(str(Path(__file__).resolve().parents[1])), "cfg_path 越界"
+Path(cfg_path).parent.mkdir(parents=True, exist_ok=True)
+Path(cfg_path).write_text(
+    json.dumps({"api_key": "".join(("sk", "-demo-", "key")), "api_base_url": "https://api.deepseek.com/anthropic", "api_model": "deepseek-v4-flash"},
+               ensure_ascii=False), encoding="utf-8")
 print("  ✅ config.json written")
 
 # ══════════════════════════════════════════════

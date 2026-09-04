@@ -48,8 +48,8 @@ async def lifespan(app: FastAPI):
     import logging as _logging
     from pathlib import Path
 
-    from config import DATA_ROOT, DATABASE_URL
     import legacy_archive
+    from config import DATABASE_URL
 
     _schema_fp = legacy_archive.compute_schema_fingerprint(Base.metadata)
     _db_path = Path(DATABASE_URL.split("///")[-1])

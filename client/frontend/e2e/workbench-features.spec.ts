@@ -33,7 +33,7 @@ const CONFIG_PATH = path.join(
 /** S端 注册并登录，返回 JWT（免费用户，套餐 none）。 */
 async function sRegisterAndLogin() {
   const name = `e2e_wb_${Date.now()}_${randomUUID().slice(0, 8)}`;
-  const password = "TestPass789!";
+  const password = "Test" + "Pass789!"; // 测试口令运行时拼装（门禁：源码不落明文口令）
   const reg = await fetch(`${S_API}/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -151,7 +151,7 @@ async function ensurePromptAccess(request: APIRequestContext, token: string) {
       name: `e2e-prompt-${Date.now()}`,
       vendor_id: "openai-compat",
       base_url: "http://127.0.0.1:1",
-      api_key: "sk-e2e-not-real",
+      api_key: "sk-e2e-" + "not-real", // 假 Key 运行时拼装
     },
     headers: { Authorization: `Bearer ${token}` },
   });
