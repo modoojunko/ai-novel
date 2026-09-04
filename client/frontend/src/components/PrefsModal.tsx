@@ -117,6 +117,57 @@ export default function PrefsModal({ open, onClose }: { open: boolean; onClose: 
       </div>
       <div className="pref-row">
         <div>
+          <div className="pl">备份与恢复</div>
+          <div className="pm">全部作品的备份与恢复——升级新版前，先在这里导出备份</div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            data-od-id="pref-backup"
+            onClick={async () => {
+              const bridge = (window as any).pywebview?.api;
+              if (!bridge) { alert("备份功能需要桌面版应用"); return; }
+              const dir = await bridge.pick_folder();
+              if (!dir) return;
+              const res = await fetch("/api/backup/export/start", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ kind: "backup", target_dir: dir, include_config: true }),
+              });
+              if (res.ok) alert("备份已开始，完成后文件将保存在所选目录");
+              else alert("备份启动失败：" + (await res.text()));
+            }}
+          >
+            备份
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            data-od-id="pref-restore"
+            onClick={async () => {
+              const bridge = (window as any).pywebview?.api;
+              if (!bridge) { alert("恢复功能需要桌面版应用"); return; }
+              const files = await bridge.pick_open_file();
+              if (!files?.length) return;
+              const res = await fetch("/api/backup/import/parse", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ paths: files }),
+              });
+              if (res.ok) {
+                const d = await res.json();
+                const persist = await fetch("/api/backup/import/persist", {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ paths: files, include_config: true }),
+                });
+                if (persist.ok) alert("恢复完成");
+                else alert("恢复失败：" + (await persist.text()));
+              } else alert("解析失败：" + (await res.text()));
+            }}
+          >
+            恢复
+          </button>
+        </div>
+      </div>
+      <div className="pref-row">
+        <div>
           <div className="pl">模型配置 · API Key</div>
           <div className="pm">管理 AI 服务密钥与供应商</div>
         </div>
