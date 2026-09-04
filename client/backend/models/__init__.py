@@ -1,4 +1,5 @@
 from models.api_config import ApiConfig
+from models.app_meta import AppMeta
 from models.archive import Archive, ChapterPrompt
 from models.audit_log import ProjectModelAuditLog
 from models.chapter import (
@@ -31,6 +32,7 @@ from models.volume import (
 )
 
 __all__ = [
+    "AppMeta",
     "ApiConfig",
     "Archive",
     "Chapter",

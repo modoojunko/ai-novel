@@ -7,6 +7,7 @@ import tempfile
 import types
 
 import pytest
+from sqlalchemy import text
 
 # Stub the `anthropic` module so tests can import story modules
 # without the real SDK being installed.
@@ -72,6 +73,16 @@ def _session_test_db():
     async def _create_tables():
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+        # PR0（c-novel-export-roundtrip）：会话库视为当前版本库——不打指纹戳，
+        # lifespan 首启会把它当旧库整库留档，后续测试的数据全丢。
+        import legacy_archive
+
+        fp = legacy_archive.compute_schema_fingerprint(Base.metadata)
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("INSERT OR IGNORE INTO app_meta (key, value) VALUES (:k, :v)"),
+                {"k": legacy_archive.SCHEMA_ID_KEY, "v": fp},
+            )
 
     asyncio.run(_create_tables())
     yield

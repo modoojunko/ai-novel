@@ -326,3 +326,23 @@ modalAi/modalPrefs 标记与 CSS 在 PR 3/PR 4 已随屏落地（spec-report §6
    `btn btn-ghost btn-sm` 同规格锚点按钮，原型内 href="#" 占位（落地实现为
    `<portal_url>/support` 外跳，target=_blank 新窗口）。按钮原样落地，预期
    零偏差（无新组件词汇、无档位变更）。未登录形态不加（官网落地页页脚覆盖）。
+
+## backup-restore.html（备份导出/恢复导入，2026-09-04）
+
+新屏原型（7 屏+子态，单文件，右下 .rv 屏切换器 / 左下 .rv2 子态切换器 / 数字键与 #2:s3 式 hash 直达）。
+产出流程：UX 交互稿定流程与文案 → 本原型做视觉层；规格与偏差明细见 backup-restore.spec.md。
+状态：停审批口（c-novel-export-roundtrip 设计阶段），批后随 change 实现收编为 parity 基线。
+
+登记条目：
+
+1. **评审脚手架非基线**：.rv / .rv2 / .rev-cap（形态对照小标）/ .rev-new（「新增」虚线角标）/ .demo-open（强制显示悬浮菜单）均为评审辅助，实现对照与 parity 截图排除（同 list.html 评审切换器先例）。
+
+2. **进度步 locked 画进结构**：备份/恢复弹窗进度步与打包中态去掉 X 与取消（scrim 点击/Esc 语义随封装 Modal locked），「不可中断」由结构表达非文案。
+
+3. **serif 30px 大百分比**：进度主数字用设计语言 §3.1 预留的 display 档（备份/恢复共用），不引入进度条新组件；.bk-* 新词汇清单见 spec（.bk-step-tag/.bk-files/.bk-row 等，实现时按需同源同步 list.css）。
+
+4. **首启恢复卡主 CTA 用 primary**（偏离 EmptyState 默认约定，交互稿定稿）——待用户终裁，若驳回改回 EmptyState 默认档。
+
+5. **⋯ 菜单删除色归位 err**：原型按设计语言 N6 画 err；现网 list.css 误用 warn，属顺手修正项（实现 PR 内同步）。
+
+6. **敏感四层视觉**：勾选时就地 warn（L1）/完成页钥匙 warn（L2）/产物文件名自标识（L3）/恢复预览掩码+块级取消勾选（L4）——均为新屏内容，无现网对照。
