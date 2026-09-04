@@ -50,45 +50,87 @@ test.describe('Landing Page', () => {
     }
   })
 
-  test('套餐区块显示卡片', async ({ page }) => {
+  test('套餐区=收银台同 IA：时长 tab×三档对比列（s-pay-landing-plans）', async ({ page }) => {
     await page.locator('#pricing').scrollIntoViewIfNeeded()
-    const cards = page.locator('#pricing .mkt-plan')
-    const count = await cards.count()
-    expect(count).toBe(4)
-  })
-
-  test('套餐卡展示与收银台同源的价格（/api/pay/skus）', async ({ page }) => {
-    await page.locator('#pricing').scrollIntoViewIfNeeded()
-    // 价格来自公开商品目录（mock 默认 PRO 三档：¥30 / ¥72 / ¥239.2）
-    const prices = page.locator('#pricing .price')
-    await expect(prices).toContainText(['¥0/7天', '¥30/月', '¥72/季', '¥239.2/年'])
-    // 折扣徽标来自 discount_display，划线原价同卡展示
-    await expect(page.getByText('9折')).toBeVisible()
-    await expect(page.getByText('8折')).toBeVisible()
-    await expect(page.getByText('¥80')).toBeVisible()
-    await expect(page.getByText('¥299')).toBeVisible()
-    // 「最受欢迎」跟随 popular_sku（年付），不再写死季付
-    await expect(page.locator('#pricing .mkt-plan.pro h3')).toHaveText('年付')
-    // 购买入口全部进自家收银台，淘宝死链全站清零（含页脚/激活指南）
+    // 时长 tab 默认包月（与收银台同默认）；列序=免费 + PRO + MAX
+    await expect(page.locator('.plans-tabs button.on')).toHaveText(/包月/)
+    await expect(page.locator('#pricing .mkt-plan h3')).toHaveText(['免费', 'PRO', 'MAX'])
+    // MAX planned → 预告卡（即将推出，不可购）
+    await expect(page.locator('#pricing .plans-soon')).toContainText('MAX')
+    // 淘宝死链全站清零保持（含页脚/激活指南）
     await expect(page.locator('a[href*="taobao"]')).toHaveCount(0)
     await expect(page.getByText(/淘宝/)).toHaveCount(0)
-    expect(await page.locator('#pricing a[href="/pay"]').count()).toBe(3)
   })
 
-  test('停售时隐藏价格但保留套餐骨架与收银台入口', async ({ page, mockApi }) => {
-    mockApi.setSkus({ purchase_enabled: false, agreement_version: 'v2026.08', tiers: [], popular_sku: 'pro_yearly', skus: [
+  test('tab 切换联动三档价格（同源 /pay/skus）', async ({ page }) => {
+    await page.locator('#pricing').scrollIntoViewIfNeeded()
+    // 包月：PRO ¥30；免费列 ¥0 恒定
+    const proCol = page.locator('#pricing .mkt-plan', { hasText: 'PRO' })
+    await expect(proCol).toContainText('¥30')
+    // 包季：¥72 + 划线原价 ¥80 + tab 徽标 9折（全部读接口单源）
+    await page.locator('.plans-tabs button', { hasText: '包季' }).click()
+    await expect(proCol).toContainText('¥72')
+    await expect(proCol).toContainText('¥80')
+    await expect(page.locator('.plans-tabs button', { hasText: '包季' })).toContainText('9折')
+    // 包年：¥239.2（fmtPrice 去尾零）+ 结构行随 SKU 联动（365 天 · 5 台设备）
+    await page.locator('.plans-tabs button', { hasText: '包年' }).click()
+    await expect(proCol).toContainText('¥239.2')
+    await expect(proCol).toContainText('365 天 · 最多 5 台设备')
+    await expect(page.locator('.plans-tabs button', { hasText: '包年' })).toContainText('8折')
+  })
+
+  test('免费列匿名语义：注册导流（非「当前方案」）', async ({ page }) => {
+    await page.locator('#pricing').scrollIntoViewIfNeeded()
+    const freeCol = page.locator('#pricing .mkt-plan.free').filter({ hasText: '免费' })
+    await expect(freeCol).toContainText('¥0')
+    await expect(freeCol).toContainText('不含 AI 能力')
+    await expect(freeCol.getByRole('link', { name: '注册领取 7 天试用' }).first()).toBeVisible()
+    // 「当前方案」是收银台登录态语义，落地页不得出现
+    await expect(page.locator('#pricing').getByText('当前方案')).toHaveCount(0)
+  })
+
+  test('最受欢迎徽标挂 PRO 档列（随 popular_sku 单源）', async ({ page }) => {
+    await page.locator('#pricing').scrollIntoViewIfNeeded()
+    await expect(page.locator('#pricing .mkt-plan.pro h3')).toHaveText('PRO')
+    await expect(page.locator('#pricing .mkt-plan.pro .mkt-pro-pill')).toHaveText('最受欢迎')
+  })
+
+  test('购买入口带参跳收银台（选中规格延续）', async ({ page }) => {
+    await page.locator('#pricing').scrollIntoViewIfNeeded()
+    const buy = page.locator('#pricing .mkt-plan', { hasText: 'PRO' }).getByRole('link', { name: '立即购买' })
+    await expect(buy).toHaveAttribute('href', '/pay?period=monthly&tier=pro')
+    await page.locator('.plans-tabs button', { hasText: '包年' }).click()
+    await expect(buy).toHaveAttribute('href', '/pay?period=yearly&tier=pro')
+  })
+
+  test('停售时价格留白、徽标摘除、结构与预告卡保留', async ({ page, mockApi }) => {
+    mockApi.setSkus({ purchase_enabled: false, agreement_version: 'v2026.08', tiers: [
+      { key: 'free', label: '免费', is_live: true, is_planned: false, selling_points: [] },
+      { key: 'pro', label: 'PRO', is_live: true, is_planned: false, selling_points: ['含免费全部功能', 'AI 生成正文（流式）'] },
+      { key: 'max', label: 'MAX', is_live: false, is_planned: true, selling_points: [] },
+    ], skus: [
       { sku_key: 'pro_monthly', tier_key: 'pro', period: 'monthly', period_days: 30, base_price_fen: 3000, discount_display: '', price_fen: 3000, device_limit: 3 },
       { sku_key: 'pro_quarterly', tier_key: 'pro', period: 'quarterly', period_days: 90, base_price_fen: 8000, discount_display: '9折', price_fen: 7200, device_limit: 3 },
       { sku_key: 'pro_yearly', tier_key: 'pro', period: 'yearly', period_days: 365, base_price_fen: 29900, discount_display: '8折', price_fen: 23920, device_limit: 5 },
-    ] })
+    ], popular_sku: 'pro_yearly' })
     await page.goto('/')
     await page.locator('#pricing').scrollIntoViewIfNeeded()
-    await expect(page.locator('#pricing .mkt-plan')).toHaveCount(4)
-    // 付费卡价格留白，只留"价格见收银台"；试用卡 ¥0 不受影响
-    await expect(page.getByText('价格见收银台')).toHaveCount(3)
+    // PRO live 列价格留白 ×1（MAX 预告卡本就无价格）；免费列 ¥0 不受影响
+    await expect(page.getByText('价格见收银台')).toHaveCount(1)
     await expect(page.locator('#pricing').getByText('¥30')).toHaveCount(0)
-    await expect(page.locator('#pricing').getByText('¥72')).toHaveCount(0)
+    await expect(page.locator('#pricing .mkt-pro-pill')).toHaveCount(0)
+    await expect(page.getByText('即将推出')).toBeVisible()
+    await expect(page.locator('#pricing a[href^="/pay"]').first()).toBeVisible()
+  })
+
+  test('目录不可达 → 降级骨架（价格留白×3，tab 消失，注册与收银台入口仍可达）', async ({ page, mockApi }) => {
+    mockApi.setSkusGate({ fail: true })
+    await page.goto('/')
+    await page.locator('#pricing').scrollIntoViewIfNeeded()
+    await expect(page.getByText('价格见收银台')).toHaveCount(3, { timeout: 10000 })
+    await expect(page.locator('#pricing .plans-tabs')).toHaveCount(0)
     await expect(page.locator('#pricing a[href="/pay"]').first()).toBeVisible()
+    await expect(page.locator('#pricing a[href="/register"]').first()).toBeVisible()
   })
 
   test('激活指南区块三步流程', async ({ page }) => {
@@ -121,7 +163,7 @@ test.describe('Landing Page', () => {
     await expect(page.locator('.mkt-nav a[href="/#pricing"]')).toBeVisible()
   })
 
-  test('Trial 卡「注册领取」按钮跳注册页', async ({ page }) => {
+  test('免费列注册 CTA 跳注册页（原 Trial 卡导流职责并入免费列）', async ({ page }) => {
     await page.locator('#pricing').scrollIntoViewIfNeeded()
     const registerBtn = page.locator('#pricing a[href="/register"]').first()
     await expect(registerBtn).toBeVisible()
