@@ -414,6 +414,7 @@ async def save_chapter(root_path: str, chapter_ref: str, data: dict) -> None:
 
     子表 clear 后先 flush 落删除再重建（flush 内插入先于删除会撞唯一键）。
     """
+    import contextlib
     from db import async_session
 
     ref = strip_suffix(chapter_ref)
@@ -435,15 +436,7 @@ async def save_chapter(root_path: str, chapter_ref: str, data: dict) -> None:
         if prose.strip() and status == "outline":
             status = "writing"
         row.status = status
-        _disassemble_scalars(row, data)
-        for attr in _CHILD_ATTRS:
-            getattr(row, attr).clear()
-        await session.flush()
-        _replace_children(row, data)
-
-        row.word_count = count_chars(prose)
-        row.has_prose = bool(prose.strip())
-        row.outline_status = _derive_outline_status(status, prose)
+        await apply_chapter_data(session, row, data)
         await session.commit()
 
     # 版本快照：prose / outline.summary 实质变化才写（正文已落库，快照失败不回滚）
@@ -453,6 +446,31 @@ async def save_chapter(root_path: str, chapter_ref: str, data: dict) -> None:
             await _write_version_snapshot(
                 root_path, ref, old_status, prose, data.get("outline") or {}, status
             )
+
+
+async def apply_chapter_data(session, row, data: dict) -> tuple[str, str]:
+    """字段落库（无提交无快照）：c-novel-export-roundtrip PR2 抽取共用。
+
+    Returns: (prose, status)
+    """
+    if data.get("title"):
+        row.title = str(data["title"])[:200]
+    prose = data.get("prose") or ""
+    status = data.get("status") or row.status
+    # 状态机系统维护：首次落非空正文 outline → writing
+    if prose.strip() and status == "outline":
+        status = "writing"
+    row.status = status
+    _disassemble_scalars(row, data)
+    for attr in _CHILD_ATTRS:
+        getattr(row, attr).clear()
+    await session.flush()
+    _replace_children(row, data)
+
+    row.word_count = count_chars(prose)
+    row.has_prose = bool(prose.strip())
+    row.outline_status = _derive_outline_status(status, prose)
+    return prose, status
 
 
 async def _write_version_snapshot(

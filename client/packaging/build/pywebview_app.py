@@ -261,6 +261,34 @@ def ensure_loading_page(appdata: Path) -> str:
     return loading_path.as_uri()
 
 
+class NativeBridge:
+    """原生对话框桥（c-novel-export-roundtrip）——只暴露文件/目录选择，
+    零数据面；前端经 window.pywebview.api 调用，探测不到即回退 HTTP。
+    window_ref 由 main() 在 create_window 之后注入。"""
+
+    window_ref = None
+
+    def pick_folder(self):
+        result = self.window_ref.create_file_dialog(webview.FOLDER_DIALOG)
+        return result[0] if result else None
+
+    def pick_save_file(self, default_name: str = "", file_types=None):
+        result = self.window_ref.create_file_dialog(
+            webview.SAVE_DIALOG,
+            save_filename=default_name or "",
+            file_types=file_types or ("zip 文件 (*.zip)", "All files (*)"),
+        )
+        return result if isinstance(result, str) else (result[0] if result else None)
+
+    def pick_open_file(self, file_types=None):
+        result = self.window_ref.create_file_dialog(
+            webview.OPEN_DIALOG,
+            file_types=file_types or ("zip 文件 (*.zip)", "All files (*)"),
+            allow_multiple=True,
+        )
+        return list(result) if result else []
+
+
 def main():
     """主入口"""
     appdata = get_appdata()
@@ -297,7 +325,9 @@ def main():
         min_size=(1024, 680),
         resizable=True,
         text_select=True,
+        js_api=bridge,
     )
+    bridge.window_ref = window
 
     # 后台启动后端
     server_thread = threading.Thread(target=start_server, daemon=True)
