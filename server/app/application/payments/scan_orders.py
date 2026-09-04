@@ -5,9 +5,11 @@
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from app.application.payments.fulfill_payment import fulfill_payment
+from app.application.payments.refund_flow import _naive, complete_refund
 from app.domain.payments.order import Transition
 from app.infrastructure.payments.gateway import (
     PaymentGateway,
@@ -15,9 +17,6 @@ from app.infrastructure.payments.gateway import (
     RefundStatus,
 )
 from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
-
-from app.application.payments.fulfill_payment import fulfill_payment
-from app.application.payments.refund_flow import complete_refund
 
 
 def scan_timeout_close(
@@ -28,7 +27,7 @@ def scan_timeout_close(
     ttl_seconds: int = 900,
 ) -> list[dict]:
     """T1：扫描超时 pending 单 → 先查单（关单铁律）→ 关单或补发货。"""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - timedelta(seconds=ttl_seconds)
     pending_orders = order_repo.find_pending_expirable(cutoff)
     results = []
@@ -108,7 +107,7 @@ def scan_refund_followup(
 
     全部幂等：扫描重放安全（complete_refund 全量可重入）。
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     results: list[dict] = []
 
     # ── processing 订单：查退款结果 / NOT_ENOUGH 重试 ──
@@ -160,7 +159,7 @@ def scan_refund_followup(
         elif query.status == RefundStatus.ABNORMAL:
             # 人工处置通道：告警但不改状态（绝不自动重提）
             _notify(notify, f"退款异常 {order_no}",
-                    f"微信退款单状态 ABNORMAL，需人工核实处置。")
+                    "微信退款单状态 ABNORMAL，需人工核实处置。")
             event_repo.append({
                 "event_key": f"refund:{order_no}:abnormal_notified:{int(now.timestamp())}",
                 "event_type": "refund.abnormal",
@@ -174,6 +173,33 @@ def scan_refund_followup(
         complete_refund(order_repo, event_repo, order_no,
                         order.get("refund_wx_id") or "", code_repo=code_repo)
         results.append({"order_no": order_no, "action": "half_done_repaired"})
+
+    # ── 扫描 E：orders 已 refunded 终态但订单来源码仍 active+排队中 → 收回 ──
+    # 与 complete_refund 共用同一收回方法（锚=refund_requested_at，已起算豁免）：
+    # 既收敛历史存量漏网行，也兜底「complete_refund 漏收后订单已终态」的窗口。
+    if code_repo is not None:
+        for order in order_repo.find_refund_succeeded():
+            order_no = order["order_no"]
+            anchor = _naive(order.get("refund_requested_at"))
+            if anchor is None:
+                # 锚缺失=数据异常（退款流程必写 refund_requested_at）：跳过不猜锚，
+                # 防误判已起算行；该行每轮空扫 0 行，无副作用
+                continue
+            queued = code_repo.revoke_queued_for_order(order_no, anchor=anchor)
+            if queued:
+                row = code_repo.get(f"O-{order_no}")
+                event_repo.append({
+                    "event_key": f"codes:O-{order_no}:revoked:queued",
+                    "event_type": "codes.revoked",
+                    "order_no": order_no,
+                    "payload": {
+                        "phase": "queued",
+                        "anchor": anchor.isoformat() if anchor else None,
+                        "grant_start": row.grant_start.isoformat() if row and row.grant_start else None,
+                        "expires_at": row.expires_at.isoformat() if row and row.expires_at else None,
+                    },
+                })
+                results.append({"order_no": order_no, "action": "queued_code_revoked"})
 
     return results
 

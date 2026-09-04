@@ -128,6 +128,33 @@ class PgHttpCodeRepo:
             {"status": "revoked", "status_detail": "revoked"},
         )
 
+    def revoke_queued_for_order(self, order_no: str, anchor) -> int:
+        """退款收回（排队相位）：active 且 grant_start 空或 > anchor 置 revoked；
+        已起算行不动。anchor=refund_requested_at（与折算金额锁定同锚）。
+
+        PostgREST 单 filter 无法表达跨列 OR（`or` 参数值以 `(` 开头会被客户端
+        误加 eq. 前缀）——两支无条件 CAS（is.null 一支 + gt.anchor 一支）取并集，
+        各自单列条件天然幂等；TOCTOU 安全：active 行 grant_start 不可变。"""
+        if isinstance(anchor, datetime):
+            a = anchor
+        else:
+            a = datetime.fromisoformat(str(anchor).replace("Z", "+00:00"))
+        if a.tzinfo is not None:
+            a = a.astimezone(UTC).replace(tzinfo=None)
+        anchor_iso = a.isoformat()
+        total = 0
+        for grant_filter in ("is.null", f"gt.{anchor_iso}"):
+            total += self.client.update_cas(
+                _TABLE,
+                {
+                    "code_id": f"eq.O-{order_no}",
+                    "status": "eq.active",
+                    "grant_start": grant_filter,
+                },
+                {"status": "revoked", "status_detail": "revoked"},
+            )
+        return total
+
     def find_unconsumed_by_username(self, username: str) -> list[ActivationCode]:
         uid = self._resolve_user_id(username)
         if uid is None:

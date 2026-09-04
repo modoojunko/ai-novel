@@ -5,14 +5,19 @@
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 
 from app.domain.payments.order import Transition
 from app.domain.payments.pricing import (
-    COOLDOWN_SECONDS, RefundAlreadyActiveError, calc_cooldown_ends_at,
+    RefundAlreadyActiveError,
+    calc_cooldown_ends_at,
 )
 from app.domain.payments.refund import calc_refund_fen
-from app.infrastructure.payments.gateway import PaymentGateway, RefundGatewayResult, RefundStatus
+from app.infrastructure.payments.gateway import (
+    PaymentGateway,
+    RefundGatewayResult,
+    RefundStatus,
+)
 from app.infrastructure.repositories.payments_repo import OrderRepo, TradeEventRepo
 
 
@@ -24,7 +29,7 @@ def _naive(value) -> datetime | None:
         value = datetime.fromisoformat(value.replace("Z", "+00:00"))
     if isinstance(value, datetime):
         if value.tzinfo is not None:
-            value = value.astimezone(timezone.utc).replace(tzinfo=None)
+            value = value.astimezone(UTC).replace(tzinfo=None)
         return value
     return None
 
@@ -281,15 +286,35 @@ def complete_refund(
             "status": "refunded",
             "refunded_at": now,
         })
-        # 步骤 3：未激活台账行收回（不做这步用户可拿退款单激活权益=白嫖；
-        # 已激活行不动——部分退款按秒折算，用户保留剩余权益）
-        if code_repo is not None:
-            revoked = code_repo.revoke_unconsumed_for_order(order_no)
-            if revoked:
-                event_repo.append({
-                    "event_key": f"codes:O-{order_no}:revoked",
-                    "event_type": "codes.revoked",
-                    "order_no": order_no,
-                })
+
+    # 步骤 3：台账收回（两支均可重入，不依赖订单状态推进——崩溃重放时订单已
+    # refunded 也要补收；锚=refund_requested_at 与折算金额锁定同锚，防冷静期
+    # 窗口内跨起算点的判定翻转）：
+    # 3a 未激活行收回（不做这步用户可拿退款单激活权益=白嫖）；
+    # 3b 排队中行收回（active 且 grant_start 空或 > 锚）——已起算行不动，
+    #    部分退款按秒折算，用户保留剩余权益。
+    if code_repo is not None:
+        revoked = code_repo.revoke_unconsumed_for_order(order_no)
+        if revoked:
+            event_repo.append({
+                "event_key": f"codes:O-{order_no}:revoked",
+                "event_type": "codes.revoked",
+                "order_no": order_no,
+            })
+        anchor = _naive(order.get("refund_requested_at")) or now
+        queued = code_repo.revoke_queued_for_order(order_no, anchor=anchor)
+        if queued:
+            row = code_repo.get(f"O-{order_no}")  # revoked 后 grant_start/expires_at 仍在
+            event_repo.append({
+                "event_key": f"codes:O-{order_no}:revoked:queued",
+                "event_type": "codes.revoked",
+                "order_no": order_no,
+                "payload": {
+                    "phase": "queued",
+                    "anchor": anchor.isoformat(),
+                    "grant_start": row.grant_start.isoformat() if row and row.grant_start else None,
+                    "expires_at": row.expires_at.isoformat() if row and row.expires_at else None,
+                },
+            })
 
     return {"order_no": order_no, "status": "refunded"}
