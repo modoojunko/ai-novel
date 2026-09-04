@@ -22,7 +22,7 @@ router = APIRouter(prefix="/api/backup", tags=["backup"])
 def _scan_legacy_archives(data_root: Path) -> list[dict]:
     """枚举 novel.legacy-*.db 留档，最新在前；逐个只读体检。"""
     items = []
-    for f in sorted(data_root.glob("novel.legacy-*.db"), key=lambda p: p.stat().st_mtime, reverse=True):
+    for f in sorted(data_root.glob("novel.db.legacy-*"), key=lambda p: p.stat().st_mtime, reverse=True):
         stat = f.stat()
         info = inspect_library(f)
         items.append({

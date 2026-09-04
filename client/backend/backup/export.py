@@ -78,7 +78,7 @@ async def dump_book_into(zf, db, project, prefix: str = "") -> None:
     from chapters.store import assemble_chapter
     from filesystem.paths import CHARACTER_DIR, PATH_TO_KEY, THREADS_PATH
     from filesystem.storage import get_storage
-    from models.archive import Archive
+    from models.archive import Archive, ChapterPrompt
     from models.chapter import Chapter, ChapterVersion
     from models.volume import Volume
     from novels.service import novel_to_dict
@@ -332,7 +332,7 @@ def _phase(name: str, current_book: str | None = None) -> None:
 
 def _run_backup_thread(payload: dict, user_id: str) -> None:
     try:
-        asyncio.run(_export_async(payload["target_dir"], user_id, payload["include_config"]))
+        asyncio.run(export_backup_to_dir(payload["target_dir"], user_id, payload["include_config"]))
         _set(state="done", phase="finalize")
     except ExportJobError as e:
         _set(state="error", error={"code": e.code, "message": e.message})
@@ -343,8 +343,9 @@ def _run_backup_thread(payload: dict, user_id: str) -> None:
         _set(state="error", error={"code": "io_error", "message": str(e)})
 
 
-async def _export_async(target_dir: str, user_id: str, include_config: bool) -> None:
+async def export_backup_to_dir(target_dir: str, user_id: str, include_config: bool) -> None:
     from models.user import User
+    from models.project import Novel
 
     target = Path(target_dir)
     _phase("probe")
@@ -357,8 +358,6 @@ async def _export_async(target_dir: str, user_id: str, include_config: bool) -> 
         user = await db.get(User, user_id)
         if user is None:
             raise ExportJobError("user_not_found", "用户不存在")
-        from models.project import Novel
-
         books = (
             await db.scalars(
                 select(Novel)
@@ -371,8 +370,15 @@ async def _export_async(target_dir: str, user_id: str, include_config: bool) -> 
         _phase("assets")
         assets_path = target / backup_zip_name()
         part = Path(str(assets_path) + ".part")
-        today = datetime.now()
         with zipfile.ZipFile(part, "w", zipfile.ZIP_DEFLATED) as zf:
+            # 包级清单（契约文件：导入端形态探测的锚点）
+            zf.writestr("backup.yaml", _yaml_str({
+                **_contract_header(),
+                "books": [
+                    {"slug": b.slug, "name": b.name, "created_at": b.created_at.isoformat() if b.created_at else None}
+                    for b in books
+                ],
+            }))
             for idx, project in enumerate(books, start=1):
                 prefix = f"projects/{project.slug}/"
                 _phase("assets", project.name)
