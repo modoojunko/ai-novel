@@ -6,7 +6,7 @@
  * 界面以鼠标点按为主，不做键盘适配（用户裁定）；价格展示一律走 fmtPrice 单源。
  */
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   apiPaySkus, apiPayCreateOrder, apiPayQueryOrder, apiPayCancelOrder, apiPayActivate,
   fmtPrice, fmtBj, periodLabel,
@@ -19,6 +19,7 @@ import SiteBeianBar from '@/components/site/SiteBeianBar.vue'
 import { P } from '@/components/ui/icons'
 
 const router = useRouter()
+const route = useRoute()
 const session = useSessionStore()
 
 // ── 状态 ──
@@ -142,11 +143,24 @@ function switchPeriod(p: SkuItem['period']) {
 async function loadSkus() {
   try {
     skusData.value = await apiPaySkus()
-    // 默认：时长=包月（用户裁定）；档位=popular 所属档回退 pro/首个 live 档
+    // 默认：时长=包月（用户裁定）；档位=popular 所属档回退 pro/首个 live 档。
+    // URL 预选（s-pay-landing-plans：落地页带参跳转消费端）：period/tier 先对目录校验，
+    // 合法才采用，否则走默认链；不监听路由变化，无参行为与原先完全一致
     const data = skusData.value
-    if (!periods.value.includes(period.value) && periods.value.length) period.value = periods.value[0]
-    const popular = data.skus.find(s => s.sku_key === data.popular_sku)
-    selectedTier.value = popular?.tier_key || data.tiers.find(t => t.is_live && t.key !== 'free')?.key || 'pro'
+    const qp = typeof route.query.period === 'string' ? route.query.period : ''
+    const qt = typeof route.query.tier === 'string' ? route.query.tier : ''
+    if (periods.value.includes(qp as SkuItem['period'])) {
+      period.value = qp as SkuItem['period']
+    } else if (periods.value.length && !periods.value.includes(period.value)) {
+      period.value = periods.value[0]
+    }
+    const queryTierValid = !!qt && data.skus.some(s => s.tier_key === qt && s.period === period.value)
+    if (queryTierValid) {
+      selectedTier.value = qt
+    } else {
+      const popular = data.skus.find(s => s.sku_key === data.popular_sku)
+      selectedTier.value = popular?.tier_key || data.tiers.find(t => t.is_live && t.key !== 'free')?.key || 'pro'
+    }
     ensureSelection()
   } catch (e) {
     console.error('loadSkus failed:', e)

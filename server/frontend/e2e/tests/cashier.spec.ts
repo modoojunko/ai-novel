@@ -225,3 +225,30 @@ test.describe('选套餐区·三档矩阵（s-pay-plans-picker）', () => {
     await expect(page.locator('.pay-purchase')).toHaveCount(0)
   })
 })
+
+test.describe('URL 参数预选套餐（s-pay-landing-plans：落地页带参跳转消费端）', () => {
+  test.beforeEach(async ({ mockApi }) => {
+    mockApi.registerUser()
+  })
+
+  test('合法参数预选：/pay?period=yearly&tier=pro → 包年+PRO', async ({ page }) => {
+    await page.goto('/')
+    await page.evaluate(() => localStorage.setItem('token', 'e2e-token'))
+    await page.goto('/pay?period=yearly&tier=pro')
+    await expect(page.getByText('已选')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('.pay-tabs button.on')).toHaveText(/包年/)
+    await expect(page.locator('.pay-purchase-name')).toHaveText('PRO · 包年（365 天）')
+    await expect(page.locator('.pay-purchase-amount')).toHaveText('¥239.2')
+  })
+
+  test('非法参数回落默认链：不存在档位/不在售时长 → 包月+popular 档', async ({ page }) => {
+    await page.goto('/')
+    await page.evaluate(() => localStorage.setItem('token', 'e2e-token'))
+    await page.goto('/pay?period=daily&tier=max')
+    await expect(page.getByText('已选')).toBeVisible({ timeout: 10000 })
+    // popular_sku=pro_yearly→pro 档，时长回落包月；max 档不产生选中
+    await expect(page.locator('.pay-tabs button.on')).toHaveText(/包月/)
+    await expect(page.locator('.pay-purchase-name')).toHaveText('PRO · 包月（30 天）')
+    await expect(page.locator('.pay-purchase-amount')).toHaveText('¥30')
+  })
+})

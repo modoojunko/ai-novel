@@ -65,14 +65,23 @@
 .mkt-plan .feats .f svg { width: 14px; height: 14px; flex: none; }
 .mkt-pro-pill { position: absolute; top: -11px; left: 30px; font-size: 11px; font-weight: 500; padding: 2px 12px; border-radius: 999px; background: var(--accent); color: var(--surface); letter-spacing: 0.04em; }
 
-/* S端 四列套餐（试用 + 月/季/年，数据与收银台 /pay/skus 同源）：密度高于 C端 双列，收紧内边距与价格字号 */
-.plans-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-@media (min-width: 1024px) { .plans-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; } }
+/* S端 三档对比（s-pay-landing-plans：收银台同 IA——时长 tab 主轴×免费/PRO/MAX 列，数据 /pay/skus 同源）；
+   tab 样式与收银台 .pay-tabs 同构（营销皮独立，不跨页复用） */
+.plans-tabs { display: flex; width: fit-content; margin: 0 auto 22px; background: var(--fg-soft); border-radius: 12px; padding: 4px; gap: 4px; }
+.plans-tab { height: 42px; padding: 0 26px; border-radius: 9px; font-size: 14.5px; font-weight: 600; color: var(--muted); border: 0; background: none; cursor: pointer; }
+.plans-tab.on { background: var(--surface); color: var(--fg); box-shadow: 0 1px 3px color-mix(in oklch, var(--fg) 10%, transparent); }
+.plans-tab-mini { font-size: 10.5px; font-weight: 600; color: var(--accent-strong); background: var(--accent-soft); padding: 1px 7px; border-radius: 999px; margin-left: 7px; vertical-align: 1px; }
+@media (max-width: 640px) { .plans-tab { height: 38px; padding: 0 16px; font-size: 13px; } }
+.plans-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 768px) { .plans-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; } }
 .plans-grid .mkt-plan { padding: 22px; border-radius: 14px; }
 .plans-grid .mkt-plan .price { font-family: var(--font-display); font-size: 28px; font-weight: 600; margin-top: 14px; }
-.plans-grid .mkt-plan .price .unit { font-family: var(--font-body); font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 2px; }
 .plans-grid .mkt-plan .price .price-was { font-family: var(--font-body); font-size: 12px; font-weight: 400; color: var(--muted); text-decoration: line-through; margin-left: 6px; }
 .plans-grid .mkt-plan .price .price-off { font-family: var(--font-body); font-size: 11px; font-weight: 500; color: var(--accent); margin-left: 6px; }
+.plans-grid .mkt-plan .price .price-blank { font-family: var(--font-body); font-size: 13px; font-weight: 400; color: var(--muted); }
+/* planned 预告卡（收银台 .pay-card-soon 同构）：dashed 透明底，不可购 */
+.mkt-plan.plans-soon { border: 1.5px dashed color-mix(in oklch, var(--fg) 20%, transparent); background: transparent; box-shadow: none; }
+.mkt-plan .soon-note { font-size: 12.5px; color: var(--muted); margin: 14px 0 0; line-height: 1.7; }
 .plans-grid .mkt-plan .feats { margin-top: 16px; gap: 9px; }
 .plans-grid .mkt-plan .feats .f { font-size: 12.5px; }
 .plans-grid .mkt-plan .btn { margin-top: 18px; }
