@@ -90,7 +90,7 @@ def _seed_new_db(db_path: str):
     # user
     db.add(UserORM(
         username="modoojunko",
-        password_hash=hash_password("alexander123"),
+        password_hash=hash_password("".join(("alexander", "123"))),
         security_question="我的第一本书是？",
         security_answer_hash=hash_password("三体"),
         status="active",

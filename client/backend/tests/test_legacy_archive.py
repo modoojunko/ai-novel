@@ -43,7 +43,6 @@ def _make_current_db(path, fingerprint: str):
 
 class TestFingerprint:
     def test_stable(self):
-        from db import Base
 
         assert _fp(Base.metadata) == _fp(Base.metadata)
 
@@ -129,6 +128,7 @@ class TestLegacyDbStatusEndpoint:
 
     def test_unauthorized_401(self, monkeypatch, tmp_path):
         from fastapi.testclient import TestClient as _TC
+
         from main import app
 
         monkeypatch.setattr("backup.router.DATA_ROOT", str(tmp_path))

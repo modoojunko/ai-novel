@@ -21,7 +21,7 @@ def compute_schema_fingerprint(metadata) -> str:
     lines = []
     for table in sorted(metadata.tables.values(), key=lambda t: t.name):
         cols = "|".join(
-            f"{c.name}:{str(c.type)}"
+            f"{c.name}:{c.type!s}"
             for c in sorted(table.columns, key=lambda c: c.name)
         )
         lines.append(f"{table.name}::{cols}")

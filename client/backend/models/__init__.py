@@ -32,8 +32,8 @@ from models.volume import (
 )
 
 __all__ = [
-    "AppMeta",
     "ApiConfig",
+    "AppMeta",
     "Archive",
     "Chapter",
     "ChapterCharacter",

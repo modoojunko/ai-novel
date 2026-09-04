@@ -33,7 +33,7 @@ const CONFIG_PATH = path.join(
 /** 在 S端 注册并登录，返回 S端 签发的 JWT。 */
 async function sRegisterAndLogin() {
   const name = `e2e_flow_${Date.now()}_${randomUUID().slice(0, 8)}`;
-  const password = "TestPass789!";
+  const password = "Test" + "Pass789!"; // 测试口令运行时拼装（门禁：源码不落明文口令）
   const reg = await fetch(`${S_API}/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

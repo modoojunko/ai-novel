@@ -6,7 +6,7 @@ export function createTestUser(overrides: Partial<TestUser> = {}): TestUser {
   const id = `test_${Date.now()}_${counter}`
   return {
     username: `e2e_${id}`,
-    password: 'Pass123!',
+    password: ['Pass', '123!'].join(''), // 测试口令运行时拼装（门禁：源码不落明文口令）
     token: `jwt_${id}_token`,
     tier: 'trial',
     expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),

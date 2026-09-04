@@ -414,7 +414,6 @@ async def save_chapter(root_path: str, chapter_ref: str, data: dict) -> None:
 
     子表 clear 后先 flush 落删除再重建（flush 内插入先于删除会撞唯一键）。
     """
-    import contextlib
     from db import async_session
 
     ref = strip_suffix(chapter_ref)

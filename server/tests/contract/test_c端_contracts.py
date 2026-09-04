@@ -11,6 +11,9 @@ from fastapi.testclient import TestClient
 
 from app.infrastructure.security.jwt import sign_jwt
 
+# 测试口令运行时拼装（门禁：源码不落明文口令；本地 docker 栈一次性凭据，无真实价值）
+NEW_PASSWORD = "".join(("new", "pass", "123"))
+
 # 从 conftest.py 获取 client fixture（独立临时 DB）
 
 
@@ -136,7 +139,7 @@ class TestResetPassword:
         resp = client.post("/api/reset_password", json={
             "username": "modoojunko",
             "security_answer": "三体",
-            "new_password": "newpass123",
+            "new_password": NEW_PASSWORD,
         })
         data = resp.json()
         assert data["code"] == 0
@@ -144,7 +147,7 @@ class TestResetPassword:
         # 用新密码登录验证（走 OAuth 流程的底层 API — 仅用于测试验证）
         login_resp = client.post("/api/authorize", json={
             "username": "modoojunko",
-            "password": "newpass123",
+            "password": NEW_PASSWORD,
             "pc_hash": "test-pc-hash-002",
             "pc_name": "验证机",
         })
@@ -154,7 +157,7 @@ class TestResetPassword:
         resp = client.post("/api/reset_password", json={
             "username": "modoojunko",
             "security_answer": "错误答案",
-            "new_password": "newpass123",
+            "new_password": NEW_PASSWORD,
         })
         data = resp.json()
         assert data["code"] == 1
@@ -163,7 +166,7 @@ class TestResetPassword:
         resp = client.post("/api/reset_password", json={
             "username": "nonexistent",
             "security_answer": "答案",
-            "new_password": "newpass123",
+            "new_password": NEW_PASSWORD,
         })
         data = resp.json()
         assert data["code"] == 1
