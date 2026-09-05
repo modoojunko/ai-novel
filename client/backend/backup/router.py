@@ -62,6 +62,30 @@ class ExportStartBody(BaseModel):
     include_config: bool = True        # kind=backup：是否同时产配置包
 
 
+class ImportParseBody(BaseModel):
+    paths: list[str]                   # 恢复包文件路径（资产包/配置包，至少一个）
+
+
+class ImportPersistBody(BaseModel):
+    paths: list[str]
+    include_config: bool = True        # 是否恢复配置包
+
+
+def _mask_config_block(cfg: dict | None) -> dict | None:
+    """预览脱敏：配置块的密钥一律 *** 不回传前端。"""
+    if not cfg:
+        return cfg
+    import copy
+
+    out = copy.deepcopy(cfg)
+    if isinstance(out.get("user"), dict) and "api_key" in out["user"]:
+        out["user"]["api_key"] = "***"
+    for c in out.get("api_configs") or []:
+        if "api_key" in c:
+            c["api_key"] = "***"
+    return out
+
+
 @router.post("/export/start")
 async def export_start(
     body: ExportStartBody,
@@ -105,3 +129,54 @@ async def export_config_preview(user: dict = Depends(get_current_user), db=Depen
     from backup import export as export_mod
 
     return {"code": 0, "data": await export_mod.config_preview(db, user["id"])}
+
+
+@router.post("/import/parse")
+async def import_parse(
+    body: ImportParseBody,
+    user: dict = Depends(get_current_user),
+):
+    """恢复预览：解析包归并出作品块+配置块（密钥脱敏）+warnings，供确认弹层。"""
+    import zipfile
+
+    from backup.importer import parse_package
+
+    if not body.paths:
+        raise HTTPException(422, "缺少恢复包路径")
+    try:
+        info = parse_package(body.paths)
+    except (zipfile.BadZipFile, KeyError, ValueError) as e:
+        raise HTTPException(422, f"备份包无法识别：{e}")
+    if not info["books"] and not info["config"]:
+        raise HTTPException(422, "无法识别的备份包（未找到作品或配置内容）")
+    return {
+        "code": 0,
+        "data": {
+            "books": info["books"],
+            "config": _mask_config_block(info["config"]),
+            "warnings": info["warnings"],
+            "schema_version": info["schema_version"],
+        },
+    }
+
+
+@router.post("/import/persist")
+async def import_persist(
+    body: ImportPersistBody,
+    user: dict = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """恢复落库：逐书原子（单书 SAVEPOINT 全成全败）+ 配置恢复 + 智能挂回。"""
+    import zipfile
+
+    from backup.importer import persist_package
+
+    if not body.paths:
+        raise HTTPException(422, "缺少恢复包路径")
+    try:
+        summary = await persist_package(
+            db, user["id"], body.paths, include_config=body.include_config
+        )
+    except (zipfile.BadZipFile, KeyError, ValueError) as e:
+        raise HTTPException(422, f"恢复失败：{e}")
+    return {"code": 0, "data": summary}

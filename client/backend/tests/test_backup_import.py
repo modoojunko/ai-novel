@@ -9,18 +9,11 @@ import io
 import uuid
 import zipfile
 
-import pytest
 import yaml
 from sqlalchemy import select
 
-import importlib
-
+from backup.importer import _import_single_book, _restore_config
 from db import async_session
-
-
-def _mod():
-    """backup/import.py 模块名 import 是关键字，只能经 importlib 加载。"""
-    return importlib.import_module("backup.import")
 
 
 def _config_payload():
@@ -63,7 +56,6 @@ async def _seed_user(display_name: str = "", api_model: str = "") -> str:
 class TestRestoreConfig:
     def test_creates_configs_and_fills_empty_user_fields(self):
         async def run():
-            _restore_config = _mod()._restore_config
             from models.user import User
             async with async_session() as session:
                 uid = await _seed_user()
@@ -72,7 +64,7 @@ class TestRestoreConfig:
                 user = await session.get(User, uid)
                 return summary, user, uid
 
-        summary, user, uid = asyncio.run(run())
+        summary, user, _uid = asyncio.run(run())
         assert summary["created"] == 2 and summary["skipped"] == 0
         assert user.display_name == "导入昵称"
         assert user.api_key == "legacy-xyz"
@@ -84,10 +76,7 @@ class TestRestoreConfig:
 
     def test_keys_reencrypted_in_db(self):
         async def run():
-            from api_configs.crypto import decrypt_api_key
-            _restore_config = _mod()._restore_config
             from models.api_config import ApiConfig
-            from models.user import User
             async with async_session() as session:
                 uid = await _seed_user()
                 await _restore_config(session, uid, _config_payload())
@@ -107,9 +96,7 @@ class TestRestoreConfig:
     def test_same_name_skipped_not_overwritten(self):
         async def run():
             from api_configs.crypto import encrypt_api_key
-            _restore_config = _mod()._restore_config
             from models.api_config import ApiConfig
-            from models.user import User
             async with async_session() as session:
                 uid = await _seed_user()
                 session.add(ApiConfig(
@@ -134,7 +121,6 @@ class TestRestoreConfig:
 
     def test_empty_config_data_noop(self):
         async def run():
-            _restore_config = _mod()._restore_config
             from models.user import User
             async with async_session() as session:
                 uid = await _seed_user(display_name="已有昵称")
@@ -171,7 +157,6 @@ class TestVersionSnapshotImport:
         async def run():
             from models.chapter import Chapter, ChapterVersion
             from models.user import User
-            _import_single_book = _mod()._import_single_book
             async with async_session() as session:
                 uid = f"vsnap-{uuid.uuid4().hex[:8]}"
                 session.add(User(
