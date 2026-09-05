@@ -4,8 +4,9 @@
  * 原型「打开示例书」按钮在产品里是账号操作（登录/退出）。
  */
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Modal from "@/components/design/Modal";
+import RestoreModal from "@/components/RestoreModal";
 import { api } from "@/lib/api";
 import { isLoggedIn, logout } from "@/lib/auth";
 import {
@@ -41,10 +42,12 @@ function tierLabel(r: any): string {
 }
 
 export default function PrefsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const navigate = useNavigate();
   const [fs, setFs] = useState<FontSizePref>("fs-m");
   const [lh, setLh] = useState<LineHeightPref>("lh-comfy");
   const [aiSummary, setAiSummary] = useState(true);
   const [tier, setTier] = useState<string>("");
+  const [restoreOpen, setRestoreOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -142,30 +145,25 @@ export default function PrefsModal({ open, onClose }: { open: boolean; onClose: 
           <button
             className="btn btn-secondary btn-sm"
             data-od-id="pref-restore"
-            onClick={async () => {
+            onClick={() => {
               const bridge = (window as any).pywebview?.api;
               if (!bridge) { alert("恢复功能需要桌面版应用"); return; }
-              const files = await bridge.pick_open_file();
-              if (!files?.length) return;
-              const res = await fetch("/api/backup/import/parse", {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ paths: files }),
-              });
-              if (res.ok) {
-                const d = await res.json();
-                const persist = await fetch("/api/backup/import/persist", {
-                  method: "POST", headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ paths: files, include_config: true }),
-                });
-                if (persist.ok) alert("恢复完成");
-                else alert("恢复失败：" + (await persist.text()));
-              } else alert("解析失败：" + (await res.text()));
+              setRestoreOpen(true);
             }}
           >
             恢复
           </button>
         </div>
       </div>
+      <RestoreModal
+        open={restoreOpen}
+        onClose={() => setRestoreOpen(false)}
+        onGoConfig={() => {
+          setRestoreOpen(false);
+          onClose();
+          navigate("/config");
+        }}
+      />
       <div className="pref-row">
         <div>
           <div className="pl">模型配置 · API Key</div>

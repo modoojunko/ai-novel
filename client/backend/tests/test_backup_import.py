@@ -16,6 +16,18 @@ from backup.importer import _import_single_book, _restore_config
 from db import async_session
 
 
+def _write_temp_zip(data: bytes) -> str:
+    """zip 字节落盘为临时文件（parse_package/persist_package 吃路径）。"""
+    import os
+    import tempfile
+
+    fd, path = tempfile.mkstemp(suffix=".zip")
+    os.close(fd)
+    with open(path, "wb") as f:
+        f.write(data)
+    return path
+
+
 def _config_payload():
     """与 export 侧 build_config_package_bytes 的 config.yaml 同构。"""
     return {
@@ -182,3 +194,30 @@ class TestVersionSnapshotImport:
         assert vs[0].version == 1
         assert vs[0].snapshot == '{"note": "快照原文"}'
         assert ch.title == "第一章"
+
+
+def test_format_version_above_supported_rejected():
+    """格式契约演进：format_version > 1 拒绝并提示升级（防新格式包被旧应用半恢复）。"""
+    import asyncio
+    import os
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("backup.yaml", yaml.safe_dump({
+            "format_version": 2,
+            "books": [],
+        }))
+    from backup.importer import parse_package
+
+    async def run():
+        path = _write_temp_zip(buf.getvalue())
+        try:
+            return await parse_package([path])
+        finally:
+            os.remove(path)
+
+    try:
+        asyncio.run(run())
+        raise AssertionError("v2 包应被拒绝")
+    except ValueError as e:
+        assert "升级" in str(e)

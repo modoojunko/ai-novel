@@ -70,6 +70,13 @@ def parse_package(paths: list[str]) -> dict:
         elif kind == "config":
             config_data = yaml.safe_load(zf.read("config.yaml"))
 
+    # 格式契约演进规则（backup-restore spec）：高于本应用支持的格式版本一律拒绝，
+    # 防止新格式包被旧应用静默半恢复。v0（无版本号）按兼容模式全量回吃。
+    if schema_version and schema_version > 1:
+        raise ValueError(
+            f"备份包格式版本较高（v{int(schema_version)}），请先升级应用到最新版本再恢复"
+        )
+
     return {"books": books, "config": config_data, "warnings": warnings, "schema_version": schema_version}
 
 
