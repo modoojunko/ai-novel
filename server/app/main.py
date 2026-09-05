@@ -103,9 +103,19 @@ app = create_app()
 @app.on_event("startup")
 def on_startup():
     """启动时自动建表 + 检查 Alembic 迁移版本（仅 sqlite 后端；pg_http 表已预建）。"""
+    import hashlib
     import logging
     logger = logging.getLogger("app")
     logger.info("event=app.start db_backend=%s db_path=%s", settings.DB_BACKEND, settings.DB_PATH)
+
+    # env 指纹探针（key 轮换/传输排查用）：只记哈希与长度，绝不落 key 本体。
+    # 与 GitHub secret 指纹、生成配置指纹、CloudBase 存储指纹四点对拍，
+    # 任一环不一致即定位字符被转译/替换的环节。
+    _k = settings.TCB_PG_API_KEY
+    logger.info(
+        "event=env_fingerprint name=TCB_PG_API_KEY len=%d tail4=%s sha256=%s",
+        len(_k), _k[-4:] if _k else "", hashlib.sha256(_k.encode()).hexdigest(),
+    )
 
     # 初始化支付网关（mock/wxpay/未知 fail-fast 三分支，见 init_payment_gateway）
     init_payment_gateway(app)
