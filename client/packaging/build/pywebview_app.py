@@ -9,6 +9,10 @@ import random
 import time
 from pathlib import Path
 
+# 模块级导入：NativeBridge 方法内引用 webview 常量，函数级导入会让 F821 误判未定义；
+# import 本身不初始化 GUI（start() 才会），--smoke 路径同样安全
+import webview
+
 
 def get_base_dir() -> Path:
     if getattr(sys, 'frozen', False):
@@ -289,6 +293,11 @@ class NativeBridge:
         return list(result) if result else []
 
 
+# 模块级单例：main() 在 create_window 后注入 window_ref（v0.15 曾漏掉本行，
+# js_api=bridge 直接触发 NameError——GUI 启动即炸且 --smoke 测不到）
+bridge = NativeBridge()
+
+
 def main():
     """主入口"""
     appdata = get_appdata()
@@ -304,7 +313,6 @@ def main():
     loading_url = ensure_loading_page(appdata)
 
     # 先弹出 pywebview 窗口显示加载动画
-    import webview
     # 自适应屏幕分辨率（跨平台：webview.screens 而非 ctypes.windll.user32）
     try:
         screen = webview.screens[0]
