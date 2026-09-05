@@ -39,6 +39,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      # 门禁：打包入口 F821（未定义名）检查。v0.15 事故：js_api=bridge 引用了从未
+      # 实例化的 bridge，GUI 启动即炸（NameError）而 --smoke 无 GUI 全绿——此类包
+      # 必须在 CI 就拦下，不许进 Release。
+      - name: Lint packaging entry (ruff F821)
+        shell: bash
+        run: |
+          pip install ruff
+          ruff check --select F821 client/packaging/build/pywebview_app.py
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
