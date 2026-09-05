@@ -54,9 +54,7 @@ def _build_auth_url(public_api: str, pc_hash: str, pc_name: str, device_profile:
     时保持原样——该形态下宿主域名本就没有 SPA，属配置约束。
     device_profile 为 URL-safe Base64（无 padding），query 可原样拼接。
     """
-    web_origin = public_api.rstrip("/")
-    if web_origin.endswith("/api"):
-        web_origin = web_origin[: -len("/api")]
+    web_origin = public_api.rstrip("/").removesuffix("/api")
     return (
         f"{web_origin}/auth"
         f"?pc_hash={pc_hash}"

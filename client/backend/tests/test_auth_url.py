@@ -5,7 +5,7 @@
 pc_name / device_profile 原样随 URL 传递。
 """
 
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 from auth_local.service import _build_auth_url
 
