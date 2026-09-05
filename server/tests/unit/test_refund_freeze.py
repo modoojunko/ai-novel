@@ -113,6 +113,16 @@ def _event_count(event_key: str) -> int:
         db.close()
 
 
+def _event_type_count(event_type: str, order_no: str) -> int:
+    """扫描 F 自愈事件的键带时间戳后缀，按 event_type+order_no 计数。"""
+    db = SessionLocal()
+    try:
+        return db.query(TradeEventORM).filter_by(
+            event_type=event_type, order_no=order_no).count()
+    finally:
+        db.close()
+
+
 @pytest.fixture
 def repos():
     db = SessionLocal()
@@ -295,7 +305,7 @@ class TestQueueIgnoresFreeze:
 
 class TestScanFreezeIntegrity:
     def test_scan_a_refreezes_half_done(self, repos):
-        """F-a：退款在途但行仍 active（冻结写半截）→ 补冻结，重跑 0 新增。"""
+        """F-a：退款在途但行仍 active（冻结写半截）→ 补冻结+落账，重跑 0 新增。"""
         db, order_repo, event_repo, code_repo = repos
         uid = _mk_user("fz_j")
         _mk_order("FZ10", uid, status="refund_pending", refund_status="cooldown",
@@ -307,12 +317,14 @@ class TestScanFreezeIntegrity:
         db.commit()
         assert {"order_no": "FZ10", "action": "code_frozen"} in out
         assert _code_status("O-FZ10") == "frozen"
+        assert _event_type_count("codes.frozen", "FZ10") == 1
         out2 = scan_refund_followup(order_repo, event_repo, MockPaymentGateway(),
                                     code_repo=code_repo)
         assert {"order_no": "FZ10", "action": "code_frozen"} not in out2
+        assert _event_type_count("codes.frozen", "FZ10") == 1  # 重放不加账
 
     def test_scan_b_unfreezes_canceled(self, repos):
-        """F-b：已取消回 fulfilled 的 frozen 行 → 补解冻。"""
+        """F-b：已取消回 fulfilled 的 frozen 行 → 补解冻+落账。"""
         db, order_repo, event_repo, code_repo = repos
         uid = _mk_user("fz_k")
         _mk_order("FZ11", uid, status="fulfilled", refund_status="canceled",
@@ -325,6 +337,7 @@ class TestScanFreezeIntegrity:
         db.commit()
         assert {"order_no": "FZ11", "action": "code_unfrozen"} in out
         assert _code_status("O-FZ11") == "active"
+        assert _event_type_count("codes.unfrozen", "FZ11") == 1
 
     def test_scan_b_does_not_touch_in_flight_or_refunded(self, repos):
         """F-b 只还原 fulfilled：在途单保持冻结；refunded 单归扫描 E 相位判定。"""

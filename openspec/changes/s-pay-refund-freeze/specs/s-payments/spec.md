@@ -43,4 +43,4 @@
 
 #### Scenario: 冻结/解冻半截态自愈
 - **WHEN** 冻结或解冻写码行前后进程崩溃（订单已退款中但行仍 active；或订单已结束退款流程但行仍 frozen）
-- **THEN** 定时扫描幂等收敛：退款中订单的 active 行补冻结；已取消回 fulfilled 订单的 frozen 行补解冻；已退款（refunded）订单的 frozen 行按锚相位判定处理；重跑扫描 0 行新增
+- **THEN** 定时扫描幂等收敛：退款中订单的 active 行补冻结；已取消回 fulfilled 订单的 frozen 行补解冻；已退款（refunded）订单的 frozen 行按锚相位判定处理；每次自愈 SHALL 追加 `codes.frozen` / `codes.unfrozen` 事件（键含时间戳，重放不重复）；重跑扫描 0 行新增

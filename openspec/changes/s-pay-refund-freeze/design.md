@@ -24,7 +24,7 @@
 
 - **D1 冻结载体=codes 行 status（含 status_detail）置 frozen**，非读路径派生。理由：领域词汇表与 merge 已预留、规格取消场景明写"解冻"（动作语义）、任何直读 codes 的消费方（admin 视图、设备额度等）自动一致。备选"读路径按订单退款态派生"虽零写入零崩溃窗，但多消费方一致性差且与既有领域设计相悖，否。
 - **D2 冻结范围=该单 active 行**；unused/pending_activation/revoked 不动（前两者本就不可用/无额度）。status 与 status_detail 同步置 frozen，解冻一律还原 active；因冻结不触碰 grant_start/status_detail 排队语义，取消后展示与排队位精确还原（active↔frozen 对偶）。
-- **D3 写序=先 orders CAS 后 codes 写**（冻结与解冻均同序，CAS 输则不触碰码行，与取消竞态天然安全）；由此产生两个半截态由 R1 扫描幂等收敛：S-A=退款中（refund_pending/refund_processing）订单存在 active 行→补冻结；S-B=已取消回 fulfilled 且 refund_status=canceled 的订单存在 frozen 行→补解冻。refunded 订单的 frozen 行不走 S-B（防止把该收回的排队行洗活），归 complete_refund/R3 锚判定管。
+- **D3 写序=先 orders CAS 后 codes 写**（冻结与解冻均同序，CAS 输则不触碰码行，与取消竞态天然安全）；由此产生两个半截态由扫描 F 幂等收敛：S-A=退款中（refund_pending/refund_processing）订单存在 active 行→补冻结；S-B=已取消回 fulfilled 且 refund_status=canceled 的订单存在 frozen 行→补解冻。refunded 订单的 frozen 行不走 S-B（防止把该收回的排队行洗活），归 complete_refund/R3 锚判定管。自愈动账本：每次收敛追加 `codes.frozen`/`codes.unfrozen` 事件，键含秒级时间戳（一单可多轮退款，固定键会吞账；CAS 赢者才记账，重放不重复）。
 - **D4 pg_http/sql CAS 扩展**：`revoke_queued_for_order` 两支 CAS 的 status 条件扩为 `in.(active,frozen)`；已起算恢复复用 `unfreeze_for_order`（frozen→active 无条件 CAS——排队/未激活行已被收回，剩余 frozen 行即已起算行，无需独立方法）。sql（sqlite）repo 同步同语义实现，保持双实现 parity。
 - **D5 展示零后端聚合改动**：`License.merge` 已跳过 frozen；明细端点按行状态透出，前端对 frozen 渲染「退款处理中」徽标（pill-warn 词汇，既有胶囊形态），未知状态按原文渲染防御（statusText/statusSub 双兜底）。
 - **D6 排队计算取"active+frozen 全家族"**：`find_active_by_*`（active-only）喂 tier/设备/授权等可用性消费方保持不变（fail-safe 排除 frozen）；两处激活顺延基准（payments/activate_code、licensing/activate_code）改为 `find_all_by_username` 后按 `status in (active,frozen)` 过滤——冻结行继续占排队位，取消退款后终点不变。
