@@ -68,7 +68,7 @@ watch(() => props.open, (open) => {
         </AppButton>
         <div class="dl-note"><span>macOS 磁盘镜像</span><span>.dmg</span></div>
       </div>
-      <p class="dl-hint">macOS 首次打开若提示无法验证开发者：右键 App → 「打开」</p>
+      <p class="dl-hint">macOS 首次打开若提示无法验证开发者：先点「完成」关掉提示（勿点「移到废纸篓」），再到 系统设置 → 隐私与安全性 点「仍要打开」</p>
       <p class="dl-hint" style="text-align: center; margin-top: 12px">
         <a :href="RELEASES_PAGE_URL" target="_blank" rel="noopener" class="lnk">查看其他版本 →</a>
       </p>
