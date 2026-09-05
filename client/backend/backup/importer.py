@@ -66,7 +66,7 @@ def parse_package(paths: list[str]) -> dict:
         elif kind == "single":
             pn = "project.yaml" if "project.yaml" in names else "project.json"
             proj_data = yaml.safe_load(zf.read(pn))
-            books.append({"name": proj_data.get("name", ""), "path": "/", "source_zip": ps})
+            books.append({"name": proj_data.get("name", ""), "path": "", "source_zip": ps})
         elif kind == "config":
             config_data = yaml.safe_load(zf.read("config.yaml"))
 
@@ -74,12 +74,18 @@ def parse_package(paths: list[str]) -> dict:
 
 
 async def persist_package(db, user_id: str, paths: list[str], include_config: bool = True) -> dict:
-    """逐书落库+可选配置恢复；书为原子单元，失败可单独重试。"""
+    """逐书落库+可选配置恢复；书为原子单元（单书 SAVEPOINT），失败可单独重试。
+
+    书全部落库后执行智能挂回（backup-restore spec）：active 配置唯一→全挂；
+    书内模型名命中恰一个配置→挂之；否则置空待选。
+    """
     results = []
     info = parse_package(paths)
 
     if info["config"] and include_config:
         await _restore_config(db, user_id, info["config"])
+
+    novel_ids: list[str] = []
     for ps in paths:
         p = Path(ps)
         if not p.exists():
@@ -97,40 +103,65 @@ async def persist_package(db, user_id: str, paths: list[str], include_config: bo
                 slug = entry.get("slug", "")
                 book_dir = f"projects/{slug}/"
                 try:
-                    novel_id = await _import_single_book(db, zf, book_dir, user_id)
+                    async with db.begin_nested():
+                        novel_id = await _import_single_book(db, zf, book_dir, user_id)
+                    novel_ids.append(novel_id)
                     results.append({"book_id": book_dir, "status": "ok", "novel_id": novel_id})
                 except Exception:
                     results.append({"book_id": book_dir, "status": "failed"})
         elif kind == "single":
             pn = "project.yaml" if "project.yaml" in set(zf.namelist()) else "project.json"
             try:
-                novel_id = await _import_single_book(db, zf, "/", user_id)
+                async with db.begin_nested():
+                    novel_id = await _import_single_book(db, zf, "", user_id)
+                novel_ids.append(novel_id)
                 results.append({"book_id": pn, "status": "ok", "novel_id": novel_id})
             except Exception:
                 results.append({"book_id": pn, "status": "failed"})
 
-    return {"results": results, "warnings": info.get("warnings", [])}
+    reattach = (
+        await _reattach_configs(db, user_id, novel_ids)
+        if novel_ids
+        else {"mode": "none", "attached": 0}
+    )
+    return {"results": results, "warnings": info.get("warnings", []), "reattach": reattach}
 
 
 async def _import_single_book(db, zf: zipfile.ZipFile, book_dir: str, user_id: str) -> str:
     """从 zip 内目录恢复一本书的全部资产。"""
-    from models.project import Novel
-    from models.volume import Volume, VolumeStage, VolumeConflictLadder, VolumeChapterPlan, VolumeCharacterVoice
-    from models.chapter import Chapter, ChapterContent, ChapterVersion
-    from models.archive import Archive, ChapterPrompt
-    from models.project_setting import ProjectSetting
+    from chapters.store import (
+        _disassemble_scalars,
+        _replace_children,
+    )
     from filesystem.paths import route_relative_path
-    from chapters.store import _disassemble_scalars, _replace_children, count_chars, _derive_outline_status
+    from models.archive import Archive, ChapterPrompt
+    from models.chapter import Chapter, ChapterVersion
+    from models.project import Novel
+    from models.project_setting import ProjectSetting
+    from models.volume import (
+        Volume,
+        VolumeChapterPlan,
+        VolumeCharacterVoice,
+        VolumeConflictLadder,
+        VolumeStage,
+    )
 
     names = set(zf.namelist())
     pn = "project.yaml" if f"{book_dir}project.yaml" in names else "project.json"
     proj_data = yaml.safe_load(zf.read(f"{book_dir}{pn}"))
 
     slug = proj_data.get("slug", f"imp-{uuid.uuid4().hex[:6]}")
+    # 同名书恢复为《书名（备份）》递增命名；slug 冲突同样递增（user+slug 唯一约束）
+    base_name = proj_data.get("name", "导入书")
+    name = await _unique_book_name(db, user_id, base_name)
+    n = 0
+    while await _slug_taken(db, user_id, slug):
+        n += 1
+        slug = f"{slug}-backup{n}"
     root_path = f"./data/{slug}"
 
     novel = Novel(
-        user_id=user_id, name=proj_data.get("name", "导入书"),
+        user_id=user_id, name=name,
         slug=slug, root_path=root_path, source="import",
         current_phase=proj_data.get("current_phase", "write"),
         ai_model=proj_data.get("ai_model", ""),
@@ -217,7 +248,6 @@ async def _import_single_book(db, zf: zipfile.ZipFile, book_dir: str, user_id: s
         # 子表恢复（复用 save_chapter 的拆装逻辑）：在 add/flush 前的 pending 对象上
         # 整体替换子表（_replace_children 含 prose 的 ChapterContent），单次 flush 级联
         # 插入——flush 后再赋值子表会触发懒加载越界
-        from chapters.store import _disassemble_scalars, _replace_children
         _disassemble_scalars(ch, ch_data)
         _replace_children(ch, ch_data)
 
@@ -306,3 +336,73 @@ async def _restore_config(db, user_id: str, config_data: dict) -> dict:
         created += 1
     await db.flush()
     return {"created": created, "skipped": skipped, "user_filled": user_filled}
+
+
+async def _name_taken(db, user_id: str, name: str) -> bool:
+    from models.project import Novel
+
+    return (
+        await db.scalars(
+            select(Novel.id).where(Novel.user_id == user_id, Novel.name == name).limit(1)
+        )
+    ).first() is not None
+
+
+async def _slug_taken(db, user_id: str, slug: str) -> bool:
+    from models.project import Novel
+
+    return (
+        await db.scalars(
+            select(Novel.id).where(Novel.user_id == user_id, Novel.slug == slug).limit(1)
+        )
+    ).first() is not None
+
+
+async def _unique_book_name(db, user_id: str, base_name: str) -> str:
+    """同名书恢复为《书名（备份）》递增命名（backup-restore spec 裁决）。"""
+    name = base_name
+    if not await _name_taken(db, user_id, name):
+        return name
+    name = f"{base_name}（备份）"
+    n = 2
+    while await _name_taken(db, user_id, name):
+        name = f"{base_name}（备份{n}）"
+        n += 1
+    return name
+
+
+async def _reattach_configs(db, user_id: str, novel_ids: list[str]) -> dict:
+    """智能挂回（backup-restore spec）：active 配置唯一→全挂；书内模型名命中恰一个
+    配置→挂之；否则置空待选。幂等：已有挂回的书不重挂。"""
+    from models.api_config import ApiConfig
+    from models.project import Novel
+
+    def _models(c) -> list:
+        try:
+            return json.loads(c.models or "[]")
+        except Exception:
+            return []
+
+    actives = (await db.scalars(
+        select(ApiConfig).where(ApiConfig.user_id == user_id, ApiConfig.status == "active")
+    )).all()
+    attached = 0
+
+    if len(actives) == 1:
+        mode = "unique_active"
+        for nid in novel_ids:
+            novel = await db.get(Novel, nid)
+            if novel and not novel.api_config_id:
+                novel.ai_config_id = actives[0].id
+                attached += 1
+    else:
+        mode = "by_model"
+        for nid in novel_ids:
+            novel = await db.get(Novel, nid)
+            if not novel or novel.ai_config_id or not novel.ai_model:
+                continue
+            hits = [c for c in actives if novel.ai_model in _models(c)]
+            if len(hits) == 1:
+                novel.ai_config_id = hits[0].id
+                attached += 1
+    return {"mode": mode, "attached": attached}
