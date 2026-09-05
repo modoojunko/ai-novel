@@ -94,7 +94,8 @@ jobs:
 
       # ── key 指纹探针②：job 注入视角的 secret（对照 GitHub 侧存储）──
       - name: 指纹·secret 注入视角
-        run: python3 -c "
+        run: |
+          python3 -c "
           import os, hashlib
           k = os.environ['TCB_API_KEY']
           print(f'fingerprint stage=secret-injected len={len(k)} tail4={k[-4:]} sha256={hashlib.sha256(k.encode()).hexdigest()}')
