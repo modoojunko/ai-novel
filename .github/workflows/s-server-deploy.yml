@@ -81,6 +81,27 @@ jobs:
           }
           EOF
 
+      # ── key 指纹探针①：生成配置中的 DB key（只打哈希与长度，绝不落 key 本体）──
+      # 与 secret 指纹（job 开头）、CloudBase 存储指纹（部署后）、运行时指纹
+      # （CLS event=env_fingerprint）四点对拍，任一环节字符被转译/替换即当场定位。
+      - name: 指纹·生成配置中的 DB key
+        run: |
+          python3 -c "
+          import json, hashlib
+          k = json.load(open('server/cloudbaserc.json'))['cloudrun']['envParams']['TCB_PG_API_KEY']
+          print(f'fingerprint stage=generated len={len(k)} tail4={k[-4:]} sha256={hashlib.sha256(k.encode()).hexdigest()}')
+          "
+
+      # ── key 指纹探针②：job 注入视角的 secret（对照 GitHub 侧存储）──
+      - name: 指纹·secret 注入视角
+        run: python3 -c "
+          import os, hashlib
+          k = os.environ['TCB_API_KEY']
+          print(f'fingerprint stage=secret-injected len={len(k)} tail4={k[-4:]} sha256={hashlib.sha256(k.encode()).hexdigest()}')
+          "
+        env:
+          TCB_API_KEY: ${{ secrets.TCB_API_KEY }}
+
       # 密钥文件：secrets 值写为部署包内文件（wechatpayv3 读 PEM 内容，
       # 私钥/公钥经 secrets 传递，不进 git）；wxpay 未启用时 secrets 为空，
       # 写空文件无副作用（mock 模式不读）
@@ -104,6 +125,22 @@ jobs:
       - name: 部署后端（novel-s-server）
         # printf 回答灰度提问（No=部署成功后自动切换流量）；--wait 等待构建完成
         run: printf 'n\n' | tcb cloudrun deploy --service-name novel-s-server --source ./server --env-id ${{ vars.TCB_ENV_ID }} --force --wait
+
+      # ── key 指纹探针③：CloudBase 存储侧（部署落库后的 EnvParams 读回）──
+      # 与探针①（生成配置）不一致 ⇒ 字符在 tcb CLI/云 API 传输或 CloudBase 存储环节被转译/替换
+      - name: 指纹·CloudBase 存储的 DB key
+        run: |
+          tcb cloudrun detail -e ${{ vars.TCB_ENV_ID }} -s novel-s-server 2>&1 | python3 -c "
+          import sys, json, re, hashlib
+          raw = sys.stdin.read()
+          d = json.loads(re.search(r'\{.*\}', raw, re.S).group(0))
+          env = d['ServerConfig']['EnvParams']
+          if isinstance(env, str):
+              env = json.loads(env)
+          key = env['TCB_PG_API_KEY']
+          digest = hashlib.sha256(key.encode()).hexdigest()
+          print('fingerprint stage=cloudbase-stored len=%d tail4=%s sha256=%s' % (len(key), key[-4:], digest))
+          "
 
       # 09-04 事故教训：新版本对服务配置（env/规格）的继承曾整体失灵，全量 401 到
       # PG 数据面；check-auth 不碰 DB 测不出来，必须探 skus（读 SKU 表走 pg_http）。
