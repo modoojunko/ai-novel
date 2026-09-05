@@ -80,7 +80,6 @@ async def persist_package(db, user_id: str, paths: list[str], include_config: bo
 
     if info["config"] and include_config:
         await _restore_config(db, user_id, info["config"])
-
     for ps in paths:
         p = Path(ps)
         if not p.exists():
@@ -117,7 +116,7 @@ async def _import_single_book(db, zf: zipfile.ZipFile, book_dir: str, user_id: s
     """从 zip 内目录恢复一本书的全部资产。"""
     from models.project import Novel
     from models.volume import Volume, VolumeStage, VolumeConflictLadder, VolumeChapterPlan, VolumeCharacterVoice
-    from models.chapter import Chapter, ChapterContent
+    from models.chapter import Chapter, ChapterContent, ChapterVersion
     from models.archive import Archive, ChapterPrompt
     from models.project_setting import ProjectSetting
     from filesystem.paths import route_relative_path
@@ -200,8 +199,10 @@ async def _import_single_book(db, zf: zipfile.ZipFile, book_dir: str, user_id: s
         ch_id = str(uuid.uuid4())
 
         vol_no = ch_data.get("volume", 1)
-        vol = await db.scalars(
-            select(Volume).where(Volume.project_id == novel.id, Volume.volume_no == vol_no)
+        vol = (
+            await db.scalars(
+                select(Volume).where(Volume.project_id == novel.id, Volume.volume_no == vol_no)
+            )
         ).first()
         vol_id = vol.id if vol else None
 
@@ -212,20 +213,16 @@ async def _import_single_book(db, zf: zipfile.ZipFile, book_dir: str, user_id: s
             ref=ref, title=ch_data.get("title", ""), chapter_no=ref.count("ch-") and int(ref.rsplit("ch-", 1)[-1].split("-")[0].split(".")[0] or 1),
             status=status, word_count=len(prose), has_prose=bool(prose.strip()),
         )
-        db.add(ch)
-        await db.flush()
 
-        content = ChapterContent(chapter_id=ch_id, prose=prose)
-        db.add(content)
-
-        # 子表恢复（复用 save_chapter 的拆装逻辑）
+        # 子表恢复（复用 save_chapter 的拆装逻辑）：在 add/flush 前的 pending 对象上
+        # 整体替换子表（_replace_children 含 prose 的 ChapterContent），单次 flush 级联
+        # 插入——flush 后再赋值子表会触发懒加载越界
         from chapters.store import _disassemble_scalars, _replace_children
         _disassemble_scalars(ch, ch_data)
-        from chapters.store import _CHILD_ATTRS
-        for attr in _CHILD_ATTRS:
-            getattr(ch, attr).clear()
-        await db.flush()
         _replace_children(ch, ch_data)
+
+        db.add(ch)
+        await db.flush()
 
         # 版本快照
         for vn in sorted(n for n in names if n.startswith(f"{book_dir}versions/{ref}/")):
@@ -248,3 +245,64 @@ async def _import_single_book(db, zf: zipfile.ZipFile, book_dir: str, user_id: s
 
     await db.flush()
     return str(novel.id)
+
+
+async def _restore_config(db, user_id: str, config_data: dict) -> dict:
+    """配置包恢复（backup-restore spec 裁决）：user 子集只补空、api_configs 同名跳过不覆盖。
+
+    包内 api_key 为导出端明文，落库前经 encrypt_api_key 重加密。
+    返回摘要 {created, skipped, user_filled} 供恢复摘要透出。
+    """
+    from api_configs.crypto import encrypt_api_key
+    from models.api_config import ApiConfig
+    from models.user import User
+
+    created = skipped = 0
+    user_filled: list[str] = []
+
+    user = await db.get(User, user_id)
+    if user is None:
+        raise ValueError("user_not_found")
+
+    # user 子集：只补空（不覆盖已有值——legacy AI 三件套 + display_name）
+    u = config_data.get("user") or {}
+    for field in ("display_name", "api_key", "api_base_url", "api_model"):
+        incoming = u.get(field) or ""
+        current = getattr(user, field) or ""
+        if incoming and not current:
+            setattr(user, field, incoming)
+            user_filled.append(field)
+    await db.flush()
+
+    # api_configs：同名跳过不覆盖；密钥重加密；时间字段容错落 None
+    existing = {
+        c.name
+        for c in (
+            await db.scalars(select(ApiConfig).where(ApiConfig.user_id == user_id))
+        ).all()
+    }
+    for c in config_data.get("api_configs") or []:
+        name = c.get("name") or ""
+        if name in existing:
+            skipped += 1
+            continue
+        models_updated_at = None
+        if c.get("models_updated_at"):
+            try:
+                models_updated_at = datetime.fromisoformat(c["models_updated_at"])
+            except ValueError:
+                models_updated_at = None
+        db.add(ApiConfig(
+            user_id=user_id,
+            name=name,
+            vendor=c.get("vendor") or "",
+            vendor_display_name=c.get("vendor_display_name") or "",
+            vendor_override=c.get("vendor_override") or None,
+            api_key=encrypt_api_key(c.get("api_key") or ""),
+            base_url=c.get("base_url") or "",
+            models=c.get("models") or None,
+            models_updated_at=models_updated_at,
+        ))
+        created += 1
+    await db.flush()
+    return {"created": created, "skipped": skipped, "user_filled": user_filled}
