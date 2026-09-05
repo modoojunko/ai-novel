@@ -346,3 +346,13 @@ modalAi/modalPrefs 标记与 CSS 在 PR 3/PR 4 已随屏落地（spec-report §6
 5. **⋯ 菜单删除色归位 err**：原型按设计语言 N6 画 err；现网 list.css 误用 warn，属顺手修正项（实现 PR 内同步）。
 
 6. **敏感四层视觉**：勾选时就地 warn（L1）/完成页钥匙 warn（L2）/产物文件名自标识（L3）/恢复预览掩码+块级取消勾选（L4）——均为新屏内容，无现网对照。
+
+## 模型配置弹窗加宽（config-modal-input-width，2026-09-05）
+
+7. **model-config.html `#modalConfig .mcard` 460 → 520px（仅此弹窗，其余维持 460 家族档）**
+   选供应商自动预填的 Base URL 最长 49 字符（Qwen `https://dashscope.aliyuncs.com/compatible-mode/v1`），
+   13px 等宽需 382px，460px 弹窗的等宽文本区仅 384px——1.8px 卡线，真实环境字体度量稍宽即截断
+   （用户实测「输入框不够长」）；API Key 常见 40-60 字符同样看不全。520px 提供约 444px 文本区，
+   URL 稳放、≤55 字符 Key 全程可见（更长 Key 属密码框固有滚动，不追）。
+   parity：本屏 parity 只截 configs/empty 页面级两场景，弹窗不进基线，零漂移；
+   实现侧 `ApiConfigForm` Modal width 460→520 同步。

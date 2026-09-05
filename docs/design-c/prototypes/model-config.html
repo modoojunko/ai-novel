@@ -139,6 +139,9 @@
   .modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; }
   .modal .mcard { width: min(460px, 92vw); max-height: calc(100vh - 48px); overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); transform: translateY(8px) scale(0.98); opacity: 0; transition: transform 0.18s ease, opacity 0.18s ease; }
   .modal.show .mcard { transform: none; opacity: 1; }
+  /* 添加/编辑弹窗加宽（ADJUSTMENTS.md 登记项）：Base URL 预填最长 49 字符（Qwen）与
+     API Key（40-60 字符）在 460px 弹窗的 388px 等宽文本区放不下，520px 提供 448px */
+  #modalConfig .mcard { width: min(520px, 92vw); }
   .mcard-head { display: flex; align-items: center; padding: 20px 24px 0; }
   .mcard-head .mh { font-family: var(--font-display); font-size: 17px; font-weight: 600; }
   .mcard-head .x { margin-left: auto; }
