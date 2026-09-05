@@ -19,7 +19,7 @@ export interface ApiConfigFormData {
   api_key: string;
 }
 
-/** 添加/编辑配置弹窗（model-config.html modalConfig 原样：460px、vgrid 供应商格、编辑态 vfix） */
+/** 添加/编辑配置弹窗（model-config.html modalConfig 原样：520px（ADJUSTMENTS 登记加宽）、vgrid 供应商格、编辑态 vfix） */
 export function ApiConfigForm({ open, config, onSubmit, onCancel, onTest }: ApiConfigFormProps) {
   const isEdit = !!config;
   const [name, setName] = useState(config?.name || "");
@@ -109,7 +109,7 @@ export function ApiConfigForm({ open, config, onSubmit, onCancel, onTest }: ApiC
       open={open}
       onClose={onCancel}
       locked={saving}
-      width={460}
+      width={520}
       title={isEdit ? "编辑配置" : "添加 API Key"}
       footer={
         <>
