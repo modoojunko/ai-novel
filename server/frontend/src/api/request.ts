@@ -94,7 +94,10 @@ request.interceptors.response.use(
       handleUnauthorized()
     }
     const msg = error.response?.data?.msg || (error.response ? '服务器错误' : '网络连接失败')
-    return Promise.reject(new Error(msg))
+    // 把 HTTP status 挂到 Error 上：调用方需区分限频 429 等传输层语义（message 可能不含状态码）
+    const err = new Error(msg) as Error & { status?: number }
+    err.status = error.response?.status
+    return Promise.reject(err)
   }
 )
 

@@ -33,6 +33,8 @@ test.describe('OAuth 设备授权页 (/auth)', () => {
 
   test('底部有注册链接', async ({ page }) => {
     await page.goto('/auth?pc_hash=test_hash_123')
-    await expect(page.locator('a[href="/register"]').first()).toBeVisible()
+    // 注册链接须携带授权 query（pc_hash 等）：注册成功后回 /auth 续完授权流，不丢上下文
+    await expect(page.locator('a[href*="/register"]').first()).toBeVisible()
+    await expect(page.locator('a[href*="pc_hash=test_hash_123"]').first()).toBeVisible()
   })
 })

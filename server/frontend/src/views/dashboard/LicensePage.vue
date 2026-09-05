@@ -9,6 +9,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppModal from '@/components/ui/AppModal.vue'
+import { tierName } from '@/constants/tiers'
 import {
   apiPayActivate, apiPayLicense, apiPayLicenseCodes, fmtBj,
   DEFAULT_LICENSE_TAB, LICENSE_TABS, licenseTabFromQuery,
@@ -100,10 +101,6 @@ watch(() => route.query.tab, (v) => {
 // 切 tab（switchTab）与 URL 还原两条路径的刷新都收敛到这里
 watch(activeTab, () => fetchPage(true))
 
-const TIER_NAMES: Record<string, string> = { trial: '试用', pro: 'PRO', max: 'MAX', lifetime: '永久' }
-function tierName(tier: string): string {
-  return TIER_NAMES[tier] || tier
-}
 function durationLabel(g: LicenseCode): string {
   return g.duration_days >= 36500 ? '永久' : `${g.duration_days} 天`
 }
