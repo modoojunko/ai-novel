@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import AppInput from '@/components/ui/AppInput.vue'
 import { SECURITY_QUESTIONS } from "@/constants/security-questions"
@@ -9,6 +9,7 @@ import Ico from '@/components/ui/Ico.vue'
 import { P } from '@/components/ui/icons'
 
 const router = useRouter()
+const route = useRoute()
 const session = useSessionStore()
 
 const username = ref('')
@@ -61,7 +62,12 @@ async function handleRegister() {
   const question = showCustomInput.value ? customQuestion.value : securityQuestion.value
   const result = await session.register(username.value, password.value, question, securityAnswer.value)
   if (result.ok) {
-    router.push('/dashboard')
+    // 设备授权流进来的注册：带原 query 回 /auth 完成绑定，不丢授权上下文
+    if (route.query.pc_hash) {
+      router.push({ path: '/auth', query: route.query })
+    } else {
+      router.push('/dashboard')
+    }
   } else {
     errorMsg.value = result.msg || '注册失败'
   }

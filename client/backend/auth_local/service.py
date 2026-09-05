@@ -47,6 +47,24 @@ def _get_public_server_api() -> str:
     )
 
 
+def _build_auth_url(public_api: str, pc_hash: str, pc_name: str, device_profile: str) -> str:
+    """授权页地址：由 S端 前端 /auth 唯一承载（后端内联页已删除）。
+
+    从 API 基址剥掉 /api 得 web origin；配置为自定义子路径（无 /api 后缀）
+    时保持原样——该形态下宿主域名本就没有 SPA，属配置约束。
+    device_profile 为 URL-safe Base64（无 padding），query 可原样拼接。
+    """
+    web_origin = public_api.rstrip("/")
+    if web_origin.endswith("/api"):
+        web_origin = web_origin[: -len("/api")]
+    return (
+        f"{web_origin}/auth"
+        f"?pc_hash={pc_hash}"
+        f"&pc_name={urllib.parse.quote(pc_name)}"
+        f"&device_profile={device_profile}"
+    )
+
+
 def _get_server_api_fallback() -> str:
     """S端 兜底基址：自定义域名解析抖动时 call_server_api 自动切直连。
 
@@ -331,12 +349,7 @@ async def browser_auth(silent: bool = False) -> dict:
 
     # 构造授权页 URL（宿主可访问地址，由前端在宿主浏览器打开）
     pc_name = cfg.get("pc_name", "")
-    auth_url = (
-        f"{_get_public_server_api()}/auth-page"
-        f"?pc_hash={pc_hash}"
-        f"&pc_name={urllib.parse.quote(pc_name)}"
-        f"&device_profile={device_profile}"
-    )
+    auth_url = _build_auth_url(_get_public_server_api(), pc_hash, pc_name, device_profile)
     return {"code": 1, "data": {"auth_url": auth_url, "message": "请在浏览器中完成登录"}}
 
 
