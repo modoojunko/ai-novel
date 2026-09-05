@@ -349,7 +349,7 @@ modalAi/modalPrefs 标记与 CSS 在 PR 3/PR 4 已随屏落地（spec-report §6
 
 ## 模型配置弹窗加宽（config-modal-input-width，2026-09-05）
 
-7. **model-config.html `#modalConfig .mcard` 460 → 520px（仅此弹窗，其余维持 460 家族档）**
+9. **model-config.html `#modalConfig .mcard` 460 → 520px（仅此弹窗，其余维持 460 家族档）**
    选供应商自动预填的 Base URL 最长 49 字符（Qwen `https://dashscope.aliyuncs.com/compatible-mode/v1`），
    13px 等宽需 382px，460px 弹窗的等宽文本区仅 384px——1.8px 卡线，真实环境字体度量稍宽即截断
    （用户实测「输入框不够长」）；API Key 常见 40-60 字符同样看不全。520px 提供约 444px 文本区，
