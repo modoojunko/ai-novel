@@ -187,12 +187,32 @@ jobs:
           path: client/packaging/dist/AI_Novel_Setup_*.exe
 
       # ── macOS 专属：签名 + DMG ──
-      - name: Codesign app (ad-hoc)
+      # 用户拍板：用自签证书 awesome-novel-design 签名（非 ad-hoc），
+      # 证书 .p12 从 GitHub Secret MACOS_SIGNING_CERT_P12 解码导入。
+      - name: Import signing certificate
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          CERT_P12: ${{ secrets.MACOS_SIGNING_CERT_P12 }}
+          CERT_P12_PASSWORD: ${{ secrets.MACOS_SIGNING_CERT_P12_PASSWORD }}
+        run: |
+          KEYCHAIN="build.keychain-db"
+          security create-keychain -p "ci-build-tmp" "$KEYCHAIN"
+          security default-keychain -s "$KEYCHAIN"
+          security unlock-keychain -p "ci-build-tmp" "$KEYCHAIN"
+          echo "$CERT_P12" | base64 -d > cert.p12
+          security import cert.p12 -k "$KEYCHAIN" -P "$CERT_P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "ci-build-tmp" "$KEYCHAIN"
+          security find-identity -v -p codesigning "$KEYCHAIN"
+
+      - name: Codesign app (certificate)
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          # arm64 必须签名才能执行；无 Apple Developer 证书用 ad-hoc（-）
-          codesign --force --deep --sign - "client/packaging/build/dist/AI Novel.app"
+          KEYCHAIN="build.keychain-db"
+          security unlock-keychain -p "ci-build-tmp" "$KEYCHAIN"
+          codesign --force --deep --sign "awesome-novel-design" --keychain "$KEYCHAIN" "client/packaging/build/dist/AI Novel.app"
+          codesign -v --deep "client/packaging/build/dist/AI Novel.app"
 
       - name: Smoke test (.app — backend + SPA)
         if: runner.os == 'macOS'
