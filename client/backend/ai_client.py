@@ -36,20 +36,30 @@ class AIClient:
     """
 
     def __init__(
-        self, api_key: str = "", base_url: str = "", model: str = "deepseek-v4-flash"
+        self,
+        api_key: str = "",
+        base_url: str = "",
+        model: str = "deepseek-v4-flash",
+        api_format: str | None = None,
     ):
         self._provider = "anthropic"  # default
         self._client: Any | None = None
         self._model = model
-        self._init_client(api_key, base_url)
+        self._init_client(api_key, base_url, api_format)
 
-    def _init_client(self, api_key: str, base_url: str):
-        """Initialize the underlying API client with the given credentials."""
+    def _init_client(self, api_key: str, base_url: str, api_format: str | None = None):
+        """Initialize the underlying API client with the given credentials.
+
+        api_format 显式优先（"openai" | "anthropic"）；None 时退回旧版行为：
+        按 base_url 含 "anthropic" 推断（存量 User.api_key / config.json 兜底路径
+        无格式信息，保持原推断）。
+        """
         if not api_key:
             raise ValueError("未配置 API Key，请在设置页面填写")
 
-        # 根据 base_url 推断 API 格式
-        if "anthropic" in base_url.lower():
+        if api_format == "anthropic" or (
+            api_format is None and "anthropic" in base_url.lower()
+        ):
             self._provider = "anthropic"
             kwargs = {"api_key": api_key}
             if base_url:
@@ -219,6 +229,7 @@ async def get_ai_client_for_user(user_id: str | None = None) -> AIClient:
                             api_key=plain_key,
                             base_url=cfg.base_url,
                             model=model or "",
+                            api_format=getattr(cfg, "api_format", None),
                         )
 
                 # Fallback: old User.api_key (migration period)
@@ -255,6 +266,7 @@ async def get_ai_client_for_user(user_id: str | None = None) -> AIClient:
                             api_key=plain_key,
                             base_url=cfg.base_url,
                             model=model,
+                            api_format=getattr(cfg, "api_format", None),
                         )
 
                 # Fallback: any user with old api_key

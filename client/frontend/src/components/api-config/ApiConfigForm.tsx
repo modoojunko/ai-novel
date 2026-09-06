@@ -2,7 +2,8 @@ import { useState } from "react";
 import type { ApiConfig } from "../../types/api-config";
 import Modal from "../design/Modal";
 import { Ico, P } from "../icons";
-import { VENDORS, VENDOR_LABELS, VendorGlyph } from "./ProviderIcon";
+import { FORMAT_PLACEHOLDER, VENDOR_FORMAT_LOCK, VENDORS, VENDOR_LABELS, VendorGlyph } from "./ProviderIcon";
+import type { ApiFormat } from "../../types/api-config";
 
 interface ApiConfigFormProps {
   open: boolean;
@@ -17,6 +18,7 @@ export interface ApiConfigFormData {
   vendor_id: string;
   base_url: string;
   api_key: string;
+  api_format: ApiFormat;
 }
 
 /** 添加/编辑配置弹窗（model-config.html modalConfig 原样：520px（ADJUSTMENTS 登记加宽）、vgrid 供应商格、编辑态 vfix） */
@@ -24,6 +26,7 @@ export function ApiConfigForm({ open, config, onSubmit, onCancel, onTest }: ApiC
   const isEdit = !!config;
   const [name, setName] = useState(config?.name || "");
   const [vendorId, setVendorId] = useState(config?.vendor || "");
+  const [apiFormat, setApiFormat] = useState<ApiFormat>(config?.api_format || "openai");
   const [baseUrl, setBaseUrl] = useState(config?.base_url || "");
   const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
@@ -38,17 +41,28 @@ export function ApiConfigForm({ open, config, onSubmit, onCancel, onTest }: ApiC
     setTrackedKey(formKey);
     setName(config?.name || "");
     setVendorId(config?.vendor || "");
+    setApiFormat(config?.api_format || "openai");
     setBaseUrl(config?.base_url || "");
     setApiKey("");
     setError(null);
     setTestResult(null);
   }
 
+  // 接口格式锁定矩阵：单格式厂商锁定（openai/anthropic/ollama），双格式可切换
+  const formatLock = VENDOR_FORMAT_LOCK[vendorId as keyof typeof VENDOR_FORMAT_LOCK];
+
+  // 拍板（09-06）：URL 不预填——选供应商、切格式都不改动输入框，仅联动格式与占位
   const handleVendorSelect = (id: string) => {
     if (isEdit) return;
     setVendorId(id);
-    const v = VENDORS.find((x) => x.id === id);
-    setBaseUrl(v && v.baseUrl ? v.baseUrl : "");
+    const lock = VENDOR_FORMAT_LOCK[id as keyof typeof VENDOR_FORMAT_LOCK];
+    if (lock) setApiFormat(lock);
+    setTestResult(null);
+  };
+
+  const handleFormatSelect = (fmt: ApiFormat) => {
+    if (formatLock || fmt === apiFormat) return;
+    setApiFormat(fmt);
     setTestResult(null);
   };
 
@@ -73,6 +87,7 @@ export function ApiConfigForm({ open, config, onSubmit, onCancel, onTest }: ApiC
         vendor_id: vendorId,
         base_url: baseUrl.trim(),
         api_key: apiKey,
+        api_format: apiFormat,
       });
       setTestResult({ ok: r.ok, message: r.ok ? "连接正常" : r.error || "测试失败" });
     } catch {
@@ -89,7 +104,7 @@ export function ApiConfigForm({ open, config, onSubmit, onCancel, onTest }: ApiC
     if (err) return;
     setSaving(true);
     try {
-      await onSubmit({ name: name.trim(), vendor_id: vendorId, base_url: baseUrl.trim(), api_key: apiKey });
+      await onSubmit({ name: name.trim(), vendor_id: vendorId, base_url: baseUrl.trim(), api_key: apiKey, api_format: apiFormat });
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存失败");
     } finally {
@@ -178,15 +193,37 @@ export function ApiConfigForm({ open, config, onSubmit, onCancel, onTest }: ApiC
           )}
         </div>
         <div className="field">
-          <label htmlFor="cfBase">
-            Base URL <span className="req">*</span>
-          </label>
+          <div className="label-row">
+            <label htmlFor="cfBase">
+              Base URL <span className="req">*</span>
+            </label>
+            <div className={"seg" + (formatLock ? " lock" : "")} role="group" aria-label="接口格式">
+              <button
+                type="button"
+                className={apiFormat === "openai" ? "on" : ""}
+                disabled={!!formatLock && formatLock !== "openai"}
+                aria-pressed={apiFormat === "openai"}
+                onClick={() => handleFormatSelect("openai")}
+              >
+                OpenAI 格式
+              </button>
+              <button
+                type="button"
+                className={apiFormat === "anthropic" ? "on" : ""}
+                disabled={!!formatLock && formatLock !== "anthropic"}
+                aria-pressed={apiFormat === "anthropic"}
+                onClick={() => handleFormatSelect("anthropic")}
+              >
+                Anthropic 格式
+              </button>
+            </div>
+          </div>
           <input
             className="input mono"
             id="cfBase"
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder="https://api.openai.com"
+            placeholder={FORMAT_PLACEHOLDER[apiFormat]}
             disabled={saving}
           />
         </div>

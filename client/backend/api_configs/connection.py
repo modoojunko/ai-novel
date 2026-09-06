@@ -1,24 +1,30 @@
-"""Connection testing — vendor-specific health check.
+"""Connection testing — protocol-based health check.
 
-Each vendor's model-list endpoint is used as a lightweight connectivity
-probe.  The response is parsed to extract available model IDs where
-possible, otherwise just success/failure is reported.
+探测按接口格式（api_format：openai | anthropic）构造，不再按 vendor 一一分支；
+vendor 只保留 ollama 特例（本地服务、免 Key、自有 tags 端点）。
+models 端点缺失（部分 Anthropic 兼容端点不提供列表）时降级为一条
+max_tokens=1 的最小请求验证鉴权。
 """
 
 from __future__ import annotations
 
 import os
+import re
 from typing import Any
 
 import httpx
 
 CONNECTION_TEST_TIMEOUT = int(os.environ.get("API_CONFIG_TEST_TIMEOUT", "10"))
 
+# 降级探活请求的占位 model：仅验证鉴权与可达性，端点校验 model 在鉴权之后
+_ANTHROPIC_PROBE_MODEL = "claude-sonnet-4-20250514"
+
 
 async def test_connection(
     vendor_id: str,
     api_key: str,
     base_url: str,
+    api_format: str = "openai",
     timeout: int = CONNECTION_TEST_TIMEOUT,
 ) -> dict[str, Any]:
     """Test connectivity to a vendor's API.
@@ -40,18 +46,26 @@ async def test_connection(
             "error": "API Key 为空，请填写后再测试",
         }
 
-    endpoint, headers, extract_fn = _build_probe(vendor_id, api_key, base_url)
-    if endpoint is None:
-        return {
-            "ok": False,
-            "status": "network_error",
-            "models": None,
-            "error": "不支持的供应商",
-        }
+    endpoint, headers, extract_fn, fallback = _build_probe(
+        api_format, vendor_id, api_key, base_url
+    )
 
     try:
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
             resp = await client.get(endpoint, headers=headers)
+            if resp.status_code == 404 and fallback is not None:
+                # models 端点不存在 → 降级最小请求验证鉴权；仅 401/403 判鉴权失败
+                f_url, f_headers, f_payload = fallback
+                resp = await client.post(f_url, headers=f_headers, json=f_payload)
+                if resp.status_code in (401, 403):
+                    detail = _extract_error_detail(resp)
+                    return {
+                        "ok": False,
+                        "status": "auth_error",
+                        "models": None,
+                        "error": f"认证失败 (HTTP {resp.status_code}){detail}",
+                    }
+                return {"ok": True, "status": "ok", "models": [], "error": None}
     except httpx.TimeoutException:
         return {"ok": False, "status": "timeout", "models": None, "error": "连接超时"}
     except httpx.ConnectError:
@@ -105,78 +119,62 @@ async def test_connection(
     return {"ok": True, "status": "ok", "models": models, "error": None}
 
 
-# ── Vendor-specific probe builders ──────────────────────────────────────────
+# ── Protocol-based probe builder ────────────────────────────────────────────
+
+
+def _openai_models_url(base: str) -> str:
+    """OpenAI 格式探测端点：base 自带版本段（/v1、/v4、compatible-mode/v1）
+    直接拼 /models；裸域名按 OpenAI 官方惯例补 /v1/models。"""
+    return f"{base}/models" if re.search(r"/v\d+$", base) else f"{base}/v1/models"
 
 
 def _build_probe(
-    vendor_id: str, api_key: str, base_url: str
-) -> tuple[str | None, dict[str, str], Any]:
-    """Return (endpoint_url, headers, response_extractor)."""
+    api_format: str, vendor_id: str, api_key: str, base_url: str
+) -> tuple[str, dict[str, str], Any, tuple[str, dict[str, str], dict[str, Any]] | None]:
+    """Return (endpoint_url, headers, response_extractor, auth_fallback).
+
+    auth_fallback = (url, headers, payload)：models 端点 404 时的降级探活请求，
+    仅 anthropic 格式提供（部分兼容端点不提供模型列表）。
+    """
     base = base_url.rstrip("/")
 
-    if vendor_id == "openai":
-        url = "https://api.openai.com/v1/models"
-        headers = {"Authorization": f"Bearer {api_key}"}
-        return url, headers, _extract_openai_models
-
-    if vendor_id == "anthropic":
-        url = "https://api.anthropic.com/v1/models"
-        headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01"}
-        return url, headers, _extract_anthropic_models
-
-    if vendor_id == "deepseek":
-        url = f"{base}/v1/models"
-        headers = {"Authorization": f"Bearer {api_key}"}
-        return url, headers, _extract_openai_models  # OpenAI-compatible
-
-    if vendor_id == "glm":
-        # GLM uses OpenAI-compatible endpoint
-        url = f"{base}/models"
-        headers = {"Authorization": f"Bearer {api_key}"}
-        return url, headers, _extract_openai_models
-
-    if vendor_id == "kimi":
-        url = f"{base}/models"
-        headers = {"Authorization": f"Bearer {api_key}"}
-        return url, headers, _extract_openai_models
-
-    if vendor_id == "qwen":
-        url = f"{base}/models"
-        headers = {"Authorization": f"Bearer {api_key}"}
-        return url, headers, _extract_openai_models
-
+    # ollama 特例：本地服务、免 Key、自有 tags 端点，不按任一协议探测
     if vendor_id == "ollama":
         url = "http://localhost:11434/api/tags"
-        # When base_url differs from default, honour it
         if "localhost" not in base and base != "http://localhost:11434":
             url = f"{base}/api/tags"
-        headers = {}
-        return url, headers, _extract_ollama_models
+        return url, {}, _extract_ollama_models, None
 
-    if vendor_id == "openai-compat":
-        url = f"{base}/models"
-        headers = {"Authorization": f"Bearer {api_key}"}
-        return url, headers, _extract_openai_models
+    if api_format == "anthropic":
+        # Anthropic SDK 惯例：base 不带 /v1（SDK 自拼 /v1/messages），
+        # 用户粘贴以 /v1 结尾的 base 时先剥防双拼
+        base = base.removesuffix("/v1")
+        headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01"}
+        fallback = (
+            f"{base}/v1/messages",
+            dict(headers),
+            {
+                "model": _ANTHROPIC_PROBE_MODEL,
+                "max_tokens": 1,
+                "messages": [{"role": "user", "content": "ping"}],
+            },
+        )
+        return f"{base}/v1/models", headers, _extract_openai_models, fallback
 
-    return None, {}, lambda _: []
+    # openai 格式（OpenAI 官方 / DeepSeek / GLM / Kimi / Qwen / 兼容端点）
+    return (
+        _openai_models_url(base),
+        {"Authorization": f"Bearer {api_key}"},
+        _extract_openai_models,
+        None,
+    )
 
 
 # ── Response extractors ────────────────────────────────────────────────────
 
 
 def _extract_openai_models(resp: httpx.Response) -> list[str]:
-    """Extract model IDs from OpenAI-compatible /models response."""
-    try:
-        data = resp.json()
-        return [
-            m["id"] for m in data.get("data", []) if isinstance(m, dict) and m.get("id")
-        ]
-    except (KeyError, TypeError, ValueError):
-        return []
-
-
-def _extract_anthropic_models(resp: httpx.Response) -> list[str]:
-    """Extract model IDs from Anthropic /v1/models response."""
+    """Extract model IDs from OpenAI/Anthropic /models response (data[].id)."""
     try:
         data = resp.json()
         return [

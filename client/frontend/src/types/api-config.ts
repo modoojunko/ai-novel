@@ -1,4 +1,5 @@
 export type VendorId = 'openai' | 'anthropic' | 'deepseek' | 'glm' | 'kimi' | 'qwen' | 'ollama' | 'openai-compat';
+export type ApiFormat = 'openai' | 'anthropic';
 export type ConnectionStatus = 'ok' | 'auth_error' | 'timeout' | 'network_error' | 'rate_limited' | 'unknown' | 'untested';
 export type ModelStatus = 'no_key' | 'no_model' | 'configured' | 'invalid';
 export type ChangeType = 'initial' | 'switch' | 'clear' | 'restore';
@@ -8,6 +9,7 @@ export interface ApiConfig {
   name: string;
   vendor: VendorId;
   vendor_display_name: string;
+  api_format: ApiFormat;
   base_url: string;
   api_key_masked: string;
   status: string;

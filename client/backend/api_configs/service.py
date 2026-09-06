@@ -31,6 +31,7 @@ async def create_api_config(
     base_url: str,
     api_key: str = "",
     vendor_override: str | None = None,
+    api_format: str | None = None,
 ) -> dict[str, Any]:
     """Create a new ApiConfig. Returns the created config as a dict."""
     # Check name uniqueness
@@ -45,12 +46,24 @@ async def create_api_config(
         base_url, vendor_override
     )
 
+    # api_format 未显式传（旧前端）时按旧版运行时推断兜底，行为等价
+    resolved_format = (
+        api_format
+        if api_format
+        else (
+            "anthropic"
+            if vendor_id == "anthropic" or "anthropic" in base_url.lower()
+            else "openai"
+        )
+    )
+
     config = ApiConfig(
         user_id=user_id,
         name=name,
         vendor=resolved_vendor_id,
         vendor_display_name=resolved_display_name,
         vendor_override=vendor_override,
+        api_format=resolved_format,
         api_key=encrypt_api_key(api_key),
         base_url=base_url,
         status="active",
@@ -103,6 +116,7 @@ async def test_api_config(
         vendor_id=config.vendor,
         api_key=plain_key,
         base_url=config.base_url,
+        api_format=getattr(config, "api_format", None) or "openai",
     )
 
     # Persist results
@@ -145,20 +159,35 @@ async def update_api_config(
             raise ValueError("名称已被使用")
 
     # Apply updates
+    old_api_format = config.api_format
     if "api_key" in updates:
         updates["api_key"] = encrypt_api_key(updates["api_key"])
-    for field in ("name", "api_key", "vendor_override", "models"):
+    for field in ("name", "api_key", "vendor_override", "models", "api_format"):
         if field in updates:
             setattr(config, field, updates[field])
 
     if "base_url" in updates:
         config.base_url = updates["base_url"]
-        # Re-detect vendor if base_url changed
+        # Re-detect vendor if base_url changed.
+        # 注意：vendor 重识别只影响 vendor 两列，不回写 api_format——
+        # 协议是用户显式选择，与 URL 识别正交。
         resolved_vendor_id, resolved_display_name, _ = resolve_vendor(
             updates["base_url"], updates.get("vendor_override", config.vendor_override)
         )
         config.vendor = resolved_vendor_id
         config.vendor_display_name = resolved_display_name
+
+    # 改接口格式 = 报文契约变化：已拉取的模型列表与测试结果立即失效（须重测）
+    if (
+        "api_format" in updates
+        and updates["api_format"] is not None
+        and updates["api_format"] != old_api_format
+    ):
+        config.models = None
+        config.models_updated_at = None
+        config.last_test_status = None
+        config.last_test_error = None
+        config.last_tested_at = None
 
     await db.commit()
     await db.refresh(config)
@@ -265,6 +294,7 @@ async def get_batch_status(db: AsyncSession, user_id: str) -> list[dict[str, Any
                 else None,
                 "api_key_masked": mask_api_key(plain_key),
                 "vendor": c.vendor,
+                "api_format": getattr(c, "api_format", None) or "openai",
             }
         )
     return statuses
@@ -730,6 +760,8 @@ def _config_to_dict(config: ApiConfig) -> dict[str, Any]:
         "name": config.name,
         "vendor": config.vendor,
         "vendor_display_name": config.vendor_display_name,
+        "vendor_override": config.vendor_override,
+        "api_format": getattr(config, "api_format", None) or "openai",
         "base_url": config.base_url,
         "api_key": mask_api_key(plain_key),
         "api_key_masked": mask_api_key(plain_key),

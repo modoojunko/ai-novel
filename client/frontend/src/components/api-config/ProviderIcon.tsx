@@ -1,16 +1,29 @@
-import type { VendorId } from "../../types/api-config";
+import type { ApiFormat, VendorId } from "../../types/api-config";
 import { Ico, VENDOR_ICON } from "../icons";
 
 export const VENDORS = [
-  { id: "openai", label: "OpenAI", baseUrl: "https://api.openai.com" },
-  { id: "anthropic", label: "Anthropic", baseUrl: "https://api.anthropic.com" },
-  { id: "deepseek", label: "DeepSeek", baseUrl: "https://api.deepseek.com" },
-  { id: "glm", label: "GLM", baseUrl: "https://open.bigmodel.cn/api/paas/v4" },
-  { id: "kimi", label: "Kimi", baseUrl: "https://api.moonshot.cn/v1" },
-  { id: "qwen", label: "Qwen", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
-  { id: "ollama", label: "Ollama", baseUrl: "http://localhost:11434" },
-  { id: "openai-compat", label: "OpenAI 兼容", baseUrl: "" },
+  { id: "openai", label: "OpenAI" },
+  { id: "anthropic", label: "Anthropic" },
+  { id: "deepseek", label: "DeepSeek" },
+  { id: "glm", label: "GLM" },
+  { id: "kimi", label: "Kimi" },
+  { id: "qwen", label: "Qwen" },
+  { id: "ollama", label: "Ollama" },
+  { id: "openai-compat", label: "OpenAI 兼容" },
 ] as const;
+
+// 接口格式锁定矩阵（拍板 09-06）：单格式厂商锁定，双格式厂商可切换；
+// 不在表内 = 双格式可选。URL 不预填（同拍板），placeholder 随格式给示例域名。
+export const VENDOR_FORMAT_LOCK: Partial<Record<VendorId, ApiFormat>> = {
+  openai: "openai",
+  anthropic: "anthropic",
+  ollama: "openai",
+};
+
+export const FORMAT_PLACEHOLDER: Record<ApiFormat, string> = {
+  openai: "https://api.openai.com",
+  anthropic: "https://api.anthropic.com",
+};
 
 export const VENDOR_LABELS: Record<VendorId, string> = {
   openai: "OpenAI",

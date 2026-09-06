@@ -309,6 +309,32 @@ async def lifespan(app: FastAPI):
 
         await conn.run_sync(_add_missing)
 
+    # ── Migrate: api_configs.api_format（接口格式显式化，幂等）────────
+    # 新库走 create_all 已带列；存量表幂等补列 + 回填。回填条件与旧版运行时
+    # URL 嗅探严格等价（URL 含 anthropic 或 vendor=anthropic → anthropic），
+    # 升级零行为变化；UPDATE 每次启动执行，无匹配行即 no-op。
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "ALTER TABLE api_configs ADD COLUMN api_format "
+                    "VARCHAR(20) NOT NULL DEFAULT 'openai'"
+                )
+            )
+    except Exception:
+        pass  # 列已存在
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "UPDATE api_configs SET api_format='anthropic' "
+                    "WHERE (base_url LIKE '%anthropic%' OR vendor='anthropic') "
+                    "AND api_format <> 'anthropic'"
+                )
+            )
+    except Exception:
+        pass
+
     # ── Seed preset genres ──────────────────────────────────────────
     try:
         from genres.service import ensure_seed_genres

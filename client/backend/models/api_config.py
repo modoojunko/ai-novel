@@ -32,6 +32,10 @@ class ApiConfig(Base):
     vendor: Mapped[str] = mapped_column(String(50), nullable=False)
     vendor_display_name: Mapped[str] = mapped_column(String(100), default="")
     vendor_override: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # 接口格式（wire format），与 vendor 正交：同厂商可有两种报文契约
+    api_format: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="openai", server_default="openai"
+    )
     api_key: Mapped[str] = mapped_column(String(512), default="")
     base_url: Mapped[str] = mapped_column(String(500), default="")
     models: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON

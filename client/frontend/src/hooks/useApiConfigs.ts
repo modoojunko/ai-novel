@@ -42,6 +42,7 @@ export function useApiConfigs() {
     vendor_id: string;
     base_url: string;
     api_key: string;
+    api_format: "openai" | "anthropic";
   }): Promise<ApiConfig> => {
     const resp = await fetch(`${API_BASE}/api-configs`, {
       method: "POST",
@@ -154,6 +155,7 @@ export function useApiConfigs() {
     vendor_id: string;
     base_url: string;
     api_key: string;
+    api_format: "openai" | "anthropic";
   }): Promise<{ ok: boolean; status: string; models?: string[]; error?: string }> => {
     const resp = await fetch(`${API_BASE}/api-configs/test-connection`, {
       method: "POST",

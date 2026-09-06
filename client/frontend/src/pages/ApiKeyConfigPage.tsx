@@ -208,7 +208,7 @@ export default function ApiKeyConfigPage() {
         config={editConfig}
         onSubmit={handleFormSubmit}
         onCancel={closeForm}
-        onTest={async (data) => testRawConfig({ vendor_id: data.vendor_id, base_url: data.base_url, api_key: data.api_key })}
+        onTest={async (data) => testRawConfig({ vendor_id: data.vendor_id, base_url: data.base_url, api_key: data.api_key, api_format: data.api_format })}
       />
 
       {/* 删除确认 */}

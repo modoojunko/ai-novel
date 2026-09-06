@@ -335,6 +335,8 @@ async def _restore_config(db, user_id: str, config_data: dict) -> dict:
             vendor=c.get("vendor") or "",
             vendor_display_name=c.get("vendor_display_name") or "",
             vendor_override=c.get("vendor_override") or None,
+            # 旧包无 api_format 键 → 默认 openai（与旧版运行行为等价）
+            api_format=c.get("api_format") or "openai",
             api_key=encrypt_api_key(c.get("api_key") or ""),
             base_url=c.get("base_url") or "",
             models=c.get("models") or None,

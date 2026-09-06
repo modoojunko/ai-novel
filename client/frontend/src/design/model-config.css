@@ -64,6 +64,7 @@
 /* ─── 表单（弹窗内） ────────────────────────────────────── */
 .spin { animation: rot 0.9s linear infinite; }
 @keyframes rot { to { transform: rotate(360deg); } }
+.field .label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .field .req { color: var(--err); }
 /* 同 book.css .input.mono：显式 width 对冲 list.css .mono 书封方块的 width:40px 同分冲突 */
 .input.mono { width: 100%; font-family: var(--font-mono); font-size: 13px; }

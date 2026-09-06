@@ -200,3 +200,73 @@ test("模型配置：添加（网络错误）→ 删除 → Undo toast 展示", 
     restore();
   }
 });
+
+// -------------------------------------------------------------------------
+// ③ 接口格式（c-api-format）：默认 OpenAI、GLM 可切、官方卡锁定、
+//    URL 不预填（拍板）、编辑态持久化
+// -------------------------------------------------------------------------
+test("模型配置：接口格式——默认/切换/锁定/URL 不预填/编辑持久化", async ({ page }) => {
+  const { restore } = await setupSession(page);
+  try {
+    await page.goto(`${ORIGIN}/#/config`);
+    await expect(page.getByText("还没有模型配置")).toBeVisible({ timeout: 10000 });
+
+    await page.getByRole("button", { name: "添加 API Key" }).first().click();
+    const seg = page.getByRole("group", { name: "接口格式" });
+    const openaiBtn = seg.getByRole("button", { name: "OpenAI 格式" });
+    const anthropicBtn = seg.getByRole("button", { name: "Anthropic 格式" });
+
+    // 默认 OpenAI 格式 on
+    await expect(openaiBtn).toHaveClass(/on/);
+
+    // 选 GLM：URL 不预填（拍板），placeholder 维持 openai 示例
+    await page.getByRole("button", { name: "GLM", exact: true }).click();
+    await expect(page.locator("#cfBase")).toHaveValue("");
+    await expect(openaiBtn).toHaveClass(/on/);
+
+    // 切 Anthropic 格式：URL 仍为空，placeholder 随格式切换
+    await anthropicBtn.click();
+    await expect(anthropicBtn).toHaveClass(/on/);
+    const urlInput = page.locator("#cfBase");
+    await expect(urlInput).toHaveAttribute("placeholder", "https://api.anthropic.com");
+
+    // 手填 URL 后切回 OpenAI 格式：值不被覆盖
+    await urlInput.fill("https://my-relay.example.com/v1");
+    await openaiBtn.click();
+    await expect(urlInput).toHaveValue("https://my-relay.example.com/v1");
+
+    // OpenAI 官方卡：单格式厂商 → seg 锁定在 OpenAI 格式
+    await page.getByRole("button", { name: "OpenAI", exact: true }).click();
+    await expect(seg).toHaveClass(/lock/);
+    await expect(anthropicBtn).toBeDisabled(); // 非锁定格式置灰
+    await expect(openaiBtn).toBeEnabled(); // 锁定格式本身可点（锁定态禁的是切换）
+    await expect(openaiBtn).toHaveClass(/on/);
+
+    // GLM + Anthropic 格式完整走一遍创建（127.0.0.1:1 → 网络错误照常入库）
+    await page.getByRole("button", { name: "GLM", exact: true }).click();
+    await anthropicBtn.click();
+    await page.getByPlaceholder("例如：主线 · OpenAI").fill("e2e格式配置");
+    await urlInput.fill("http://127.0.0.1:1");
+    await page.getByPlaceholder("sk-...").fill("sk-e2e-fmt");
+    const created = page.waitForResponse(
+      (r) =>
+        r.request().method() === "POST" &&
+        r.url().includes("/api/v1/api-configs") &&
+        r.url().endsWith("/api-configs"),
+    );
+    await page.getByRole("button", { name: "保存并测试连接" }).click();
+    const resp = await created;
+    expect(await resp.json()).toMatchObject({ api_format: "anthropic" });
+
+    // 编辑重开：格式持久化为 Anthropic、URL 原值保留
+    const card = page.locator(".cfg-card", { hasText: "e2e格式配置" });
+    await expect(card).toBeVisible({ timeout: 10000 });
+    await card.getByRole("button", { name: "编辑" }).click();
+    await expect(page.getByRole("heading", { name: "编辑配置" })).toBeVisible();
+    await expect(anthropicBtn).toHaveClass(/on/);
+    await expect(urlInput).toHaveValue("http://127.0.0.1:1");
+    await page.getByRole("button", { name: "取消" }).click();
+  } finally {
+    restore();
+  }
+});

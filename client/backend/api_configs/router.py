@@ -125,6 +125,7 @@ async def create_config(
             body.base_url,
             api_key=body.api_key,
             vendor_override=body.vendor_override,
+            api_format=body.api_format,
         )
         return result
     except ValueError as e:
@@ -162,6 +163,7 @@ async def test_raw_connection(
         vendor_id=body.vendor_id,
         api_key=body.api_key,
         base_url=body.base_url,
+        api_format=body.api_format,
     )
 
 
@@ -205,6 +207,8 @@ async def update_config(
         updates["api_key"] = body.api_key
     if body.vendor_override is not None:
         updates["vendor_override"] = body.vendor_override
+    if body.api_format is not None:
+        updates["api_format"] = body.api_format
 
     try:
         result = await update_api_config(db, _user_id(user), config_id, updates)

@@ -155,6 +155,13 @@
   .input:disabled { background: var(--fg-soft); color: var(--muted); }
   .input.mono { font-family: var(--font-mono); font-size: 13px; }
   .field .alt { font-size: 11.5px; color: var(--muted); font-family: var(--font-mono); }
+  .label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  /* 接口格式 seg（c-api-format 登记）：组件同 base.css .seg；.lock 锁定态为新增样式 */
+  .seg { display: inline-flex; align-items: center; background: var(--fg-soft); border-radius: 9px; padding: 2px; }
+  .seg button { height: 24px; padding: 0 9px; border-radius: 7px; font-size: 12px; color: var(--muted); }
+  .seg button:hover { color: var(--fg); }
+  .seg button.on { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px color-mix(in oklch, var(--fg) 8%, transparent); font-weight: 500; }
+  .seg.lock { opacity: 0.45; pointer-events: none; }
   .vgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
   .vbtn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: 62px; padding: 8px 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--muted); transition: border-color 0.14s ease, background 0.14s ease, color 0.14s ease; }
   .vbtn svg { width: 22px; height: 22px; flex: none; }
@@ -257,7 +264,13 @@
         <div class="vfix" id="cfVendorFix" hidden></div>
       </div>
       <div class="field">
-        <label for="cfBase">Base URL <span class="req">*</span></label>
+        <div class="label-row">
+          <label for="cfBase">Base URL <span class="req">*</span></label>
+          <div class="seg" id="fmtSeg" role="group" aria-label="接口格式">
+            <button type="button" class="on" data-fmt="openai">OpenAI 格式</button>
+            <button type="button" data-fmt="anthropic">Anthropic 格式</button>
+          </div>
+        </div>
         <input class="input mono" id="cfBase" placeholder="https://api.openai.com" />
       </div>
       <div class="field">
@@ -297,14 +310,14 @@
 <script>
 /* ═══════════ 常量 ═══════════ */
 const VENDORS = [
-  { id: 'openai', label: 'OpenAI', base: 'https://api.openai.com', icon: 'M12 4.5l2.1 5.4 5.4 2.1-5.4 2.1-2.1 5.4-2.1-5.4-5.4-2.1 5.4-2.1z' },
-  { id: 'anthropic', label: 'Anthropic', base: 'https://api.anthropic.com', icon: 'M12 5v14M5 12h14M7.5 7.5l9 9M16.5 7.5l-9 9' },
-  { id: 'deepseek', label: 'DeepSeek', base: 'https://api.deepseek.com', icon: 'M11 5a6 6 0 100 12 6 6 0 000-12zM18.5 18.5l-3.4-3.4' },
-  { id: 'glm', label: 'GLM', base: 'https://open.bigmodel.cn/api/paas/v4', icon: 'M5 20V10M12 20V5M19 20v-6' },
-  { id: 'kimi', label: 'Kimi', base: 'https://api.moonshot.cn/v1', icon: 'M20 15a8 8 0 01-10.8-5.2A8 8 0 1020 15z' },
-  { id: 'qwen', label: 'Qwen', base: 'https://dashscope.aliyuncs.com/compatible-mode/v1', icon: 'M12 5a7 7 0 110 14 7 7 0 010-14zM12 9a3 3 0 110 6 3 3 0 010-6z' },
-  { id: 'ollama', label: 'Ollama', base: 'http://localhost:11434', icon: 'M6 6h12v12H6zM10 6V4M14 6V4M10 20v-2M14 20v-2' },
-  { id: 'openai-compat', label: 'OpenAI 兼容', base: '', icon: 'M9 15l6-6M11 7l1.6-1.6a3 3 0 014.2 4.2L15 11M13 17l-1.6 1.6a3 3 0 01-4.2-4.2L9 13' },
+  { id: 'openai', label: 'OpenAI', icon: 'M12 4.5l2.1 5.4 5.4 2.1-5.4 2.1-2.1 5.4-2.1-5.4-5.4-2.1 5.4-2.1z' },
+  { id: 'anthropic', label: 'Anthropic', icon: 'M12 5v14M5 12h14M7.5 7.5l9 9M16.5 7.5l-9 9' },
+  { id: 'deepseek', label: 'DeepSeek', icon: 'M11 5a6 6 0 100 12 6 6 0 000-12zM18.5 18.5l-3.4-3.4' },
+  { id: 'glm', label: 'GLM', icon: 'M5 20V10M12 20V5M19 20v-6' },
+  { id: 'kimi', label: 'Kimi', icon: 'M20 15a8 8 0 01-10.8-5.2A8 8 0 1020 15z' },
+  { id: 'qwen', label: 'Qwen', icon: 'M12 5a7 7 0 110 14 7 7 0 010-14zM12 9a3 3 0 110 6 3 3 0 010-6z' },
+  { id: 'ollama', label: 'Ollama', icon: 'M6 6h12v12H6zM10 6V4M14 6V4M10 20v-2M14 20v-2' },
+  { id: 'openai-compat', label: 'OpenAI 兼容', icon: 'M9 15l6-6M11 7l1.6-1.6a3 3 0 014.2 4.2L15 11M13 17l-1.6 1.6a3 3 0 01-4.2-4.2L9 13' },
 ];
 const STATUS = {
   ok:            { label: '连接正常', cls: 'ok' },
@@ -417,6 +430,9 @@ function renderCards() {
 /* ═══════════ 表单（添加 / 编辑） ═══════════ */
 let editTarget = null;
 let selVendor = '';
+let selFormat = 'openai';
+// 接口格式锁定矩阵（拍板）：单格式厂商锁定，双格式可切换；URL 一律不预填
+const FORMAT_LOCK = { openai: 'openai', anthropic: 'anthropic', ollama: 'openai' };
 
 function renderVendors() {
   const wrap = $('cfVendors');
@@ -426,8 +442,20 @@ function renderVendors() {
     </button>`).join('');
   syncVendorUI();
 }
+function syncFormatUI() {
+  const seg = $('fmtSeg');
+  const lock = FORMAT_LOCK[selVendor];
+  seg.classList.toggle('lock', !!lock);
+  if (lock) selFormat = lock;
+  seg.querySelectorAll('button').forEach(b => {
+    b.classList.toggle('on', b.dataset.fmt === selFormat);
+    b.disabled = !!lock && b.dataset.fmt !== lock;
+  });
+  $('cfBase').placeholder = selFormat === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com';
+}
 function syncVendorUI() {
   document.querySelectorAll('#cfVendors .vbtn').forEach(b => b.classList.toggle('on', b.dataset.v === selVendor));
+  syncFormatUI();
   const key = $('cfKey');
   const alt = $('cfKeyAlt');
   if (selVendor === 'ollama') {
@@ -446,6 +474,7 @@ function syncVendorUI() {
 function openForm(edit) {
   editTarget = edit || null;
   selVendor = edit ? edit.vendor : '';
+  selFormat = edit && edit.api_format ? edit.api_format : 'openai';
   $('cfgTitle').textContent = edit ? '编辑配置' : '添加 API Key';
   $('cfName').value = edit ? edit.name : '';
   $('cfBase').value = edit ? edit.base_url : '';
@@ -474,12 +503,22 @@ document.querySelector('#cfVendors').addEventListener('click', e => {
   if (!b) return;
   if (editTarget) return;
   selVendor = b.dataset.v;
-  const v = vendorOf(selVendor);
-  if (v && v.base) $('cfBase').value = v.base;
-  else if (selVendor === 'openai-compat') $('cfBase').value = '';
+  // 拍板（2026-09-06）：URL 不预填——只切格式锁定与清测试结果
+  const lock = FORMAT_LOCK[selVendor];
+  if (lock) selFormat = lock;
   document.querySelectorAll('#cfVendors .vbtn').forEach(x => x.classList.toggle('on', x.dataset.v === selVendor));
   $('cfTest').hidden = true;
   syncVendorUI();
+});
+
+document.querySelector('#fmtSeg').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b || b.disabled) return;
+  if (b.dataset.fmt === selFormat) return;
+  // 拍板：切格式不改动 URL，仅清测试结果
+  selFormat = b.dataset.fmt;
+  $('cfTest').hidden = true;
+  syncFormatUI();
 });
 
 function readForm() {
@@ -488,6 +527,7 @@ function readForm() {
     vendor: selVendor,
     base_url: $('cfBase').value.trim(),
     api_key: $('cfKey').value,
+    api_format: selFormat,
   };
 }
 function validateForm() {
