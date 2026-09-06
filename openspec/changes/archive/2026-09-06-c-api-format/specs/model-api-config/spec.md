@@ -1,0 +1,77 @@
+## Purpose
+
+模型配置屏的接口格式能力：让每条 API 配置显式声明 OpenAI 或 Anthropic 接口格式，系统按该格式调用大模型、探测连接，并保证存量配置与备份包平滑兼容。
+
+## ADDED Requirements
+
+### Requirement: 接口格式为配置的一级字段
+
+每条模型配置 SHALL 持久化一个接口格式字段 `api_format`，取值仅为 `openai` 或 `anthropic`，默认 `openai`。接口格式与供应商正交：同一供应商的配置可分别声明两种格式。
+
+#### Scenario: 新建配置默认 OpenAI 格式
+- **WHEN** 用户添加配置且未显式选择接口格式
+- **THEN** 该配置保存后 `api_format` 为 `openai`
+
+#### Scenario: 厂商锁定矩阵
+- **WHEN** 用户在添加弹窗选择 OpenAI、Anthropic 或 Ollama 供应商
+- **THEN** 接口格式控件呈置灰锁定态，分别固定为 OpenAI 格式、Anthropic 格式、OpenAI 格式，不可切换
+- **WHEN** 用户选择 GLM、Kimi、DeepSeek、Qwen 或 OpenAI 兼容供应商
+- **THEN** 接口格式控件可在 OpenAI 格式 / Anthropic 格式间切换
+
+### Requirement: Base URL 不自动预填
+
+选择供应商或切换接口格式 SHALL NOT 改动 Base URL 输入框的内容，且界面 SHALL NOT 提供任何接口地址引导文案（含厂商双地址小字与点击填入）；用户照抄厂商文档自填，placeholder 随格式给示例域名。
+
+#### Scenario: 选供应商与切格式不动 URL
+- **WHEN** 用户先选某供应商、再切换接口格式
+- **THEN** Base URL 输入框内容保持不变（含为空），仅 placeholder 随格式给出示例域名
+
+### Requirement: 编辑态可改接口格式
+
+编辑已有配置时供应商保持锁定，接口格式 SHALL 允许修改且不弹二次确认；修改后该配置已拉取的模型列表与最近测试结果 SHALL 立即失效，需重新测试。
+
+#### Scenario: 改格式后模型缓存失效
+- **WHEN** 用户编辑一条已有模型列表的配置并切换接口格式后保存
+- **THEN** 该配置的模型列表与测试状态被清空，配置卡提示需重新测试
+
+### Requirement: 按接口格式调用大模型
+
+大模型调用 SHALL 依据配置的 `api_format` 选择对应契约：`openai` 走 chat/completions 报文，`anthropic` 走 Anthropic messages 报文。显式 `api_format` SHALL 优先于任何基于 URL 字符串的格式推断；仅当配置无格式信息（旧数据回退路径）时才按「URL 含 anthropic 即 anthropic」推断。
+
+#### Scenario: 显式格式压过 URL 猜测
+- **WHEN** 一条 `api_format=anthropic` 的配置，其 base_url 不含 "anthropic" 字样
+- **THEN** 调用走 Anthropic messages 契约且正常收到回复
+- **WHEN** 一条 `api_format=openai` 的配置，其 base_url 含 "anthropic" 字样
+- **THEN** 调用走 OpenAI chat/completions 契约
+
+#### Scenario: 两种格式全链路可用
+- **WHEN** 分别以 GLM 的 OpenAI 格式地址与 Anthropic 格式地址（`https://open.bigmodel.cn/api/anthropic`）各建一条配置并触发生成
+- **THEN** 非流式与流式生成均正常返回，token 用量正常计入
+
+### Requirement: 按接口格式探测连接
+
+连接测试与模型列表拉取 SHALL 按配置的接口格式构造探测请求，探测目标一律为用户填写的 base_url：`openai` 格式 GET `{base}/models` + Bearer 头；`anthropic` 格式 GET `{base}/v1/models` + `x-api-key` 与 `anthropic-version` 头。探测 SHALL NOT 使用硬编码的官方域名。anthropic 格式下 models 端点返回 404 时 SHALL 自动降级为一条 max_tokens=1 的最小请求验证鉴权，成功即报连接正常。
+
+#### Scenario: Anthropic 格式探测用户地址
+- **WHEN** 测试一条 `api_format=anthropic`、base_url 为 GLM Anthropic 地址的配置
+- **THEN** 探测请求发往 `{base}/v1/models` 并携带 x-api-key 头，成功时拉取到模型列表
+
+#### Scenario: models 端点缺失时降级探活
+- **WHEN** anthropic 格式探测 `{base}/v1/models` 返回 404
+- **THEN** 自动改发最小验证请求，鉴权通过即报「连接正常」且不报错误
+
+### Requirement: 存量配置迁移等价
+
+本地库升级 SHALL 幂等新增接口格式字段并回填存量行：base_url 含 "anthropic" 或供应商为 anthropic 的配置回填为 `anthropic`，其余为 `openai`，与升级前的运行时格式推断严格等价；重复启动 SHALL NOT 重复迁移或改变结果。
+
+#### Scenario: 升级零行为变化
+- **WHEN** 存量用户升级到新版并照常使用任一旧配置生成
+- **THEN** 走的接口格式与升级前一致
+
+### Requirement: 备份包接口格式前向兼容
+
+配置包导出 SHALL 在每条 api_config 中包含 `api_format` 键（加键兼容契约内，不升 format_version）；导入 SHALL 接受缺失该键的旧包并默认 `openai`，接受含该键的新包并逐条还原。
+
+#### Scenario: 新旧包互导
+- **WHEN** 新版导出的配置包导入新版，或旧版导出（无 api_format 键）的配置包导入新版
+- **THEN** 前者接口格式逐条一致还原，后者全部落 `openai` 且不报错
