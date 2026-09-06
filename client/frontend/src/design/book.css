@@ -284,7 +284,8 @@ details.cfg .inner { padding: 4px 14px 14px; }
 .hook-row .input.sel-type { width: 96px; flex: 0 0 auto; }
 .hook-row .input.sel-pri { width: 64px; flex: 0 0 auto; }
 .sub-row.tics { grid-template-columns: 1fr 64px 64px 30px; }
-.input.mono { font-family: var(--font-mono); font-size: 12px; }
+/* width 须显式重申：list.css 的 .mono（书封 40px 方块）同名异物的 width:40px 同分会按加载顺序压过 .input 的 100% */
+.input.mono { width: 100%; font-family: var(--font-mono); font-size: 12px; }
 .arc-card { width: 100%; text-align: left; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 12px 14px; cursor: pointer; margin-bottom: 8px; }
 .arc-card:hover { border-color: color-mix(in oklch, var(--accent) 40%, var(--border)); }
 .arc-card.on { border-color: var(--accent); background: var(--accent-soft); }
