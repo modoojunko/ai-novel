@@ -356,3 +356,19 @@ modalAi/modalPrefs 标记与 CSS 在 PR 3/PR 4 已随屏落地（spec-report §6
    URL 稳放、≤55 字符 Key 全程可见（更长 Key 属密码框固有滚动，不追）。
    parity：本屏 parity 只截 configs/empty 页面级两场景，弹窗不进基线，零漂移；
    实现侧 `ApiConfigForm` Modal width 460→520 同步。
+
+## 接口格式字段（c-api-format，2026-09-06）
+
+10. **modalConfig Base URL label 行新增两态 .seg（OpenAI 格式 / Anthropic 格式）+ 新样式 .seg.lock**
+    接口格式是 Base URL 的属性（厂商文档成对给两个地址，选择器与输入框同行，照抄视线不迁移）。
+    厂商锁定矩阵：openai / anthropic / ollama 卡单格式锁定（.seg.lock 降透明禁点击，双端 base.css 共享段同批新增）；
+    glm / kimi / deepseek / qwen / openai-compat 可切换。编辑态 seg 可点、供应商仍 vfix 锁定——
+    换厂商=换一家服务（身份级，锁）；格式=同一家服务的两种报文契约（可改，改后模型列表与测试状态失效须重测）。
+    .seg 组件样式与 base.css / book.html 同值；.label-row 为新增页面级布局类（model-config.css 同步）。
+
+11. **Base URL 预填废除 + 无地址引导文案（拍板 2026-09-06）**
+    选供应商不再写 value（VENDORS[].base 字段删除，520px 加宽的历史动机随之失效，宽度档维持不回退）；
+    placeholder 随格式给示例域名（openai → https://api.openai.com / anthropic → https://api.anthropic.com）；
+    切格式 / 换供应商均不改动已输入 URL，仅清测试结果；界面不提供任何厂商地址文案（GLM Coding Plan 帮助小字拍板删除，URL 照抄厂商文档自备）。
+    parity：本屏 parity 只截 configs / empty 页面级两场景，弹窗不进基线（既有口径），零漂移；
+    实现侧 ApiConfigForm 同批落地（seg 控件、锁定矩阵、api_format 随 create/update/test-connection 契约上送）。

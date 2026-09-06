@@ -132,6 +132,7 @@ input, textarea, select { font: inherit; }
 .seg button { height: 24px; padding: 0 9px; border-radius: 7px; font-size: 12px; color: var(--muted); }
 .seg button:hover { color: var(--fg); }
 .seg button.on { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px color-mix(in oklch, var(--fg) 8%, transparent); font-weight: 500; }
+.seg.lock { opacity: 0.45; pointer-events: none; }
 
 /* 徽标：pill 三角色（tag/status/count）× 语气（默认中性 + ok/warn/err/accent），取值同 uikit/Pill 候选实现 */
 .pill { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 11px; line-height: 1.6; font-weight: 500; background: var(--surface); color: var(--muted); white-space: nowrap; }
