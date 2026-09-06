@@ -205,6 +205,8 @@ async def build_config_package_bytes(db, user_id: str) -> tuple[bytes, str]:
                 "vendor": c.vendor,
                 "vendor_display_name": c.vendor_display_name,
                 "vendor_override": c.vendor_override,
+                # 加键兼容契约内（不升 format_version）；旧版导入端忽略未知键
+                "api_format": getattr(c, "api_format", None) or "openai",
                 "api_key": decrypt_api_key(c.api_key) if c.api_key else "",
                 "base_url": c.base_url,
                 "models": c.models,

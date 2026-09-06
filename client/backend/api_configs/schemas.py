@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
+# 接口格式（wire format）：openai | anthropic。请求体里 None = 未传（旧前端），
+# 服务层按 vendor/URL 推荐值兜底，与旧版运行时推断等价。
+ApiFormat = Literal["openai", "anthropic"]
 
 KNOWN_VENDORS = {
     "openai",
@@ -39,6 +43,7 @@ class CreateApiConfigBody(BaseModel):
     base_url: str
     api_key: str = ""
     vendor_override: str | None = None
+    api_format: ApiFormat | None = None
 
     @field_validator("vendor_id")
     @classmethod
@@ -55,6 +60,7 @@ class UpdateApiConfigBody(BaseModel):
     base_url: str | None = None
     api_key: str | None = None
     vendor_override: str | None = None
+    api_format: ApiFormat | None = None
 
 
 class SetAiModelBody(BaseModel):
@@ -75,6 +81,8 @@ class ApiConfigResponse(BaseModel):
     name: str
     vendor: str
     vendor_display_name: str
+    vendor_override: str | None = None
+    api_format: str = "openai"
     base_url: str
     api_key_masked: str
     status: str
@@ -104,6 +112,8 @@ class ApiConfigResponse(BaseModel):
             name=row["name"],
             vendor=row["vendor"],
             vendor_display_name=row.get("vendor_display_name", ""),
+            vendor_override=row.get("vendor_override"),
+            api_format=row.get("api_format", "openai") or "openai",
             base_url=row.get("base_url", ""),
             api_key_masked=mask_api_key(raw_key),
             status=row.get("status", "active"),
@@ -126,6 +136,7 @@ class StatusEntry(BaseModel):
     models: list[str] = []
     api_key_masked: str = ""
     vendor: str = ""
+    api_format: str = "openai"
 
 
 class DeleteConfigResponse(BaseModel):
@@ -182,6 +193,7 @@ class TestRawBody(BaseModel):
     vendor_id: str
     base_url: str
     api_key: str = ""
+    api_format: ApiFormat = "openai"
 
 
 class TestResultResponse(BaseModel):
